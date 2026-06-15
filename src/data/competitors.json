@@ -1,0 +1,566 @@
+{
+  "grafikcem": {
+    "description": "Grafik tasarım, AI araçları, freelance, branding",
+    "source_note": "Liste; aktif profiller, son paylaşımlar ve görünür etkileşim örnekleri taranarak hazırlandı. citeturn20search0turn20search11turn19search13turn19search27turn19search0turn21search10turn21search0turn23search0turn23search1turn23search3turn5search1turn6search15",
+    "accounts": [
+      {
+        "handle": "rowancheung",
+        "name": "Rowan Cheung",
+        "category": "AI haberciliği",
+        "why": "Günün AI gündemini hızlı yakalayıp paylaşılabilir özetlere çevirdiği için haber seçimi ve çerçeveleme tarafında çok değerlidir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "TheRundownAI",
+        "name": "The Rundown AI",
+        "category": "AI newsletter hesabı",
+        "why": "Yeni model, araç ve ürün güncellemelerini kısa ve işlenebilir formatta verdiği için sürekli fikir akışı sağlar.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "bentossell",
+        "name": "Ben Tossell",
+        "category": "AI araç keşfi",
+        "why": "Yeni AI araçlarını erken yakalama ve araç kalabalığı içinden gerçekten işe yarayanları ayıklama konusunda güçlü bir filtredir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "emollick",
+        "name": "Ethan Mollick",
+        "category": "AI eğitim ve analiz",
+        "why": "AI'nin yaratıcı işlere, çalışma biçimine ve üretkenliğe etkisini sakin ama yüksek sinyalli şekilde anlattığı için takip edilmeli.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "AndrewYNg",
+        "name": "Andrew Ng",
+        "category": "AI eğitim lideri",
+        "why": "Abartıdan uzak, kurucu seviyede AI perspektifi verdiği için haberleri daha stratejik okumayı öğretir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "sama",
+        "name": "Sam Altman",
+        "category": "AI founder",
+        "why": "Sektörün yönünü belirleyen ana figürlerden biri olduğu için ürün vizyonu ve gelecek sinyalleri burada erken görünür.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "levelsio",
+        "name": "Pieter Levels",
+        "category": "Indie hacker ve founder",
+        "why": "AI ile ürün, dağıtım ve kişisel marka inşasını aynı anda gösterdiği için senin niş tek kişilik sistemine çok iyi örnek olur.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "minchoi",
+        "name": "Min Choi",
+        "category": "AI demo ve viral araçlar",
+        "why": "Daha çok viral olacak AI demolarını ve dikkat çekici thread yapılarını erken gördüğün hesaplardan biridir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "theChrisDo",
+        "name": "Chris Do",
+        "category": "Tasarım ve iş",
+        "why": "Tasarımcı gözüyle fiyatlama, konumlama ve otorite inşasını anlattığı için sadece estetik değil iş tarafı da güçlenir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "mizko",
+        "name": "Mizko",
+        "category": "UI/UX ve kişisel marka",
+        "why": "UI/UX üretimi ile içerik üretimini aynı potada erittiği için hem süreç hem sunum dili açısından faydalıdır.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "charliprangley",
+        "name": "Charli Marie",
+        "category": "Tasarım kariyeri ve içerik",
+        "why": "Tasarımcının içerik üreticisine dönüşümünü iyi gösterdiği için içerikleri daha insan odaklı paketleme konusunda ilham verir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "vanschneider",
+        "name": "Tobias van Schneider",
+        "category": "Branding ve tasarım bakışı",
+        "why": "Zevk, sadelik ve marka karakteri tarafında güçlü görüşler sunduğu için tasarım dilini sıradanlıktan çıkarır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "danmall",
+        "name": "Dan Mall",
+        "category": "Tasarım sistemleri",
+        "why": "Sistem düşüncesi ve müşteri işi yönetimi tarafında güçlü olduğu için profesyonel tasarım aklına katkı sağlar.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "aarondraplin",
+        "name": "Aaron Draplin",
+        "category": "Logo ve marka kimliği",
+        "why": "Cesur, akılda kalan ve karakterli marka dili konusunda temiz referans üretir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "mikekus",
+        "name": "Mike Kus",
+        "category": "Dijital tasarım ve estetik",
+        "why": "Yüksek görsel kalite ve tutarlı estetik çizgisi sayesinde görsel standart çıtanı yukarı taşır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "brad_frost",
+        "name": "Brad Frost",
+        "category": "Design systems",
+        "why": "Ürün arayüzleri ve sistem mantığı tarafında düşünme biçimini güçlendirdiği için UI içeriklerinde derinlik kazandırır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "thejustinwelsh",
+        "name": "Justin Welsh",
+        "category": "Solopreneur ve içerik sistemi",
+        "why": "Tek kişilik içerik ve gelir sistemini çok net anlattığı için kişisel ama ölçeklenebilir düzen kurmak isteyenlere birebir örnektir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "AlexHormozi",
+        "name": "Alex Hormozi",
+        "category": "İş stratejisi",
+        "why": "Kısa, sert ve yapı odaklı anlatımı sayesinde başlık yazımı ve net otorite tonu için güçlü bir kaynaktır.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "Codie_Sanchez",
+        "name": "Codie Sanchez",
+        "category": "İş ve servet zihniyeti",
+        "why": "Karşıt görüşlü iş çerçeveleri kurduğu için dikkat çeken angle bulma tarafında çok iş görür.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "nathanbarry",
+        "name": "Nathan Barry",
+        "category": "Creator economy",
+        "why": "İçeriği iş modeline bağlama konusunda çok temiz örnekler sunduğu için freelance ve ürünleşme tarafında faydalıdır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "brennandunn",
+        "name": "Brennan Dunn",
+        "category": "Freelancer stratejisi",
+        "why": "Freelancer konumlama, teklif yazımı ve B2B düşüncesi için daha teknik ama çok işe yarayan içerikler üretir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "dickiebush",
+        "name": "Dickie Bush",
+        "category": "Yazma ve dağıtım",
+        "why": "Yazıyı dağıtım ve otorite aracı olarak kullandığı için tek tweet içinde güçlü yapı kurmayı öğretir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "NicolasCole77",
+        "name": "Nicolas Cole",
+        "category": "Otorite ve kişisel marka",
+        "why": "İnternette uzman pozisyonu alma ve fikirleri net çerçeveleme konusunda güçlü referans üretir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "gregisenberg",
+        "name": "Greg Isenberg",
+        "category": "İnternet iş modelleri",
+        "why": "İçerik, topluluk ve ürünün nasıl aynı çarkta döndüğünü gösterdiği için uzun vadeli sistem kurmayı besler.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "ErenAILab",
+        "name": "Mehmet Eren Dikmen",
+        "category": "Türk AI içerik üreticisi",
+        "why": "Türkçe AI anlatımında hem güncel hem anlaşılır olduğu için yerel ton yakalamak adına en işlevsel kaynaklardan biridir.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "webrazzi",
+        "name": "Webrazzi",
+        "category": "Türk teknoloji medyası",
+        "why": "Türkiye merkezli teknoloji ve AI akışını düzenli verdiği için yerel gündemi kaçırmamak adına önemlidir.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "BarisOzcan",
+        "name": "Barış Özcan",
+        "category": "Yaratıcı anlatıcılık",
+        "why": "Bilgiyi hikâye ve merak duygusuyla paketlediği için senin içeriklerinde ton ve akış kalitesi için referanstır.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "yigitkonur",
+        "name": "Yigit Konur",
+        "category": "Türk teknoloji ve AI yorumu",
+        "why": "Teknoloji ve AI konularını daha görüş ağırlıklı çerçevelediği için düz haberden güçlü fikir tweetine geçişte faydalıdır.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "OguzBerkayFidan",
+        "name": "Oğuz Berkay Fidan",
+        "category": "Türk internet ve teknoloji yorumu",
+        "why": "İnternet kültürüyle teknoloji yorumunu birleştirdiği için daha hızlı ve dikkat çekici Türkçe paketleme örnekleri verir.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "webtekno",
+        "name": "Webtekno",
+        "category": "Türk teknoloji medyası",
+        "why": "Geniş kitleye teknolojiyi sade ve manşet odaklı anlattığı için viral başlık mantığını iyi gösterir.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "shiftdeletenet",
+        "name": "ShiftDelete.Net",
+        "category": "Türk teknoloji medyası",
+        "why": "Geniş erişimli teknoloji gündem dili gördüğün için hangi başlıkların kitlesel çalıştığını anlamanda yardımcı olur.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "dotyigit",
+        "name": "Ömer Yiğit Aker",
+        "category": "Ürün ve geliştirici bakışı",
+        "why": "Türkçe ürün ve geliştirme perspektifi verdiği için tasarımcı olarak daha yapımcı bir içerik tonu kurmana destek olur.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      }
+    ]
+  },
+  "maskulenkod": {
+    "description": "Modern erkeklik gerçekçiliği: cinsiyet dinamikleri (hipergami, seçilme, ilişki), statü inşası, disiplin ve öz-değer. Türkçe maskülen realizm nişi merkezde; disiplin/zihniyet ekseni destek.",
+    "source_note": "Liste; disiplin, iş zihniyeti, felsefe ve Türkçe sert tonlu hesapların görünür aktivitesi ve etkileşim örnekleri taranarak hazırlandı. citeturn24search11turn24search2turn24search0turn24search4turn24search13turn23search1turn23search3turn25search3turn25search0turn25search1turn25search2turn9search1turn10search2turn10search9",
+    "accounts": [
+      {
+        "handle": "maskuleninsan",
+        "name": "Maskülen İnsan",
+        "category": "Türkçe maskülen realizm",
+        "why": "Kısa vurucu maskülen aforizma ve öz-inşa içeriğiyle nişin en yüksek erişimli Türkçe hesaplarından; tonal ve format referansı.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "erkekadamblogu",
+        "name": "Erkek Adam Blogu",
+        "category": "Cinsiyet gerçekçiliği / analitik",
+        "why": "Hipergami, nafaka ve modern ilişki dinamiklerini daha analitik ve savunulabilir çerçevede işlediği için dengeli realist ton için birebir.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "testereakademi",
+        "name": "Testere Akademi",
+        "category": "İlişki dinamiği / kadın doğası",
+        "why": "Seçilme, değer ve ilişki dinamiklerini yüksek etkileşimli tek-vuruş cümlelerle kurduğu için viral hook yapısı referansı.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "bayredpill",
+        "name": "Bay Redpill",
+        "category": "Red-pill ilişki yorumu",
+        "why": "Satır satır argüman kuran uzun-form viral tweet yapısının en güçlü örneği; format ve konu havuzu için değerli (ton generation profili ile dengelenir).",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "karanlikruya1",
+        "name": "Karanlık Rüya",
+        "category": "Türkçe maskülen",
+        "why": "Operatör referansı; maskülen realizm nişinde ek sinyal kaynağı.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "JockoWillink",
+        "name": "Jocko Willink",
+        "category": "Disiplin ve liderlik",
+        "why": "Kısa, sert ve emir tonundaki anlatımı maskülen disiplin içerikleri için doğrudan tonal referans verir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "davidgoggins",
+        "name": "David Goggins",
+        "category": "Mental toughness",
+        "why": "Acıyı romantize etmeden dayanıklılığı merkeze koyduğu için sarsıcı ve karamsar çerçeveler bulmakta yardımcı olur.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "RyanHoliday",
+        "name": "Ryan Holiday",
+        "category": "Stoicism",
+        "why": "Daha rafine ama güçlü bir stoacı çerçeve sunduğu için sertliği derinlikle dengelemek istediğinde iyi çalışır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "dailystoic",
+        "name": "Daily Stoic",
+        "category": "Stoic kısa form",
+        "why": "Kısa cümlelerle otorite hissi veren içerikler ürettiği için tweet boyunda yoğun anlam kurmayı öğretir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "BedrosKeuilian",
+        "name": "Bedros Keuilian",
+        "category": "Maskülinite ve iş",
+        "why": "Erkeklik, sorumluluk ve maddi güç temasını bir arada işlediği için senin konu kümenle çok iyi örtüşür.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "AndyFrisella",
+        "name": "Andy Frisella",
+        "category": "Sert motivasyon",
+        "why": "Yumuşatma kullanmayan üslubu sayesinde daha tok, meydan okuyan ve kutuplaştırıcı cümle yapıları görürsün.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "JamesClear",
+        "name": "James Clear",
+        "category": "Alışkanlık ve davranış",
+        "why": "Disiplini sade ve berrak cümlelere çevirdiği için sadece sert değil akılda kalan içerik üretiminde faydalıdır.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "camhanes",
+        "name": "Cam Hanes",
+        "category": "Beden ve zihin disiplini",
+        "why": "Fiziksel dayanıklılığı karakter inşasıyla bağladığı için erkeklik içeriklerinde beden-zihin ekseni kurmana yardım eder.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "naval",
+        "name": "Naval Ravikant",
+        "category": "Para ve zihniyet",
+        "why": "Para, özgürlük ve düşünme biçimini kısa ama yoğun cümlelerle anlattığı için yüksek sinyalli zihniyet içeriği verir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "SahilBloom",
+        "name": "Sahil Bloom",
+        "category": "Wealth building",
+        "why": "Servet, kaldıraç ve yaşam tasarımı tarafında daha paylaşılabilir çerçeveler sunduğu için zihniyet içeriklerini besler.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "Codie_Sanchez",
+        "name": "Codie Sanchez",
+        "category": "İş ve servet",
+        "why": "Karşıt açıdan iş düşünmeyi öğrettiği için para ve güç temalı tweetlerde daha keskin angle bulmanı sağlar.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "thejustinwelsh",
+        "name": "Justin Welsh",
+        "category": "Bağımsız iş modeli",
+        "why": "Tek kişilik ama güçlü gelir sistemi kurmayı net anlattığı için üretken erkek ve bağımsızlık temalarına iyi oturur.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "AlexHormozi",
+        "name": "Alex Hormozi",
+        "category": "İş gerçekçiliği",
+        "why": "Sonuç, standart ve performans odaklı dil kullandığı için otoriter ve ikna edici kısa yazımda çok iyi çalışır.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "ShaanVP",
+        "name": "Shaan Puri",
+        "category": "Girişim ve fırsat zihniyeti",
+        "why": "İş fırsatlarını fikir makinesine çeviren tarzı sayesinde para temalı içeriklere yeni kırılımlar ekler.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "dvassallo",
+        "name": "Daniel Vassallo",
+        "category": "Bağımsız internet işi",
+        "why": "Gerçekçi internet gelirleri ve bireysel özgürlük odağı sayesinde abartısız ama güçlü iş zihniyeti örnekleri verir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "sweatystartup",
+        "name": "Nick Huber",
+        "category": "Küçük iş ve nakit akışı",
+        "why": "Parayı prestijden değil işin nakit akışından okuduğu için daha sert ve yere basan para içerikleri üretmeye yardım eder.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "haluktatar",
+        "name": "Haluk Tatar",
+        "category": "Türkçe sert yorum",
+        "why": "Doğrudan, öğretici ve üstten bakan tonu Türkçe otoriter anlatım için kuvvetli bir referanstır.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "MertBasaran_inv",
+        "name": "Mert Başaran",
+        "category": "Para zihniyeti",
+        "why": "Risk, yatırım ve fırsatları halk diliyle sert çerçevelere taşıdığı için para temalı tweetler için uygundur.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "BarisOzcan",
+        "name": "Barış Özcan",
+        "category": "Düşünce ve kişisel gelişim",
+        "why": "Daha düşünsel ve sakin tarafta kalsa da anlamlı çerçeve kurma konusunda Türkçede çok temiz örnekler sunar.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "yigitkonur",
+        "name": "Yigit Konur",
+        "category": "Türkçe görüş ve teknoloji",
+        "why": "Net fikir söyleme ve tartışma açma becerisi sayesinde daha köşeli görüş tweetleri için iyi kaynak olur.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "OguzBerkayFidan",
+        "name": "Oğuz Berkay Fidan",
+        "category": "Türkçe direkt yorum",
+        "why": "İnternet diliyle sert yorum yapabildiği için modern ve daha genç bir otorite tonu görmek isteyenler için işlevseldir.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "turuksoz",
+        "name": "Türk",
+        "category": "Söz ve sert kısa form",
+        "why": "Kısa, vurucu ve hafızada kalan cümleleri sayesinde tek tweetlik sarsıcı yapı için bol malzeme verir.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "kgelisimim",
+        "name": "Kişisel Gelişim",
+        "category": "Motivasyon kısa form",
+        "why": "Hazır motivasyon kalıpları ve kısa mesaj yapısı görmek için Türkçe tarafta pratik bir referanstır.",
+        "language": "TR",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "fatihaltayli",
+        "name": "Fatih Altaylı",
+        "category": "Otoriter ve tartışmacı ton",
+        "why": "Net fikir söyleme, rest çekme ve meydan okuyan cümle kurma konusunda Türkçede güçlü tonal örnekler verir.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "nntaleb",
+        "name": "Nassim Nicholas Taleb",
+        "category": "Felsefe ve zihinsel sertlik",
+        "why": "Risk, güç, zekâ ve netlik hakkında kıvrak ama sert çerçeveler kurduğu için düşünce yoğun içerikler için çok besleyicidir.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "balajis",
+        "name": "Balaji Srinivasan",
+        "category": "Derin düşünce ve gelecek",
+        "why": "Toplum, teknoloji ve güç ilişkilerini uç ama dikkat çekici tezlerle işlediği için karşıt fikir üretimini besler.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "philosophyfound",
+        "name": "Philosophy Foundation",
+        "category": "Felsefe",
+        "why": "Soruları netleştirme ve fikirleri berraklaştırma konusunda iyi bir düşünme disiplini sağlar.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "Deepphilosophy1",
+        "name": "Deep philosophy",
+        "category": "Felsefe kısa form",
+        "why": "Kısa ve paylaşılabilir bilgelik cümleleri ürettiği için tek tweetlik düşünce içerikleri için çok kullanışlıdır.",
+        "language": "EN",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "StoicLesson",
+        "name": "Stoic Lesson",
+        "category": "Stoic kısa form",
+        "why": "Modern hayata uyarlanmış stoacı kısa dersler verdiği için hem sert hem öğretici cümle kurmayı kolaylaştırır.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "QuotesOfNaval",
+        "name": "Naval Ravikant Quotes",
+        "category": "Bilgelik hesabı",
+        "why": "Naval tarzı yoğun ve kısa düşünce kalıplarını düzenli verdiği için tweet formatı açısından çok işlevsel bir arşivdir.",
+        "language": "EN",
+        "avg_engagement": "orta"
+      },
+      {
+        "handle": "BarisOzcan",
+        "name": "Barış Özcan",
+        "category": "Türkçe düşünce",
+        "why": "Daha geniş kitleye düşündürücü fikirleri akışkan şekilde taşıdığı için felsefeyi gündelik dile indirme konusunda referanstır.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      },
+      {
+        "handle": "turuksoz",
+        "name": "Türk",
+        "category": "Türkçe söz ve düşünce",
+        "why": "Alıntı, söz ve tarih göndermeleriyle kısa ama ağır cümle kurma biçimini güçlü şekilde gösterir.",
+        "language": "TR",
+        "avg_engagement": "yüksek"
+      }
+    ]
+  }
+}

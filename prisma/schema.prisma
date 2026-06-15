@@ -1,0 +1,727 @@
+generator client {
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  // "native" for local dev; "rhel-openssl-3.0.x" for Vercel/AWS Lambda runtime.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id        String   @id @default(cuid())
+  handle    String   @unique
+  xHandle   String
+  persona   String
+  concept   String
+  maxChars  Int
+  // Platform attribution (CemOS çok-platform temeli): "x" | "instagram" | "youtube"
+  platform  String   @default("x")
+  createdAt DateTime @default(now())
+
+  styleProfile         StyleProfile?
+  sources              Source[]
+  sourcePosts          SourcePost[]
+  queueItems           QueueItem[]
+  schedule             Schedule?
+  scanRuns             ScanRun[]
+  generationRuns       GenerationRun[]
+  usageLogs            UsageLog[]
+  publishLogs          PublishLog[]
+  viralPatterns        ViralPattern[]
+  trainingExamples     TrainingExample[]
+  feedbackEvents       FeedbackEvent[]
+  evalTests            EvalTest[]
+  contentOpportunities ContentOpportunity[]
+}
+
+model StyleProfile {
+  id             String   @id @default(cuid())
+  accountId      String   @unique
+  account        Account  @relation(fields: [accountId], references: [id])
+  toneRules      String
+  formatRules    String
+  forbiddenRules String
+  modes          String
+  updatedAt      DateTime @updatedAt
+}
+
+model Source {
+  id                        String    @id @default(cuid())
+  accountId                 String
+  account                   Account   @relation(fields: [accountId], references: [id])
+  handle                    String
+  displayName               String?
+  enabled                   Boolean   @default(true)
+  mode                      String    @default("TWEET")
+  thresholdLikes            Int       @default(10)
+  thresholdRetweets         Int       @default(2)
+  archivedAt                DateTime?
+  createdAt                 DateTime  @default(now())
+  socialDataUserId          String?
+  socialDataUserIdUpdatedAt DateTime?
+
+  sourcePosts SourcePost[]
+
+  @@unique([accountId, handle])
+}
+
+model SourcePost {
+  id               String    @id @default(cuid())
+  accountId        String
+  account          Account   @relation(fields: [accountId], references: [id])
+  sourceId         String
+  source           Source    @relation(fields: [sourceId], references: [id])
+  // Universal dedup key. For X this is the raw tweet id (back-compat); for
+  // other platforms it is "<sourceType>:<rawId>" so one column dedupes all.
+  tweetId          String    @unique
+  // Multi-source discovery fields (Phase 1).
+  sourceType       String    @default("x") // x | reddit | youtube | rss
+  externalId       String? // raw platform id, before the sourceType prefix
+  sourceWeight     Float     @default(0.9) // örn1 source weighting for ranking
+  engagementScore  Int       @default(0) // normalized cross-platform engagement
+  author           String? // original author / channel / subreddit
+  lang             String? // en | tr | ...
+  text             String
+  likeCount        Int       @default(0)
+  retweetCount     Int       @default(0)
+  viewCount        Int       @default(0)
+  viralScore       Int       @default(0)
+  url              String
+  publishedAt      DateTime?
+  opportunityScore Float     @default(0)
+  status           String    @default("new")
+  // JSON array of source media URLs (images/videos) for visual content reuse.
+  mediaUrls        String    @default("[]")
+  scannedAt        DateTime  @default(now())
+
+  queueItems QueueItem[]
+}
+
+model QueueItem {
+  id                String      @id @default(cuid())
+  accountId         String
+  account           Account     @relation(fields: [accountId], references: [id])
+  sourcePostId      String?
+  sourcePost        SourcePost? @relation(fields: [sourcePostId], references: [id])
+  content           String
+  editedContent     String?
+  draftType         String      @default("TWEET")
+  mode              String      @default("ai_news")
+  status            String      @default("new")
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  estimatedCostUsd  Float       @default(0)
+  usedMock          Boolean     @default(false)
+  scores            String      @default("{}")
+  lintReport        String?
+  candidatesJson    String      @default("[]")
+  lastError         String?
+  approvedAt        DateTime?
+  // News→draft bridge: which NewsItem this draft was grounded on (if any).
+  newsItemId        String?
+  newsItem          NewsItem?   @relation(fields: [newsItemId], references: [id])
+  // Visual content: carried-over source image and/or AI-generated image.
+  imageUrl          String?
+  generatedImageUrl String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  generationRun GenerationRun?
+}
+
+model Schedule {
+  id                String    @id @default(cuid())
+  accountId         String    @unique
+  account           Account   @relation(fields: [accountId], references: [id])
+  cadence           String    @default("daily")
+  lastScanAt        DateTime?
+  automationEnabled Boolean   @default(false)
+  scanCron          String    @default("0 9 * * *")
+  dailyMaxPosts     Int       @default(3)
+  quietStartHour    Int       @default(23)
+  quietEndHour      Int       @default(8)
+  calendarStrategy  String    @default("manual")
+  lastPublishAt     DateTime?
+  requireApproval   Boolean   @default(true)
+  updatedAt         DateTime  @updatedAt
+}
+
+model ScanRun {
+  id               String    @id @default(cuid())
+  accountId        String
+  account          Account   @relation(fields: [accountId], references: [id])
+  sourcesScanned   Int       @default(0)
+  tweetsFound      Int       @default(0)
+  postsInserted    Int       @default(0)
+  estimatedCostUsd Float     @default(0)
+  errors           String    @default("[]")
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+}
+
+model GenerationRun {
+  id               String    @id @default(cuid())
+  accountId        String
+  account          Account   @relation(fields: [accountId], references: [id])
+  queueItemId      String    @unique
+  queueItem        QueueItem @relation(fields: [queueItemId], references: [id])
+  modelUsed        String
+  estimatedCostUsd Float     @default(0)
+  usedMock         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+}
+
+model UsageLog {
+  id               String   @id @default(cuid())
+  accountId        String?
+  account          Account? @relation(fields: [accountId], references: [id])
+  type             String
+  tweetCount       Int?
+  estimatedCostUsd Float    @default(0)
+  // Real cost attribution: provider ("openrouter"|"socialdata"|"fal"), the model
+  // used, and a JSON meta blob ({ purpose: "news_translate"|"draft_writer"|... }).
+  provider         String?
+  model            String?
+  meta             String   @default("{}")
+  platform         String   @default("x")
+  date             String
+  createdAt        DateTime @default(now())
+}
+
+model PublishLog {
+  id           String    @id @default(cuid())
+  accountId    String
+  account      Account   @relation(fields: [accountId], references: [id])
+  content      String
+  publishedAt  DateTime  @default(now())
+  platform     String    @default("x")
+  externalId   String?
+  scheduledAt  DateTime?
+  success      Boolean   @default(true)
+  errorMessage String?
+  payload      String    @default("{}")
+  createdAt    DateTime  @default(now())
+}
+
+// Growth Intelligence Engine models
+
+model ViralPattern {
+  id                   String   @id @default(cuid())
+  accountId            String
+  account              Account  @relation(fields: [accountId], references: [id])
+  patternName          String
+  category             String?
+  hookType             String?
+  structureJson        String   @default("{}")
+  emotion              String   @default("")
+  viralityTrigger      String   @default("")
+  exampleGood          String   @default("")
+  exampleBad           String   @default("")
+  usageCount           Int      @default(0)
+  successScore         Int      @default(50)
+  isActive             Boolean  @default(true)
+  // örn1 deep-analysis dimensions (Phase 2 viral mining).
+  trendingPotential    Int      @default(0)
+  audienceInterest     Int      @default(0)
+  newsValue            Int      @default(0)
+  angleSuggestionsJson String   @default("[]")
+  sourcePostId         String? // provenance: which external item this was mined from
+  sourceType           String? // x | reddit | youtube | rss
+  platform             String   @default("x") // owning platform (Faz F): x | instagram | youtube
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([platform])
+}
+
+model TrainingExample {
+  id            String   @id @default(cuid())
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id])
+  inputType     String
+  sourceContent String?
+  outputContent String
+  label         String
+  reason        String   @default("")
+  metricsJson   String   @default("{}")
+  embeddingJson String?
+  platform      String   @default("x")
+  createdAt     DateTime @default(now())
+
+  @@index([platform])
+}
+
+model FeedbackEvent {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id])
+  queueItemId     String?
+  sourcePostId    String?
+  feedbackType    String
+  originalContent String?
+  editedContent   String   @default("")
+  reason          String   @default("")
+  platform        String   @default("x")
+  createdAt       DateTime @default(now())
+}
+
+model EvalTest {
+  id               String   @id @default(cuid())
+  accountId        String
+  account          Account  @relation(fields: [accountId], references: [id])
+  testName         String
+  sourceContent    String?
+  expectedBehavior String?
+  generatedOutput  String   @default("")
+  score            Float?
+  failureReason    String?
+  platform         String   @default("x")
+  pipelineId       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([platform])
+}
+
+// Faz G — traceable subagent tree. One row per generation pipeline run; the
+// stagesJson holds [{stage,role,model,ok,failOpenUsed,ms,costUsd,score?}]. Trace
+// writes are best-effort (never block production); pruned after 30 days.
+model PipelineTrace {
+  id           String   @id @default(cuid())
+  platform     String   @default("x")
+  pipelineId   String
+  subjectType  String
+  subjectId    String
+  stagesJson   String   @default("[]")
+  totalCostUsd Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([subjectType, subjectId, createdAt])
+  @@index([createdAt])
+}
+
+// Serverless cron/scan heartbeat + result log. Written heartbeat-first so even
+// a timed-out invocation leaves proof the cron fired; doubles as the advisory
+// lock for manual scans on Vercel (no shared filesystem there).
+model CronRun {
+  id         String    @id @default(cuid())
+  kind       String // "daily" | "learn" | "manual_scan"
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  ok         Boolean   @default(false)
+  partial    Boolean   @default(false)
+  resultJson String    @default("{}")
+  error      String?
+
+  @@index([startedAt])
+  @@index([kind, startedAt])
+}
+
+// ── News AI subsystem (ported from grafikcem-news-ai, Supabase → Prisma) ──
+
+// RSS / Hacker News / GitHub Trending source registry with health tracking.
+model NewsSource {
+  id               String    @id @default(cuid())
+  name             String
+  url              String    @default("")
+  feedUrl          String    @unique
+  sourceType       String    @default("rss") // rss | hackernews | github_trending
+  category         String    @default("ai")
+  priority         Int       @default(50)
+  reliability      String    @default("medium")
+  enabled          Boolean   @default(true)
+  fetchIntervalMin Int       @default(1440)
+  errorCount       Int       @default(0)
+  lastError        String?
+  lastCheckedAt    DateTime?
+  lastSuccessAt    DateTime?
+  createdAt        DateTime  @default(now())
+
+  newsItems NewsItem[]
+}
+
+// Fetched + translated + scored news. The "news pool". Global (not account-scoped).
+model NewsItem {
+  id                 String      @id @default(cuid())
+  newsSourceId       String?
+  newsSource         NewsSource? @relation(fields: [newsSourceId], references: [id])
+  url                String      @unique
+  canonicalUrl       String?
+  originalTitle      String
+  trTitle            String?
+  originalSummary    String?
+  trSummary          String?
+  category           String      @default("ai")
+  tags               String      @default("[]")
+  lang               String?
+  imageUrl           String?
+  viralScore         Int?
+  xValueScore        Int?
+  whyPeopleCare      String?
+  tweetAngle         String?
+  suggestedFormat    String? // micro | punch | spark | storm | thread
+  // single_source | official_only | editorial_confirmed | multi_source_confirmed
+  sourceVerification String?
+  processingStatus   String      @default("raw") // raw | translated | analyzed | low_score | failed | quarantined
+  translationStatus  String      @default("pending")
+  analysisStatus     String      @default("pending")
+  modelUsed          String?
+  errorMessage       String?
+  isRead             Boolean     @default(false)
+  isUsed             Boolean     @default(false)
+  publishedAt        DateTime?
+  fetchedAt          DateTime    @default(now())
+  lastAttemptedAt    DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  queueItems    QueueItem[]
+  opportunities ContentOpportunity[]
+
+  @@index([processingStatus])
+  @@index([viralScore])
+  @@index([fetchedAt])
+}
+
+// AI-scored content opportunities (per-account targeting).
+model ContentOpportunity {
+  id              String    @id @default(cuid())
+  newsItemId      String?
+  newsItem        NewsItem? @relation(fields: [newsItemId], references: [id])
+  accountId       String?
+  account         Account?  @relation(fields: [accountId], references: [id])
+  sourceType      String    @default("news") // news | tool | repo | ai_tip
+  turkishTitle    String
+  oneLineValue    String    @default("")
+  tweetAngle      String    @default("")
+  contentFormat   String    @default("punch")
+  xValueScore     Int       @default(0)
+  noveltyScore    Int       @default(0)
+  usefulnessScore Int       @default(0)
+  visualScore     Int       @default(0)
+  status          String    @default("new")
+  createdAt       DateTime  @default(now())
+
+  @@index([status])
+}
+
+// Trending GitHub repos (labelled "GitHub Trending"; fetched via GitHub search API).
+model RepoRadarItem {
+  id            String    @id @default(cuid())
+  repoName      String
+  owner         String
+  repoUrl       String    @unique
+  stars         Int       @default(0)
+  forks         Int       @default(0)
+  language      String?
+  topics        String    @default("[]")
+  descriptionTr String    @default("")
+  whyItMatters  String    @default("")
+  bestFor       String?
+  tweetHook     String    @default("")
+  xValueScore   Int       @default(0)
+  lastCommitAt  DateTime?
+  status        String    @default("active")
+  modelUsed     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+}
+
+// Curated tools/resources library.
+model ToolboxResource {
+  id                String   @id @default(cuid())
+  title             String
+  url               String   @unique
+  resourceType      String   @default("tool")
+  category          String   @default("general")
+  platform          String?
+  useCase           String?
+  description       String   @default("")
+  whyUseful         String?
+  tags              String   @default("[]")
+  xValueScore       Int      @default(0)
+  sourceReliability String   @default("medium")
+  contentFormat     String?
+  lastCheckedAt     DateTime?
+  linkStatus        String?  @default("unknown") // alive | dead | unknown
+  isFavorite        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+}
+
+// Production-ready prompt library (seeded from static JSON + user additions).
+model PromptTemplate {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  category   String   @default("general")
+  useCase    String?
+  promptText String
+  lang       String   @default("tr")
+  tags       String   @default("[]")
+  source     String   @default("seed") // seed | user
+  createdAt  DateTime @default(now())
+}
+
+// AI model rankings snapshot (static fallback + optional live fetch).
+model AiModelSnapshot {
+  id           String   @id @default(cuid())
+  snapshotDate String   @unique // YYYY-MM-DD
+  rankingsJson String   @default("[]")
+  source       String   @default("static")
+  createdAt    DateTime @default(now())
+}
+
+// Daily aggregated digest shown on the morning dashboard.
+model DailyDigest {
+  id          String   @id @default(cuid())
+  date        String   @unique // YYYY-MM-DD (Europe/Istanbul)
+  newsSummary String   @default("")
+  repoSummary String   @default("")
+  aiTips      String   @default("")
+  modelUsed   String?
+  costUsd     Float    @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// ── YouTube Fırsat Motoru (Faz C) — global veri, Account'a relation yok (NewsItem deseni) ──
+
+// Rakip/keşif kanalları. Count alanları Float: Int32 viewCountTotal'da taşar.
+model YtChannel {
+  id                String    @id @default(cuid())
+  channelId         String    @unique // UC... (Data API channel id)
+  handle            String              // @handle (kanonik, '@' dahil)
+  title             String    @default("")
+  subscriberCount   Int       @default(0)
+  videoCount        Int       @default(0)
+  viewCountTotal    Float     @default(0) // Int32 overflow → Float
+  uploadsPlaylistId String    @default("") // UU... contentDetails.relatedPlaylists.uploads
+  category          String    @default("global") // ai_haber | kodlama | ai_tips | tasarim | yasam | global
+  isCompetitor      Boolean   @default(true)
+  discoveredFrom    String    @default("seed") // seed | discovery | manual
+  enabled           Boolean   @default(true)
+  rollingMedianVpd  Float     @default(0) // 90 günlük medyan views/day (sync yazar)
+  lastSyncedAt      DateTime?
+  errorCount        Int       @default(0)
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  videos YtVideo[]
+
+  @@index([enabled, isCompetitor])
+  @@index([category])
+}
+
+// Tek tek videolar + deterministik outlier skoru (LLM'siz sync yazar).
+model YtVideo {
+  id           String    @id @default(cuid())
+  videoId      String    @unique
+  channelId    String // FK → YtChannel.channelId
+  channel      YtChannel @relation(fields: [channelId], references: [channelId])
+  title        String    @default("")
+  description  String    @default("")
+  publishedAt  DateTime?
+  durationSec  Int       @default(0)
+  isShort      Boolean   @default(false) // durationSec <= 60
+  viewCount    Float     @default(0) // Float: taşma koruması
+  likeCount    Float     @default(0)
+  commentCount Float     @default(0)
+  viewsPerDay  Float     @default(0)
+  outlierScore Float     @default(0)
+  likeRatio    Float     @default(0) // likeCount / viewCount
+  status       String    @default("new") // new | briefed | dismissed
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  briefs YtBrief[]
+
+  @@index([outlierScore])
+  @@index([status])
+  @@index([channelId, publishedAt])
+}
+
+// On-demand üretilen tam Türkçe prodüksiyon briefi (5-aşama konsey çıktısı).
+model YtBrief {
+  id                      String   @id @default(cuid())
+  videoId                 String // FK → YtVideo.videoId
+  video                   YtVideo  @relation(fields: [videoId], references: [videoId])
+  status                  String   @default("draft") // draft | liked | edited | recorded | dismissed
+  pillar                  String   @default("")
+  titleVariantsJson       String   @default("[]")
+  thumbnailConcept        String   @default("")
+  seoDescription          String   @default("")
+  hookScript              String   @default("") // ilk 30sn kelime kelime
+  fullScript              String   @default("") // bölüm bölüm TAM konuşma metni
+  outlineJson             String   @default("[]") // [{heading,targetSec,talkingPoints}]
+  differentiationAnalysis String   @default("")
+  editingNotes            String   @default("")
+  shootingNotes           String   @default("")
+  transcriptUsed          Boolean  @default(false)
+  sourceTranscript        String   @default("")
+  modelUsed               String   @default("")
+  costUsd                 Float    @default(0)
+  editedScript            String?
+  feedbackNote            String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([status])
+  @@index([videoId])
+}
+
+// ── Instagram Yorumlar (Faz D) — global veri, Account'a relation YOK (Yt deseni) ──
+
+model IgMedia {
+  id           String    @id @default(cuid())
+  mediaId      String    @unique // Graph API media id
+  caption      String    @default("")
+  mediaType    String    @default("") // IMAGE | VIDEO | CAROUSEL_ALBUM | REELS
+  permalink    String    @default("")
+  postedAt     DateTime? // timestamp'ten
+  likeCount    Int       @default(0)
+  commentCount Int       @default(0)
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  comments IgComment[]
+
+  @@index([postedAt])
+}
+
+model IgComment {
+  id               String    @id @default(cuid())
+  commentId        String    @unique
+  mediaId          String // FK → IgMedia.mediaId
+  media            IgMedia   @relation(fields: [mediaId], references: [mediaId])
+  parentCommentId  String? // null = üst yorum; doluysa yanıt
+  username         String    @default("")
+  text             String    @default("")
+  trText           String    @default("") // Türkçe çeviri (classify yazar)
+  lang             String    @default("") // ISO kodu (tr/en/..)
+  intent           String    @default("") // soru | övgü | eleştiri | istek | spam | diğer
+  intentConfidence Float     @default(0)
+  sentiment        String    @default("") // pozitif | nötr | negatif
+  priority         Int       @default(0) // 0-100
+  status           String    @default("new") // new | analyzed | drafted | replied | ignored
+  analysisJson     String    @default("{}")
+  postedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  drafts IgReplyDraft[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([mediaId])
+}
+
+model IgReplyDraft {
+  id           String    @id @default(cuid())
+  commentId    String // FK → IgComment.commentId
+  comment      IgComment @relation(fields: [commentId], references: [commentId])
+  variant      Int       @default(0) // 0..2
+  textTr       String    @default("")
+  textOriginal String? // yorumcunun dilinde (yalnız yabancı yazarlar)
+  tone         String    @default("")
+  status       String    @default("draft") // draft | edited | sent | dismissed
+  editedText   String?
+  riskWarning  Boolean   @default(false) // eleştiri risk-lens safety<40
+  sentAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([commentId])
+  @@index([status])
+}
+
+// DB-tabanlı kimlik deposu. KRİTİK: Vercel env runtime'da değişmez, bu yüzden
+// yenilenebilir Meta token BURADA tutulur → refresh redeploy'suz. Okuma: DB → env.
+model IntegrationCredential {
+  id        String    @id @default(cuid())
+  key       String    @unique // örn. "meta_access_token"
+  value     String
+  expiresAt DateTime?
+  meta      String    @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ── Instagram DM + İstatistikler (Faz E) — global veri, Account relation YOK ──
+
+model IgConversation {
+  id                  String      @id @default(cuid())
+  conversationId      String      @unique // Graph API thread/conversation id
+  participantId       String      @default("") // karşı tarafın from.id'si
+  participantUsername String      @default("")
+  lastMessageAt       DateTime?
+  rollingSummary      String      @default("") // >10 mesajda cheapWriter özeti
+  lastSyncedAt        DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  messages IgMessage[]
+
+  @@index([lastMessageAt])
+}
+
+model IgMessage {
+  id             String         @id @default(cuid())
+  messageId      String         @unique
+  conversationId String // FK → IgConversation.conversationId
+  conversation   IgConversation @relation(fields: [conversationId], references: [conversationId])
+  fromMe         Boolean        @default(false) // true = bizim gönderdiğimiz
+  text           String         @default("")
+  trText         String         @default("") // Türkçe çeviri (translate yazar)
+  lang           String         @default("") // ISO kodu
+  status         String         @default("new") // new | translated | drafted
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([conversationId])
+  @@index([status])
+}
+
+model IgDmDraft {
+  id             String    @id @default(cuid())
+  conversationId String // FK → IgConversation.conversationId
+  messageId      String? // taslağın yanıtladığı son gelen mesaj
+  variant        Int       @default(0) // 0..1
+  textTr         String    @default("")
+  textOriginal   String? // karşı tarafın dilinde (yabancı yazarlar)
+  tone           String    @default("")
+  status         String    @default("draft") // draft | edited | sent | dismissed
+  editedText     String?
+  riskWarning    Boolean   @default(false) // DM risk-lens safety<40
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([conversationId])
+  @@index([status])
+}
+
+model IgInsightSnapshot {
+  id              String   @id @default(cuid())
+  date            String   @unique // YYYY-MM-DD (Europe/Istanbul) → günde 1 idempotent
+  followerCount   Int      @default(0)
+  reach           Int      @default(0)
+  views           Int      @default(0) // impressions↔views drift normalize
+  accountsEngaged Int      @default(0)
+  likes           Int      @default(0)
+  comments        Int      @default(0)
+  saves           Int      @default(0)
+  shares          Int      @default(0)
+  topMediaJson    String   @default("[]") // en iyi medyalar (reach desc)
+  seriesJson      String   @default("[]") // carousel seri performans sıralaması
+  rawJson         String   @default("{}") // ham insight — drift teşhisi
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
