@@ -126,8 +126,8 @@ export default function OperatorReadinessGate() {
   if (readiness.ready) {
     return (
       <div style={{
-        background: isWarning ? "rgba(245, 158, 11, 0.06)" : "rgba(155,44,52, 0.08)",
-        border: isWarning ? "1px solid rgba(245, 158, 11, 0.25)" : "1px solid rgba(155,44,52, 0.35)",
+        background: isWarning ? "rgba(245, 158, 11, 0.06)" : "rgba(225,29,72, 0.08)",
+        border: isWarning ? "1px solid rgba(245, 158, 11, 0.25)" : "1px solid rgba(225,29,72, 0.35)",
         borderRadius: 8,
         padding: "14px 16px",
         marginBottom: 16,

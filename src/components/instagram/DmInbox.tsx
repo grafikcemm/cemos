@@ -57,7 +57,7 @@ const ghostBtn: React.CSSProperties = {
 const miniBtn: React.CSSProperties = {
   background: "transparent",
   color: "var(--accent)",
-  border: "1px solid rgba(155,44,52,0.3)",
+  border: "1px solid rgba(225,29,72,0.3)",
   borderRadius: 5,
   padding: "2px 8px",
   fontSize: 11,
@@ -263,8 +263,8 @@ export default function DmInbox() {
                   onClick={() => openConversation(c.conversationId)}
                   style={{
                     textAlign: "left",
-                    background: isActive ? "rgba(155,44,52,0.1)" : "rgba(255,255,255,0.03)",
-                    border: `1px solid ${isActive ? "rgba(155,44,52,0.3)" : "rgba(255,255,255,0.08)"}`,
+                    background: isActive ? "rgba(225,29,72,0.1)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${isActive ? "rgba(225,29,72,0.3)" : "rgba(255,255,255,0.08)"}`,
                     borderRadius: 8,
                     padding: "8px 10px",
                     cursor: "pointer",
@@ -311,8 +311,8 @@ export default function DmInbox() {
                           style={{
                             alignSelf: m.fromMe ? "flex-end" : "flex-start",
                             maxWidth: "80%",
-                            background: m.fromMe ? "rgba(155,44,52,0.12)" : "rgba(255,255,255,0.05)",
-                            border: `1px solid ${m.fromMe ? "rgba(155,44,52,0.25)" : "rgba(255,255,255,0.1)"}`,
+                            background: m.fromMe ? "rgba(225,29,72,0.12)" : "rgba(255,255,255,0.05)",
+                            border: `1px solid ${m.fromMe ? "rgba(225,29,72,0.25)" : "rgba(255,255,255,0.1)"}`,
                             borderRadius: 10,
                             padding: "7px 11px",
                             fontSize: 13,

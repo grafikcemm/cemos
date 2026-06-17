@@ -117,7 +117,7 @@ const selStyle: React.CSSProperties = {
 const miniBtn: React.CSSProperties = {
   background: "transparent",
   color: "var(--accent)",
-  border: "1px solid rgba(155,44,52,0.3)",
+  border: "1px solid rgba(225,29,72,0.3)",
   borderRadius: 5,
   padding: "2px 8px",
   fontSize: 11,

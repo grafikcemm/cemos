@@ -65,7 +65,7 @@ export default function SubNav({ items, activeId, onSelect }: SubNavProps) {
                   fontWeight: 600,
                   color: "var(--text-muted)",
                   background: "var(--bg-elevated)",
-                  borderRadius: 999,
+                  borderRadius: "var(--radius-sm)",
                   padding: "1px 6px",
                   fontVariantNumeric: "tabular-nums",
                 }}

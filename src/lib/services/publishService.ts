@@ -3,6 +3,7 @@ import { isWithinQuietHours } from "@/lib/services/scheduleService";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 import { isNearDuplicate } from "@/lib/utils/textSimilarity";
 import { imageService } from "@/lib/services/imageService";
+import { processFeedback } from "@/lib/growth-engine/feedback-service";
 
 function getDayBounds(date: Date) {
   const start = new Date(date);
@@ -129,6 +130,24 @@ export const publishService = {
         date: new Date().toISOString().slice(0, 10),
       },
     });
+
+    // Manual publish is the strongest learning signal: the edit-gate above
+    // guarantees the operator rewrote the AI draft in their own voice, so log
+    // it as an "edited" FeedbackEvent + TrainingExample. Best-effort — a
+    // learning-pipeline hiccup must never undo a successful publish. (Previously
+    // the morning flow recorded nothing here, leaving Training Center at 0.)
+    await processFeedback({
+      accountHandle: item.account.handle as "grafikcem" | "maskulenkod",
+      accountId: item.accountId,
+      feedbackType: "edited",
+      originalContent: original,
+      editedContent: edited,
+      reason: "Manuel paylaşıldı (sabah akışı)",
+      queueItemId,
+      modeId: item.mode,
+      saveTrainingExample: true,
+      saveAsPattern: false,
+    }).catch(() => {});
 
     // maskulenkod: every PUBLISHED tweet gets a topic-relevant image, generated
     // here (publish time) so rejected drafts never burn credits. grafikcem stays

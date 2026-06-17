@@ -26,8 +26,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: "discovery-engine", label: "Keşif Motoru" },
       { id: "daily-queue", label: "Günlük Kuyruk" },
       { id: "flow-radar", label: "Viral Radar" },
-      { id: "sources", label: "Kaynaklar" },
-      { id: "source-intelligence", label: "Kaynak Zekası" },
+      { id: "source-intelligence", label: "X Hesabı Kaynakları" },
       { id: "pattern-library", label: "Pattern Kütüphanesi" },
     ],
   },
@@ -70,6 +69,10 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   flow: "flow-radar",
   patterns: "pattern-library",
   queue: "daily-queue",
+  // "sources" (Keşfet → Kaynaklar) merged into "source-intelligence"
+  // (X Hesabı Kaynakları). Alias redirects any persisted activeTab so users
+  // mid-session don't land on a removed tab.
+  sources: "source-intelligence",
 };
 
 export function normalizeTabId(tabId: string): string {
@@ -121,7 +124,6 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
       "news-pool",
       "content-radar",
       "repo-radar",
-      "sources",
     ],
   },
   {

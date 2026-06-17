@@ -2,7 +2,6 @@
 
 import { normalizeTabId } from "@/components/nav/navConfig";
 import FlowRadarTab from "@/components/tabs/FlowRadarTab";
-import SourcesTab from "@/components/tabs/SourcesTab";
 import CostsTab from "@/components/tabs/CostsTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import LibraryTab from "@/components/tabs/LibraryTab";
@@ -38,8 +37,6 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <DailyQueueTab />;
     case "flow-radar":
       return <FlowRadarTab />;
-    case "sources":
-      return <SourcesTab />;
     case "source-intelligence":
       return <SourceIntelligenceTab />;
     case "pattern-library":

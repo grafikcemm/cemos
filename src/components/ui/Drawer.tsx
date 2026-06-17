@@ -69,7 +69,7 @@ export default function Drawer({ open, onClose, title, width = 520, children }: 
           width: `min(${width}px, 100vw)`,
           background: "var(--bg-surface)",
           borderLeft: "1px solid var(--border)",
-          boxShadow: "var(--shadow-drawer)",
+          boxShadow: "var(--shadow-modal)",
           display: "flex",
           flexDirection: "column",
           animation: "drawer-slide 0.2s cubic-bezier(0.16,1,0.3,1)",

@@ -186,7 +186,7 @@ export default function TrainingCenterTab() {
     switch (type) {
       case "approved":
       case "saved_as_pattern":
-        return { bg: "rgba(155,44,52,0.12)", text: "var(--accent)" };
+        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)" };
       case "rejected":
       case "too_ai":
       case "not_my_tone":
@@ -203,7 +203,7 @@ export default function TrainingCenterTab() {
   const getLabelBadgeColor = (labelVal: string) => {
     switch (labelVal) {
       case "good":
-        return { bg: "rgba(155,44,52,0.12)", text: "var(--accent)" };
+        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)" };
       case "bad":
         return { bg: "rgba(239,68,68,0.15)", text: "var(--red)" };
       case "edited":

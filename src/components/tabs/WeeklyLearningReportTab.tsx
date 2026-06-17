@@ -113,15 +113,6 @@ type ReportData = {
   aiSummary?: string;
 };
 
-const PLATFORM_META: Record<
-  PlatformSection["platform"],
-  { label: string; icon: string; color: string; bg: string; border: string }
-> = {
-  x: { label: "X", icon: "𝕏", color: "var(--blue)", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.2)" },
-  instagram: { label: "Instagram", icon: "📸", color: "var(--accent)", bg: "rgba(155,44,52,0.12)", border: "rgba(155,44,52,0.2)" },
-  youtube: { label: "YouTube", icon: "▶️", color: "var(--red)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.2)" }
-};
-
 export default function WeeklyLearningReportTab() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,7 +167,7 @@ export default function WeeklyLearningReportTab() {
   const getSignalBadgeColor = (sig: string) => {
     switch (sig) {
       case "rising":
-        return { bg: "rgba(155,44,52,0.12)", text: "var(--accent)", border: "1px solid rgba(155,44,52,0.2)" };
+        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)", border: "1px solid rgba(225,29,72,0.2)" };
       case "weak":
         return { bg: "rgba(239,68,68,0.12)", text: "var(--red)", border: "1px solid rgba(239,68,68,0.2)" };
       case "stable":
@@ -300,7 +291,7 @@ export default function WeeklyLearningReportTab() {
           style={{
             alignSelf: "flex-end",
             padding: "5px 12px",
-            background: "rgba(155,44,52,0.1)",
+            background: "rgba(225,29,72,0.1)",
             border: "1px solid var(--accent-border)",
             borderRadius: 5,
             color: "var(--accent)",
@@ -361,14 +352,10 @@ export default function WeeklyLearningReportTab() {
             gap: 10
           }}>
             {[
-              { label: "Feedback Events", val: report.summary.totalFeedbackEvents, icon: "💬" },
-              { label: "Training Examples", val: report.summary.totalTrainingExamples, icon: "📖" },
-              { label: "Total Patterns", val: report.summary.totalPatterns, icon: "💎" },
-              { label: "Queue Drafts", val: report.summary.totalQueueItems, icon: "📝" },
-              { label: "Avg Publish Score", val: report.summary.averagePublishScore ? `${report.summary.averagePublishScore}/100` : "—", color: getScoreColor(report.summary.averagePublishScore), icon: "🎯" },
-              { label: "Avg Risk Score", val: report.summary.averageRiskScore ? `%${report.summary.averageRiskScore}` : "—", color: report.summary.averageRiskScore && report.summary.averageRiskScore >= 70 ? "var(--red)" : "var(--accent)", icon: "⚠️" },
-              { label: "Strongest Account", val: report.summary.strongestAccount ? `@${report.summary.strongestAccount}` : "—", color: "var(--accent)", icon: "🔥" },
-              { label: "Weakest Account", val: report.summary.weakestAccount ? `@${report.summary.weakestAccount}` : "—", color: "var(--yellow)", icon: "❄️" }
+              { label: "Toplam Geri Bildirim", val: report.summary.totalFeedbackEvents, icon: "💬" },
+              { label: "Ort. Yayın Skoru", val: report.summary.averagePublishScore ? `${report.summary.averagePublishScore}/100` : "—", color: getScoreColor(report.summary.averagePublishScore), icon: "🎯" },
+              { label: "En Güçlü Hesap", val: report.summary.strongestAccount ? `@${report.summary.strongestAccount}` : "—", color: "var(--accent)", icon: "🔥" },
+              { label: "En Zayıf Hesap", val: report.summary.weakestAccount ? `@${report.summary.weakestAccount}` : "—", color: "var(--yellow)", icon: "❄️" }
             ].map((card, idx) => (
               <div key={idx} style={{
                 background: "var(--bg-surface)",
@@ -386,67 +373,10 @@ export default function WeeklyLearningReportTab() {
             ))}
           </div>
 
-          {/* Platform Kırılımı (Faz F) */}
-          {report.platformSections && report.platformSections.length > 0 && (
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px 0" }}>
-                🧭 Platform Kırılımı
-              </h3>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: 10
-              }}>
-                {report.platformSections.map((ps) => {
-                  const meta = PLATFORM_META[ps.platform];
-                  return (
-                    <div key={ps.platform} style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      padding: 14,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10
-                    }}>
-                      <span style={{
-                        alignSelf: "flex-start",
-                        fontSize: 10,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: meta.color,
-                        background: meta.bg,
-                        border: `1px solid ${meta.border}`,
-                        borderRadius: 4,
-                        padding: "2px 8px"
-                      }}>
-                        {meta.icon} {meta.label}
-                      </span>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {[
-                          { k: "Feedback", v: ps.totalFeedbackEvents },
-                          { k: "Eğitim", v: ps.totalTrainingExamples },
-                          { k: "Pattern", v: ps.totalPatterns },
-                          { k: "Yüksek/Düşük", v: `${ps.engagementHigh}/${ps.engagementLow}` }
-                        ].map((s) => (
-                          <div key={s.k}>
-                            <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.k}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{s.v}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* AI Summary Block */}
           {report.aiSummary && (
             <div style={{
-              background: "rgba(155,44,52,0.03)",
+              background: "rgba(225,29,72,0.03)",
               border: "1px dashed var(--accent-border)",
               borderRadius: 8,
               padding: 16,
@@ -464,82 +394,10 @@ export default function WeeklyLearningReportTab() {
             </div>
           )}
 
-          {/* Account Breakdown Grid */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px 0" }}>
-              👥 Hesap Kırılımlı Öğrenim Özetleri
-            </h3>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: 12
-            }}>
-              {report.accounts.map((acc) => (
-                <div key={acc.accountHandle} style={{
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: 14,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10
-                }}>
-                  {/* Account Header */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.03)", paddingBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: "var(--accent)" }}>@{acc.accountHandle}</span>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                        Yayın Skoru: <span style={{ fontWeight: 700, color: getScoreColor(acc.averagePublishScore) }}>{acc.averagePublishScore || "—"}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                        Risk: <span style={{ fontWeight: 700, color: acc.averageRiskScore && acc.averageRiskScore >= 70 ? "var(--red)" : "var(--text-primary)" }}>{acc.averageRiskScore ? `%${acc.averageRiskScore}` : "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions counts */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11 }}>
-                    <div>
-                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Geri Bildirimler:</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ background: "rgba(155,44,52,0.06)", color: "var(--accent)", padding: "1px 4px", borderRadius: 3 }}>Onay: {acc.approvedCount}</span>
-                        <span style={{ background: "rgba(255,68,68,0.06)", color: "var(--red)", padding: "1px 4px", borderRadius: 3 }}>Ret: {acc.rejectedCount}</span>
-                        <span style={{ background: "rgba(59,130,246,0.06)", color: "var(--blue)", padding: "1px 4px", borderRadius: 3 }}>Edit: {acc.editedCount}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: "var(--text-muted)", marginBottom: 2 }}>Kritik Sebepleri:</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)", padding: "1px 4px", borderRadius: 3 }}>AI: {acc.tooAiCount}</span>
-                        <span style={{ background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)", padding: "1px 4px", borderRadius: 3 }}>Ton: {acc.notMyToneCount}</span>
-                        <span style={{ background: "rgba(255,255,255,0.04)", color: "var(--text-secondary)", padding: "1px 4px", borderRadius: 3 }}>Hook: {acc.hookWeakCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Best Pattern & Weak Signals */}
-                  <div style={{ background: "var(--bg-base)", borderRadius: 6, padding: 8, fontSize: 11, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div>
-                      <span style={{ color: "var(--text-muted)" }}>En Başarılı Şablon: </span>
-                      <span style={{ color: "var(--accent)", fontWeight: 600 }}>{acc.bestPatternName || "Şablon kullanım verisi yok."}</span>
-                    </div>
-                    {acc.weakestSignal && (
-                      <div>
-                        <span style={{ color: "var(--red)" }}>En Zayıf Sinyal: </span>
-                        <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{acc.weakestSignal}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Recommendation */}
-                  <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--text-secondary)" }}>
-                    <span style={{ color: "var(--yellow)", fontWeight: 600 }}>Öneri: </span>
-                    {acc.recommendation}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Sadeleştirme: Platform Kırılımı, Hesap Kırılımlı Özetler ve
+              Feedback/Kuyruk panelleri kaldırıldı — rapor 4 ana bloğa indirildi
+              (Özet · AI Yorumu · Pattern'ler · Aksiyonlar). Hesap-bazlı derin
+              detay X / hesap-scoped sekmelerde mevcut. */}
 
           {/* Top Patterns & Weak Signals Columns */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: 20 }}>
@@ -604,91 +462,6 @@ export default function WeeklyLearningReportTab() {
                   })}
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Feedback Insights & Queue Insights */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: 20 }}>
-            {/* Feedback Insights */}
-            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px 0", color: "var(--text-primary)" }}>
-                Interpretations (Editör Eleştirileri Analizi)
-              </h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {report.feedbackInsights.map((insight) => (
-                  <div key={insight.feedbackType} style={{
-                    background: "var(--bg-base)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    padding: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--accent)", textTransform: "uppercase" }}>{insight.feedbackType}</span>
-                      <span style={{ fontSize: 10, background: "rgba(255,255,255,0.05)", padding: "1px 5px", borderRadius: 4 }}>{insight.count} Kez Raporlandı</span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                      {insight.interpretation}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Queue Insight Panel */}
-            <div style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: 14,
-              display: "flex",
-              flexDirection: "column",
-              gap: 12
-            }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
-                Kuyruk & Taslak Sağlığı Analizi
-              </h4>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 11 }}>
-                <div style={{ background: "var(--bg-base)", borderRadius: 6, padding: 8 }}>
-                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Taslak Sayıları:</div>
-                  <div>• Draft (Yeni): <b>{report.queueInsight.draftCount}</b></div>
-                  <div>• Approved: <b>{report.queueInsight.approvedCount}</b></div>
-                  <div>• Scheduled: <b>{report.queueInsight.scheduledCount}</b></div>
-                  <div>• Rejected: <b>{report.queueInsight.rejectedCount}</b></div>
-                </div>
-                <div style={{ background: "var(--bg-base)", borderRadius: 6, padding: 8 }}>
-                  <div style={{ color: "var(--text-muted)", marginBottom: 4 }}>Kuyruk Risk/Kalite Eşikleri:</div>
-                  <div>• Yüksek Risk (&gt;=70): <span style={{ color: report.queueInsight.highRiskCount > 0 ? "var(--red)" : "inherit", fontWeight: 700 }}>{report.queueInsight.highRiskCount}</span></div>
-                  <div>• Düşük Skor (&lt;50): <span style={{ color: report.queueInsight.lowScoreCount > 0 ? "var(--red)" : "inherit", fontWeight: 700 }}>{report.queueInsight.lowScoreCount}</span></div>
-                  <div>• Ortalama Yayın Skoru: <b>{report.queueInsight.averagePublishScore || "—"}</b></div>
-                  <div>• Ortalama Risk Skoru: <b>{report.queueInsight.averageRiskScore ? `%${report.queueInsight.averageRiskScore}` : "—"}</b></div>
-                </div>
-              </div>
-
-              {/* Progress bars indicator */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-secondary)", marginBottom: 2 }}>
-                    <span>Ortalama Taslak Kalitesi</span>
-                    <span style={{ fontWeight: 700, color: getScoreColor(report.queueInsight.averagePublishScore) }}>{report.queueInsight.averagePublishScore || "—"}</span>
-                  </div>
-                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${report.queueInsight.averagePublishScore || 0}%`, background: getScoreColor(report.queueInsight.averagePublishScore), borderRadius: 2 }} />
-                  </div>
-                </div>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-secondary)", marginBottom: 2 }}>
-                    <span>Kuyruk Risk Ortalaması</span>
-                    <span style={{ fontWeight: 700, color: report.queueInsight.averageRiskScore && report.queueInsight.averageRiskScore >= 70 ? "var(--red)" : "var(--accent)" }}>{report.queueInsight.averageRiskScore ? `%${report.queueInsight.averageRiskScore}` : "—"}</span>
-                  </div>
-                  <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${report.queueInsight.averageRiskScore || 0}%`, background: report.queueInsight.averageRiskScore && report.queueInsight.averageRiskScore >= 70 ? "var(--red)" : "var(--accent)", borderRadius: 2 }} />
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 

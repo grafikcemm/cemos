@@ -135,7 +135,12 @@ export default function AppShell({ initialTab }: AppShellProps) {
           subTabLabel={activeSubLabel}
           onOpenMobileNav={() => setMobileOpen(true)}
         />
-        <main style={{ flex: 1, padding: "28px 40px 80px", minWidth: 0, width: "100%" }}>{renderScreen(activeTab)}</main>
+        <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
+          {/* Genesis: içerik 1280px max + ortalı + 24px gutter; topstrip/zemin full-bleed kalır. */}
+          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px 80px", minWidth: 0 }}>
+            {renderScreen(activeTab)}
+          </div>
+        </main>
       </div>
     </div>
   );

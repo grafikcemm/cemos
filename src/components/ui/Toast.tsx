@@ -15,8 +15,8 @@ type ToastApi = {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const TONE_STYLE: Record<ToastTone, { border: string; color: string }> = {
-  success: { border: "rgba(63,178,127,0.4)", color: "var(--green)" },
-  error: { border: "rgba(229,72,77,0.4)", color: "var(--danger)" },
+  success: { border: "rgba(52,211,153,0.4)", color: "var(--green)" },
+  error: { border: "rgba(244,63,94,0.4)", color: "var(--danger)" },
   info: { border: "var(--border-strong)", color: "var(--text-primary)" },
 };
 

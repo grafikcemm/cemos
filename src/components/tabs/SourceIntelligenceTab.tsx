@@ -21,6 +21,8 @@ import {
   X,
   Check,
   CircleDot,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { PageHeader, Card, EmptyState, SectionHeader, Badge, Skeleton, Button, Input, Select } from "@/components/ui";
 
@@ -129,6 +131,17 @@ export default function SourceIntelligenceTab() {
   const [editThresholdLikes, setEditThresholdLikes] = useState<number>(10);
   const [editThresholdRetweets, setEditThresholdRetweets] = useState<number>(2);
   const [updatingSource, setUpdatingSource] = useState<boolean>(false);
+
+  // Add Source States (merged in from the former Keşfet → Kaynaklar tab so all
+  // X-account source management lives in one place).
+  const [addOpen, setAddOpen] = useState<boolean>(false);
+  const [addAccount, setAddAccount] = useState<string>("grafikcem");
+  const [addHandle, setAddHandle] = useState<string>("");
+  const [addMode, setAddMode] = useState<string>("TWEET");
+  const [addLikes, setAddLikes] = useState<number>(100);
+  const [addRTs, setAddRTs] = useState<number>(20);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addingSource, setAddingSource] = useState<boolean>(false);
 
   // Tooltip Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -255,6 +268,68 @@ export default function SourceIntelligenceTab() {
     }
   };
 
+  // Add a new source (POST /api/sources), then refresh telemetry.
+  const handleAddSource = async () => {
+    const cleanHandle = addHandle.replace("@", "").trim();
+    if (!cleanHandle) {
+      setAddError("X handle gerekli.");
+      return;
+    }
+    setAddingSource(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountHandle: addAccount,
+          handle: cleanHandle,
+          mode: addMode,
+          thresholdLikes: Number(addLikes) || 100,
+          thresholdRetweets: Number(addRTs) || 20,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        triggerToast(`@${cleanHandle} kaynağı eklendi.`);
+        setAddOpen(false);
+        setAddHandle("");
+        setAddMode("TWEET");
+        setAddLikes(100);
+        setAddRTs(20);
+        loadData();
+      } else {
+        setAddError(data.error || "Kaynak eklenemedi.");
+      }
+    } catch {
+      setAddError("Ağ hatası oluştu.");
+    } finally {
+      setAddingSource(false);
+    }
+  };
+
+  // Archive (soft-delete) the source currently open in the edit modal.
+  const handleArchiveSource = async () => {
+    if (!editingSource) return;
+    if (!window.confirm(`@${editingSource.handle} kaynağını arşivlemek istediğine emin misin?`)) return;
+    setUpdatingSource(true);
+    try {
+      const res = await fetch(`/api/sources/${editingSource.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        triggerToast(`@${editingSource.handle} arşivlendi.`);
+        setEditingSource(null);
+        loadData();
+      } else {
+        triggerToast(data.error || "Kaynak arşivlenemedi.");
+      }
+    } catch {
+      triggerToast("Ağ hatası oluştu.");
+    } finally {
+      setUpdatingSource(false);
+    }
+  };
+
   // Dynamic score preview trigger
   const handlePreviewScore = async (post: SourcePost) => {
     setScoringLoading(true);
@@ -306,8 +381,8 @@ export default function SourceIntelligenceTab() {
       {/* Header */}
       <PageHeader
         eyebrow="ÖĞREN"
-        title="Kaynak Zekası"
-        subtitle="Takip edilen kaynak hesapları, taranan postları ve fırsat skorlarını hesap bazlı yönet."
+        title="X Hesabı Kaynakları"
+        subtitle="İzlenen X hesaplarını ekle/düzenle, taranan postları ve fırsat skorlarını hesap bazlı yönet."
         meta={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Radar size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
@@ -514,7 +589,19 @@ export default function SourceIntelligenceTab() {
           <SectionHeader
             eyebrow="İZLEME"
             title="Takip Edilen Kaynaklar"
-            action={<Badge variant="accent" size="sm">{sources.length}</Badge>}
+            action={
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Badge variant="accent" size="sm">{sources.length}</Badge>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => { setAddOpen(true); setAddError(null); }}
+                  iconLeft={<Plus size={14} strokeWidth={2} />}
+                >
+                  Yeni Kaynak
+                </Button>
+              </div>
+            }
           />
 
           <div
@@ -1070,18 +1157,152 @@ export default function SourceIntelligenceTab() {
               </div>
             </div>
 
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)", marginTop: 4 }}>
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={handleArchiveSource}
+                disabled={updatingSource}
+                iconLeft={<Trash2 size={14} strokeWidth={2} />}
+                style={{ color: "var(--danger)" }}
+              >
+                Arşivle
+              </Button>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="ghost" size="md" onClick={() => setEditingSource(null)}>
+                  İptal
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleSaveSourceEdit}
+                  disabled={updatingSource}
+                  loading={updatingSource}
+                >
+                  {updatingSource ? "Kaydediliyor..." : "Kaydet"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Source Modal (merged from Keşfet → Kaynaklar) */}
+      {addOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.72)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 999,
+            padding: 16,
+          }}
+        >
+          <Card
+            variant="hero"
+            padded={false}
+            style={{
+              padding: "var(--space-6)",
+              maxWidth: 420,
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--space-4)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div>
+                <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 6 }}>YENİ KAYNAK</div>
+                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                  İzlenecek X Hesabı Ekle
+                </h3>
+              </div>
+              <button
+                onClick={() => setAddOpen(false)}
+                style={{ display: "inline-flex", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4 }}
+                aria-label="Kapat"
+              >
+                <X size={18} strokeWidth={2} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Hangi Hesap İçin?</span>
+                <Select
+                  value={addAccount}
+                  onChange={(e) => setAddAccount(e.target.value)}
+                  style={{ padding: "8px 10px", fontSize: "var(--text-sm)" }}
+                  options={[
+                    { value: "grafikcem", label: "@grafikcem" },
+                    { value: "maskulenkod", label: "@maskulenkod" },
+                  ]}
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="eyebrow" style={{ color: "var(--text-muted)" }}>X Handle</span>
+                <Input
+                  type="text"
+                  value={addHandle}
+                  onChange={(e) => setAddHandle(e.target.value)}
+                  placeholder="@twitter_handle"
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Tarama Modu</span>
+                <Select
+                  value={addMode}
+                  onChange={(e) => setAddMode(e.target.value)}
+                  style={{ padding: "8px 10px", fontSize: "var(--text-sm)" }}
+                  options={[
+                    { value: "ALL", label: "ALL (Tweet, Re-tweet, Reply)" },
+                    { value: "TWEET", label: "TWEET (Sadece tweetler)" },
+                    { value: "QUOTE", label: "QUOTE (Sadece alıntılar)" },
+                    { value: "REPLY", label: "REPLY (Sadece yanıtlar)" },
+                  ]}
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Beğeni Eşiği</span>
+                  <Input type="number" value={addLikes} onChange={(e) => setAddLikes(Number(e.target.value))} min="0" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Retweet Eşiği</span>
+                  <Input type="number" value={addRTs} onChange={(e) => setAddRTs(Number(e.target.value))} min="0" />
+                </div>
+              </div>
+
+              {addError && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", color: "var(--danger)" }}>
+                  <ShieldAlert size={14} strokeWidth={2} />
+                  {addError}
+                </div>
+              )}
+            </div>
+
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: 4 }}>
-              <Button variant="ghost" size="md" onClick={() => setEditingSource(null)}>
+              <Button variant="ghost" size="md" onClick={() => setAddOpen(false)}>
                 İptal
               </Button>
               <Button
                 variant="primary"
                 size="md"
-                onClick={handleSaveSourceEdit}
-                disabled={updatingSource}
-                loading={updatingSource}
+                onClick={handleAddSource}
+                disabled={addingSource}
+                loading={addingSource}
               >
-                {updatingSource ? "Kaydediliyor..." : "Kaydet"}
+                {addingSource ? "Ekleniyor..." : "Ekle"}
               </Button>
             </div>
           </Card>

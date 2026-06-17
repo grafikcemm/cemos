@@ -6,6 +6,7 @@ import {
   patternExtractionToViralPatternInput,
 } from "@/lib/growth-engine/pattern-extractor";
 import { scoreDraft } from "@/lib/growth-engine/scorer";
+import { accountRepo } from "@/lib/db/accountRepo";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
@@ -130,29 +131,40 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
     throw new Error(`Invalid accountHandle: ${input.accountHandle}`);
   }
 
+  // 2b. Resolve the real account row from the handle and treat it as the source
+  // of truth for accountId. Callers historically passed a placeholder accountId
+  // (FlowRadar sent "dummy-id"), which violated the FeedbackEvent.account FK so
+  // the row silently failed to persist — leaving Training Center's "Toplam Geri
+  // Bildirim" stuck at 0. Deriving accountId here fixes every caller centrally.
+  const account = await accountRepo.findByHandle(input.accountHandle);
+  if (!account) {
+    throw new Error(`Invalid accountHandle: ${input.accountHandle}`);
+  }
+  const fb: FeedbackApiInput = { ...input, accountId: account.id };
+
   // 3. Ensure content exists
   const hasContent = Boolean(
-    input.originalContent?.trim() ||
-    input.editedContent?.trim() ||
-    input.sourceContent?.trim()
+    fb.originalContent?.trim() ||
+    fb.editedContent?.trim() ||
+    fb.sourceContent?.trim()
   );
   if (!hasContent) {
     throw new Error("No content provided in feedback input");
   }
 
   // 4. Create FeedbackEvent (Mandatory)
-  const feedbackInput = buildFeedbackEventInput(input);
+  const feedbackInput = buildFeedbackEventInput(fb);
   const feedbackEvent = await feedbackEventRepo.create(feedbackInput);
 
   // 5. scoreDraft (Optional)
   let draftScore: DraftScore | undefined;
-  if (input.feedbackType === "approved" || input.feedbackType === "edited") {
+  if (fb.feedbackType === "approved" || fb.feedbackType === "edited") {
     try {
       draftScore = await scoreDraft({
-        content: input.editedContent || input.originalContent || "",
-        accountHandle: input.accountHandle,
-        modeId: input.modeId,
-        sourceContent: input.sourceContent,
+        content: fb.editedContent || fb.originalContent || "",
+        accountHandle: fb.accountHandle,
+        modeId: fb.modeId,
+        sourceContent: fb.sourceContent,
       });
     } catch (err) {
       warnings.push(`Scoring failed: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -161,9 +173,9 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
 
   // 6. Create TrainingExample (Optional)
   let trainingExampleId: string | undefined;
-  if (shouldCreateTrainingExample(input)) {
+  if (shouldCreateTrainingExample(fb)) {
     try {
-      const trainingInput = buildTrainingExampleFromFeedback(input, draftScore);
+      const trainingInput = buildTrainingExampleFromFeedback(fb, draftScore);
       const trainingExample = await trainingExampleRepo.create(trainingInput);
       trainingExampleId = trainingExample.id;
       // Close the learning loop: embed so this example becomes searchable in
@@ -177,16 +189,16 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   // 7. Create ViralPattern (Optional)
   let viralPatternId: string | undefined;
   let patternExtraction: PatternExtractionResult | undefined;
-  if (shouldSaveAsPattern(input)) {
+  if (shouldSaveAsPattern(fb)) {
     try {
       patternExtraction = await extractPattern({
-        text: input.editedContent || input.originalContent || input.sourceContent || "",
-        accountHandle: input.accountHandle,
+        text: fb.editedContent || fb.originalContent || fb.sourceContent || "",
+        accountHandle: fb.accountHandle,
         sourceType: "manual",
         language: "TR",
       });
 
-      const viralInput = patternExtractionToViralPatternInput(patternExtraction, input.accountId);
+      const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
       const createdPattern = await viralPatternRepo.create(viralInput);
       viralPatternId = createdPattern.id;
     } catch (err) {

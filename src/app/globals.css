@@ -1,45 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Surfaces / borders / text (warm neutral dark) ──────────────── */
-  --bg-base: #0a0908;
-  --bg-surface: #121110;
-  --bg-elevated: #1a1817;
-  --bg-hover: #211e1c;
-  --border: #262321;
-  --border-strong: #34302d;
-  --text-primary: #ece9e6;
-  --text-secondary: #8f8a85;
-  --text-muted: #5a5550;
+  /* ── Surfaces / borders / text (XPatla nötr koyu) ───────────────── */
+  --bg-base: #0a0a0a;
+  --bg-surface: #1a1a1a;
+  --bg-elevated: #1d1d1d;
+  --bg-hover: #2c2c2c;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.78);
+  --text-muted: rgba(255, 255, 255, 0.55);
 
-  /* ── Brand accent — muted oxblood / garnet (PRIMARY, marka kilidi) ─ */
-  --accent: #9b2c34;
-  --accent-hover: #b23a42;
-  --accent-dark: #2a0e10;
-  --accent-border: rgba(155, 44, 52, 0.35);
-  --accent-fg: #f4e9ea; /* text/icon ON solid accent fill — never #000 */
-  --accent-text: #c95058; /* accent-as-text on dark, ~5:1 AA */
+  /* ── Brand accent — XPatla cyan (PRIMARY) ───────────────────────── */
+  --accent: #e11d48;
+  --accent-hover: #f43f5e;
+  --accent-dark: rgba(225, 29, 72, 0.12); /* translucent cyan ghost bg (active nav/badge) */
+  --accent-border: rgba(225, 29, 72, 0.35);
+  --accent-fg: #ffffff; /* text/icon ON solid red fill — koyu kırmızı zemin, beyaz metin */
+  --accent-text: #fb7185; /* red-as-text on dark (soft rose, AA) */
 
-  /* ── Secondary accent — warm amber (ring/rozet/trend/hover) ─────── */
-  --accent-2: #f5803e;
-  --accent-2-hover: #f79356;
-  --accent-2-text: #f7a06a; /* amber-as-text on dark */
-  --accent-2-border: rgba(245, 128, 62, 0.35);
+  /* ── Secondary accent — neon lime (generate / AI-action) ────────── */
+  --accent-2: #cdfd2e;
+  --accent-2-hover: #dbff5e;
+  --accent-2-text: #cdfd2e; /* lime-as-text on dark */
+  --accent-2-border: rgba(205, 253, 46, 0.35);
 
-  /* ── Semantic status (error-red distinct from brand-red) ────────── */
-  --danger: #e5484d;
-  --red: #e5484d; /* legacy alias → danger */
-  --blue: #4c8dff;
-  --yellow: #f5b73d;
-  --green: #3fb27f; /* teal-leaning success */
+  /* ── Semantic status (6 ayrık rol: cyan/lime/emerald/amber/rose/blue) ─ */
+  --danger: #f43f5e; /* error / destructive — rose */
+  --danger-hover: #e11d48;
+  --red: #f43f5e; /* legacy alias → danger */
+  --blue: #4c8dff; /* info */
+  --yellow: #f5b73d; /* warning / stale (lime "generate"den ayrı) */
+  --green: #34d399; /* success (ayrık emerald — primary cyan ile karışmasın) */
 
   /* ── Chart palette (mirrored in src/lib/theme/chartColors.ts) ───── */
-  --chart-1: #9b2c34;
+  --chart-1: #e11d48;
   --chart-2: #4c8dff;
-  --chart-3: #f5b73d;
-  --chart-4: #3fb27f;
-  --chart-grid: #262321;
-  --chart-axis: #5a5550;
+  --chart-3: #cdfd2e;
+  --chart-4: #f43f5e;
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-axis: rgba(255, 255, 255, 0.4);
 
   /* ── Spacing scale (px) ─────────────────────────────────────────── */
   --space-1: 4px;
@@ -53,47 +54,50 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ── Radius scale (bento — büyük yuvarlaklık) ───────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px; /* varsayılan kart */
-  --radius-2xl: 24px; /* hero / showcase */
+  /* ── Radius scale (XPatla: pill interaktif + yuvarlak yüzey) ─────── */
+  --radius-sm: 6px; /* küçük tag / inline */
+  --radius-md: 8px; /* input / select */
+  --radius-lg: 10px; /* dropdown / panel */
+  --radius-xl: 14px; /* varsayılan kart */
+  --radius-2xl: 20px; /* modal / hero / showcase */
+  --radius-pill: 9999px; /* buton / chip / nav-pill — XPatla imzası */
 
-  /* ── Typography scale ───────────────────────────────────────────── */
-  --text-2xs: 9px;
+  /* ── Typography scale (Inter, Genesis editöryal) ────────────────── */
+  --text-2xs: 10px;
   --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 15px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
   --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 28px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
   /* Display scale (premium, başlıklar + hero statlar) */
-  --text-3xl: 34px;
-  --text-4xl: 44px;
+  --text-3xl: 32px;
+  --text-4xl: 40px;
   /* Editöryal display (magazine hero başlıkları) */
-  --text-display-lg: 40px;
-  --text-display-xl: 56px;
+  --text-display-lg: 48px;
+  --text-display-xl: 64px;
 
-  /* ── Fonts ──────────────────────────────────────────────────────── */
-  --font-display: var(--font-sora), "Sora", system-ui, -apple-system, sans-serif;
+  /* ── Fonts (sadece Inter; Sora düştü — hiyerarşi ağırlıkla) ─────── */
+  --font-display: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
 
-  /* ── Premium yüzey gradyanları / atmosfer ───────────────────────── */
-  --gradient-accent: linear-gradient(135deg, rgba(155, 44, 52, 0.16), rgba(155, 44, 52, 0.02));
-  --gradient-accent-2: linear-gradient(135deg, rgba(245, 128, 62, 0.16), rgba(245, 128, 62, 0.02));
+  /* ── Premium yüzey gradyanları / atmosfer (cyan / lime) ─────────── */
+  --gradient-accent: linear-gradient(135deg, rgba(225, 29, 72, 0.16), rgba(225, 29, 72, 0.02));
+  --gradient-accent-2: linear-gradient(135deg, rgba(205, 253, 46, 0.16), rgba(205, 253, 46, 0.02));
   --gradient-surface: linear-gradient(160deg, var(--bg-elevated), var(--bg-surface));
   /* Saf dark — hero radial tamamen kaldırıldı (şeffaf no-op) */
   --gradient-hero: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
 
-  /* ── Elevation / depth (katmanlı ambient+key) ───────────────────── */
+  /* ── Elevation / depth (Genesis flat-rest + XPatla modal glow) ──── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 36px rgba(0, 0, 0, 0.5);
-  --shadow-accent: 0 6px 16px rgba(155, 44, 52, 0.35), 0 2px 4px rgba(155, 44, 52, 0.25);
+  --glow-cyan: 0 4px 18px -6px rgba(225, 29, 72, 0.4), 0 1px 3px rgba(225, 29, 72, 0.18); /* buton rest glow (XPatla) */
+  --shadow-accent: 0 8px 28px -6px rgba(225, 29, 72, 0.55), 0 2px 8px rgba(225, 29, 72, 0.28); /* cyan hover glow (güçlü) */
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 70px rgba(225, 29, 72, 0.18); /* dark + cyan glow */
   --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.6);
   --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.04); /* "yukarıdan ışıklı" panel */
-  --ring-focus: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+  --ring-focus: 0 0 0 3px rgba(225, 29, 72, 0.12); /* Genesis cyan focus ring */
 
   /* ── Editöryal ritim + motion + doku ────────────────────────────── */
   --space-section: 64px;
@@ -106,45 +110,46 @@
 
 @theme inline {
   /* Colors → Tailwind utilities (bg-accent, text-danger, border-default…) */
-  --color-base: #0a0908;
-  --color-surface: #121110;
-  --color-elevated: #1a1817;
-  --color-bg-hover: #211e1c;
-  --color-border-default: #262321;
-  --color-border-strong: #34302d;
-  --color-text-primary: #ece9e6;
-  --color-text-secondary: #8f8a85;
-  --color-text-muted: #5a5550;
+  --color-base: #0a0a0a;
+  --color-surface: #1a1a1a;
+  --color-elevated: #1d1d1d;
+  --color-bg-hover: #2c2c2c;
+  --color-border-default: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.15);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.78);
+  --color-text-muted: rgba(255, 255, 255, 0.55);
 
-  --color-accent: #9b2c34;
-  --color-accent-hover: #b23a42;
-  --color-accent-dark: #2a0e10;
-  --color-accent-fg: #f4e9ea;
-  --color-accent-text: #c95058;
+  --color-accent: #e11d48;
+  --color-accent-hover: #f43f5e;
+  --color-accent-dark: rgba(225, 29, 72, 0.12);
+  --color-accent-fg: #ffffff;
+  --color-accent-text: #fb7185;
 
-  --color-accent-2: #f5803e;
-  --color-accent-2-text: #f7a06a;
+  --color-accent-2: #cdfd2e;
+  --color-accent-2-text: #cdfd2e;
 
-  --color-danger: #e5484d;
-  --color-success: #3fb27f;
-  --color-xred: #e5484d;
+  --color-danger: #f43f5e;
+  --color-success: #34d399;
+  --color-xred: #f43f5e;
   --color-xblue: #4c8dff;
   --color-xyellow: #f5b73d;
 
-  --color-chart-1: #9b2c34;
+  --color-chart-1: #e11d48;
   --color-chart-2: #4c8dff;
-  --color-chart-3: #f5b73d;
-  --color-chart-4: #3fb27f;
+  --color-chart-3: #cdfd2e;
+  --color-chart-4: #f43f5e;
 
-  /* Radius → rounded-* utilities (bento) */
+  /* Radius → rounded-* utilities (XPatla pill + yuvarlak) */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 24px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-pill: 9999px;
 
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-sora), "Sora", system-ui, sans-serif;
+  --font-display: var(--font-inter), "Inter", system-ui, sans-serif;
 }
 
 * {
@@ -157,13 +162,13 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Premium başlık fontu yardımcı sınıfı (yalnızca başlık/hero statlarında). */
+/* Premium başlık fontu yardımcı sınıfı (Inter heavy = display etkisi). */
 .font-display {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
@@ -176,7 +181,7 @@ body {
   font-weight: 700;
   letter-spacing: var(--eyebrow-tracking);
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent-text); /* XPatla: section label cyan */
 }
 
 /* Tabular sayılar — metrik/maliyet/skor hizası */
@@ -216,12 +221,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #322e2b;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #423d39;
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* Textarea focus */

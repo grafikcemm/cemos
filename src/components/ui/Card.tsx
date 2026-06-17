@@ -31,19 +31,21 @@ function surfaceFor(variant: CardVariant, elevated: boolean): Surface {
   const v: CardVariant = variant === "default" && elevated ? "feature" : variant;
   switch (v) {
     case "hero":
+      // Genesis: hero tek istisna — rest'te yumuşak gölge (showcase derinliği).
       return {
         background: "var(--gradient-hero), var(--gradient-surface), var(--bg-elevated)",
         radius: "var(--radius-2xl)",
         pad: "var(--space-8)",
-        shadow: "var(--shadow-lg), var(--highlight-top)",
+        shadow: "var(--shadow-md), 0 0 48px -12px rgba(225, 29, 72, 0.18), var(--highlight-top)",
         border: "1px solid var(--border-strong)",
       };
     case "feature":
+      // Genesis flat-rest: rest'te gölgesiz (yalnız hairline highlight); gölge+lift hover'da.
       return {
         background: "var(--gradient-surface), var(--bg-elevated)",
         radius: "var(--radius-xl)",
         pad: "var(--space-5)",
-        shadow: "var(--shadow-md), var(--highlight-top)",
+        shadow: "var(--highlight-top)",
         border: "1px solid var(--border)",
       };
     case "quiet":

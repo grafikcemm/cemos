@@ -720,7 +720,7 @@ export default function DailyQueueTab() {
             }}
             style={{
               padding: "6px 14px",
-              background: "rgba(155,44,52,0.1)",
+              background: "rgba(225,29,72,0.1)",
               border: "1px solid var(--accent-border)",
               borderRadius: 6,
               color: "var(--accent)",
@@ -960,7 +960,7 @@ export default function DailyQueueTab() {
                     style={{
                       flex: 1,
                       padding: "6px 12px",
-                      background: "rgba(155,44,52,0.1)",
+                      background: "rgba(225,29,72,0.1)",
                       border: "1px solid var(--accent-border)",
                       color: "var(--accent)",
                       borderRadius: 6,
@@ -1095,7 +1095,7 @@ export default function DailyQueueTab() {
                     disabled={isSaving}
                     style={{
                       padding: "8px 12px",
-                      background: selectedItem.status === "approved" ? "rgba(155,44,52,0.12)" : "rgba(155,44,52,0.08)",
+                      background: selectedItem.status === "approved" ? "rgba(225,29,72,0.12)" : "rgba(225,29,72,0.08)",
                       border: `1px solid ${selectedItem.status === "approved" ? "var(--accent)" : "var(--accent-border)"}`,
                       color: "var(--accent)",
                       borderRadius: 6,

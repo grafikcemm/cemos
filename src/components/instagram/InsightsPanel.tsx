@@ -186,7 +186,7 @@ export default function InsightsPanel() {
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <Tooltip {...tooltipStyle} />
-                <Line type="monotone" dataKey="followerCount" name="Takipçi" stroke="#9b2c34" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="followerCount" name="Takipçi" stroke="#e11d48" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="reach" name="Erişim" stroke="#5cc8ff" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -201,7 +201,7 @@ export default function InsightsPanel() {
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <Tooltip {...tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                <Bar dataKey="saves" name="Kaydetme" fill="#9b2c34" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="saves" name="Kaydetme" fill="#e11d48" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="shares" name="Paylaşım" fill="#5cc8ff" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

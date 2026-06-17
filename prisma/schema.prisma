@@ -452,6 +452,11 @@ model ToolboxResource {
   isFavorite        Boolean  @default(false)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
+
+  // Toolbox list query filters by isActive (+ optional category) and orders by
+  // favorite/score. Composite index keeps the bucketed/lazy queries off a full
+  // table scan as the catalog grows.
+  @@index([isActive, category])
 }
 
 // Production-ready prompt library (seeded from static JSON + user additions).

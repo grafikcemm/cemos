@@ -828,7 +828,7 @@ export default function PatternLibraryTab() {
 
             <div>
               <span style={{ color: "var(--text-muted)", fontSize: 9, textTransform: "uppercase" }}>Example Good</span>
-              <p style={{ margin: "4px 0 0 0", color: "var(--text-primary)", background: "rgba(155,44,52,0.03)", border: "1px dashed var(--accent-border)", padding: "8px 10px", borderRadius: 6, fontStyle: "italic", lineHeight: 1.5 }}>
+              <p style={{ margin: "4px 0 0 0", color: "var(--text-primary)", background: "rgba(225,29,72,0.03)", border: "1px dashed var(--accent-border)", padding: "8px 10px", borderRadius: 6, fontStyle: "italic", lineHeight: 1.5 }}>
                 &ldquo;{activeDetail.exampleGood || "Örnek girilmemiş."}&rdquo;
               </p>
             </div>

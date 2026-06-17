@@ -170,7 +170,10 @@ export default function FlowRadarTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           accountHandle: draftItem.draft.accountHandle,
-          accountId: "dummy-id",
+          // accountId is resolved server-side from accountHandle (see
+          // processFeedback). The schema requires a non-empty string, so we send
+          // a placeholder the server overwrites — never persisted.
+          accountId: "resolved-server-side",
           feedbackType: finalFeedbackType,
           originalContent: draftItem.draft.content,
           editedContent: isEdited ? currentText : undefined,
@@ -675,11 +678,11 @@ export default function FlowRadarTab() {
           Karar adayları zenginleştiriliyor ve yükleniyor...
         </div>
       ) : error ? (
-        <div style={{ textAlign: "center", padding: "40px 10px", color: "#f87171", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
+        <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
           {error}
         </div>
       ) : candidates.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 10px", color: "var(--text-muted)", fontSize: 13, background: "#080808", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
+        <div style={{ textAlign: "center", padding: "80px 10px", color: "var(--text-muted)", fontSize: 13, background: "var(--bg-base)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
           Henüz Flow Radar adayı yok.
           <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
             Source Intelligence panelinde kaynak gönderiler tarandığında veya fırsat puanı oluştuğunda burada listelenecek.
@@ -712,7 +715,7 @@ export default function FlowRadarTab() {
               <div
                 key={cand.id}
                 style={{
-                  background: "#0c0c0c",
+                  background: "var(--bg-base)",
                   border: "1px solid rgba(255,255,255,0.05)",
                   padding: 16,
                   borderRadius: 8,
@@ -753,7 +756,7 @@ export default function FlowRadarTab() {
                         fontSize: 9,
                         background:
                           cand.score.suggestedAction === "tweet"
-                            ? "rgba(155,44,52,0.15)"
+                            ? "rgba(225,29,72,0.15)"
                             : cand.score.suggestedAction === "quote"
                             ? "rgba(96,165,250,0.15)"
                             : cand.score.suggestedAction === "reply"
@@ -763,9 +766,9 @@ export default function FlowRadarTab() {
                           cand.score.suggestedAction === "tweet"
                             ? "var(--accent)"
                             : cand.score.suggestedAction === "quote"
-                            ? "#60a5fa"
+                            ? "var(--blue)"
                             : cand.score.suggestedAction === "reply"
-                            ? "#f43f5e"
+                            ? "var(--danger)"
                             : "var(--text-muted)",
                         padding: "2px 6px",
                         borderRadius: 4,
@@ -781,7 +784,7 @@ export default function FlowRadarTab() {
                         style={{
                           fontSize: 9,
                           background: cand.status === "ignored" ? "rgba(248,113,113,0.12)" : "rgba(74,222,128,0.12)",
-                          color: cand.status === "ignored" ? "#f87171" : "#4ade80",
+                          color: cand.status === "ignored" ? "var(--danger)" : "var(--green)",
                           padding: "2px 6px",
                           borderRadius: 4,
                           fontWeight: 600,
@@ -800,7 +803,7 @@ export default function FlowRadarTab() {
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: 10,
-                    background: "#121212",
+                    background: "var(--bg-surface)",
                     padding: 8,
                     borderRadius: 6,
                     border: "1px solid rgba(255,255,255,0.03)"
@@ -812,7 +815,7 @@ export default function FlowRadarTab() {
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        color: isHighOpp ? "#4ade80" : "#fff"
+                        color: isHighOpp ? "var(--green)" : "var(--text-primary)"
                       }}
                     >
                       {cand.score.opportunityScore}%
@@ -825,7 +828,7 @@ export default function FlowRadarTab() {
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        color: isHighRisk ? "#f87171" : "#fff"
+                        color: isHighRisk ? "var(--danger)" : "var(--text-primary)"
                       }}
                     >
                       {cand.score.riskScore}%
@@ -865,7 +868,7 @@ export default function FlowRadarTab() {
                           key={idx}
                           style={{
                             fontSize: 9,
-                            background: "rgba(155,44,52,0.12)",
+                            background: "rgba(225,29,72,0.12)",
                             color: "var(--accent)",
                             padding: "1px 5px",
                             borderRadius: 3
@@ -908,8 +911,8 @@ export default function FlowRadarTab() {
                   <button
                     onClick={() => handleSaveAsPattern(cand.id)}
                     style={{
-                      background: "rgba(155,44,52,0.08)",
-                      border: "1px solid rgba(155,44,52,0.15)",
+                      background: "rgba(225,29,72,0.08)",
+                      border: "1px solid rgba(225,29,72,0.15)",
                       color: "var(--accent)",
                       fontSize: 10,
                       fontWeight: 600,
@@ -927,7 +930,7 @@ export default function FlowRadarTab() {
                       style={{
                         background: "rgba(74,222,128,0.08)",
                         border: "1px solid rgba(74,222,128,0.15)",
-                        color: "#4ade80",
+                        color: "var(--green)",
                         fontSize: 10,
                         fontWeight: 500,
                         padding: "4px 8px",
@@ -945,7 +948,7 @@ export default function FlowRadarTab() {
                       style={{
                         background: "rgba(248,113,113,0.08)",
                         border: "1px solid rgba(248,113,113,0.15)",
-                        color: "#f87171",
+                        color: "var(--danger)",
                         fontSize: 10,
                         fontWeight: 500,
                         padding: "4px 8px",
@@ -962,8 +965,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleGenerateDrafts(cand, "tweet")}
                       style={{
-                        background: "rgba(155,44,52,0.12)",
-                        border: "1px solid rgba(155,44,52,0.2)",
+                        background: "rgba(225,29,72,0.12)",
+                        border: "1px solid rgba(225,29,72,0.2)",
                         color: "var(--accent)",
                         fontSize: 10,
                         fontWeight: 600,
@@ -979,7 +982,7 @@ export default function FlowRadarTab() {
                       style={{
                         background: "rgba(96,165,250,0.12)",
                         border: "1px solid rgba(96,165,250,0.2)",
-                        color: "#60a5fa",
+                        color: "var(--blue)",
                         fontSize: 10,
                         fontWeight: 600,
                         padding: "4px 8px",
@@ -994,7 +997,7 @@ export default function FlowRadarTab() {
                       style={{
                         background: "rgba(244,63,94,0.12)",
                         border: "1px solid rgba(244,63,94,0.2)",
-                        color: "#f43f5e",
+                        color: "var(--danger)",
                         fontSize: 10,
                         fontWeight: 600,
                         padding: "4px 8px",
@@ -1031,7 +1034,7 @@ export default function FlowRadarTab() {
         >
           <div
             style={{
-              background: "#0c0c0c",
+              background: "var(--bg-base)",
               border: "1px solid rgba(255,255,255,0.08)",
               padding: 22,
               borderRadius: 10,
@@ -1060,32 +1063,32 @@ export default function FlowRadarTab() {
             </div>
 
             {/* Post text */}
-            <div style={{ background: "#121212", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>KAYNAK GÖNDERİ METNİ</div>
-              <div style={{ fontSize: 13, color: "#fff", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {selectedCandidate.content}
               </div>
             </div>
 
             {/* Opportunity Breakdown */}
-            <div style={{ background: "#121212", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>ÖNERİ GEREKÇESİ</div>
-              <div style={{ fontSize: 12, color: "#fff", lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4 }}>
                 {selectedCandidate.score.reason}
               </div>
             </div>
 
             {/* Heuristic pattern details */}
-            <div style={{ background: "#121212", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>PATTERN EXTRACTION DETAYLARI</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
                 <div>
                   <span style={{ color: "var(--text-muted)" }}>Tetikleyici Duygu:</span>{" "}
-                  <span style={{ color: "#fff" }}>{selectedCandidate.pattern.emotionalTrigger}</span>
+                  <span style={{ color: "var(--text-primary)" }}>{selectedCandidate.pattern.emotionalTrigger}</span>
                 </div>
                 <div>
                   <span style={{ color: "var(--text-muted)" }}>Viral Mekanik Nedeni:</span>{" "}
-                  <span style={{ color: "#fff" }}>{selectedCandidate.pattern.viralityReason}</span>
+                  <span style={{ color: "var(--text-primary)" }}>{selectedCandidate.pattern.viralityReason}</span>
                 </div>
                 {selectedCandidate.pattern.suggestedPatterns.length > 0 && (
                   <div>
@@ -1137,7 +1140,7 @@ export default function FlowRadarTab() {
         >
           <div
             style={{
-              background: "#0c0c0c",
+              background: "var(--bg-base)",
               border: "1px solid rgba(255,255,255,0.08)",
               padding: 22,
               borderRadius: 10,
@@ -1155,7 +1158,7 @@ export default function FlowRadarTab() {
               <div>
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--accent)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
                   <span>Taslak Oluşturucu & Eleştirmen</span>
-                  <span style={{ fontSize: 10, background: "rgba(155,44,52,0.15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
+                  <span style={{ fontSize: 10, background: "rgba(225,29,72,0.15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
                     {selectedActionType}
                   </span>
                 </h3>
@@ -1185,13 +1188,13 @@ export default function FlowRadarTab() {
                 </div>
               </div>
             ) : generatingError ? (
-              <div style={{ textAlign: "center", padding: "40px 10px", color: "#f87171", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
+              <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
                 {generatingError}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Source post summary in modal */}
-                <div style={{ background: "#121212", padding: 12, borderRadius: 6, border: "1px solid rgba(255,255,255,0.03)" }}>
+                <div style={{ background: "var(--bg-surface)", padding: 12, borderRadius: 6, border: "1px solid rgba(255,255,255,0.03)" }}>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>KAYNAK GÖNDERİ</div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                     {currentDraftTargetPost?.content}
@@ -1211,7 +1214,7 @@ export default function FlowRadarTab() {
                       <div
                         key={draftId}
                         style={{
-                          background: "#121212",
+                          background: "var(--bg-surface)",
                           border: "1px solid rgba(255,255,255,0.04)",
                           borderRadius: 8,
                           padding: 14,
@@ -1235,10 +1238,10 @@ export default function FlowRadarTab() {
                                   : "rgba(244,63,94,0.12)",
                               color:
                                 item.draft.angle === "safe"
-                                  ? "#4ade80"
+                                  ? "var(--green)"
                                   : item.draft.angle === "strong"
-                                  ? "#60a5fa"
-                                  : "#f43f5e",
+                                  ? "var(--blue)"
+                                  : "var(--danger)",
                               padding: "2px 6px",
                               borderRadius: 4
                             }}
@@ -1263,9 +1266,9 @@ export default function FlowRadarTab() {
                             value={contentValue}
                             onChange={(e) => setEditableDrafts((prev) => ({ ...prev, [draftId]: e.target.value }))}
                             style={{
-                              background: "#080808",
+                              background: "var(--bg-base)",
                               border: "1px solid rgba(255,255,255,0.08)",
-                              color: "#fff",
+                              color: "var(--text-primary)",
                               padding: 10,
                               borderRadius: 6,
                               fontSize: 12,
@@ -1276,7 +1279,7 @@ export default function FlowRadarTab() {
                               lineHeight: 1.4
                             }}
                           />
-                          <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 9, color: contentValue.length > 280 ? "#f87171" : "rgba(255,255,255,0.3)" }}>
+                          <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 9, color: contentValue.length > 280 ? "var(--danger)" : "rgba(255,255,255,0.3)" }}>
                             Karakter: {contentValue.length} / 280
                           </div>
                         </div>
@@ -1284,7 +1287,7 @@ export default function FlowRadarTab() {
                         {/* Critic Breakdown */}
                         <div
                           style={{
-                            background: "#080808",
+                            background: "var(--bg-base)",
                             padding: 10,
                             borderRadius: 6,
                             border: "1px solid rgba(255,255,255,0.03)",
@@ -1313,23 +1316,23 @@ export default function FlowRadarTab() {
                                 <span>{c.hookStrengthScore}%</span>
                               </div>
                               <div style={{ background: "rgba(255,255,255,0.05)", height: 3, borderRadius: 2 }}>
-                                <div style={{ background: "#60a5fa", height: "100%", width: `${c.hookStrengthScore}%`, borderRadius: 2 }} />
+                                <div style={{ background: "var(--blue)", height: "100%", width: `${c.hookStrengthScore}%`, borderRadius: 2 }} />
                               </div>
                             </div>
 
                             <div>
                               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                                 <span style={{ color: "var(--text-muted)" }}>Risk Puanı:</span>
-                                <span style={{ color: c.riskScore >= 50 ? "#f87171" : "#4ade80" }}>{c.riskScore}%</span>
+                                <span style={{ color: c.riskScore >= 50 ? "var(--danger)" : "var(--green)" }}>{c.riskScore}%</span>
                               </div>
                               <div style={{ background: "rgba(255,255,255,0.05)", height: 3, borderRadius: 2 }}>
-                                <div style={{ background: c.riskScore >= 50 ? "#f87171" : "#4ade80", height: "100%", width: `${c.riskScore}%`, borderRadius: 2 }} />
+                                <div style={{ background: c.riskScore >= 50 ? "var(--danger)" : "var(--green)", height: "100%", width: `${c.riskScore}%`, borderRadius: 2 }} />
                               </div>
                             </div>
                           </div>
 
                           {c.rewriteSuggestion && (
-                            <div style={{ fontSize: 9, color: "#f87171", background: "rgba(248,113,113,0.04)", padding: 6, borderRadius: 4, marginTop: 4 }}>
+                            <div style={{ fontSize: 9, color: "var(--danger)", background: "rgba(248,113,113,0.04)", padding: 6, borderRadius: 4, marginTop: 4 }}>
                               <strong>Öneri:</strong> {c.rewriteSuggestion}
                             </div>
                           )}
@@ -1358,8 +1361,8 @@ export default function FlowRadarTab() {
                             disabled={fStatus === "approved"}
                             style={{
                               background: fStatus === "approved" ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.03)",
-                              border: fStatus === "approved" ? "1px solid #4ade80" : "1px solid rgba(255,255,255,0.08)",
-                              color: fStatus === "approved" ? "#4ade80" : "var(--text-primary)",
+                              border: fStatus === "approved" ? "1px solid var(--green)" : "1px solid rgba(255,255,255,0.08)",
+                              color: fStatus === "approved" ? "var(--green)" : "var(--text-primary)",
                               fontSize: 9,
                               padding: "4px 8px",
                               borderRadius: 4,
@@ -1375,8 +1378,8 @@ export default function FlowRadarTab() {
                             disabled={fStatus === "rejected"}
                             style={{
                               background: fStatus === "rejected" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.03)",
-                              border: fStatus === "rejected" ? "1px solid #f87171" : "1px solid rgba(255,255,255,0.08)",
-                              color: fStatus === "rejected" ? "#f87171" : "var(--text-primary)",
+                              border: fStatus === "rejected" ? "1px solid var(--danger)" : "1px solid rgba(255,255,255,0.08)",
+                              color: fStatus === "rejected" ? "var(--danger)" : "var(--text-primary)",
                               fontSize: 9,
                               padding: "4px 8px",
                               borderRadius: 4,
@@ -1391,8 +1394,8 @@ export default function FlowRadarTab() {
                             onClick={() => handleSaveToQueue(item)}
                             disabled={isSaving}
                             style={{
-                              background: "rgba(155,44,52,0.12)",
-                              border: "1px solid rgba(155,44,52,0.2)",
+                              background: "rgba(225,29,72,0.12)",
+                              border: "1px solid rgba(225,29,72,0.2)",
                               color: "var(--accent)",
                               fontSize: 9,
                               fontWeight: 600,

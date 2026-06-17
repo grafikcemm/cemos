@@ -37,8 +37,8 @@ const SURFACE: Record<Variant, { bg: string; color: string; border: string; hove
   danger: {
     bg: "transparent",
     color: "var(--danger)",
-    border: "rgba(229,72,77,0.4)",
-    hover: "rgba(229,72,77,0.12)",
+    border: "rgba(244,63,94,0.4)",
+    hover: "rgba(244,63,94,0.12)",
   },
 };
 
@@ -70,22 +70,28 @@ export default function Button({
         background: s.bg,
         color: s.color,
         border: `1px solid ${s.border}`,
-        borderRadius: "var(--radius-md)",
-        padding: size === "sm" ? "4px 10px" : "7px 14px",
+        borderRadius: "var(--radius-pill)",
+        padding: size === "sm" ? "5px 13px" : "8px 17px",
         fontSize: size === "sm" ? "var(--text-xs)" : "var(--text-sm)",
         fontWeight: 600,
         fontFamily: "inherit",
         cursor: isDisabled ? "not-allowed" : "pointer",
         opacity: isDisabled ? 0.5 : 1,
         whiteSpace: "nowrap",
-        transition: "background 0.15s, border-color 0.15s, opacity 0.15s",
+        boxShadow: variant === "primary" ? "var(--glow-cyan)" : "none",
+        transition: "background 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s",
         ...style,
       }}
       onMouseEnter={(e) => {
-        if (!isDisabled) e.currentTarget.style.background = s.hover;
+        if (isDisabled) return;
+        e.currentTarget.style.background = s.hover;
+        // Primary: XPatla cyan glow on hover (Genesis: gölge yalnız hover'da).
+        if (variant === "primary") e.currentTarget.style.boxShadow = "var(--shadow-accent)";
       }}
       onMouseLeave={(e) => {
-        if (!isDisabled) e.currentTarget.style.background = s.bg;
+        if (isDisabled) return;
+        e.currentTarget.style.background = s.bg;
+        e.currentTarget.style.boxShadow = variant === "primary" ? "var(--glow-cyan)" : "none";
       }}
     >
       {loading ? <span className="spinner" /> : iconLeft}

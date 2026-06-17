@@ -29,6 +29,51 @@ const defaultSources = [
   // cinsiyet-realizmi kaynakları (daha yüksek eşik → ton dengesi generation forbidden ile korunur)
   { handle: "bayredpill", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "maskulenkod" },
   { handle: "klaus0035", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "maskulenkod" },
+
+  // ── grafikcem güçlendirme: tasarım / UI-UX ────────────────────────────────
+  { handle: "adamwathan", displayName: "Adam Wathan (Tailwind)", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "steveschoger", displayName: "Steve Schoger (Refactoring UI)", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "grafikcem" },
+  { handle: "shadcn", displayName: "shadcn", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "rauchg", displayName: "Guillermo Rauch (Vercel)", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "leeerob", displayName: "Lee Robinson", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "grafikcem" },
+  { handle: "addyosmani", displayName: "Addy Osmani", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "JackButcher", displayName: "Jack Butcher (Visualize Value)", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "visualizevalue", displayName: "Visualize Value", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "grafikcem" },
+  { handle: "figma", displayName: "Figma", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+
+  // ── grafikcem güçlendirme: AI görsel / video / haber ──────────────────────
+  { handle: "minchoi", displayName: "Min Choi", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "mreflow", displayName: "Matt Wolfe", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "heyBarsee", displayName: "Barsee", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "grafikcem" },
+  { handle: "nickfloats", displayName: "Nick St. Pierre", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "grafikcem" },
+  { handle: "DrJimFan", displayName: "Jim Fan", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "emollick", displayName: "Ethan Mollick", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "AnthropicAI", displayName: "Anthropic", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "OpenAI", displayName: "OpenAI", mode: "TWEET", thresholdLikes: 200, thresholdRetweets: 40, channel: "grafikcem" },
+  { handle: "midjourney", displayName: "Midjourney", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "runwayml", displayName: "Runway", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+
+  // ── grafikcem güçlendirme: içerik / sosyal medya büyüme ───────────────────
+  { handle: "thejustinwelsh", displayName: "Justin Welsh", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "dickiebush", displayName: "Dickie Bush", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "Nicolascole77", displayName: "Nicolas Cole", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "levelsio", displayName: "Pieter Levels", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+  { handle: "garrytan", displayName: "Garry Tan", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "grafikcem" },
+
+  // ── maskulenkod güçlendirme: disiplin / mindset / self-dev ────────────────
+  { handle: "hubermanlab", displayName: "Andrew Huberman", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "AlexHormozi", displayName: "Alex Hormozi", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "EdMylett", displayName: "Ed Mylett", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "RobertGreene", displayName: "Robert Greene", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "DavidGoggins", displayName: "David Goggins", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "TheStoicEmperor", displayName: "The Stoic Emperor", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "maskulenkod" },
+  { handle: "OrangeBook_", displayName: "Orange Book", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "maskulenkod" },
+  { handle: "thedankoe", displayName: "Dan Koe", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "ShaanVP", displayName: "Shaan Puri", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "gregisenberg", displayName: "Greg Isenberg", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "Codie_Sanchez", displayName: "Codie Sanchez", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
+  { handle: "dvassallo", displayName: "Daniel Vassallo", mode: "TWEET", thresholdLikes: 50, thresholdRetweets: 8, channel: "maskulenkod" },
+  { handle: "thesamparr", displayName: "Sam Parr", mode: "TWEET", thresholdLikes: 100, thresholdRetweets: 20, channel: "maskulenkod" },
 ];
 
 const scheduleDefaults: Record<string, "daily" | "monday"> = {

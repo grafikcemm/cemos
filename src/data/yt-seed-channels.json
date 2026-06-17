@@ -40,5 +40,31 @@
   { "handle": "@mkbhd", "category": "global" },
   { "handle": "@ColdFusion", "category": "global" },
   { "handle": "@veritasium", "category": "global" },
-  { "handle": "@johnnyharris", "category": "global" }
+  { "handle": "@johnnyharris", "category": "global" },
+
+  { "handle": "@SatoriGraphics", "category": "tasarim" },
+  { "handle": "@WillPatersonDesign", "category": "tasarim" },
+  { "handle": "@PiXimperfect", "category": "tasarim" },
+  { "handle": "@JustinOdisho", "category": "tasarim" },
+  { "handle": "@BenMarriott", "category": "tasarim" },
+  { "handle": "@MtMograph", "category": "tasarim" },
+  { "handle": "@gareth_david_studio", "category": "tasarim" },
+  { "handle": "@ECAbrams", "category": "tasarim" },
+  { "handle": "@RobertoBlake", "category": "tasarim" },
+
+  { "handle": "@sebastiankamph", "category": "ai_tips" },
+  { "handle": "@OlivioSarikas", "category": "ai_tips" },
+  { "handle": "@MickMumpitz", "category": "ai_tips" },
+  { "handle": "@MattVidPro", "category": "ai_tips" },
+  { "handle": "@bycloudAI", "category": "ai_tips" },
+
+  { "handle": "@TwoMinutePapers", "category": "ai_haber" },
+  { "handle": "@YannicKilcher", "category": "ai_haber" },
+
+  { "handle": "@AliAbdaal", "category": "global" },
+  { "handle": "@ThomasFrankly", "category": "global" },
+  { "handle": "@colinandsamir", "category": "global" },
+  { "handle": "@VanessaLauTV", "category": "global" },
+  { "handle": "@THiNKmediaTV", "category": "global" },
+  { "handle": "@kurzgesagt", "category": "global" }
 ]

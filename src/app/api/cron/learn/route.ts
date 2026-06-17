@@ -198,6 +198,19 @@ async function runLearn(handleParam: string | null) {
     }
   }
 
+  // Mondays: refresh the AI model leaderboard (AI Sıralama) from the public
+  // sources. Best-effort + graceful — keeps the last good snapshot if the
+  // sources are unreadable. Weekly here avoids a separate Vercel cron slot.
+  let rankingsRefresh: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { refreshRankings } = await import("@/lib/services/aiRankingsService");
+      rankingsRefresh = await refreshRankings();
+    } catch (err) {
+      rankingsRefresh = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -221,10 +234,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement },
+      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh },
     });
   }
-  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement };
+  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

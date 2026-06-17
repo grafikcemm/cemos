@@ -9,6 +9,7 @@ import {
 } from "./feedback-service";
 import { scoreDraft } from "@/lib/growth-engine/scorer";
 import { extractPattern, patternExtractionToViralPatternInput } from "@/lib/growth-engine/pattern-extractor";
+import { accountRepo } from "@/lib/db/accountRepo";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
@@ -32,6 +33,12 @@ vi.mock("@/lib/db/trainingExampleRepo", () => ({
 vi.mock("@/lib/db/viralPatternRepo", () => ({
   viralPatternRepo: {
     create: vi.fn()
+  }
+}));
+
+vi.mock("@/lib/db/accountRepo", () => ({
+  accountRepo: {
+    findByHandle: vi.fn()
   }
 }));
 
@@ -236,6 +243,7 @@ describe("processFeedback (Main Flow)", () => {
     vi.clearAllMocks();
 
     // Default mock behavior
+    vi.mocked(accountRepo.findByHandle).mockResolvedValue({ id: "acc-123", handle: "grafikcem" } as any);
     vi.mocked(feedbackEventRepo.create).mockResolvedValue({ id: "mock-feedback-id" } as any);
     vi.mocked(trainingExampleRepo.create).mockResolvedValue({ id: "mock-training-id" } as any);
     vi.mocked(viralPatternRepo.create).mockResolvedValue({ id: "mock-pattern-id" } as any);
