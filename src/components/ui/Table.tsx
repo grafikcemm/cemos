@@ -39,7 +39,7 @@ export default function Table<T>({ columns, rows, getRowKey, compact, onRowClick
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                   color: "var(--text-muted)",
-                  borderBottom: "1px solid var(--border)",
+                  borderBottom: "1px solid var(--border-faint)",
                   background: "var(--bg-elevated)",
                   whiteSpace: "nowrap",
                 }}
@@ -69,7 +69,7 @@ export default function Table<T>({ columns, rows, getRowKey, compact, onRowClick
                     textAlign: c.align ?? "left",
                     padding: cellPad,
                     color: "var(--text-primary)",
-                    borderBottom: "1px solid var(--border)",
+                    borderBottom: "1px solid var(--border-faint)",
                     verticalAlign: "middle",
                   }}
                 >

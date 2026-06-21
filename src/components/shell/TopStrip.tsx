@@ -19,11 +19,11 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
         display: "flex",
         alignItems: "center",
         gap: 10,
-        padding: "0 24px",
-        borderBottom: "1px solid var(--border)",
-        background: "rgba(10,10,10,0.8)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
+        padding: "0 var(--space-page-x)",
+        borderBottom: "1px solid var(--border-faint)",
+        background: "rgba(11,12,16,0.82)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
         position: "sticky",
         top: 0,
         zIndex: 40,
@@ -57,16 +57,14 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
             </span>
             <span style={{ color: "var(--border-strong)" }}>/</span>
             <span
-              className="font-display"
-              style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+              style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
             >
               {subTabLabel}
             </span>
           </>
         ) : (
           <span
-            className="font-display"
-            style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+            style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
           >
             {areaLabel}
           </span>

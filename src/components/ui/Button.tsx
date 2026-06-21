@@ -4,18 +4,23 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md";
+type Intent = "default" | "generate";
 
 type ButtonProps = {
   children: ReactNode;
   variant?: Variant;
   size?: Size;
+  /** "generate" → neon-lime "AI üret/oluştur" affordance'ı (tek lime kullanımı). */
+  intent?: Intent;
   loading?: boolean;
   iconLeft?: ReactNode;
   iconRight?: ReactNode;
   fullWidth?: boolean;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">;
 
-const SURFACE: Record<Variant, { bg: string; color: string; border: string; hover: string }> = {
+type SurfaceSpec = { bg: string; color: string; border: string; hover: string };
+
+const SURFACE: Record<Variant, SurfaceSpec> = {
   primary: {
     bg: "var(--accent)",
     color: "var(--accent-fg)",
@@ -37,15 +42,24 @@ const SURFACE: Record<Variant, { bg: string; color: string; border: string; hove
   danger: {
     bg: "transparent",
     color: "var(--danger)",
-    border: "rgba(244,63,94,0.4)",
-    hover: "rgba(244,63,94,0.12)",
+    border: "rgba(244,83,107,0.4)",
+    hover: "rgba(244,83,107,0.12)",
   },
+};
+
+// Lime "üret" affordance'ı — varianttan bağımsız override.
+const GENERATE: SurfaceSpec = {
+  bg: "var(--accent-2-dark)",
+  color: "var(--accent-2-text)",
+  border: "var(--accent-2-border)",
+  hover: "rgba(205,253,46,0.2)",
 };
 
 export default function Button({
   children,
   variant = "secondary",
   size = "md",
+  intent = "default",
   loading = false,
   iconLeft,
   iconRight,
@@ -54,8 +68,9 @@ export default function Button({
   style,
   ...rest
 }: ButtonProps) {
-  const s = SURFACE[variant];
+  const s = intent === "generate" ? GENERATE : SURFACE[variant];
   const isDisabled = disabled || loading;
+  const isPrimary = variant === "primary" && intent === "default";
 
   return (
     <button
@@ -70,28 +85,27 @@ export default function Button({
         background: s.bg,
         color: s.color,
         border: `1px solid ${s.border}`,
-        borderRadius: "var(--radius-pill)",
-        padding: size === "sm" ? "5px 13px" : "8px 17px",
+        borderRadius: "var(--radius-md)",
+        padding: size === "sm" ? "6px 14px" : "9px 18px",
         fontSize: size === "sm" ? "var(--text-xs)" : "var(--text-sm)",
         fontWeight: 600,
         fontFamily: "inherit",
         cursor: isDisabled ? "not-allowed" : "pointer",
         opacity: isDisabled ? 0.5 : 1,
         whiteSpace: "nowrap",
-        boxShadow: variant === "primary" ? "var(--glow-cyan)" : "none",
+        boxShadow: isPrimary ? "var(--glow-cyan)" : "none",
         transition: "background 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s",
         ...style,
       }}
       onMouseEnter={(e) => {
         if (isDisabled) return;
         e.currentTarget.style.background = s.hover;
-        // Primary: XPatla cyan glow on hover (Genesis: gölge yalnız hover'da).
-        if (variant === "primary") e.currentTarget.style.boxShadow = "var(--shadow-accent)";
+        if (isPrimary) e.currentTarget.style.boxShadow = "var(--shadow-accent)";
       }}
       onMouseLeave={(e) => {
         if (isDisabled) return;
         e.currentTarget.style.background = s.bg;
-        e.currentTarget.style.boxShadow = variant === "primary" ? "var(--glow-cyan)" : "none";
+        e.currentTarget.style.boxShadow = isPrimary ? "var(--glow-cyan)" : "none";
       }}
     >
       {loading ? <span className="spinner" /> : iconLeft}

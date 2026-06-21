@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PenLine, DollarSign, Activity } from "lucide-react";
+import type { ReactNode } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 
 type Readiness = {
@@ -15,62 +17,77 @@ const DRAFT_TARGET = 2; // 2 hesap × 1 taslak/gün
 
 type StatTone = "accent" | "amber" | "green" | "muted";
 
-const TONE_TEXT: Record<StatTone, string> = {
-  accent: "var(--accent-text)",
-  amber: "var(--accent-2-text)",
-  green: "var(--green)",
-  muted: "var(--text-secondary)",
+const TONE: Record<StatTone, { text: string; bg: string; border: string }> = {
+  accent: { text: "var(--accent-text)", bg: "var(--accent-dark)", border: "var(--accent-border)" },
+  amber: { text: "var(--accent-2-text)", bg: "var(--accent-2-dark)", border: "var(--accent-2-border)" },
+  green: { text: "var(--green)", bg: "rgba(52,211,153,0.13)", border: "rgba(52,211,153,0.28)" },
+  muted: { text: "var(--text-secondary)", bg: "var(--bg-hover)", border: "var(--border)" },
 };
 
-function Stat({
+function StatTile({
   eyebrow,
   value,
   sub,
   tone,
-  dot,
+  icon,
 }: {
   eyebrow: string;
   value: string;
   sub?: string;
   tone: StatTone;
-  dot?: boolean;
+  icon: ReactNode;
 }) {
+  const t = TONE[tone];
   return (
-    <div style={{ flex: 1, minWidth: 0, padding: "4px 4px" }}>
-      <div className="eyebrow" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-        {dot && (
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: TONE_TEXT[tone],
-              boxShadow: `0 0 0 3px color-mix(in srgb, ${TONE_TEXT[tone]} 22%, transparent)`,
-            }}
-          />
-        )}
-        {eyebrow}
+    <div
+      style={{
+        position: "relative",
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+        padding: "18px 20px",
+        borderRadius: "var(--radius-lg)",
+        background: "var(--bg-sunken)",
+        border: "1px solid var(--border-faint)",
+        overflow: "hidden",
+      }}
+    >
+      {/* sol tone şeridi */}
+      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: t.text, opacity: 0.85 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "var(--radius-md)",
+            display: "grid",
+            placeItems: "center",
+            background: t.bg,
+            border: `1px solid ${t.border}`,
+            color: t.text,
+            flexShrink: 0,
+          }}
+        >
+          {icon}
+        </span>
+        <span className="eyebrow" style={{ color: "var(--text-muted)" }}>
+          {eyebrow}
+        </span>
       </div>
       <div
         className="font-display tnum"
-        style={{
-          fontSize: "var(--text-4xl)",
-          fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: "-0.03em",
-          color: TONE_TEXT[tone],
-        }}
+        style={{ fontSize: "var(--text-4xl)", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.025em", color: t.text }}
       >
         {value}
       </div>
-      {sub && (
-        <div style={{ marginTop: 8, fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{sub}</div>
-      )}
+      {sub && <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{sub}</div>}
     </div>
   );
 }
 
-/** Bugün ekranının editöryal hero stat şeridi — taslak / maliyet / sistem (tek bant). */
+/** Bugün ekranının hero stat şeridi — taslak / maliyet / sistem (3 tasarımlı tile). */
 export default function MorningHeroStats() {
   const [data, setData] = useState<Readiness | null>(null);
 
@@ -98,27 +115,41 @@ export default function MorningHeroStats() {
   const statusTone: StatTone = statusReady ? "green" : statusWarn ? "amber" : "muted";
   const statusSub = loading ? "yükleniyor…" : statusReady ? "tüm sistemler çalışıyor" : statusWarn ? "uyarılar var" : "üretim bekleniyor";
 
-  const divider = <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0 }} />;
-
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "stretch",
-        gap: 24,
-        padding: "24px 28px",
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 14,
+        padding: 16,
         marginBottom: "var(--space-6)",
         borderRadius: "var(--radius-2xl)",
-        background: "var(--gradient-hero), var(--gradient-surface), var(--bg-elevated)",
+        background: "var(--gradient-surface), var(--bg-elevated)",
         border: "1px solid var(--border-strong)",
         boxShadow: "var(--shadow-md), var(--highlight-top)",
       }}
     >
-      <Stat eyebrow="Bugünkü üretim" value={loading ? "–" : String(drafts)} sub={draftSub} tone="accent" />
-      {divider}
-      <Stat eyebrow="Bu ay maliyet" value={loading ? "–" : `$${cost.toFixed(2)}`} sub={costSub} tone={costTone} />
-      {divider}
-      <Stat eyebrow="Sistem" value={statusValue} sub={statusSub} tone={statusTone} dot={!loading} />
+      <StatTile
+        eyebrow="Bugünkü üretim"
+        value={loading ? "–" : String(drafts)}
+        sub={draftSub}
+        tone="accent"
+        icon={<PenLine size={16} strokeWidth={1.9} />}
+      />
+      <StatTile
+        eyebrow="Bu ay maliyet"
+        value={loading ? "–" : `$${cost.toFixed(2)}`}
+        sub={costSub}
+        tone={costTone}
+        icon={<DollarSign size={16} strokeWidth={1.9} />}
+      />
+      <StatTile
+        eyebrow="Sistem"
+        value={statusValue}
+        sub={statusSub}
+        tone={statusTone}
+        icon={<Activity size={16} strokeWidth={1.9} />}
+      />
     </div>
   );
 }

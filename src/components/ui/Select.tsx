@@ -14,12 +14,12 @@ export default function Select({ options, style, ...rest }: SelectProps) {
     <select
       {...rest}
       style={{
-        background: "var(--bg-base)",
+        background: "var(--bg-sunken)",
         border: "1px solid var(--border-strong)",
         borderRadius: "var(--radius-md)",
         color: "var(--text-primary)",
-        padding: "5px 9px",
-        fontSize: "var(--text-xs)",
+        padding: "7px 10px",
+        fontSize: "var(--text-sm)",
         fontFamily: "inherit",
         cursor: "pointer",
         outline: "none",

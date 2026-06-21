@@ -3,11 +3,39 @@
 import { useState } from "react";
 import { Star, ExternalLink, X, Heart, Repeat2, Sparkles, Quote, Reply, Library } from "lucide-react";
 import { useXAgentStore, type FlowTweet, type QueueItem, type Channel } from "@/store/xagent";
-import { PageHeader, Card, MetricCard, EmptyState, Badge, Button } from "@/components/ui";
+import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, SubNav } from "@/components/ui";
+import PromptKutuphanesiTab from "./PromptKutuphanesiTab";
+import PatternLibraryTab from "./PatternLibraryTab";
 
 const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
+const VIEWS = [
+  { id: "tweets", label: "Tweetler" },
+  { id: "prompts", label: "Promptlar" },
+  { id: "patterns", label: "Patternler" },
+];
+
+/**
+ * Kütüphane host — eski Kütüphane (tweetler) + Prompt Kütüphanesi + Pattern
+ * Kütüphanesi tek sekme + üst SubNav altında birleşir. Alt sayfalar kendi
+ * başlıklarını korur. Alt-görünüm `libraryView` ile persist edilir.
+ */
 export default function LibraryTab() {
+  const libraryView = useXAgentStore((s) => s.libraryView);
+  const setLibraryView = useXAgentStore((s) => s.setLibraryView);
+  const view = VIEWS.some((v) => v.id === libraryView) ? libraryView : "tweets";
+
+  return (
+    <div style={{ width: "100%", minWidth: 0 }}>
+      <SubNav items={VIEWS} activeId={view} onSelect={setLibraryView} />
+      {view === "tweets" && <TweetsView />}
+      {view === "prompts" && <PromptKutuphanesiTab />}
+      {view === "patterns" && <PatternLibraryTab />}
+    </div>
+  );
+}
+
+function TweetsView() {
   const savedTweets = useXAgentStore((s) => s.savedTweets);
   const removeSavedTweet = useXAgentStore((s) => s.removeSavedTweet);
   const addQueueItem = useXAgentStore((s) => s.addQueueItem);
@@ -63,6 +91,7 @@ export default function LibraryTab() {
         eyebrow="KÜTÜPHANE"
         title="Viral Kütüphane"
         subtitle="Yıldızladığın viral tweetler — referans ve yeni üretim kaynağı."
+        size="page"
       />
 
       {/* Editöryal stat şeridi */}

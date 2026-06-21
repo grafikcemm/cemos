@@ -126,10 +126,16 @@ model QueueItem {
   // Visual content: carried-over source image and/or AI-generated image.
   imageUrl          String?
   generatedImageUrl String?
+  // Faz C — content atomization: links sibling drafts spawned from one idea.
+  // packageRole: main | thread | quote_bait | reply_angle | variant.
+  packageId         String?
+  packageRole       String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   generationRun GenerationRun?
+
+  @@index([packageId])
 }
 
 model Schedule {
@@ -729,4 +735,189 @@ model IgInsightSnapshot {
   rawJson         String   @default("{}") // ham insight — drift teşhisi
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ── CemOS Learn (Faz L) — eğitici YouTube videosu → kaynaklandırılmış kalıcı
+// öğrenme. Global veri, Account relation YOK (Yt/News deseni). JSON = String
+// kolonu (safeJsonParse). Tamamı additive; mevcut modeller dokunulmaz. Tek
+// kullanıcı: userId yalnız ileri-uyum (RLS yok, auth yok). LEARN_ENABLED flag'i
+// arkasında çalışır.
+
+// Eklenen kaynak (şu an yalnız YouTube). @@unique([kind, externalId]) →
+// aynı video iki kez eklenince yeni kayıt değil, mevcut kaynak döner (idempotent).
+model LearnSource {
+  id           String   @id @default(cuid())
+  userId       String? // ileri-uyum scope; null = tek kullanıcı
+  kind         String   @default("youtube") // youtube | url | text (gelecek)
+  externalId   String // YouTube videoId
+  url          String
+  title        String   @default("")
+  channelTitle String   @default("")
+  durationSec  Int      @default(0)
+  lang         String?
+  metaJson     String   @default("{}") // ham metadata snapshot
+  status       String   @default("new") // new | processing | ready | failed
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transcript LearnTranscript?
+  packs      LearnPack[]
+  jobs       LearnProcessingJob[]
+
+  @@unique([kind, externalId])
+  @@index([status])
+}
+
+// Ham transkript (zaman-kodlu segmentler + düz metin). Kaynak başına bir tane.
+model LearnTranscript {
+  id           String      @id @default(cuid())
+  sourceId     String      @unique
+  source       LearnSource @relation(fields: [sourceId], references: [id])
+  provider     String      @default("innertube") // innertube | timedtext | manual
+  lang         String?
+  segmentsJson String      @default("[]") // [{startSec,endSec,text}] chunk öncesi ham
+  fullText     String      @default("")
+  charCount    Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  chunks LearnChunk[]
+}
+
+// Zaman-kodlu chunk (grounding birimi). idx sıralı; sectionIdx → section synthesis.
+model LearnChunk {
+  id           String          @id @default(cuid())
+  transcriptId String
+  transcript   LearnTranscript @relation(fields: [transcriptId], references: [id])
+  sourceId     String // sorgu kolaylığı için düz kolon
+  idx          Int // 0-tabanlı sıra
+  startSec     Float           @default(0)
+  endSec       Float           @default(0)
+  text         String
+  sectionIdx   Int             @default(0) // map-reduce gruplaması
+  createdAt    DateTime        @default(now())
+
+  @@unique([sourceId, idx])
+  @@index([sourceId, sectionIdx])
+}
+
+// Üretilen Learning Pack. @@unique([sourceId, pipelineVersion]) → cache anahtarı:
+// aynı transkript + aynı versiyon yeniden işlenmez (gereksiz LLM harcaması yok).
+model LearnPack {
+  id              String      @id @default(cuid())
+  sourceId        String
+  source          LearnSource @relation(fields: [sourceId], references: [id])
+  pipelineVersion String      @default("")
+  promptVersion   String      @default("")
+  status          String      @default("draft") // draft | qa_pending | ready | qa_failed
+  category        String      @default("diger") // yapay_zeka | kisisel_gelisim | ... (slug)
+  summaryL1       String      @default("") // 30sn / tek cümle
+  summaryL2       String      @default("") // yönetici özeti
+  summaryL3       String      @default("") // bölüm bölüm
+  notesJson       String      @default("[]") // yapılandırılmış not ağacı (birim okuma)
+  qaReportJson    String      @default("{}") // grounding coverage, flagged, verdict
+  masteryScore    Float       @default(0) // kavramlardan toplanan 0..100
+  modelUsed       String      @default("")
+  costUsd         Float       @default(0)
+  warningsJson    String      @default("[]")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  concepts LearnConcept[]
+  items    LearnItem[]
+
+  @@unique([sourceId, pipelineVersion])
+  @@index([status])
+}
+
+// Çıkarılan kavram. groundingJson kanıt bağı; masteryScore review-driven.
+model LearnConcept {
+  id            String    @id @default(cuid())
+  packId        String
+  pack          LearnPack @relation(fields: [packId], references: [id])
+  label         String
+  definition    String    @default("")
+  importance    Int       @default(50) // 0..100
+  groundingJson String    @default("[]") // [{chunkIdx, support?}]
+  masteryScore  Float     @default(0) // kavram-bazlı mastery (review yazar)
+  createdAt     DateTime  @default(now())
+
+  items LearnItem[]
+
+  @@index([packId])
+}
+
+// Flashcard / quiz item'ı. groundingType: source_supported | external_context |
+// inference | uncertain. correctIdx yalnız quiz_mcq'da dolu.
+model LearnItem {
+  id            String        @id @default(cuid())
+  packId        String
+  pack          LearnPack     @relation(fields: [packId], references: [id])
+  conceptId     String?
+  concept       LearnConcept? @relation(fields: [conceptId], references: [id])
+  kind          String // flashcard | quiz_mcq
+  front         String        @default("") // flashcard ön / quiz kök
+  back          String        @default("") // flashcard arka / cevap gerekçesi
+  optionsJson   String        @default("[]") // quiz şıkları
+  correctIdx    Int? // quiz doğru şık indeksi
+  difficulty    Int           @default(2) // 1..5 (soru seçimi)
+  groundingType String        @default("source_supported")
+  groundingJson String        @default("[]") // [{chunkIdx}]
+  createdAt     DateTime      @default(now())
+
+  schedule LearnReviewSchedule?
+  attempts LearnReviewAttempt[]
+
+  @@index([packId, kind])
+}
+
+// Aralıklı tekrar zamanlaması. dueAt @index → "şimdi due" sorgusu.
+model LearnReviewSchedule {
+  id             String    @id @default(cuid())
+  itemId         String    @unique
+  item           LearnItem @relation(fields: [itemId], references: [id])
+  ladderStep     Int       @default(0) // [1,3,7,14,30] gün ladder indeksi
+  intervalDays   Int       @default(1)
+  ease           Float     @default(2.5) // FSRS-lite stability proxy
+  dueAt          DateTime
+  lastReviewedAt DateTime?
+  lapses         Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  @@index([dueAt])
+}
+
+// Tek tekrar denemesi (grade 0=again 1=hard 2=good 3=easy).
+model LearnReviewAttempt {
+  id         String    @id @default(cuid())
+  itemId     String
+  item       LearnItem @relation(fields: [itemId], references: [id])
+  grade      Int
+  correct    Boolean   @default(false)
+  responseMs Int       @default(0)
+  reviewedAt DateTime  @default(now())
+
+  @@index([itemId, reviewedAt])
+}
+
+// Resumable işleme job'ı. currentStage + status ile artımlı ilerler; heartbeatAt
+// lease (bayat → cron sweep devralır). @@unique([sourceId, pipelineVersion]) →
+// kaynak+versiyon başına tek aktif job (idempotent).
+model LearnProcessingJob {
+  id              String      @id @default(cuid())
+  sourceId        String
+  source          LearnSource @relation(fields: [sourceId], references: [id])
+  currentStage    String      @default("source_created")
+  status          String      @default("pending") // pending | running | done | failed
+  attempts        Int         @default(0) // mevcut aşama retry sayacı (cap, tüm job değil)
+  lastError       String?
+  stageStateJson  String      @default("{}") // kısmi ilerleme (örn. biten section'lar)
+  pipelineVersion String      @default("")
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  heartbeatAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([sourceId, pipelineVersion])
+  @@index([status, currentStage])
 }

@@ -19,24 +19,27 @@ export default function Textarea({ invalid = false, charCount, style, ...rest }:
           width: "100%",
           minHeight: 80,
           resize: "vertical",
-          background: "var(--bg-base)",
+          background: "var(--bg-sunken)",
           border: `1px solid ${invalid || over ? "var(--danger)" : "var(--border-strong)"}`,
           borderRadius: "var(--radius-md)",
           color: "var(--text-primary)",
-          padding: "8px 10px",
+          padding: "9px 11px",
           fontSize: "var(--text-sm)",
           lineHeight: 1.5,
           fontFamily: "inherit",
           outline: "none",
+          transition: "border-color 0.15s, box-shadow 0.15s",
           ...style,
         }}
         onFocus={(e) => {
           e.currentTarget.style.borderColor =
             invalid || over ? "var(--danger)" : "var(--accent-border)";
+          e.currentTarget.style.boxShadow = "var(--ring-focus)";
         }}
         onBlur={(e) => {
           e.currentTarget.style.borderColor =
             invalid || over ? "var(--danger)" : "var(--border-strong)";
+          e.currentTarget.style.boxShadow = "none";
         }}
       />
       {charCount && (

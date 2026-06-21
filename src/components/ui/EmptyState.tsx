@@ -21,11 +21,10 @@ export default function EmptyState({ icon, title, description, action, compact =
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
+        alignItems: "flex-start",
+        textAlign: "left",
         gap: 12,
-        padding: compact ? "32px 20px" : "56px 28px",
+        padding: compact ? "28px 24px" : "48px 32px",
         color: "var(--text-secondary)",
       }}
     >

@@ -27,19 +27,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: "daily-queue", label: "Günlük Kuyruk" },
       { id: "flow-radar", label: "Viral Radar" },
       { id: "source-intelligence", label: "X Hesabı Kaynakları" },
-      { id: "pattern-library", label: "Pattern Kütüphanesi" },
     ],
   },
   {
     id: "haber",
     label: "Haber",
     tabs: [
-      { id: "news-pool", label: "Haber Havuzu" },
-      { id: "content-radar", label: "İçerik Radarı" },
-      { id: "repo-radar", label: "Repo Radarı" },
+      { id: "news-pool", label: "Radar" },
       { id: "ai-rankings", label: "AI Sıralama" },
       { id: "toolbox", label: "Toolbox" },
-      { id: "prompt-kutuphanesi", label: "Prompt Kütüphanesi" },
       { id: "library", label: "Kütüphane" },
     ],
   },
@@ -67,13 +63,30 @@ export const NAV_GROUPS: readonly NavGroup[] = [
  */
 export const TAB_ALIASES: Readonly<Record<string, string>> = {
   flow: "flow-radar",
-  patterns: "pattern-library",
   queue: "daily-queue",
-  // "sources" (Keşfet → Kaynaklar) merged into "source-intelligence"
-  // (X Hesabı Kaynakları). Alias redirects any persisted activeTab so users
-  // mid-session don't land on a removed tab.
+  // "sources" (Keşfet → Kaynaklar) merged into "source-intelligence".
   sources: "source-intelligence",
+  // Agresif birleştirme: folded sekmeler host'a yönlenir (ölü sekme yok).
+  // Kütüphane host = Tweetler / Promptlar / Patternler.
+  patterns: "library",
+  "pattern-library": "library",
+  "prompt-kutuphanesi": "library",
+  // Radar host = Haberler / İçerik / Repo.
+  "content-radar": "news-pool",
+  "repo-radar": "news-pool",
 };
+
+/** Folded/legacy sekme id → host + alt-görünüm (deep-link seeding için). */
+export function seedTargetForTab(tabId: string): { host: string; view?: string } {
+  const map: Record<string, { host: string; view: string }> = {
+    "prompt-kutuphanesi": { host: "library", view: "prompts" },
+    "pattern-library": { host: "library", view: "patterns" },
+    patterns: { host: "library", view: "patterns" },
+    "content-radar": { host: "news-pool", view: "content" },
+    "repo-radar": { host: "news-pool", view: "repo" },
+  };
+  return map[tabId] ?? { host: normalizeTabId(tabId) };
+}
 
 export function normalizeTabId(tabId: string): string {
   return TAB_ALIASES[tabId] ?? tabId;
@@ -112,25 +125,26 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
     id: "uret",
     label: "Üret",
     icon: "PenLine",
-    tabIds: ["daily-queue", "toolbox", "library", "prompt-kutuphanesi"],
+    tabIds: ["daily-queue", "toolbox", "library"],
   },
   {
     id: "kesfet",
     label: "Keşfet",
     icon: "Compass",
-    tabIds: [
-      "discovery-engine",
-      "flow-radar",
-      "news-pool",
-      "content-radar",
-      "repo-radar",
-    ],
+    tabIds: ["discovery-engine", "flow-radar", "news-pool"],
   },
   {
     id: "ogren",
     label: "Öğren",
     icon: "GraduationCap",
-    tabIds: ["training-center", "pattern-library", "source-intelligence", "weekly-learning-report"],
+    // CemOS Learn (learn-dashboard) yalnız NEXT_PUBLIC_LEARN_ENABLED=true iken görünür
+    // (build-time inline). Kapalıyken Öğren alanı dokunulmadan kalır.
+    tabIds: [
+      "training-center",
+      "source-intelligence",
+      "weekly-learning-report",
+      ...(process.env.NEXT_PUBLIC_LEARN_ENABLED === "true" ? ["learn-dashboard"] : []),
+    ],
   },
   {
     id: "sosyal-medya",
@@ -172,6 +186,8 @@ const TAB_LABELS: Readonly<Record<string, string>> = (() => {
   for (const group of NAV_GROUPS) {
     for (const tab of group.tabs) map[tab.id] = tab.label;
   }
+  // CemOS Learn — NAV_GROUPS dışında yaşar (Öğren alanına projekte edilir).
+  map["learn-dashboard"] = "CemOS Learn";
   return map;
 })();
 

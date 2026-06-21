@@ -18,6 +18,9 @@ export type CreateQueueItemInput = {
   newsItemId?: string;
   imageUrl?: string;
   generatedImageUrl?: string;
+  // Faz C — content atomization linkage.
+  packageId?: string;
+  packageRole?: string;
 };
 
 export type UpdateQueueItemInput = Partial<
@@ -33,6 +36,8 @@ export type UpdateQueueItemInput = Partial<
     | "approvedAt"
     | "scores"
     | "generatedImageUrl"
+    | "packageId"
+    | "packageRole"
   >
 >;
 
@@ -46,6 +51,14 @@ export const queueRepo = {
       where: { accountId },
       orderBy: { createdAt: "desc" },
       take: limit,
+    });
+  },
+
+  /** Faz C — all drafts atomized from one idea (shared packageId), oldest first. */
+  listByPackage(packageId: string): Promise<QueueItem[]> {
+    return prisma.queueItem.findMany({
+      where: { packageId },
+      orderBy: { createdAt: "asc" },
     });
   },
 

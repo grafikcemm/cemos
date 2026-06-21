@@ -20,11 +20,11 @@ const VARIANTS: Record<BadgeVariant, { bg: string; color: string; border?: strin
   default: { bg: "var(--bg-elevated)", color: "var(--text-secondary)", border: "var(--border)" },
   accent: { bg: "var(--accent-dark)", color: "var(--accent-text)", border: "var(--accent-border)" },
   muted: { bg: "var(--bg-elevated)", color: "var(--text-muted)", border: "var(--border)" },
-  blue: { bg: "rgba(76,141,255,0.12)", color: "var(--blue)", border: "rgba(76,141,255,0.25)" },
-  yellow: { bg: "rgba(245,183,61,0.12)", color: "var(--yellow)", border: "rgba(245,183,61,0.25)" },
-  red: { bg: "rgba(244,63,94,0.12)", color: "var(--danger)", border: "rgba(244,63,94,0.25)" },
-  danger: { bg: "rgba(244,63,94,0.12)", color: "var(--danger)", border: "rgba(244,63,94,0.25)" },
-  success: { bg: "rgba(52,211,153,0.12)", color: "var(--green)", border: "rgba(52,211,153,0.25)" },
+  blue: { bg: "rgba(91,149,255,0.12)", color: "var(--blue)", border: "rgba(91,149,255,0.26)" },
+  yellow: { bg: "rgba(245,183,61,0.12)", color: "var(--yellow)", border: "rgba(245,183,61,0.26)" },
+  red: { bg: "rgba(244,83,107,0.12)", color: "var(--danger)", border: "rgba(244,83,107,0.26)" },
+  danger: { bg: "rgba(244,83,107,0.12)", color: "var(--danger)", border: "rgba(244,83,107,0.26)" },
+  success: { bg: "rgba(52,211,153,0.12)", color: "var(--green)", border: "rgba(52,211,153,0.26)" },
 };
 
 export default function Badge({ children, variant = "default", size = "xs" }: BadgeProps) {
@@ -39,8 +39,8 @@ export default function Badge({ children, variant = "default", size = "xs" }: Ba
         background: v.bg,
         color: v.color,
         border: v.border ? `1px solid ${v.border}` : "none",
-        borderRadius: "var(--radius-pill)",
-        padding: size === "xs" ? "1px 5px" : "2px 7px",
+        borderRadius: "var(--radius-sm)",
+        padding: size === "xs" ? "2px 6px" : "3px 8px",
         fontSize: size === "xs" ? 9 : 10,
         fontWeight: 600,
         lineHeight: 1.4,

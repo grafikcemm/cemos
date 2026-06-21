@@ -26,6 +26,7 @@
     "@next/env": "^16.2.6",
     "@prisma/client": "^6.8.2",
     "@the-convocation/twitter-scraper": "^0.22.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "node-cron": "^4.2.1",

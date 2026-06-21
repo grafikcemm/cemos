@@ -11,6 +11,17 @@ import {
   BarChart3,
   PanelLeftClose,
   PanelLeftOpen,
+  ListChecks,
+  Wrench,
+  Library,
+  Sparkles,
+  TrendingUp,
+  Newspaper,
+  AtSign,
+  FileBarChart,
+  BrainCircuit,
+  Camera,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 import { useXAgentStore, type Channel } from "@/store/xagent";
@@ -33,6 +44,22 @@ const ICONS: Record<string, LucideIcon> = {
   DollarSign,
   Settings,
   BarChart3,
+};
+
+/** Alt-sekme ikonları — düz metin listesini gerçek uygulama navigasyonuna çevirir. */
+const TAB_ICONS: Record<string, LucideIcon> = {
+  "daily-queue": ListChecks,
+  toolbox: Wrench,
+  library: Library,
+  "discovery-engine": Sparkles,
+  "flow-radar": TrendingUp,
+  "news-pool": Newspaper,
+  "training-center": GraduationCap,
+  "source-intelligence": AtSign,
+  "weekly-learning-report": FileBarChart,
+  "learn-dashboard": BrainCircuit,
+  instagram: Camera,
+  youtube: Video,
 };
 
 const ACTIVE_PILL = "linear-gradient(135deg, var(--accent), var(--accent-hover))";
@@ -79,7 +106,7 @@ export default function Sidebar({
         height: "100vh",
         position: "sticky",
         top: 0,
-        background: "var(--bg-base)",
+        background: "var(--bg-rail)",
         borderRight: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
@@ -175,7 +202,7 @@ export default function Sidebar({
                     width: "100%",
                     padding: "10px 12px",
                     marginBottom: 4,
-                    borderRadius: "var(--radius-pill)",
+                    borderRadius: "var(--radius-md)",
                     border: "1px solid transparent",
                     background: isActive ? ACTIVE_PILL : "transparent",
                     boxShadow: isActive ? "var(--glow-cyan)" : "none",
@@ -242,6 +269,7 @@ export default function Sidebar({
                     id={sub.id}
                     label={sub.label}
                     active={sub.id === activeTab}
+                    icon={TAB_ICONS[sub.id]}
                     onClick={() => go(() => onSelectTab(sub.id))}
                   />
                 ))}

@@ -10,6 +10,7 @@ import {
   isUtilityTab,
   normalizeTabId,
   resolveAreaForTab,
+  seedTargetForTab,
   subTabsOfArea,
   type PrimaryAreaId,
 } from "@/components/nav/navConfig";
@@ -27,6 +28,8 @@ type AppShellProps = {
 export default function AppShell({ initialTab }: AppShellProps) {
   const activeTab = useXAgentStore((s) => s.activeTab);
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
+  const setLibraryView = useXAgentStore((s) => s.setLibraryView);
+  const setRadarView = useXAgentStore((s) => s.setRadarView);
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -39,13 +42,19 @@ export default function AppShell({ initialTab }: AppShellProps) {
     setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
   }, []);
 
-  // Standalone route seeding: force the route's tab once.
+  // Standalone route seeding: force the route's tab once. Folded deep-link id'leri
+  // (pattern-library, content-radar…) host + alt-görünüme yönlendirilir.
   useEffect(() => {
     if (initialTab && !seeded.current) {
       seeded.current = true;
-      setActiveTab(initialTab);
+      const { host, view } = seedTargetForTab(initialTab);
+      setActiveTab(host);
+      if (view) {
+        if (host === "library") setLibraryView(view);
+        else if (host === "news-pool") setRadarView(view);
+      }
     }
-  }, [initialTab, setActiveTab]);
+  }, [initialTab, setActiveTab, setLibraryView, setRadarView]);
 
   // Unknown persisted id (ne birincil alan ne utility) → morning'e düş; shell asla alansız render etmez.
   useEffect(() => {
@@ -136,8 +145,16 @@ export default function AppShell({ initialTab }: AppShellProps) {
           onOpenMobileNav={() => setMobileOpen(true)}
         />
         <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
-          {/* Genesis: içerik 1280px max + ortalı + 24px gutter; topstrip/zemin full-bleed kalır. */}
-          <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 24px 80px", minWidth: 0 }}>
+          {/* Tam genişlik (masaüstü): sağda ölü boşluk yok — içerik gutter'lar dışında
+              tüm genişliği doldurur; feed grid'leri satır başına daha çok kart açar. */}
+          <div
+            style={{
+              width: "100%",
+              margin: 0,
+              padding: "var(--space-page-top) var(--space-page-x) 96px",
+              minWidth: 0,
+            }}
+          >
             {renderScreen(activeTab)}
           </div>
         </main>

@@ -3,7 +3,9 @@ import type { CritiqueDraftInput, DraftScore, DraftVariant, GenerationContext } 
 
 export async function critiqueDraft(input: CritiqueDraftInput): Promise<DraftScore> {
   const content = typeof input.draft === "string" ? input.draft : input.draft.content;
-  
+  // payoff is a property of the DRAFT (writer); the critic echoes it through.
+  const payoff = typeof input.draft === "string" ? undefined : input.draft.payoff;
+
   try {
     const score = await scoreDraft({
       content,
@@ -11,7 +13,7 @@ export async function critiqueDraft(input: CritiqueDraftInput): Promise<DraftSco
       modeId: input.modeId,
       sourceContent: input.sourceContent,
     });
-    return normalizeCriticResult(score);
+    return { ...normalizeCriticResult(score), payoff };
   } catch (err) {
     return critiqueDraftFallback(input);
   }
@@ -19,13 +21,14 @@ export async function critiqueDraft(input: CritiqueDraftInput): Promise<DraftSco
 
 export function critiqueDraftFallback(input: CritiqueDraftInput): DraftScore {
   const content = typeof input.draft === "string" ? input.draft : input.draft.content;
+  const payoff = typeof input.draft === "string" ? undefined : input.draft.payoff;
   const score = scoreDraftFallback({
     content,
     accountHandle: input.accountHandle,
     modeId: input.modeId,
     sourceContent: input.sourceContent,
   });
-  return normalizeCriticResult(score);
+  return { ...normalizeCriticResult(score), payoff };
 }
 
 export async function critiqueDrafts(

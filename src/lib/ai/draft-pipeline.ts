@@ -37,6 +37,7 @@ function rankedToScore(rc: RankedCandidate): DraftScore {
     sourceFaithfulness: rc.sourceFaithfulness,
     verdict: rc.verdict,
     reason: rc.reason,
+    payoff: rc.payoff,
   };
 }
 
@@ -84,12 +85,14 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
       clarity: 0, viralPotential: 0, risk: 0, sourceFaithfulness: 0,
       verdict: "approve",
       reason: "judge-off: skip",
+      payoff: best.payoff,
     };
     const fastCandidates: RankedCandidate[] = draftsRaw.slice(0, 3).map((d) => ({
       content: d.content, mode: d.mode, angle: d.angle ?? "",
       hookStrength: 0, viralPotential: 0, accountFit: 0,
       turkishNaturalness: 0, noveltyScore: 0, risk: 0, sourceFaithfulness: 0,
       verdict: "approve" as const, reason: "judge-off",
+      payoff: d.payoff,
     }));
     return {
       account: profile.handle,
@@ -121,12 +124,14 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
         clarity: 0, viralPotential: 0, risk: 0, sourceFaithfulness: 0,
         verdict: "approve",
         reason: "fast-path: deterministic lint passed",
+        payoff: draftsRaw[0]?.payoff,
       };
       const fastCandidates: RankedCandidate[] = draftsRaw.slice(0, 3).map((d) => ({
         content: d.content, mode: d.mode, angle: d.angle ?? "",
         hookStrength: 0, viralPotential: 0, accountFit: 0,
         turkishNaturalness: 0, noveltyScore: 0, risk: 0, sourceFaithfulness: 0,
         verdict: "approve" as const, reason: "fast-path",
+        payoff: d.payoff,
       }));
       return {
         account: profile.handle,
@@ -170,6 +175,7 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
         hookStrength: 50, viralPotential: 50, accountFit: 50,
         turkishNaturalness: 50, noveltyScore: 50, risk: 20, sourceFaithfulness: 80,
         verdict: "hold" as const, reason: "judge döndürmedi",
+        payoff: d.payoff,
       }));
 
   const winner = rankedToScore(effectiveCandidates[0]);

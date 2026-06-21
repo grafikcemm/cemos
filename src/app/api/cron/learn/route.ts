@@ -14,6 +14,8 @@ import { instagramService } from "@/lib/services/instagramService";
 import { IG_SYNC_LEARN_DEADLINE_MS } from "@/lib/instagram/igConfig";
 import { ytOwnPerformanceService } from "@/lib/services/ytOwnPerformanceService";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
+import { learnService } from "@/lib/learning/learnService";
+import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
 // continuously learn without anyone clicking a button —
@@ -51,7 +53,7 @@ async function pruneOldRecords() {
   const sourceCutoff = new Date(Date.now() - SOURCE_POST_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   const runCutoff = new Date(Date.now() - RUN_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   const newsCutoff = new Date(Date.now() - NEWS_ITEM_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const [sourcePosts, scanRuns, generationRuns, cronRuns, newsItems, pipelineTraces] = await Promise.all([
+  const [sourcePosts, scanRuns, generationRuns, cronRuns, newsItems, pipelineTraces, learnJobs] = await Promise.all([
     prisma.sourcePost.deleteMany({
       where: {
         status: { in: ["used", "error", "blocked", "ignored"] },
@@ -63,6 +65,11 @@ async function pruneOldRecords() {
     cronRunRepo.pruneOlderThan(60),
     prisma.newsItem.deleteMany({ where: { fetchedAt: { lt: newsCutoff }, isUsed: false } }),
     pipelineTraceRepo.pruneOlderThan(PIPELINE_TRACE_RETENTION_DAYS),
+    // CemOS Learn: yalnız TAMAMLANMIŞ/başarısız (geçici) job'lar prune edilir;
+    // pack/transcript/chunk user içeriği + cache → KORUNUR.
+    prisma.learnProcessingJob.deleteMany({
+      where: { status: { in: ["done", "failed"] }, finishedAt: { lt: runCutoff } },
+    }),
   ]);
   return {
     sourcePosts: sourcePosts.count,
@@ -71,6 +78,7 @@ async function pruneOldRecords() {
     cronRuns: cronRuns.count,
     newsItems: newsItems.count,
     pipelineTraces: pipelineTraces.count,
+    learnJobs: learnJobs.count,
   };
 }
 
@@ -150,6 +158,20 @@ async function runLearn(handleParam: string | null) {
       ytOwnEngagement = await ytOwnPerformanceService.sync();
     } catch (err) {
       ytOwnEngagement = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  // CemOS Learn sweep — client'ı kopmuş işleme job'larını kalan bütçede ilerletir.
+  // LEARN_ENABLED kapalıysa no-op; fail-open, cron'u bozmaz; yeni cron slotu yok.
+  let learnSweep: unknown = null;
+  if (isLearnEnabled() && Date.now() - t0 < timeBudgetMs) {
+    const learnDeadlineMs = Math.min(LEARN_SWEEP_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
+    if (learnDeadlineMs > 0) {
+      try {
+        learnSweep = await learnService.sweepPendingJobs({ deadlineMs: learnDeadlineMs });
+      } catch (err) {
+        learnSweep = { error: err instanceof Error ? err.message : String(err) };
+      }
     }
   }
 
@@ -234,10 +256,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh },
+      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh, learnSweep },
     });
   }
-  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh };
+  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh, learnSweep };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

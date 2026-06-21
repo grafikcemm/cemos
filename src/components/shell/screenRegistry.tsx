@@ -6,25 +6,25 @@ import CostsTab from "@/components/tabs/CostsTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import LibraryTab from "@/components/tabs/LibraryTab";
 import TrainingCenterTab from "@/components/tabs/TrainingCenterTab";
-import PatternLibraryTab from "@/components/tabs/PatternLibraryTab";
 import SourceIntelligenceTab from "@/components/tabs/SourceIntelligenceTab";
 import DailyQueueTab from "@/components/tabs/DailyQueueTab";
 import WeeklyLearningReportTab from "@/components/tabs/WeeklyLearningReportTab";
 import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
 import MorningDashboardTab from "@/components/tabs/MorningDashboardTab";
-import NewsPoolTab from "@/components/tabs/NewsPoolTab";
-import ContentRadarTab from "@/components/tabs/ContentRadarTab";
-import RepoRadarTab from "@/components/tabs/RepoRadarTab";
+import RadarTab from "@/components/tabs/RadarTab";
 import ToolboxTab from "@/components/tabs/ToolboxTab";
-import PromptKutuphanesiTab from "@/components/tabs/PromptKutuphanesiTab";
 import AiRankingsTab from "@/components/tabs/AiRankingsTab";
 import YouTubeTab from "@/components/tabs/YouTubeTab";
 import InstagramTab from "@/components/tabs/InstagramTab";
+import LearnDashboardTab from "@/components/tabs/LearnDashboardTab";
 
 /**
  * Maps a (possibly legacy-aliased) activeTab id to its screen component.
- * Shared by the app shell and the standalone /dashboard/* routes so the
- * 20-way switch lives in exactly one place.
+ * Shared by the app shell and the standalone /dashboard/* routes.
+ *
+ * Agresif birleştirme: `library` = Kütüphane host (Tweetler/Promptlar/Patternler),
+ * `news-pool` = Radar host (Haberler/İçerik/Repo). Folded id'ler TAB_ALIASES ile
+ * host'a normalize edilir → ayrı case'leri yok.
  */
 export function renderScreen(activeTab: string): React.ReactNode {
   const id = normalizeTabId(activeTab);
@@ -39,20 +39,12 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <FlowRadarTab />;
     case "source-intelligence":
       return <SourceIntelligenceTab />;
-    case "pattern-library":
-      return <PatternLibraryTab />;
     case "news-pool":
-      return <NewsPoolTab />;
-    case "content-radar":
-      return <ContentRadarTab />;
-    case "repo-radar":
-      return <RepoRadarTab />;
+      return <RadarTab />;
     case "ai-rankings":
       return <AiRankingsTab />;
     case "toolbox":
       return <ToolboxTab />;
-    case "prompt-kutuphanesi":
-      return <PromptKutuphanesiTab />;
     case "library":
       return <LibraryTab />;
     case "costs":
@@ -67,6 +59,8 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <InstagramTab />;
     case "youtube":
       return <YouTubeTab />;
+    case "learn-dashboard":
+      return <LearnDashboardTab />;
     default:
       return <MorningDashboardTab />;
   }

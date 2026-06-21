@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { NEXT_MOVES } from "@/lib/ai/next-move";
+
+// --- NextMove (payoff) — content-quality "path" signal (not a revenue CTA) ---
+
+export const NextMoveSchema = z.enum(NEXT_MOVES);
+export type NextMove = z.infer<typeof NextMoveSchema>;
 
 // --- Safe JSON helpers ---
 
@@ -204,7 +210,9 @@ export const DraftScoreSchema = z.object({
   publishRecommendation: PublishRecommendationSchema,
   rewriteSuggestion: z.string(),
   reason: z.string(),
-  confidence: z.number().min(0).max(100)
+  confidence: z.number().min(0).max(100),
+  /** Taslaktan taşınan sonraki hareket (payoff) sinyali — kritik bunu echo'lar. */
+  payoff: NextMoveSchema.optional()
 });
 export type DraftScore = z.infer<typeof DraftScoreSchema>;
 
@@ -332,7 +340,9 @@ export const DraftVariantSchema = z.object({
   patternUsed: z.string().optional(),
   reasoning: z.string(),
   /** Görsel pillar'larında (örn. grafikcem visual_drop) üretilen image-gen promptu. Görsel üretimi motor dışında. */
-  imagePrompt: z.string().optional()
+  imagePrompt: z.string().optional(),
+  /** İçeriğin okuyucuda tetiklediği tek somut sonraki hareket (payoff). */
+  payoff: NextMoveSchema.optional()
 });
 export type DraftVariant = z.infer<typeof DraftVariantSchema>;
 

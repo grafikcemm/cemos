@@ -84,6 +84,12 @@ interface XAgentStore {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 
+  // Birleşik host alt-görünümleri (persist edilir — folded sekmeler buraya iner)
+  libraryView: string; // "tweets" | "prompts" | "patterns"
+  setLibraryView: (v: string) => void;
+  radarView: string; // "news" | "content" | "repo"
+  setRadarView: (v: string) => void;
+
   // Instagram iç-sekme deep-link (ephemeral — persist edilmez). morning kartı set eder,
   // InstagramTab okuyup uygular ve temizler.
   igDeepLink: "comments" | "dm" | "stats" | null;
@@ -209,6 +215,12 @@ export const useXAgentStore = create<XAgentStore>()(
       // Tab
       activeTab: "morning",
       setActiveTab: (tab) => set({ activeTab: tab }),
+
+      // Birleşik host alt-görünümleri
+      libraryView: "tweets",
+      setLibraryView: (v) => set({ libraryView: v }),
+      radarView: "news",
+      setRadarView: (v) => set({ radarView: v }),
 
       // Instagram deep-link (ephemeral)
       igDeepLink: null,
@@ -359,6 +371,8 @@ export const useXAgentStore = create<XAgentStore>()(
       partialize: (state) => ({
         // Yalnızca gerçek UI tercihleri persist edilir
         activeTab: state.activeTab,
+        libraryView: state.libraryView,
+        radarView: state.radarView,
         activeChannel: state.activeChannel,
         // newsItems ve savedTweets kullanıcı UI kütüphanesi — persist OK
         newsItems: state.newsItems.slice(0, 200),

@@ -26,7 +26,7 @@ describe("resolveGroupForTab", () => {
 
   it("should_resolve_alias_when_legacy_id_given", () => {
     expect(resolveGroupForTab("flow")).toBe("x"); // flow-radar
-    expect(resolveGroupForTab("patterns")).toBe("x"); // pattern-library
+    expect(resolveGroupForTab("patterns")).toBe("haber"); // → library (Kütüphane host, haber grubu)
     expect(resolveGroupForTab("queue")).toBe("x"); // daily-queue
   });
 });
@@ -67,11 +67,12 @@ describe("NAV_GROUPS config", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("should_expose_20_tabs_after_instagram_opened", () => {
-    // Faz D: 19 + Instagram "Yorumlar" = 20.
+  it("should_expose_16_tabs_after_aggressive_merge", () => {
+    // Agresif birleştirme: pattern-library/prompt-kutuphanesi → Kütüphane,
+    // content-radar/repo-radar → Radar host. 20 − 4 folded = 16 top-level sekme.
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);
-    expect(visibleCount).toBe(20);
+    expect(visibleCount).toBe(16);
   });
 });

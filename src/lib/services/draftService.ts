@@ -9,8 +9,13 @@ import { buildGroundingContext } from "@/lib/ai/grounding";
 import { createMockBenchmark } from "@/lib/ai/mock-benchmark";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 import { getBudgetStatus } from "@/lib/config/costGate";
+import { detectLeaks, conceptKeywordsFrom } from "@/lib/growth-engine/leak-detector";
+import { atomizeService } from "@/lib/services/atomizeService";
 import type { BenchmarkResult } from "@/lib/ai/prompts";
 import type { QueueItem } from "@/generated/prisma/client";
+
+/** Winner viralPotential at/above which a strong signal is worth atomizing. */
+const ATOMIZE_VIRAL_THRESHOLD = 75;
 
 function fitToMaxChars(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -34,6 +39,9 @@ export type GenerateDraftInput = {
   // News→draft bridge: grounding NewsItem id + carried-over source image.
   newsItemId?: string;
   imageUrl?: string;
+  // Faz C — opt-in: atomize a strong winner into a linked content package
+  //   (reuses ranked candidates, no extra LLM spend). Default off.
+  atomize?: boolean;
 };
 
 export type GenerateDraftResult = {
@@ -45,6 +53,9 @@ export type GenerateDraftResult = {
   generated: string;
   estimatedCostUsd: number;
   usedMock: boolean;
+  // Faz C — set when a content package was atomized from a strong winner.
+  packageId?: string;
+  packageSiblings?: number;
   candidates: import("@/lib/ai/prompts").RankedCandidate[];
   timings: {
     writerMs: number;
@@ -162,6 +173,24 @@ export const draftService = {
       };
     }
 
+    // ── Faz B: payoff (writer next-move) + content-quality leak detection. ──
+    //    hookStrength is only trustworthy when the judge actually ran; the fast
+    //    paths leave it at 0, so we pass undefined there to avoid false weak_hook.
+    const draftMode = input.mode ?? profile.modes[0]?.id ?? "default";
+    const payoff = pipelineResult.winner.payoff;
+    const judgeModel = pipelineResult.modelUsed?.judge;
+    const judged =
+      typeof judgeModel === "string" && judgeModel !== "off" && judgeModel !== "skipped";
+    const leaks = detectLeaks({
+      content: generated,
+      mode: draftMode,
+      payoff,
+      hookStrength: judged ? pipelineResult.winner.hookStrength : undefined,
+      knownPillars: profile.modes.map((m) => m.id),
+      conceptKeywords: conceptKeywordsFrom(profile.concept),
+      requireConcreteAnchor: input.accountHandle === "grafikcem",
+    });
+
     const queueItem = await queueRepo.create({
       accountId: account.id,
       sourcePostId: sourcePostId,
@@ -169,7 +198,7 @@ export const draftService = {
       imageUrl: input.imageUrl,
       content: generated,
       draftType,
-      mode: input.mode ?? profile.modes[0]?.id ?? "default",
+      mode: draftMode,
       estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
       usedMock: pipelineResult.usedMock ?? false,
       scores: JSON.stringify({
@@ -177,6 +206,9 @@ export const draftService = {
         modelUsed: pipelineResult.modelUsed,
         // Engagement learning loop re-weights exactly these patterns later.
         groundingPatternIds: groundingCtx.patternIds,
+        // Faz B: content-quality signals surfaced in the queue drawer.
+        payoff: payoff ?? "none",
+        leaks,
       }),
       lintReport: JSON.stringify(lintReport),
       candidatesJson: JSON.stringify(pipelineResult.rankedCandidates ?? []),
@@ -200,11 +232,40 @@ export const draftService = {
       await sourcePostRepo.markUsed(sourcePostId);
     }
 
+    // ── Faz C: opt-in atomization. A strong signal (high viralPotential) is
+    //    worth more than one post — spawn linked sibling assets from the
+    //    already-ranked candidates. Reused candidates → no extra LLM spend.
+    //    Fail-soft: a packaging error must never lose the main draft. ──
+    let packageId: string | undefined;
+    let packageSiblings = 0;
+    const candidates = pipelineResult.rankedCandidates ?? [];
+    if (
+      input.atomize &&
+      judged &&
+      candidates.length >= 2 &&
+      pipelineResult.winner.viralPotential >= ATOMIZE_VIRAL_THRESHOLD
+    ) {
+      try {
+        const pkg = await atomizeService.atomizePackage({
+          accountHandle: input.accountHandle,
+          mainQueueItem: queueItem,
+          candidates,
+          judged,
+        });
+        packageId = pkg.packageId;
+        packageSiblings = pkg.created;
+      } catch (atomizeErr) {
+        console.warn("[draftService] atomize failed (keeping main draft):", atomizeErr);
+      }
+    }
+
     return {
       queueItem,
       generated,
       estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
       usedMock: pipelineResult.usedMock ?? false,
+      packageId,
+      packageSiblings,
       candidates: pipelineResult.rankedCandidates ?? [],
       timings: {
         writerMs: pipelineResult.timings?.writerMs ?? 0,

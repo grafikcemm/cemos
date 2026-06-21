@@ -70,7 +70,7 @@ describe("resolveAreaForTab", () => {
   it("legacy alias'ları doğru alana çözer", () => {
     expect(resolveAreaForTab("flow")).toBe("kesfet"); // → flow-radar
     expect(resolveAreaForTab("queue")).toBe("uret"); // → daily-queue
-    expect(resolveAreaForTab("patterns")).toBe("ogren"); // → pattern-library
+    expect(resolveAreaForTab("patterns")).toBe("uret"); // → library (Kütüphane host, uret alanı)
   });
 
   it("utility sekmeleri ana alana çözülmez (null)", () => {
@@ -112,7 +112,6 @@ describe("firstTabOfArea / subTabsOfArea", () => {
       "daily-queue",
       "toolbox",
       "library",
-      "prompt-kutuphanesi",
     ]);
     const dailyQueue = subs.find((s) => s.id === "daily-queue");
     expect(dailyQueue?.label).toBe("Günlük Kuyruk");

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
+import { accountProfiles } from "@/lib/accounts";
+import { computePillarConsistency } from "@/lib/growth-engine/pillar-consistency";
 
 export async function GET(req: NextRequest) {
   try {
@@ -77,9 +79,15 @@ export async function GET(req: NextRequest) {
       const riskScore = parsedScores.riskScore ?? parsedScores.risk ?? 20;
       const personaMatchScore = parsedScores.personaMatchScore ?? parsedScores.personaMatch ?? 75;
       const viralityScore = parsedScores.viralityScore ?? parsedScores.viralPotential ?? parsedScores.virality ?? 75;
-      const hookStrengthScore = parsedScores.hookStrengthScore ?? 75;
+      // LIVE path persists `hookStrength` (no Score suffix); growth path uses hookStrengthScore.
+      const hookStrengthScore = parsedScores.hookStrengthScore ?? parsedScores.hookStrength ?? 75;
       const clarityScore = parsedScores.clarityScore ?? 75;
       const noveltyScore = parsedScores.noveltyScore ?? 75;
+
+      // Faz B: content-quality "path" + leak signals.
+      const payoff = typeof parsedScores.payoff === "string" ? parsedScores.payoff : "none";
+      const leaks = Array.isArray(parsedScores.leaks) ? parsedScores.leaks : [];
+      const ctaPresent = payoff !== "none";
 
       let publishScore = parsedScores.publishScore;
       let isEstimatedScore = false;
@@ -111,6 +119,10 @@ export async function GET(req: NextRequest) {
           finalEditorModel: parsedScores.modelUsed?.finalEditor || parsedScores.finalEditorModel || "unknown",
           modelFallbackUsed: parsedScores.modelUsed?.writerFallbackUsed || parsedScores.modelUsed?.judgeFallbackUsed || parsedScores.modelFallbackUsed || false,
           modelFallbackReason: parsedScores.modelUsed?.writerFallbackReason || parsedScores.modelUsed?.judgeFallbackReason || parsedScores.modelFallbackReason || "",
+          payoff,
+          ctaPresent,
+          leaks,
+          leakCount: leaks.length,
         },
       };
     });
@@ -197,6 +209,23 @@ export async function GET(req: NextRequest) {
     const sumPublishScore = enrichedItems.reduce((sum, i) => sum + i.scoresParsed.publishScore, 0);
     const averagePublishScore = totalItems > 0 ? Math.round(sumPublishScore / totalItems) : 0;
 
+    // Faz B: CTA coverage + leak totals (content-quality, not revenue).
+    const draftsWithCta = enrichedItems.filter((i) => i.scoresParsed.ctaPresent).length;
+    const ctaCoveragePct = totalItems > 0 ? Math.round((draftsWithCta / totalItems) * 100) : 0;
+    const totalLeaks = enrichedItems.reduce((sum, i) => sum + i.scoresParsed.leakCount, 0);
+
+    // Faz D: pillar consistency (Trust signal) — only meaningful per single account.
+    const pillarProfile =
+      accountHandle !== "all"
+        ? accountProfiles[accountHandle as keyof typeof accountProfiles]
+        : undefined;
+    const pillarConsistency = pillarProfile
+      ? computePillarConsistency({
+          items: enrichedItems.map((i) => ({ mode: i.mode })),
+          knownPillars: pillarProfile.modes.map((m) => m.id),
+        })
+      : null;
+
     const todayItems = enrichedItems.filter((item) => {
       const itemDate = item.scheduledAt ? new Date(item.scheduledAt) : new Date(item.createdAt);
       return itemDate >= startOfToday && itemDate <= endOfToday;
@@ -237,6 +266,10 @@ export async function GET(req: NextRequest) {
       todayItems,
       accountsStatus,
       activeBacklogCount,
+      draftsWithCta,
+      ctaCoveragePct,
+      totalLeaks,
+      pillarConsistency,
     };
 
     return NextResponse.json({

@@ -31,6 +31,8 @@ import { PageHeader, Card, EmptyState } from "../ui";
 import OperatorReadinessGate from "../gate/OperatorReadinessGate";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { fetchJson } from "@/lib/utils/safeFetch";
+import { NEXT_MOVE_LABELS_TR, type NextMove } from "@/lib/ai/next-move";
+import type { Leak } from "@/lib/growth-engine/leak-detector";
 
 type CriticScores = {
   publishScore: number;
@@ -51,6 +53,11 @@ type CriticScores = {
   finalEditorModel?: string;
   modelFallbackUsed?: boolean;
   modelFallbackReason?: string;
+  // Faz B: content-quality "path" + leak signals.
+  payoff?: NextMove;
+  ctaPresent?: boolean;
+  leaks?: Leak[];
+  leakCount?: number;
 };
 
 type QueueItem = {
@@ -70,6 +77,9 @@ type QueueItem = {
   scoresParsed: CriticScores;
   estimatedCostUsd: number;
   usedMock: boolean;
+  // Faz C — content atomization linkage.
+  packageId?: string | null;
+  packageRole?: string | null;
 };
 
 type Summary = {
@@ -830,6 +840,16 @@ export default function DailyQueueTab() {
                     <span style={{ fontSize: 9, color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
                       {item.mode}
                     </span>
+                    {item.packageId && (
+                      <span style={{ fontSize: 9, color: "var(--accent)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                        PAKET{item.packageRole && item.packageRole !== "main" ? ` · ${item.packageRole}` : ""}
+                      </span>
+                    )}
+                    {(item.scoresParsed?.leakCount ?? 0) > 0 && (
+                      <span style={{ fontSize: 9, color: "var(--yellow)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                        ⚠ {item.scoresParsed?.leakCount} sızıntı
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", gap: 8 }}>
@@ -1037,10 +1057,71 @@ export default function DailyQueueTab() {
                   <span style={{ color: "var(--text-muted)", display: "block" }}>Gerekçe (Reasoning):</span>
                   <span style={{ color: "var(--text-secondary)" }}>{selectedItem.scoresParsed?.reasoning || "Critic reasoning not loaded."}</span>
                 </div>
+                {/* Faz B: SONRAKİ HAREKET (payoff/path) */}
+                <div>
+                  <span style={{ color: "var(--text-muted)", display: "block" }}>Sonraki Hareket (Path):</span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: (selectedItem.scoresParsed?.payoff ?? "none") === "none" ? "var(--yellow)" : "var(--accent)",
+                    }}
+                  >
+                    {NEXT_MOVE_LABELS_TR[selectedItem.scoresParsed?.payoff ?? "none"]}
+                  </span>
+                </div>
+                {/* Faz B: SIZINTILAR (content-quality leaks) */}
+                <div>
+                  <span style={{ color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Sızıntılar:</span>
+                  {(selectedItem.scoresParsed?.leaks ?? []).length === 0 ? (
+                    <span style={{ color: "var(--accent)" }}>Sızıntı yok ✓</span>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {(selectedItem.scoresParsed?.leaks ?? []).map((leak, i) => {
+                        const color =
+                          leak.severity === "high" ? "var(--red)" : leak.severity === "med" ? "var(--yellow)" : "var(--text-muted)";
+                        return (
+                          <span
+                            key={`${leak.kind}-${i}`}
+                            title={leak.note}
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color,
+                              border: `1px solid ${color}`,
+                              borderRadius: 4,
+                              padding: "2px 6px",
+                            }}
+                          >
+                            {leak.note}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 {selectedItem.scoresParsed?.rewriteSuggestion && (
                   <div>
                     <span style={{ color: "var(--yellow)", display: "block" }}>Yeniden Yazım Önerisi:</span>
                     <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>{selectedItem.scoresParsed.rewriteSuggestion}</span>
+                  </div>
+                )}
+                {selectedItem.packageId && (
+                  <div>
+                    <span style={{ color: "var(--text-muted)", display: "block" }}>Bu fikirden üretilenler (paket):</span>
+                    {items
+                      .filter((it) => it.packageId === selectedItem.packageId)
+                      .map((it) => (
+                        <span
+                          key={it.id}
+                          style={{
+                            display: "block",
+                            color: it.id === selectedItem.id ? "var(--accent)" : "var(--text-secondary)",
+                            fontWeight: it.id === selectedItem.id ? 700 : 400,
+                          }}
+                        >
+                          • {it.packageRole || "variant"}: {(it.editedContent || it.content).slice(0, 60)}…
+                        </span>
+                      ))}
                   </div>
                 )}
                 {selectedItem.scoresParsed?.patternUsed && (

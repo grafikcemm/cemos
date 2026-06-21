@@ -2,6 +2,7 @@ import { buildGenerationContext, buildGenerationContextFallback } from "./contex
 import { critiqueDrafts } from "./draft-critic";
 import { buildMemoryPromptBlock } from "./vector-memory";
 import { buildTurkeyContext } from "./turkey-context";
+import { normalizeNextMove } from "@/lib/ai/next-move";
 import type {
   GenerateDraftsInputRaw,
   GenerateDraftsResult,
@@ -96,6 +97,7 @@ export async function generateDraftsWithAI(
       reasoning: string;
       patternUsed?: string;
       imagePrompt?: string;
+      payoff?: string;
     }>;
   }>({
     role: "creativeWriter",
@@ -333,6 +335,7 @@ export function normalizeDraftVariants(
         typeof item.imagePrompt === "string" && item.imagePrompt.trim().length > 0
           ? item.imagePrompt.trim()
           : undefined,
+      payoff: normalizeNextMove(item.payoff),
     };
   });
 }
@@ -346,6 +349,15 @@ export function buildDraftGenerationPrompt(
   const memoryBlock = context.memoryContext
     ? buildMemoryPromptBlock(context.memoryContext)
     : "";
+
+  // A.1 — Sinyal-kökenli üretim: kaynağın NEDEN viral olduğunu writer'a ver.
+  const pe = context.patternExtraction as
+    | { hook?: string; emotionalTrigger?: string; viralityReason?: string }
+    | undefined;
+  const signalBlock =
+    pe && (pe.hook || pe.viralityReason)
+      ? `\nNEDEN VİRAL (kaynak sinyali — bu açıyı koru, birebir kopyalama):\n- Hook: ${pe.hook ?? "-"}\n- Duygu/tetikleyici: ${pe.emotionalTrigger ?? "-"}\n- Viralite sebebi: ${pe.viralityReason ?? "-"}\nBu sinyali kendi açına taşı; kaynağı özetleme.\n`
+      : "";
 
   // Per-account format policy (emoji + structure) driven by generationRules.
   // Falls back to the historic "no emoji / no hashtag / plain text" behavior
@@ -449,7 +461,11 @@ ${context.selectedMode?.instruction || ""}
 ${styleEnforcement}${turkeyBlock}${imagePromptBlock}
 Viral Pattern Kılavuzları (Mümkünse bunlardaki kancaları veya yapıları uygula):
 ${context.relevantPatterns.map((p) => `- Adı: ${p.patternName}\n  Yapı: ${p.structureJson || ""}\n  Örnek: ${p.exampleGood || ""}`).join("\n")}
-${memoryBlock}
+${signalBlock}${memoryBlock}
+SONRAKİ HAREKET / PAYOFF (her taslak için zorunlu):
+- Her taslak okuyucuda TEK somut sonraki hareketi tetiklemeli ve bunu "payoff" alanına yaz: save | reply | follow | quote | profile_visit | none.
+- Düz, hareketsiz biten kapanış yasak; "none" yalnızca format gerçekten hareketsizse. Payoff metnin gücünden doğmalı, klişe soru-CTA ile değil.
+
 İstenen JSON formatında tam olarak 3 farklı alternatif taslak üret.
 Açı türleri şunlar olmalıdır:
 1. "safe": Personaya tam oturan, güvenli, dengeli ve yapıcı alternatif.
@@ -464,6 +480,7 @@ Açı türleri şunlar olmalıdır:
       "angle": "safe",
       "reasoning": "bu taslagin persona ve tonal aciklamasi",
       "patternUsed": "kullanilan pattern adi",
+      "payoff": "save | reply | follow | quote | profile_visit | none",
       "imagePrompt": "${selectedModeEmitsImage ? "Ingilizce image-gen promptu (bu mod gorsel direkti)" : "(bu modda bos birak)"}"
     },
     ...

@@ -10,9 +10,11 @@ import { accountRepo } from "@/lib/db/accountRepo";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
+import { queueRepo } from "@/lib/db/queueRepo";
 import { embedTrainingExample } from "@/lib/growth-engine/vector-memory";
 import {
   FeedbackApiInputSchema,
+  safeJsonParse,
   type FeedbackApiInput,
   type FeedbackApiResponse,
   type FeedbackType,
@@ -20,6 +22,26 @@ import {
   type DraftScore,
   type PatternExtractionResult,
 } from "@/lib/growth-engine/types";
+
+/**
+ * Faz D.2 — how much to nudge a grounding pattern's successScore based on the
+ * feedback label. Positive labels lift the patterns that produced the draft;
+ * negative ones decay them. Clamping lives in viralPatternRepo.adjustSuccessScore.
+ */
+export function patternFeedbackDelta(label: TrainingLabel): number {
+  switch (label) {
+    case "published":
+      return 6;
+    case "good":
+      return 4;
+    case "edited":
+      return -2;
+    case "bad":
+      return -6;
+    default:
+      return 0;
+  }
+}
 
 /**
  * Maps FeedbackType to TrainingLabel.
@@ -155,6 +177,30 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   // 4. Create FeedbackEvent (Mandatory)
   const feedbackInput = buildFeedbackEventInput(fb);
   const feedbackEvent = await feedbackEventRepo.create(feedbackInput);
+
+  // 4b. Faz D.2 — close the pattern-learning loop: re-weight the viral patterns
+  // that grounded this draft by the feedback label. Best-effort; never blocks.
+  if (fb.queueItemId) {
+    try {
+      const item = await queueRepo.findById(fb.queueItemId);
+      const parsed = item?.scores
+        ? safeJsonParse<{ groundingPatternIds?: unknown }>(item.scores, {})
+        : {};
+      const patternIds = Array.isArray(parsed.groundingPatternIds)
+        ? parsed.groundingPatternIds.filter((id): id is string => typeof id === "string")
+        : [];
+      if (patternIds.length > 0) {
+        const label = feedbackToTrainingLabel(fb.feedbackType);
+        const delta = patternFeedbackDelta(label);
+        for (const patternId of patternIds) {
+          if (delta !== 0) await viralPatternRepo.adjustSuccessScore(patternId, delta);
+          if (delta > 0) await viralPatternRepo.incrementUsage(patternId);
+        }
+      }
+    } catch (err) {
+      warnings.push(`Pattern re-weighting failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
 
   // 5. scoreDraft (Optional)
   let draftScore: DraftScore | undefined;
