@@ -58,6 +58,9 @@ type CriticScores = {
   ctaPresent?: boolean;
   leaks?: Leak[];
   leakCount?: number;
+  // Faz C: content atomization linkage (stored in scores JSON, not a DB column).
+  packageId?: string | null;
+  packageRole?: string | null;
 };
 
 type QueueItem = {
@@ -77,9 +80,6 @@ type QueueItem = {
   scoresParsed: CriticScores;
   estimatedCostUsd: number;
   usedMock: boolean;
-  // Faz C — content atomization linkage.
-  packageId?: string | null;
-  packageRole?: string | null;
 };
 
 type Summary = {
@@ -840,9 +840,9 @@ export default function DailyQueueTab() {
                     <span style={{ fontSize: 9, color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
                       {item.mode}
                     </span>
-                    {item.packageId && (
+                    {item.scoresParsed?.packageId && (
                       <span style={{ fontSize: 9, color: "var(--accent)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
-                        PAKET{item.packageRole && item.packageRole !== "main" ? ` · ${item.packageRole}` : ""}
+                        PAKET{item.scoresParsed.packageRole && item.scoresParsed.packageRole !== "main" ? ` · ${item.scoresParsed.packageRole}` : ""}
                       </span>
                     )}
                     {(item.scoresParsed?.leakCount ?? 0) > 0 && (
@@ -1105,11 +1105,11 @@ export default function DailyQueueTab() {
                     <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>{selectedItem.scoresParsed.rewriteSuggestion}</span>
                   </div>
                 )}
-                {selectedItem.packageId && (
+                {selectedItem.scoresParsed?.packageId && (
                   <div>
                     <span style={{ color: "var(--text-muted)", display: "block" }}>Bu fikirden üretilenler (paket):</span>
                     {items
-                      .filter((it) => it.packageId === selectedItem.packageId)
+                      .filter((it) => it.scoresParsed?.packageId === selectedItem.scoresParsed?.packageId)
                       .map((it) => (
                         <span
                           key={it.id}
@@ -1119,7 +1119,7 @@ export default function DailyQueueTab() {
                             fontWeight: it.id === selectedItem.id ? 700 : 400,
                           }}
                         >
-                          • {it.packageRole || "variant"}: {(it.editedContent || it.content).slice(0, 60)}…
+                          • {it.scoresParsed?.packageRole || "variant"}: {(it.editedContent || it.content).slice(0, 60)}…
                         </span>
                       ))}
                   </div>

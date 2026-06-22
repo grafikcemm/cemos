@@ -123,6 +123,9 @@ export async function GET(req: NextRequest) {
           ctaPresent,
           leaks,
           leakCount: leaks.length,
+          // Faz C — package linkage lives in scores JSON (no DB column).
+          packageId: typeof parsedScores.packageId === "string" ? parsedScores.packageId : null,
+          packageRole: typeof parsedScores.packageRole === "string" ? parsedScores.packageRole : null,
         },
       };
     });

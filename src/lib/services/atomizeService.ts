@@ -44,7 +44,16 @@ export const atomizeService = {
     const requireConcreteAnchor = accountHandle === "grafikcem";
 
     const packageId = mainQueueItem.id;
-    await queueRepo.update(mainQueueItem.id, { packageId, packageRole: "main" });
+    // Package linkage lives in the scores JSON (no dedicated DB column → no migration).
+    let mainScores: Record<string, unknown> = {};
+    try {
+      mainScores = mainQueueItem.scores ? JSON.parse(mainQueueItem.scores) : {};
+    } catch {
+      mainScores = {};
+    }
+    await queueRepo.update(mainQueueItem.id, {
+      scores: JSON.stringify({ ...mainScores, packageId, packageRole: "main" }),
+    });
 
     const maxSiblings = input.maxSiblings ?? 2;
     const mainContent = mainQueueItem.content.trim();
@@ -83,8 +92,6 @@ export const atomizeService = {
         mode: c.mode || mainQueueItem.mode,
         estimatedCostUsd: 0, // reused candidate — no new LLM spend
         usedMock: false,
-        packageId,
-        packageRole: role,
         scores: JSON.stringify({
           content: c.content,
           mode: c.mode,
@@ -96,6 +103,9 @@ export const atomizeService = {
           reason: c.reason,
           payoff,
           leaks,
+          // Package linkage in scores JSON (no DB column → no migration).
+          packageId,
+          packageRole: role,
         }),
       });
       created++;
