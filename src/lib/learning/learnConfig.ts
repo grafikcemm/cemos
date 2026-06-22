@@ -70,6 +70,21 @@ export function getGeminiTranscriptModel(): string {
 }
 
 /**
+ * Supadata 3rd-party transkript API'si (supadata.ai). Innertube/timedtext Vercel
+ * IP'sinde bloklu + Gemini bazı videoları PROHIBITED_CONTENT ile reddeder; Supadata
+ * gerçek altyazıyı kendi altyapısından çeker → ikisini de atlatır. Zincirde Gemini'den
+ * ÖNCE denenir (ucuz+hızlı). Key yoksa Supadata yolu no-op (Gemini+manuel fallback sürer).
+ */
+export function getSupadataApiKey(): string | null {
+  const k = process.env.SUPADATA_API_KEY;
+  return k && k.trim() !== "" ? k.trim() : null;
+}
+
+export function isSupadataConfigured(): boolean {
+  return getSupadataApiKey() !== null;
+}
+
+/**
  * Obsidian vault klasör yolu (local fs). Set'liyse pack hazır olunca markdown
  * dosyaları doğrudan buraya yazılır (otomatik birikim). Boşsa .zip indirme fallback.
  * Vercel'de fs ephemeral → orada set edilmez.

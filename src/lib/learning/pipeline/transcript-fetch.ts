@@ -9,7 +9,7 @@ import { Innertube } from "youtubei.js";
 export type TimedSegment = { startSec: number; endSec: number; text: string };
 
 export type TranscriptResult = {
-  provider: "innertube" | "timedtext" | "gemini";
+  provider: "innertube" | "timedtext" | "gemini" | "supadata";
   lang: string | null;
   segments: TimedSegment[];
   fullText: string;

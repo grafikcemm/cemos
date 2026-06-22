@@ -767,7 +767,7 @@ model LearnTranscript {
   id           String      @id @default(cuid())
   sourceId     String      @unique
   source       LearnSource @relation(fields: [sourceId], references: [id])
-  provider     String      @default("innertube") // innertube | timedtext | manual
+  provider     String      @default("innertube") // innertube | timedtext | supadata | gemini | manual
   lang         String?
   segmentsJson String      @default("[]") // [{startSec,endSec,text}] chunk öncesi ham
   fullText     String      @default("")

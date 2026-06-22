@@ -24,10 +24,12 @@ import {
   STALE_LEASE_MS,
   getLearnMonthlyBudgetUsd,
   isGeminiConfigured,
+  isSupadataConfigured,
 } from "@/lib/learning/learnConfig";
 import { nextStage, PASSTHROUGH_STAGES, type LearnStage } from "./stages";
 import { fetchVideoMetadata, fetchTimedTranscript, type TimedSegment } from "./transcript-fetch";
 import { fetchTranscriptViaGemini } from "@/lib/learning/gemini";
+import { fetchTranscriptViaSupadata } from "@/lib/learning/supadata";
 import { exportPackToVault } from "@/lib/learning/obsidianWriter";
 import { chunkSegments } from "./chunk";
 import {
@@ -286,6 +288,7 @@ export async function advanceJob(
     const existing = await learnTranscriptRepo.getBySource(sourceId);
     if (existing && existing.fullText.length >= MIN_TRANSCRIPT_CHARS) return true;
     let tr = await fetchTimedTranscript(source!.externalId);
+    if (!tr && isSupadataConfigured()) tr = await fetchTranscriptViaSupadata(source!.externalId);
     if (!tr && isGeminiConfigured()) tr = await fetchTranscriptViaGemini(source!.url);
     if (tr && tr.fullText.length >= MIN_TRANSCRIPT_CHARS) {
       await learnTranscriptRepo.upsert({
