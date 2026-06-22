@@ -70,6 +70,7 @@ describe("NAV_GROUPS config", () => {
   it("should_expose_15_tabs_after_aggressive_merge", () => {
     // Agresif birleştirme: pattern-library/prompt-kutuphanesi → Kütüphane,
     // content-radar/repo-radar → Radar host; sonradan bir sekme daha katlandı.
+    // (learn-dashboard yalnız NEXT_PUBLIC_LEARN_ENABLED=true iken eklenir → testte hariç.)
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);

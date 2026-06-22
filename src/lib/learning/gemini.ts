@@ -67,6 +67,10 @@ export async function fetchTranscriptViaGemini(videoUrl: string): Promise<Transc
       responseSchema: RESPONSE_SCHEMA,
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       temperature: 0.2,
+      // Uzun videolar varsayılan çözünürlükte 1M-token bağlamı aşar (HTTP 400
+      // "input token count exceeds maximum"). LOW çözünürlük video token'ını ~3x
+      // düşürür (ses korunur → konuşma/eğitim içeriği etkilenmez), saatlik videolar sığar.
+      mediaResolution: "MEDIA_RESOLUTION_LOW",
     },
   };
 
