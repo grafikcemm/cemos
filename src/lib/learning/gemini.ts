@@ -10,7 +10,10 @@ import { getGeminiApiKey, getGeminiTranscriptModel } from "./learnConfig";
 import type { TranscriptResult, TimedSegment } from "./pipeline/transcript-fetch";
 
 const GEMINI_TIMEOUT_MS = 120_000;
-const MAX_OUTPUT_TOKENS = 16_384;
+// gemini-2.5-flash output tavanı 65536. 16384 uzun videoda segment listesini
+// keser (finishReason=MAX_TOKENS → JSON truncation → salvage 0 → "empty" fallback).
+// 65536 tam segment listesine yer açar (test: finishReason=STOP).
+const MAX_OUTPUT_TOKENS = 65_536;
 
 const TRANSCRIPT_PROMPT =
   "Bu eğitici videoyu ZAMAN-DAMGALI ÖĞRENME BLOKLARI halinde özetle. Videoyu baştan sona " +
