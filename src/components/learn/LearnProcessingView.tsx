@@ -182,8 +182,9 @@ export default function LearnProcessingView({
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginBottom: "var(--space-2)" }}>
             <AlertTriangle size={15} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2, color: "var(--danger)" }} />
             <span>
-              Bu video için otomatik transkript alınamadı (YouTube altyazı erişimini kısıtlıyor).
-              Videonun transkriptini aşağıya yapıştır — işleme oradan devam eder.
+              Bu video için otomatik transkript alınamadı (altyazı erişimi kısıtlı veya
+              içerik Gemini politikasınca engellenmiş olabilir). Videonun transkriptini
+              aşağıya yapıştır — işleme oradan devam eder.
             </span>
           </div>
           <Textarea

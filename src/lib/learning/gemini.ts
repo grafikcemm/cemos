@@ -15,6 +15,18 @@ const GEMINI_TIMEOUT_MS = 120_000;
 // 65536 tam segment listesine yer açar (test: finishReason=STOP).
 const MAX_OUTPUT_TOKENS = 65_536;
 
+// Ayarlanabilir güvenlik kategorilerini gevşet: siyasi/gündem/eğitim videoları
+// sık sık HATE_SPEECH/HARASSMENT/DANGEROUS filtrelerine takılıp transkripti
+// engelliyor. BLOCK_NONE bu sınıfı kurtarır. (PROHIBITED_CONTENT ayrı, ayarlanamaz
+// Google politikası — onu hiçbir parametre açmaz; orada manuel yapıştırma tek yol.)
+const GEMINI_SAFETY_SETTINGS = [
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
+];
+
 const TRANSCRIPT_PROMPT =
   "Bu eğitici videoyu ZAMAN-DAMGALI ÖĞRENME BLOKLARI halinde özetle. Videoyu baştan sona " +
   "izle; her ~60-90 saniyelik anlamlı bölüm için BİR blok üret. Her blok o bölümde " +
@@ -65,6 +77,7 @@ export async function fetchTranscriptViaGemini(videoUrl: string): Promise<Transc
 
   const body = {
     contents: [{ parts: [{ file_data: { file_uri: videoUrl } }, { text: TRANSCRIPT_PROMPT }] }],
+    safetySettings: GEMINI_SAFETY_SETTINGS,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: RESPONSE_SCHEMA,
@@ -95,6 +108,13 @@ export async function fetchTranscriptViaGemini(videoUrl: string): Promise<Transc
       return null;
     }
     const json = await res.json();
+    // Gemini içerik politikası bloğu (PROHIBITED_CONTENT / SAFETY / BLOCKLIST):
+    // candidate dönmez. Net logla, null dön → orchestrator manuel yapıştırmaya düşer.
+    const blockReason = json?.promptFeedback?.blockReason;
+    if (blockReason) {
+      console.warn(`[learn] gemini transcript blocked: ${blockReason}`);
+      return null;
+    }
     const cand = json?.candidates?.[0];
     const text: string | undefined = cand?.content?.parts?.[0]?.text;
     const finishReason = cand?.finishReason;
