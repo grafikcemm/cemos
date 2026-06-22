@@ -67,12 +67,12 @@ describe("NAV_GROUPS config", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("should_expose_16_tabs_after_aggressive_merge", () => {
+  it("should_expose_15_tabs_after_aggressive_merge", () => {
     // Agresif birleştirme: pattern-library/prompt-kutuphanesi → Kütüphane,
-    // content-radar/repo-radar → Radar host. 20 − 4 folded = 16 top-level sekme.
+    // content-radar/repo-radar → Radar host; sonradan bir sekme daha katlandı.
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);
-    expect(visibleCount).toBe(16);
+    expect(visibleCount).toBe(15);
   });
 });

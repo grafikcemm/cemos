@@ -55,7 +55,8 @@ vi.mock("@/lib/db/client", () => ({
     scanRun: { deleteMany: vi.fn(() => Promise.resolve({ count: 1 })) },
     generationRun: { deleteMany: vi.fn(() => Promise.resolve({ count: 1 })) },
     newsItem: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) },
-    pipelineTrace: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) }
+    pipelineTrace: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) },
+    learnProcessingJob: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) }
   }
 }));
 
@@ -181,6 +182,6 @@ describe("/api/cron/learn", () => {
   it("runs retention pruning and reports the deleted counts", async () => {
     const res = await GET(makeReq());
     const json = await res.json();
-    expect(json.pruned).toEqual({ sourcePosts: 2, scanRuns: 1, generationRuns: 1, cronRuns: 0, newsItems: 0, pipelineTraces: 0 });
+    expect(json.pruned).toEqual({ sourcePosts: 2, scanRuns: 1, generationRuns: 1, cronRuns: 0, newsItems: 0, pipelineTraces: 0, learnJobs: 0 });
   });
 });

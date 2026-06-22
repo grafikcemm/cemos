@@ -21,8 +21,8 @@ function v5State(): Record<string, unknown> {
 }
 
 describe("migrateXAgentStore", () => {
-  it("should_be_version_6", () => {
-    expect(XAGENT_STORE_VERSION).toBe(6);
+  it("should_be_version_7", () => {
+    expect(XAGENT_STORE_VERSION).toBe(7);
   });
 
   it("should_return_state_unchanged_when_migrating_from_v5_to_v6", () => {
