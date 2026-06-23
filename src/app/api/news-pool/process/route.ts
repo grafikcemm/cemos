@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { translateBatch, analyzeBatch } from "@/lib/news/pipeline";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 
 // POST /api/news-pool/process — UI-triggered drain of the translate → analyze
 // backlog ("Tümünü İşle"). Guarded by isOperatorOrCronAuthorized: the app's
@@ -17,17 +19,11 @@ function timeBudgetMs(): number {
 
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json(
-      { success: false, code: "forbidden", error: "Bu uç yalnız uygulama arayüzünden tetiklenebilir" },
-      { status: 403 }
-    );
+    return fail("Bu uç yalnız uygulama arayüzünden tetiklenebilir", 403, { code: "forbidden" });
   }
 
   if (await cronRunRepo.hasRunning("news_run")) {
-    return NextResponse.json(
-      { success: false, code: "already_running", error: "Zaten çalışan bir haber işlemi var" },
-      { status: 409 }
-    );
+    return fail("Zaten çalışan bir haber işlemi var", 409, { code: "already_running" });
   }
 
   let cronRunId: string | null = null;
@@ -45,12 +41,13 @@ export async function POST(req: NextRequest) {
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: true, result });
     }
-    return NextResponse.json({ success: true, ranAt: new Date().toISOString(), translate, analyze });
+    return ok({ ranAt: new Date().toISOString(), translate, analyze });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
     }
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    return fail(msg, 500);
   }
 }

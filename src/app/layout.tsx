@@ -1,22 +1,28 @@
 import type { Metadata } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Inter, Geist, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 
-// Gövde: Inter (tüm ağırlıklar). UI metni, butonlar, etiketler.
+// Gövde: Inter (400/500). UI metni, açıklamalar, etiketler. (Eden: bold yok.)
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
 });
 
-// Display: Fraunces (editöryal serif) — yalnız başlıklar + hero stat sayıları.
-// Optik boyut ekseni + "soft" değişken; premium magazine karakteri.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+// Display: Geist (geometrik sans) — başlıklar + hero stat sayıları. (Eden primary.)
+const geist = Geist({
+  variable: "--font-geist",
   subsets: ["latin"],
   display: "swap",
-  axes: ["opsz", "SOFT"],
+});
+
+// Mono: IBM Plex Mono — kod / teknik string. (Eden monospace.)
+const ibmMono = IBM_Plex_Mono({
+  variable: "--font-ibm-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -30,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${inter.variable} ${fraunces.variable} h-full`}>
+    <html lang="tr" className={`${inter.variable} ${geist.variable} ${ibmMono.variable} h-full`}>
       <body className="min-h-full" style={{ background: "var(--bg-base)" }}>
         <ToastProvider>{children}</ToastProvider>
       </body>

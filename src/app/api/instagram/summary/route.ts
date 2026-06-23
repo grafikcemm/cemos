@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { igMessageRepo } from "@/lib/db/igMessageRepo";
+import { ok } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +12,9 @@ export async function GET() {
       prisma.igComment.count({ where: { status: { in: ["new", "analyzed"] } } }),
       igMessageRepo.countNewInbound(),
     ]);
-    return NextResponse.json({ success: true, comments, dms });
+    return ok({ comments, dms });
   } catch (err) {
     console.error("[instagram/summary] DB erişilemedi, fail-open boş özet dönülüyor:", err);
-    return NextResponse.json({ success: true, comments: 0, dms: 0, degraded: true });
+    return ok({ comments: 0, dms: 0, degraded: true });
   }
 }

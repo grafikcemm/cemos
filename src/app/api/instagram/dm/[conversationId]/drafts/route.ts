@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { igDmDraftRepo } from "@/lib/db/igDmDraftRepo";
 import { instagramService } from "@/lib/services/instagramService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -13,7 +14,7 @@ export async function GET(
 ) {
   const { conversationId } = await ctx.params;
   const drafts = await igDmDraftRepo.listByConversation(conversationId);
-  return NextResponse.json({ success: true, drafts });
+  return ok({ drafts });
 }
 
 // POST /api/instagram/dm/[conversationId]/drafts — bağlam-farkında taslak üret (guard)
@@ -21,14 +22,11 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ conversationId: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { conversationId } = await ctx.params;
   try {
     const result = await instagramService.generateDmDrafts({ conversationId });
-    return NextResponse.json({
-      success: true,
+    return ok({
       drafts: result.drafts,
       riskWarning: result.riskWarning,
     });
@@ -39,6 +37,6 @@ export async function POST(
         : "error";
     const msg = err instanceof Error ? err.message : String(err);
     const status = code === "budget" ? 402 : 500;
-    return NextResponse.json({ success: false, code, error: msg }, { status });
+    return fail(msg, status, { code });
   }
 }

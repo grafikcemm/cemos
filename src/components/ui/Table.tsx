@@ -35,7 +35,7 @@ export default function Table<T>({ columns, rows, getRowKey, compact, onRowClick
                   padding: cellPad,
                   width: c.width,
                   fontSize: "var(--text-2xs)",
-                  fontWeight: 600,
+                  fontWeight: 500,
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
                   color: "var(--text-muted)",

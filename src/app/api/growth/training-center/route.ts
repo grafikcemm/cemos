@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,8 +42,7 @@ export async function GET(req: NextRequest) {
         wherePattern.accountId = accountId;
       } else {
         // If an invalid handle was passed, return empty lists immediately
-        return NextResponse.json({
-          success: true,
+        return ok({
           summary: {
             totalFeedbackEvents: 0,
             totalTrainingExamples: 0,
@@ -190,8 +190,7 @@ export async function GET(req: NextRequest) {
       savedPatterns: mappedPatterns.length,
     };
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary,
       feedbackEvents: mappedFeedback,
       trainingExamples: mappedTraining,
@@ -199,6 +198,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

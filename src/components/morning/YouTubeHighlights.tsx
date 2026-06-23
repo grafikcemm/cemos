@@ -64,7 +64,7 @@ export default function YouTubeHighlights() {
   }, [load]);
 
   const header = (
-    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>
+    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 10, color: "var(--text-primary)" }}>
       YouTube fırsatları
     </div>
   );
@@ -136,7 +136,7 @@ export default function YouTubeHighlights() {
                 minWidth: 44,
                 textAlign: "center",
                 fontSize: 18,
-                fontWeight: 800,
+                fontWeight: 500,
                 color: "var(--accent)",
               }}
             >
@@ -146,7 +146,7 @@ export default function YouTubeHighlights() {
               <div
                 style={{
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",

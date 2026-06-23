@@ -61,7 +61,7 @@ export default function SystemStatus({ compact = false }: SystemStatusProps) {
       <div
         style={{
           fontSize: "var(--text-xs)",
-          fontWeight: 600,
+          fontWeight: 500,
           color: todayCost != null && todayCost > 0 ? "var(--accent-text)" : "var(--text-muted)",
           fontVariantNumeric: "tabular-nums",
         }}

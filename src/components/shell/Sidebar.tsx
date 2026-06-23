@@ -22,6 +22,7 @@ import {
   BrainCircuit,
   Camera,
   Video,
+  Telescope,
   type LucideIcon,
 } from "lucide-react";
 import { useXAgentStore, type Channel } from "@/store/xagent";
@@ -54,6 +55,7 @@ const TAB_ICONS: Record<string, LucideIcon> = {
   "discovery-engine": Sparkles,
   "flow-radar": TrendingUp,
   "news-pool": Newspaper,
+  "content-intel": Telescope,
   "training-center": GraduationCap,
   "source-intelligence": AtSign,
   "weekly-learning-report": FileBarChart,
@@ -152,7 +154,7 @@ export default function Sidebar({
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
             <span
               className="font-display"
-              style={{ fontSize: "var(--text-lg)", fontWeight: 800, color: "var(--text-primary)" }}
+              style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--text-primary)" }}
             >
               CemOS
             </span>
@@ -208,7 +210,7 @@ export default function Sidebar({
                     boxShadow: isActive ? "var(--glow-cyan)" : "none",
                     color: isActive ? "var(--accent-fg)" : "var(--text-secondary)",
                     fontSize: "var(--text-sm)",
-                    fontWeight: isActive ? 700 : 600,
+                    fontWeight: isActive ? 500 : 500,
                     fontFamily: "inherit",
                     cursor: "pointer",
                     textAlign: "left",
@@ -384,7 +386,7 @@ function TabButton({
         background: active ? "var(--accent-dark)" : "transparent",
         color: active ? "var(--accent-text)" : "var(--text-secondary)",
         fontSize: "var(--text-sm)",
-        fontWeight: active ? 600 : 500,
+        fontWeight: active ? 500 : 500,
         fontFamily: "inherit",
         cursor: "pointer",
         textAlign: "left",

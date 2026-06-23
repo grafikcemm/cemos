@@ -4,13 +4,13 @@
  * so chart series must pull their colors from this JS module instead.
  */
 export const chartColors = {
-  primary: "#e11d48", // cyan (brand)
-  secondary: "#4c8dff", // info blue
-  tertiary: "#cdfd2e", // neon lime
-  quaternary: "#f43f5e", // rose
-  grid: "rgba(255,255,255,0.06)",
+  primary: "#c8e0bf", // sage (brand)
+  secondary: "#6e8d7a", // forest (positive)
+  tertiary: "#d97757", // coral (AI / accent-2)
+  quaternary: "#4d6d5a", // sage-muted
+  grid: "rgba(255,255,255,0.07)",
   axis: "rgba(255,255,255,0.40)",
-  tooltipBg: "#1d1d1d",
+  tooltipBg: "#222222",
   tooltipBorder: "rgba(255,255,255,0.15)",
 } as const;
 

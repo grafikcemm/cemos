@@ -62,15 +62,15 @@ export default function ReviewQueue({ onToast }: Props) {
           </div>
           <h2
             className="font-display"
-            style={{ fontSize: "var(--text-xl)", fontWeight: 800, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.02em" }}
+            style={{ fontSize: "var(--text-xl)", fontWeight: 500, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.02em" }}
           >
             İnceleme Kuyruğu
           </h2>
         </div>
         {drafts.length > 0 && (
-          <span className="tnum" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--accent-text)" }}>
+          <span className="tnum" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>
             {reviewedCount}/{drafts.length}{" "}
-            <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>incelendi</span>
+            <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>incelendi</span>
           </span>
         )}
       </div>
@@ -155,7 +155,7 @@ function AccountGroup({
     <div>
       <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: "var(--space-2)", display: "flex", alignItems: "center", gap: 8 }}>
         <span>@{handle}</span>
-        <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>
+        <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
           · <span className="tnum">{items.length}</span> taslak
         </span>
       </div>

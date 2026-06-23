@@ -1,29 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { runDraftPipeline } from "@/lib/ai/draft-pipeline";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 
 export async function POST(request: NextRequest) {
-  if (!isOperatorOrCronAuthorized(request)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(request)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody<{ account?: AccountHandle; sourceInput?: unknown }>(request);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
   try {
-    const body = await request.json();
-    const account = body.account as AccountHandle | undefined;
-    const sourceInput = String(body.sourceInput ?? "");
+    const account = body.data.account;
+    const sourceInput = String(body.data.sourceInput ?? "");
 
     if (!account || !accountProfiles[account]) {
-      return NextResponse.json({ error: "Unknown account." }, { status: 400 });
+      return fail("Unknown account.", 400);
     }
 
     if (!sourceInput.trim()) {
-      return NextResponse.json({ error: "sourceInput is required." }, { status: 400 });
+      return fail("sourceInput is required.", 400);
     }
 
     const result = await runDraftPipeline(accountProfiles[account], sourceInput);
-    return NextResponse.json({ result });
+    return ok({ result });
   } catch (error) {
+    if (error instanceof BudgetExceededError) return fail(error.message, 402, { code: "budget" });
     const message = error instanceof Error ? error.message : "Draft generation failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

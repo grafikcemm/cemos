@@ -59,7 +59,7 @@ export default function FlowList({ items, generatingId, onGenerate, onDismiss, l
                 borderRadius: 5,
                 padding: "4px 10px",
                 fontSize: 11,
-                fontWeight: isActive ? 600 : 400,
+                fontWeight: isActive ? 500 : 400,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -68,7 +68,7 @@ export default function FlowList({ items, generatingId, onGenerate, onDismiss, l
             >
               {f.label}
               <span style={{
-                fontSize: 9, fontWeight: 600,
+                fontSize: 9, fontWeight: 500,
                 background: isActive ? "rgba(0,0,0,0.2)" : "var(--bg-elevated)",
                 borderRadius: 3, padding: "0 4px",
               }}>

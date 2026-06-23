@@ -9,35 +9,14 @@ import {
   Search as SearchIcon,
   CheckCircle2,
   XCircle,
-  ExternalLink,
-  ShieldCheck,
-  Sparkles,
-  Gauge,
   SearchX,
-  ChevronRight,
 } from "lucide-react";
-import { PageHeader, Card, EmptyState, Badge, Skeleton } from "@/components/ui";
+import { PageHeader, Card, EmptyState, Skeleton, SubNav } from "@/components/ui";
 import { fetchJson } from "@/lib/utils/safeFetch";
-import { TOOLBOX_BUCKETS } from "@/lib/toolbox/buckets";
-
-type Tool = {
-  id: string;
-  title: string;
-  url: string;
-  resourceType: string;
-  category: string;
-  platform: string | null;
-  useCase: string | null;
-  description: string;
-  whyUseful: string | null;
-  tags: string[];
-  xValueScore: number;
-  sourceReliability: string;
-  contentFormat: string | null;
-  linkStatus: string | null;
-  lastCheckedAt: string | null;
-  isFavorite: boolean;
-};
+import { TOOLBOX_BUCKETS, chipLabel } from "@/lib/toolbox/buckets";
+import ToolboxFolderRow, { type FolderItem } from "./toolbox/ToolboxFolderRow";
+import ToolboxToolCard from "./toolbox/ToolboxToolCard";
+import { type Tool } from "./toolbox/types";
 
 type ListResponse = { success: boolean; items?: Tool[]; error?: string };
 type CountsResponse = {
@@ -48,32 +27,27 @@ type CountsResponse = {
   error?: string;
 };
 
-const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
-
-const reliabilityColor = (r: string) =>
-  r === "high" ? "var(--green)" : r === "medium" ? "var(--yellow)" : "var(--danger)";
-
-const linkColor = (s: string | null) =>
-  s === "alive" ? "var(--green)" : s === "dead" ? "var(--danger)" : "var(--text-muted)";
+const FAV_KEY = "__fav";
+const ALL = "__all";
 
 export default function ToolboxTab() {
-  // Bucketed/lazy model: counts load up front (cheap aggregate), each bucket's
-  // rows load only when its accordion is expanded. Search and favorites are
-  // flat overlays that bypass the buckets. This keeps the page off a 254-row
-  // fetch on mount — the prior cause of the connection-pool 500.
+  // Folder model: counts load up front (cheap aggregate); the selected bucket's
+  // rows load on demand. AI is the featured default. Multi-category buckets get
+  // a SubNav sub-category strip; search + favorites are flat overlays/folders.
   const [counts, setCounts] = useState<CountsResponse | null>(null);
   const [loadingCounts, setLoadingCounts] = useState(true);
 
   const [bucketItems, setBucketItems] = useState<Record<string, Tool[]>>({});
-  const [openBuckets, setOpenBuckets] = useState<Record<string, boolean>>({});
   const [loadingBucket, setLoadingBucket] = useState<string | null>(null);
+
+  const [activeKey, setActiveKey] = useState<string>("ai");
+  const [activeSubCat, setActiveSubCat] = useState<string>(ALL);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Tool[]>([]);
   const [searching, setSearching] = useState(false);
 
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [favItems, setFavItems] = useState<Tool[]>([]);
   const [favLoading, setFavLoading] = useState(false);
 
@@ -100,11 +74,42 @@ export default function ToolboxTab() {
     }
   }, []);
 
+  const loadBucket = useCallback(async (key: string) => {
+    setLoadingBucket(key);
+    try {
+      const data = await fetchJson<ListResponse>(`/api/toolbox?bucket=${key}&limit=200`);
+      if (data.success && data.items) {
+        setBucketItems((prev) => ({ ...prev, [key]: data.items! }));
+      } else {
+        showToast(data.error || "Grup yüklenemedi.", "error");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+    } finally {
+      setLoadingBucket(null);
+    }
+  }, []);
+
+  const loadFavorites = useCallback(async () => {
+    setFavLoading(true);
+    try {
+      const data = await fetchJson<ListResponse>("/api/toolbox?favorite=true&limit=300");
+      if (data.success && data.items) setFavItems(data.items);
+      else showToast(data.error || "Favoriler alınamadı.", "error");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+    } finally {
+      setFavLoading(false);
+    }
+  }, []);
+
+  // Mount: counts + featured AI bucket.
   useEffect(() => {
     loadCounts();
-  }, [loadCounts]);
+    loadBucket("ai");
+  }, [loadCounts, loadBucket]);
 
-  // Debounce the search box so each keystroke doesn't fire a query.
+  // Debounced search.
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(id);
@@ -134,43 +139,11 @@ export default function ToolboxTab() {
     };
   }, [debouncedSearch]);
 
-  const loadBucket = useCallback(async (key: string) => {
-    setLoadingBucket(key);
-    try {
-      const data = await fetchJson<ListResponse>(`/api/toolbox?bucket=${key}&limit=200`);
-      if (data.success && data.items) {
-        setBucketItems((prev) => ({ ...prev, [key]: data.items! }));
-      } else {
-        showToast(data.error || "Grup yüklenemedi.", "error");
-      }
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
-    } finally {
-      setLoadingBucket(null);
-    }
-  }, []);
-
-  const toggleBucket = (key: string) => {
-    const willOpen = !openBuckets[key];
-    setOpenBuckets((prev) => ({ ...prev, [key]: willOpen }));
-    if (willOpen && !bucketItems[key]) loadBucket(key);
-  };
-
-  const toggleFavoritesView = async () => {
-    const next = !favoritesOnly;
-    setFavoritesOnly(next);
-    if (next) {
-      setFavLoading(true);
-      try {
-        const data = await fetchJson<ListResponse>("/api/toolbox?favorite=true&limit=300");
-        if (data.success && data.items) setFavItems(data.items);
-        else showToast(data.error || "Favoriler alınamadı.", "error");
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
-      } finally {
-        setFavLoading(false);
-      }
-    }
+  const selectFolder = (key: string) => {
+    setActiveKey(key);
+    setActiveSubCat(ALL);
+    if (key === FAV_KEY) loadFavorites();
+    else if (!bucketItems[key]) loadBucket(key);
   };
 
   const applyFavoriteToggle = (id: string, isFavorite: boolean) => {
@@ -181,9 +154,7 @@ export default function ToolboxTab() {
       return next;
     });
     setSearchResults((prev) => patch(prev));
-    setFavItems((prev) =>
-      isFavorite ? patch(prev) : prev.filter((t) => t.id !== id)
-    );
+    setFavItems((prev) => (isFavorite ? patch(prev) : prev.filter((t) => t.id !== id)));
     setCounts((prev) =>
       prev && typeof prev.favoritesCount === "number"
         ? { ...prev, favoritesCount: Math.max(0, prev.favoritesCount + (isFavorite ? 1 : -1)) }
@@ -193,8 +164,7 @@ export default function ToolboxTab() {
 
   const toggleFavorite = async (id: string, current: boolean) => {
     setFavKey(id);
-    // Optimistic flip, rolled back if the request fails.
-    applyFavoriteToggle(id, !current);
+    applyFavoriteToggle(id, !current); // optimistic
     try {
       const data = await fetchJson<{ success: boolean; isFavorite?: boolean }>(
         `/api/toolbox/${id}/favorite`,
@@ -248,11 +218,10 @@ export default function ToolboxTab() {
       );
       if (data.success) {
         showToast(`Bağlantılar kontrol edildi: ${data.alive ?? 0} canlı / ${data.dead ?? 0} ölü.`, "success");
-        // Reload counts + any already-open buckets so link status reflects.
         await loadCounts();
-        const openKeys = Object.keys(openBuckets).filter((k) => openBuckets[k]);
         setBucketItems({});
-        openKeys.forEach((k) => loadBucket(k));
+        if (activeKey === FAV_KEY) loadFavorites();
+        else loadBucket(activeKey);
       } else {
         showToast(data.error || "Yenileme başarısız.", "error");
       }
@@ -264,7 +233,7 @@ export default function ToolboxTab() {
   };
 
   const renderCard = (t: Tool) => (
-    <ToolCard
+    <ToolboxToolCard
       key={t.id}
       tool={t}
       favBusy={favKey === t.id}
@@ -278,6 +247,35 @@ export default function ToolboxTab() {
   const total = counts?.total ?? 0;
   const favoritesCount = counts?.favoritesCount ?? 0;
 
+  // Folder tiles from counts + a Favorites tile (icons/accent from TOOLBOX_BUCKETS).
+  const folderItems: FolderItem[] = [
+    ...(counts?.buckets ?? []).map((b) => {
+      const meta = TOOLBOX_BUCKETS.find((x) => x.key === b.key);
+      return { key: b.key, label: b.label, count: b.count, icon: meta?.icon, accent2: meta?.accent2 };
+    }),
+    { key: FAV_KEY, label: "Favoriler", count: favoritesCount, icon: "Star" },
+  ];
+
+  // Active folder content + sub-category strip (multi-category buckets only).
+  const activeItems = activeKey === FAV_KEY ? favItems : bucketItems[activeKey] ?? [];
+  const activeBucket = TOOLBOX_BUCKETS.find((b) => b.key === activeKey);
+  const presentSubCats =
+    activeBucket && activeBucket.categories.length > 1
+      ? activeBucket.categories
+          .map((c) => ({ c, n: activeItems.filter((t) => t.category === c).length }))
+          .filter((x) => x.n > 0)
+      : [];
+  const subNavItems =
+    presentSubCats.length > 1
+      ? [
+          { id: ALL, label: "Tümü", badge: activeItems.length },
+          ...presentSubCats.map((x) => ({ id: x.c, label: chipLabel(x.c), badge: x.n })),
+        ]
+      : [];
+  const visibleItems = activeSubCat === ALL ? activeItems : activeItems.filter((t) => t.category === activeSubCat);
+
+  const activeLoading = activeKey === FAV_KEY ? favLoading : loadingBucket === activeKey || !bucketItems[activeKey];
+
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
       {toast && <Toast toast={toast} />}
@@ -285,10 +283,14 @@ export default function ToolboxTab() {
       <PageHeader
         eyebrow="ARAÇ KUTUSU"
         title="Toolbox"
-        subtitle="İçerik üretimini besleyen araç ve kaynaklar — iş grubuna göre aç, ara, hesaplara fikir kuyruğu kur."
+        subtitle="İçerik üretimini besleyen araç ve kaynaklar — gruba göre seç, alt-kategoride filtrele, hesaplara fikir kuyruğu kur."
         actions={
           <button onClick={refresh} disabled={refreshing} style={refreshBtnStyle}>
-            {refreshing ? <Loader2 size={15} strokeWidth={2} style={{ animation: "spin 0.6s linear infinite" }} /> : <RefreshCw size={15} strokeWidth={2} />}
+            {refreshing ? (
+              <Loader2 size={15} strokeWidth={2} style={{ animation: "spin 0.6s linear infinite" }} />
+            ) : (
+              <RefreshCw size={15} strokeWidth={2} />
+            )}
             {refreshing ? "Kontrol ediliyor…" : "Yenile"}
           </button>
         }
@@ -298,7 +300,7 @@ export default function ToolboxTab() {
               <Wrench size={14} strokeWidth={2} />
               <span className="tnum">{total}</span> araç / kaynak
             </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)", fontWeight: 600 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)", fontWeight: 500 }}>
               <Star size={14} strokeWidth={2} fill="currentColor" />
               <span className="tnum">{favoritesCount}</span> favori
             </span>
@@ -306,8 +308,8 @@ export default function ToolboxTab() {
         }
       />
 
-      {/* Always-visible controls: search + favorites toggle */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: "var(--space-4)" }}>
+      {/* Search */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: "var(--space-5)" }}>
         <div style={{ position: "relative", display: "flex", alignItems: "center", flex: 1, minWidth: 200 }}>
           <SearchIcon size={15} strokeWidth={2} style={{ position: "absolute", left: 10, color: "var(--text-muted)", pointerEvents: "none" }} />
           <input
@@ -317,16 +319,14 @@ export default function ToolboxTab() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ ...inputStyle, paddingLeft: 32, height: 36 }}
           />
-          {searching && <Loader2 size={14} strokeWidth={2} style={{ position: "absolute", right: 10, color: "var(--text-muted)", animation: "spin 0.6s linear infinite" }} />}
+          {searching && (
+            <Loader2 size={14} strokeWidth={2} style={{ position: "absolute", right: 10, color: "var(--text-muted)", animation: "spin 0.6s linear infinite" }} />
+          )}
         </div>
-        <button onClick={toggleFavoritesView} disabled={isSearchMode} style={favToggleStyle(favoritesOnly && !isSearchMode)}>
-          <Star size={13} strokeWidth={2} fill={favoritesOnly && !isSearchMode ? "currentColor" : "none"} />
-          Sadece Favoriler
-        </button>
       </div>
 
-      {/* Mode 1: search results (flat) */}
       {isSearchMode ? (
+        /* Search overlay (flat) */
         searching && searchResults.length === 0 ? (
           <ToolboxSkeletonGrid />
         ) : searchResults.length === 0 ? (
@@ -340,147 +340,42 @@ export default function ToolboxTab() {
         ) : (
           <ToolGrid>{searchResults.map(renderCard)}</ToolGrid>
         )
-      ) : favoritesOnly ? (
-        /* Mode 2: favorites (flat) */
-        favLoading ? (
-          <ToolboxSkeletonGrid />
-        ) : favItems.length === 0 ? (
-          <Card variant="quiet" padded={false}>
-            <EmptyState
-              icon={<Star size={24} strokeWidth={1.8} />}
-              title="Henüz favori yok"
-              description="Bir grubu açıp araçların yıldızına dokunarak favorilere ekleyebilirsin."
-            />
-          </Card>
-        ) : (
-          <ToolGrid>{favItems.map(renderCard)}</ToolGrid>
-        )
       ) : (
-        /* Mode 3: collapsible buckets (default) */
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {loadingCounts
-            ? TOOLBOX_BUCKETS.map((b) => (
-                <div key={b.key} style={bucketHeaderStyle(false)}>
-                  <Skeleton width="40%" height={16} />
-                </div>
-              ))
-            : (counts?.buckets ?? []).map((b) => {
-                const open = !!openBuckets[b.key];
-                const items = bucketItems[b.key];
-                const isLoading = loadingBucket === b.key;
-                return (
-                  <div key={b.key}>
-                    <button onClick={() => toggleBucket(b.key)} style={bucketHeaderStyle(open)} aria-expanded={open}>
-                      <ChevronRight
-                        size={16}
-                        strokeWidth={2.2}
-                        style={{ transition: "transform 0.18s var(--ease-out)", transform: open ? "rotate(90deg)" : "none", color: "var(--text-muted)" }}
-                      />
-                      <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{b.label}</span>
-                      <Badge variant="muted" size="xs">{b.count}</Badge>
-                    </button>
-                    {open && (
-                      <div style={{ paddingTop: 12 }}>
-                        {isLoading || !items ? (
-                          <ToolboxSkeletonGrid />
-                        ) : items.length === 0 ? (
-                          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", padding: "8px 4px" }}>
-                            Bu grupta aktif araç yok.
-                          </div>
-                        ) : (
-                          <ToolGrid>{items.map(renderCard)}</ToolGrid>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-        </div>
+        <>
+          {/* Folder shortcuts */}
+          <ToolboxFolderRow
+            items={folderItems}
+            activeKey={activeKey}
+            onSelect={selectFolder}
+            loading={loadingCounts && !counts}
+          />
+
+          {/* Sub-category strip (multi-category buckets) */}
+          {subNavItems.length > 1 && (
+            <SubNav items={subNavItems} activeId={activeSubCat} onSelect={setActiveSubCat} />
+          )}
+
+          {/* Grid */}
+          {activeLoading ? (
+            <ToolboxSkeletonGrid />
+          ) : visibleItems.length === 0 ? (
+            <Card variant="quiet" padded={false}>
+              <EmptyState
+                icon={activeKey === FAV_KEY ? <Star size={24} strokeWidth={1.8} /> : <Wrench size={24} strokeWidth={1.8} />}
+                title={activeKey === FAV_KEY ? "Henüz favori yok" : "Bu grupta araç yok"}
+                description={
+                  activeKey === FAV_KEY
+                    ? "Araçların yıldızına dokunarak favorilere ekleyebilirsin."
+                    : "Başka bir grup ya da alt-kategori dene."
+                }
+              />
+            </Card>
+          ) : (
+            <ToolGrid>{visibleItems.map(renderCard)}</ToolGrid>
+          )}
+        </>
       )}
     </div>
-  );
-}
-
-function ToolCard({
-  tool: t,
-  favBusy,
-  onToggleFavorite,
-  generatingKey,
-  onGenerate,
-}: {
-  tool: Tool;
-  favBusy: boolean;
-  onToggleFavorite: () => void;
-  generatingKey: string | null;
-  onGenerate: (id: string, account: string) => void;
-}) {
-  return (
-    <Card interactive style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-        <a
-          href={t.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: "inline-flex", alignItems: "flex-start", gap: 6, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
-        >
-          {t.title}
-          <ExternalLink size={13} strokeWidth={2} style={{ color: "var(--text-muted)", flexShrink: 0, marginTop: 2 }} />
-        </a>
-        <button
-          onClick={onToggleFavorite}
-          disabled={favBusy}
-          title={t.isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
-          style={{ background: "none", border: "none", cursor: favBusy ? "wait" : "pointer", color: t.isFavorite ? "var(--accent-text)" : "var(--text-muted)", padding: 0, lineHeight: 1, display: "inline-flex", flexShrink: 0, transition: "color 0.15s var(--ease-out)" }}
-        >
-          <Star size={15} strokeWidth={2} fill={t.isFavorite ? "currentColor" : "none"} />
-        </button>
-      </div>
-
-      {t.description && (
-        <div>
-          <Kicker>Bu kaynak ne?</Kicker>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.5 }}>{t.description}</div>
-        </div>
-      )}
-
-      {t.useCase && (
-        <div>
-          <Kicker>Bundan ne üretebilirim?</Kicker>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--accent-text)", background: "var(--gradient-accent), var(--accent-dark)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid var(--accent-border)" }}>
-            <Sparkles size={12} strokeWidth={2} />
-            {t.useCase}
-          </span>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: "auto" }}>
-        <Badge variant="muted" size="xs">{t.category}</Badge>
-        {t.platform && <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t.platform}</span>}
-        <span title={`Güven: ${t.sourceReliability}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 700, color: reliabilityColor(t.sourceReliability) }}>
-          <ShieldCheck size={13} strokeWidth={2} />
-          {t.sourceReliability}
-        </span>
-        <span title={`Bağlantı: ${t.linkStatus ?? "bilinmiyor"}`} style={{ width: 7, height: 7, borderRadius: "50%", background: linkColor(t.linkStatus), boxShadow: `0 0 0 3px color-mix(in srgb, ${linkColor(t.linkStatus)} 20%, transparent)` }} />
-        {t.xValueScore > 0 && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 700, color: "var(--accent-text)", marginLeft: "auto" }}>
-            <Gauge size={13} strokeWidth={2} />
-            DEĞER <span className="tnum">{t.xValueScore}</span>
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {ACCOUNTS.map((acc) => {
-          const busy = generatingKey === `${t.id}-${acc}`;
-          return (
-            <button key={acc} onClick={() => onGenerate(t.id, acc)} disabled={!!generatingKey} style={genBtnStyle}>
-              {busy ? <Loader2 size={12} strokeWidth={2} className="spin" /> : <Sparkles size={12} strokeWidth={2} />}
-              {busy ? "…" : `Fikir → ${acc}`}
-            </button>
-          );
-        })}
-      </div>
-    </Card>
   );
 }
 
@@ -493,7 +388,7 @@ function ToolGrid({ children }: { children: React.ReactNode }) {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--bg-base)",
+  background: "var(--bg-sunken)",
   border: "1px solid var(--border-strong)",
   borderRadius: "var(--radius-md)",
   color: "var(--text-primary)",
@@ -514,75 +409,12 @@ const refreshBtnStyle: React.CSSProperties = {
   borderRadius: "var(--radius-md)",
   color: "var(--text-secondary)",
   fontSize: "var(--text-xs)",
-  fontWeight: 600,
+  fontWeight: 500,
   fontFamily: "inherit",
   cursor: "pointer",
   height: 32,
   transition: "background 0.15s var(--ease-out), border-color 0.15s",
 };
-
-const genBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 5,
-  padding: "5px 8px",
-  background: "var(--gradient-accent), var(--accent-dark)",
-  border: "1px solid var(--accent-border)",
-  color: "var(--accent-text)",
-  borderRadius: "var(--radius-md)",
-  fontSize: "var(--text-2xs)",
-  fontWeight: 700,
-  fontFamily: "inherit",
-  cursor: "pointer",
-  flex: 1,
-  transition: "border-color 0.15s var(--ease-out)",
-};
-
-function bucketHeaderStyle(open: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    width: "100%",
-    padding: "12px 14px",
-    background: open ? "var(--gradient-surface), var(--bg-elevated)" : "var(--bg-elevated)",
-    border: `1px solid ${open ? "var(--accent-border)" : "var(--border)"}`,
-    borderRadius: "var(--radius-lg)",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    textAlign: "left",
-    transition: "border-color 0.15s var(--ease-out), background 0.15s",
-    boxShadow: "var(--highlight-top)",
-  };
-}
-
-function favToggleStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "6px 12px",
-    background: active ? "var(--gradient-accent), var(--accent-dark)" : "transparent",
-    border: `1px solid ${active ? "var(--accent-border)" : "var(--border-strong)"}`,
-    color: active ? "var(--accent-text)" : "var(--text-secondary)",
-    borderRadius: "var(--radius-md)",
-    fontSize: "var(--text-xs)",
-    fontWeight: 600,
-    fontFamily: "inherit",
-    cursor: "pointer",
-    height: 36,
-    transition: "background 0.15s var(--ease-out), border-color 0.15s, color 0.15s",
-  };
-}
-
-function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginBottom: 4 }}>
-      {children}
-    </div>
-  );
-}
 
 function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
   const ok = toast.type === "success";
@@ -599,7 +431,7 @@ function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }
         padding: "12px 18px",
         borderRadius: "var(--radius-lg)",
         fontSize: "var(--text-sm)",
-        fontWeight: 600,
+        fontWeight: 500,
         background: "var(--gradient-surface), var(--bg-elevated)",
         border: `1px solid ${ok ? "var(--green)" : "var(--danger)"}`,
         color: ok ? "var(--green)" : "var(--danger)",

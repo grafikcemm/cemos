@@ -30,15 +30,15 @@ const TONE_COLOR: Record<Tone, string> = {
 };
 
 const TONE_BG: Record<Tone, string> = {
-  up: "rgba(52,211,153,0.13)",
-  down: "rgba(244,83,107,0.13)",
+  up: "rgba(110, 141, 122,0.13)",
+  down: "rgba(190, 18, 60,0.13)",
   neutral: "var(--bg-hover)",
 };
 
 const TILE: Record<TileTone, { bg: string; border: string; fg: string }> = {
   accent: { bg: "var(--accent-dark)", border: "var(--accent-border)", fg: "var(--accent-text)" },
   blue: { bg: "rgba(91,149,255,0.13)", border: "rgba(91,149,255,0.28)", fg: "var(--blue)" },
-  green: { bg: "rgba(52,211,153,0.13)", border: "rgba(52,211,153,0.28)", fg: "var(--green)" },
+  green: { bg: "rgba(110, 141, 122,0.13)", border: "rgba(110, 141, 122,0.28)", fg: "var(--green)" },
   lime: { bg: "var(--accent-2-dark)", border: "var(--accent-2-border)", fg: "var(--accent-2-text)" },
   neutral: { bg: "var(--bg-hover)", border: "var(--border)", fg: "var(--text-secondary)" },
 };
@@ -135,7 +135,7 @@ export default function MetricCard({
             className="tnum"
             style={{
               fontSize: "var(--text-xs)",
-              fontWeight: 700,
+              fontWeight: 500,
               padding: "3px 9px",
               borderRadius: "var(--radius-pill)",
               background: TONE_BG[deltaTone],
@@ -156,7 +156,7 @@ export default function MetricCard({
             color: "var(--text-muted)",
             textTransform: "uppercase",
             letterSpacing: "0.06em",
-            fontWeight: 600,
+            fontWeight: 500,
           }}
         >
           {label}
@@ -165,7 +165,7 @@ export default function MetricCard({
           className="font-display tnum"
           style={{
             fontSize: isLg ? "var(--text-4xl)" : "var(--text-3xl)",
-            fontWeight: 600,
+            fontWeight: 500,
             color: accent ? "var(--accent-text)" : "var(--text-primary)",
             lineHeight: 1,
             letterSpacing: "-0.02em",

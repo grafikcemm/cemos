@@ -20,7 +20,7 @@ type StatTone = "accent" | "amber" | "green" | "muted";
 const TONE: Record<StatTone, { text: string; bg: string; border: string }> = {
   accent: { text: "var(--accent-text)", bg: "var(--accent-dark)", border: "var(--accent-border)" },
   amber: { text: "var(--accent-2-text)", bg: "var(--accent-2-dark)", border: "var(--accent-2-border)" },
-  green: { text: "var(--green)", bg: "rgba(52,211,153,0.13)", border: "rgba(52,211,153,0.28)" },
+  green: { text: "var(--green)", bg: "rgba(110, 141, 122,0.13)", border: "rgba(110, 141, 122,0.28)" },
   muted: { text: "var(--text-secondary)", bg: "var(--bg-hover)", border: "var(--border)" },
 };
 
@@ -78,7 +78,7 @@ function StatTile({
       </div>
       <div
         className="font-display tnum"
-        style={{ fontSize: "var(--text-4xl)", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.025em", color: t.text }}
+        style={{ fontSize: "var(--text-4xl)", fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em", color: t.text }}
       >
         {value}
       </div>

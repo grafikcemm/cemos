@@ -115,7 +115,7 @@ export default function InstagramHighlights() {
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; e.currentTarget.style.transform = "translateY(0)"; }}
         >
           <MessageCircle size={16} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-          <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--accent-text)", lineHeight: 1, letterSpacing: "-0.02em" }}>
+          <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 500, color: "var(--accent-text)", lineHeight: 1, letterSpacing: "-0.02em" }}>
             {summary.comments}
           </div>
           <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>yanıt bekleyen yorum →</div>
@@ -127,7 +127,7 @@ export default function InstagramHighlights() {
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; e.currentTarget.style.transform = "translateY(0)"; }}
         >
           <Send size={16} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-          <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--accent-text)", lineHeight: 1, letterSpacing: "-0.02em" }}>
+          <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 500, color: "var(--accent-text)", lineHeight: 1, letterSpacing: "-0.02em" }}>
             {summary.dms}
           </div>
           <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>yeni DM →</div>

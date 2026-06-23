@@ -120,7 +120,7 @@ export default function NewsHighlights({ onToast }: Props) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-display"
-                      style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
+                      style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
                     >
                       {n.trTitle || n.originalTitle}
                     </a>
@@ -136,7 +136,7 @@ export default function NewsHighlights({ onToast }: Props) {
                   )}
                   <div style={{ display: "flex", gap: 7, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
                     {n.isUsed ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", color: "var(--green)", fontWeight: 600 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", color: "var(--green)", fontWeight: 500 }}>
                         <CheckCircle2 size={14} strokeWidth={1.8} /> Kullanıldı
                       </span>
                     ) : (
@@ -157,7 +157,7 @@ export default function NewsHighlights({ onToast }: Props) {
                               color: "var(--accent-text)",
                               borderRadius: "var(--radius-sm)",
                               fontSize: "var(--text-2xs)",
-                              fontWeight: 700,
+                              fontWeight: 500,
                               letterSpacing: "0.03em",
                               textTransform: "uppercase",
                               fontFamily: "inherit",

@@ -67,13 +67,14 @@ describe("NAV_GROUPS config", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("should_expose_15_tabs_after_aggressive_merge", () => {
+  it("should_expose_16_tabs_after_aggressive_merge", () => {
     // Agresif birleştirme: pattern-library/prompt-kutuphanesi → Kütüphane,
     // content-radar/repo-radar → Radar host; sonradan bir sekme daha katlandı.
+    // +content-intel (İçerik Zekası, Faz CI) Haber grubuna eklendi → 15→16.
     // (learn-dashboard yalnız NEXT_PUBLIC_LEARN_ENABLED=true iken eklenir → testte hariç.)
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);
-    expect(visibleCount).toBe(15);
+    expect(visibleCount).toBe(16);
   });
 });

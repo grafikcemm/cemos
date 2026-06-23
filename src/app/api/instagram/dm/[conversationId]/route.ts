@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { igConversationRepo } from "@/lib/db/igConversationRepo";
 import { igMessageRepo } from "@/lib/db/igMessageRepo";
 import { IG_MESSAGES_PER_CONVERSATION } from "@/lib/instagram/igConfig";
+import { ok } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,7 @@ export async function GET(
     igConversationRepo.getByConversationId(conversationId),
     igMessageRepo.listByConversation(conversationId, IG_MESSAGES_PER_CONVERSATION),
   ]);
-  return NextResponse.json({
-    success: true,
+  return ok({
     conversation,
     messages: messages.map((m) => ({
       messageId: m.messageId,

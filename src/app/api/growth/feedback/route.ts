@@ -1,50 +1,36 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { ZodError } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
-    const body = await req.json();
-    const result = await processFeedback(body);
-    return NextResponse.json(result, { status: 200 });
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
+
+    const result = await processFeedback(body.data);
+    const { success: _ok, ...payload } = result;
+    return ok(payload);
   } catch (err) {
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+
     if (err instanceof ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Validation failed",
-          details: err.errors,
-        },
-        { status: 400 }
-      );
+      return fail("Validation failed", 400, { details: err.errors });
     }
 
     const message = err instanceof Error ? err.message : "Unexpected system error";
-    
+
     // Check for explicit input validation issues that warrant 400 Bad Request
     if (
       message.includes("Invalid accountHandle") ||
       message.includes("No content provided")
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: message,
-        },
-        { status: 400 }
-      );
+      return fail(message, 400);
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
-      { status: 500 }
-    );
+    return fail(message, 500);
   }
 }

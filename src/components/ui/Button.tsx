@@ -42,17 +42,17 @@ const SURFACE: Record<Variant, SurfaceSpec> = {
   danger: {
     bg: "transparent",
     color: "var(--danger)",
-    border: "rgba(244,83,107,0.4)",
-    hover: "rgba(244,83,107,0.12)",
+    border: "rgba(190,18,60,0.4)",
+    hover: "rgba(190,18,60,0.12)",
   },
 };
 
-// Lime "üret" affordance'ı — varianttan bağımsız override.
+// Coral "üret" affordance'ı (AI/Claude) — varianttan bağımsız override (Eden).
 const GENERATE: SurfaceSpec = {
   bg: "var(--accent-2-dark)",
   color: "var(--accent-2-text)",
   border: "var(--accent-2-border)",
-  hover: "rgba(205,253,46,0.2)",
+  hover: "rgba(217,119,87,0.2)",
 };
 
 export default function Button({
@@ -85,10 +85,10 @@ export default function Button({
         background: s.bg,
         color: s.color,
         border: `1px solid ${s.border}`,
-        borderRadius: "var(--radius-md)",
-        padding: size === "sm" ? "6px 14px" : "9px 18px",
+        borderRadius: isPrimary || intent === "generate" ? "var(--radius-pill)" : "var(--radius-md)",
+        padding: size === "sm" ? "6px 14px" : "10px 20px",
         fontSize: size === "sm" ? "var(--text-xs)" : "var(--text-sm)",
-        fontWeight: 600,
+        fontWeight: 500,
         fontFamily: "inherit",
         cursor: isDisabled ? "not-allowed" : "pointer",
         opacity: isDisabled ? 0.5 : 1,

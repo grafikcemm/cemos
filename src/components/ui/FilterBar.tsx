@@ -58,7 +58,7 @@ export default function FilterBar({
                       background: active ? "var(--accent-dark)" : "transparent",
                       color: active ? "var(--accent-text)" : "var(--text-secondary)",
                       fontSize: "var(--text-sm)",
-                      fontWeight: active ? 600 : 500,
+                      fontWeight: active ? 500 : 500,
                       fontFamily: "inherit",
                       cursor: "pointer",
                       transition: "background 0.15s, color 0.15s, border-color 0.15s",

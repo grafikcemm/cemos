@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 
 const bodySchema = z.object({
   account: z.enum(["grafikcem", "maskulenkod"]),
@@ -14,20 +16,19 @@ const bodySchema = z.object({
 // the grounding source. Mirrors news-pool/[id]/generate-draft. Budget is gated
 // inside draftService.generateDraft (monthly getBudgetStatus).
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
-  const body = await req.json().catch(() => null);
-  const parsed = bodySchema.safeParse(body);
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Geçersiz istek (account gerekli)" }, { status: 400 });
+    return fail("Geçersiz istek (account gerekli)", 400);
   }
 
   try {
     const resource = await prisma.toolboxResource.findUnique({ where: { id } });
     if (!resource) {
-      return NextResponse.json({ success: false, error: "Kaynak bulunamadı" }, { status: 404 });
+      return fail("Kaynak bulunamadı", 404);
     }
 
     const grounding = [
@@ -48,12 +49,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
 
     if (result.blocked) {
-      return NextResponse.json({ success: false, blocked: true, reason: result.reason }, { status: 200 });
+      return fail("blocked", 200, { blocked: true, reason: result.reason });
     }
 
-    return NextResponse.json({ success: true, result });
+    return ok({ result });
   } catch (err) {
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

@@ -39,12 +39,12 @@ function surfaceFor(variant: CardVariant, elevated: boolean): Surface {
         border: "1px solid var(--border-strong)",
       };
     case "feature":
-      // Kenar-öncelikli rest: yalnız hairline highlight; gölge+lift hover'da.
+      // Eden: yumuşak katmanlı gölge rest'te; lift hover'da.
       return {
         background: "var(--gradient-surface), var(--bg-elevated)",
         radius: "var(--radius-xl)",
         pad: "var(--card-pad-lg)",
-        shadow: "var(--highlight-top)",
+        shadow: "var(--shadow-sm), var(--highlight-top)",
         border: "1px solid var(--border)",
       };
     case "quiet":
@@ -58,9 +58,9 @@ function surfaceFor(variant: CardVariant, elevated: boolean): Surface {
     default:
       return {
         background: "var(--bg-surface)",
-        radius: "var(--radius-xl)",
+        radius: "var(--radius-lg)",
         pad: "var(--card-pad)",
-        shadow: "var(--highlight-top)",
+        shadow: "var(--shadow-sm), var(--highlight-top)",
         border: "1px solid var(--border)",
       };
   }

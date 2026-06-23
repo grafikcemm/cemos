@@ -247,7 +247,7 @@ export default function LearnDashboardTab() {
                       onClick={clickable ? onOpen : undefined}
                       style={{
                         fontSize: "var(--text-sm)",
-                        fontWeight: 600,
+                        fontWeight: 500,
                         color: "var(--text-primary)",
                         cursor: clickable ? "pointer" : "default",
                         overflow: "hidden",

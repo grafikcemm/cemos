@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { igCommentRepo } from "@/lib/db/igCommentRepo";
 import { igMediaRepo } from "@/lib/db/igMediaRepo";
 import { isConfigured, getTokenHealth, getOwnUsername } from "@/lib/instagram/igClient";
+import { ok } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -67,5 +68,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, configured, tokenHealth, ownUsername, comments, media, mediaOrder });
+  return ok({ configured, tokenHealth, ownUsername, comments, media, mediaOrder });
 }

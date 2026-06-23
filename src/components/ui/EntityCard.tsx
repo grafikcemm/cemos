@@ -86,7 +86,7 @@ export default function EntityCard({
           <div
             style={{
               fontSize: "var(--text-md)",
-              fontWeight: 600,
+              fontWeight: 500,
               color: "var(--text-primary)",
               letterSpacing: "-0.01em",
               overflow: "hidden",
@@ -144,7 +144,7 @@ export function AvatarTile({ label, size = 36 }: { label: string; size?: number 
         display: "grid",
         placeItems: "center",
         fontSize: "var(--text-md)",
-        fontWeight: 700,
+        fontWeight: 500,
         color,
         flexShrink: 0,
       }}

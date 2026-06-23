@@ -50,7 +50,7 @@ export default function EmptyState({ icon, title, description, action, compact =
         className="font-display"
         style={{
           fontSize: compact ? "var(--text-md)" : "var(--text-lg)",
-          fontWeight: 700,
+          fontWeight: 500,
           color: "var(--text-primary)",
           letterSpacing: "-0.01em",
         }}

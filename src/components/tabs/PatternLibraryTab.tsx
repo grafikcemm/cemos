@@ -268,14 +268,14 @@ export default function PatternLibraryTab() {
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <BookOpen size={15} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} />
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                 {summary.totalPatterns}
               </strong>{" "}
               pattern
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <CheckCircle2 size={15} strokeWidth={1.8} style={{ color: "var(--green)" }} />
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                 {summary.activePatterns}
               </strong>{" "}
               aktif
@@ -283,7 +283,7 @@ export default function PatternLibraryTab() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <TrendingUp size={15} strokeWidth={1.8} style={{ color: "var(--accent-2-text)" }} />
               ort. skor{" "}
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                 %{summary.averageSuccessScore}
               </strong>
             </span>
@@ -310,7 +310,7 @@ export default function PatternLibraryTab() {
           alignItems: "center",
           gap: 12
         }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500 }}>
             {actionMessage.type === "success"
               ? <CheckCircle2 size={16} strokeWidth={2} />
               : <X size={16} strokeWidth={2} />}
@@ -552,13 +552,13 @@ export default function PatternLibraryTab() {
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--accent-text)" }}>@{pat.accountHandle}</span>
+                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--accent-text)" }}>@{pat.accountHandle}</span>
                     <span style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 4,
                       fontSize: "var(--text-2xs)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       padding: "2px 6px",
                       borderRadius: "var(--radius-sm)",
                       background: pat.isActive
@@ -578,7 +578,7 @@ export default function PatternLibraryTab() {
                   <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                     <span className="tnum" style={{
                       fontSize: "var(--text-2xs)",
-                      fontWeight: 700,
+                      fontWeight: 500,
                       padding: "2px 6px",
                       borderRadius: "var(--radius-sm)",
                       background: scoreColor.bg,
@@ -594,14 +594,14 @@ export default function PatternLibraryTab() {
 
                 {/* Body Content */}
                 <div>
-                  <h3 className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 700, margin: "0 0 8px 0", color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.25 }}>{pat.patternName}</h3>
+                  <h3 className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 500, margin: "0 0 8px 0", color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.25 }}>{pat.patternName}</h3>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                     {pat.category && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>{pat.category}</span>}
                     {pat.hookType && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--blue)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>Hook: {pat.hookType}</span>}
                     {pat.emotion && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>Duygu: {pat.emotion}</span>}
                   </div>
                   {pat.viralityTrigger && (
-                    <p style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px 0", fontSize: "var(--text-xs)", color: "var(--accent-2-text)", fontWeight: 600 }}>
+                    <p style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px 0", fontSize: "var(--text-xs)", color: "var(--accent-2-text)", fontWeight: 500 }}>
                       <Flame size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {pat.viralityTrigger}
                     </p>
                   )}
@@ -716,7 +716,7 @@ export default function PatternLibraryTab() {
                       onClick={() => handleAdjustScore(pat, 5)}
                       disabled={actionLoading === `${pat.id}-score`}
                       className="tnum"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", color: "var(--green)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 600, cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", color: "var(--green)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, cursor: "pointer" }}
                     >
                       <ArrowUp size={11} strokeWidth={2.4} /> 5
                     </button>
@@ -724,7 +724,7 @@ export default function PatternLibraryTab() {
                       onClick={() => handleAdjustScore(pat, -5)}
                       disabled={actionLoading === `${pat.id}-score`}
                       className="tnum"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", borderLeft: "1px solid var(--border)", color: "var(--danger)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 600, cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", borderLeft: "1px solid var(--border)", color: "var(--danger)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, cursor: "pointer" }}
                     >
                       <ArrowDown size={11} strokeWidth={2.4} /> 5
                     </button>
@@ -780,7 +780,7 @@ export default function PatternLibraryTab() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
             <div>
               <span style={{ fontSize: 10, color: "var(--accent)" }}>@{activeDetail.accountHandle}</span>
-              <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>{activeDetail.patternName}</h2>
+              <h2 style={{ fontSize: 15, fontWeight: 500, margin: 0, color: "var(--text-primary)" }}>{activeDetail.patternName}</h2>
             </div>
             <button
               onClick={() => setActiveDetail(null)}
@@ -828,7 +828,7 @@ export default function PatternLibraryTab() {
 
             <div>
               <span style={{ color: "var(--text-muted)", fontSize: 9, textTransform: "uppercase" }}>Example Good</span>
-              <p style={{ margin: "4px 0 0 0", color: "var(--text-primary)", background: "rgba(225,29,72,0.03)", border: "1px dashed var(--accent-border)", padding: "8px 10px", borderRadius: 6, fontStyle: "italic", lineHeight: 1.5 }}>
+              <p style={{ margin: "4px 0 0 0", color: "var(--text-primary)", background: "rgba(200, 224, 191,0.03)", border: "1px dashed var(--accent-border)", padding: "8px 10px", borderRadius: 6, fontStyle: "italic", lineHeight: 1.5 }}>
                 &ldquo;{activeDetail.exampleGood || "Örnek girilmemiş."}&rdquo;
               </p>
             </div>
@@ -874,7 +874,7 @@ export default function PatternLibraryTab() {
           }}>
             {/* Modal Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
+              <h2 style={{ fontSize: 15, fontWeight: 500, margin: 0, color: "var(--text-primary)" }}>
                 ✏️ Pattern Düzenle: {editPattern.patternName}
               </h2>
               <button
@@ -888,7 +888,7 @@ export default function PatternLibraryTab() {
             {/* Modal Form fields */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Pattern Adı *</label>
+                <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Pattern Adı *</label>
                 <input
                   type="text"
                   value={editForm.patternName}
@@ -899,7 +899,7 @@ export default function PatternLibraryTab() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Kategori</label>
+                  <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Kategori</label>
                   <input
                     type="text"
                     value={editForm.category}
@@ -908,7 +908,7 @@ export default function PatternLibraryTab() {
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Hook Tipi</label>
+                  <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Hook Tipi</label>
                   <input
                     type="text"
                     value={editForm.hookType}
@@ -920,7 +920,7 @@ export default function PatternLibraryTab() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Duygu (Emotion)</label>
+                  <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Duygu (Emotion)</label>
                   <input
                     type="text"
                     value={editForm.emotion}
@@ -929,7 +929,7 @@ export default function PatternLibraryTab() {
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Virality Trigger</label>
+                  <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Virality Trigger</label>
                   <input
                     type="text"
                     value={editForm.viralityTrigger}
@@ -940,7 +940,7 @@ export default function PatternLibraryTab() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Structure JSON (String olarak düzenleyin)</label>
+                <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Structure JSON (String olarak düzenleyin)</label>
                 <textarea
                   value={editForm.structureJsonStr}
                   rows={4}
@@ -950,7 +950,7 @@ export default function PatternLibraryTab() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Example Good</label>
+                <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Example Good</label>
                 <textarea
                   value={editForm.exampleGood}
                   rows={2}
@@ -960,7 +960,7 @@ export default function PatternLibraryTab() {
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <label style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Example Bad</label>
+                <label style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Example Bad</label>
                 <textarea
                   value={editForm.exampleBad}
                   rows={2}
@@ -996,7 +996,7 @@ export default function PatternLibraryTab() {
                   borderRadius: 6,
                   padding: "6px 14px",
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   cursor: "pointer"
                 }}
               >

@@ -27,7 +27,7 @@ import {
   Sparkles,
   ShieldAlert,
 } from "lucide-react";
-import { PageHeader, Card, EmptyState } from "../ui";
+import { PageHeader, Card, EmptyState, KanbanBoard, KanbanCard, type KanbanTone } from "../ui";
 import OperatorReadinessGate from "../gate/OperatorReadinessGate";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { fetchJson } from "@/lib/utils/safeFetch";
@@ -128,6 +128,7 @@ export default function DailyQueueTab() {
 
   // Selected item for Detail Modal/Drawer
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
+  const [view, setView] = useState<"list" | "kanban">("list");
   const [detailContent, setDetailContent] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [showScheduleForm, setShowScheduleForm] = useState(false);
@@ -383,6 +384,52 @@ export default function DailyQueueTab() {
     return "var(--green)";
   };
 
+  const openDetail = (item: QueueItem) => {
+    setSelectedItem(item);
+    setDetailContent(item.editedContent || item.content);
+    setScheduleDate(item.scheduledAt ? new Date(item.scheduledAt).toISOString().slice(0, 16) : "");
+    setShowScheduleForm(false);
+    setFeedbackReason("");
+  };
+
+  // Kanban: group the (already filtered) items by status into columns. Core
+  // columns (Taslak/Onaylı/Planlandı) always render; published/rejected only
+  // when populated. Click → same detail drawer as the list (no drag-and-drop).
+  const KANBAN_COLS: { id: string; label: string; tone: KanbanTone; match: (s: string) => boolean; core?: boolean }[] = [
+    { id: "draft", label: "Taslak", tone: "muted", match: (s) => s === "draft" || s === "new", core: true },
+    { id: "approved", label: "Onaylı", tone: "green", match: (s) => s === "approved", core: true },
+    { id: "scheduled", label: "Planlandı", tone: "blue", match: (s) => s === "scheduled", core: true },
+    { id: "published", label: "Yayınlandı", tone: "accent", match: (s) => s === "published" || s === "manual_published" },
+    { id: "rejected", label: "Reddedildi", tone: "danger", match: (s) => s === "rejected" },
+  ];
+  const kanbanColumns = KANBAN_COLS.map((c) => ({
+    id: c.id,
+    label: c.label,
+    tone: c.tone,
+    items: items.filter((i) => c.match(i.status)),
+  })).filter((c, idx) => c.items.length > 0 || KANBAN_COLS[idx].core);
+
+  const renderKanbanCard = (item: QueueItem) => {
+    const score = item.scoresParsed?.publishScore ?? 75;
+    const tone: KanbanTone = score >= 70 ? "green" : score >= 40 ? "yellow" : "danger";
+    return (
+      <KanbanCard
+        key={item.id}
+        priority={{ label: `Skor ${score}`, tone }}
+        tag={{ label: `@${item.accountHandle}`, tone: "accent" }}
+        title={(item.editedContent || item.content || "").replace(/@@/g, "").slice(0, 140)}
+        meta={
+          <>
+            <span>{item.draftType}</span>
+            <span>Risk {item.scoresParsed?.riskScore ?? 20}</span>
+          </>
+        }
+        progress={{ done: score, total: 100 }}
+        onClick={() => openDetail(item)}
+      />
+    );
+  };
+
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
       {/* Toast Notification */}
@@ -395,7 +442,7 @@ export default function DailyQueueTab() {
           padding: "12px 18px",
           borderRadius: "var(--radius-md)",
           fontSize: "var(--text-sm)",
-          fontWeight: 600,
+          fontWeight: 500,
           background: toast.type === "success" ? "var(--green)" : "var(--danger)",
           color: "var(--bg-base)",
           boxShadow: "var(--shadow-lg)",
@@ -445,7 +492,7 @@ export default function DailyQueueTab() {
               <span style={{ display: "inline-flex", color: item.color || "var(--text-muted)" }}>{item.icon}</span>
               {item.label}
             </div>
-            <div className="font-display tnum" style={{ fontSize: "var(--text-xl)", fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1, color: item.color || "var(--text-primary)" }}>
+            <div className="font-display tnum" style={{ fontSize: "var(--text-xl)", fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1, color: item.color || "var(--text-primary)" }}>
               {item.val}
             </div>
           </div>
@@ -485,7 +532,7 @@ export default function DailyQueueTab() {
                   color: accountHandle === acc.id ? "var(--accent-text)" : "var(--text-secondary)",
                   borderRadius: "var(--radius-md)",
                   fontSize: "var(--text-base)",
-                  fontWeight: accountHandle === acc.id ? 700 : 500,
+                  fontWeight: accountHandle === acc.id ? 500 : 500,
                   cursor: "pointer",
                   boxShadow: accountHandle === acc.id ? "var(--highlight-top)" : "none",
                   transition: "background 0.15s var(--ease-out), border-color 0.15s var(--ease-out), color 0.15s"
@@ -665,15 +712,15 @@ export default function DailyQueueTab() {
               borderRadius: "var(--radius-lg)", padding: "14px 16px", flex: "1 1 200px", minWidth: 200,
               boxShadow: "var(--highlight-top)"
             }}>
-              <div style={{ fontSize: "var(--text-base)", fontWeight: 700, color: "var(--text-primary)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: "var(--text-base)", fontWeight: 500, color: "var(--text-primary)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span className="font-display" style={{ letterSpacing: "-0.01em" }}>{acc.displayName.startsWith('@') ? acc.displayName : `@${acc.displayName}`}</span>
                 {acc.automationEnabled ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: "var(--text-2xs)", fontWeight: 600, background: "color-mix(in srgb, var(--green) 12%, transparent)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid color-mix(in srgb, var(--green) 28%, transparent)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--green)", fontSize: "var(--text-2xs)", fontWeight: 500, background: "color-mix(in srgb, var(--green) 12%, transparent)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid color-mix(in srgb, var(--green) 28%, transparent)" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent)" }} />
                     Oto Açık
                   </span>
                 ) : (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--danger)", fontSize: "var(--text-2xs)", fontWeight: 600, background: "color-mix(in srgb, var(--danger) 12%, transparent)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid color-mix(in srgb, var(--danger) 28%, transparent)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--danger)", fontSize: "var(--text-2xs)", fontWeight: 500, background: "color-mix(in srgb, var(--danger) 12%, transparent)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid color-mix(in srgb, var(--danger) 28%, transparent)" }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--danger)" }} />
                     Oto Kapalı
                   </span>
@@ -692,6 +739,32 @@ export default function DailyQueueTab() {
         </div>
       )}
 
+      {/* View toggle: List | Kanban */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <div style={{ display: "inline-flex", gap: 2, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 3 }}>
+          {([["list", "Liste"], ["kanban", "Pano"]] as const).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                padding: "5px 14px",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "var(--text-xs)",
+                fontWeight: 500,
+                fontFamily: "inherit",
+                background: view === v ? "var(--accent)" : "transparent",
+                color: view === v ? "var(--accent-fg)" : "var(--text-secondary)",
+                transition: "background .15s var(--ease-out), color .15s",
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ padding: "80px 0", textAlign: "center", color: "var(--text-muted)" }}>
           ⏳ Kuyruk verileri yükleniyor...
@@ -706,7 +779,7 @@ export default function DailyQueueTab() {
           color: "var(--text-muted)"
         }}>
           <div style={{ fontSize: 28, marginBottom: 12 }}>📭</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>Bugün için hazır taslak bulunmuyor.</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 4 }}>Bugün için hazır taslak bulunmuyor.</div>
           <div style={{ fontSize: 12, maxWidth: 450, margin: "0 auto 16px auto" }}>
             {dateRange === "today" && (
               <div style={{ background: "rgba(255,255,255,0.03)", padding: 10, borderRadius: 6, marginBottom: 12, border: "1px solid var(--border)" }}>
@@ -730,18 +803,20 @@ export default function DailyQueueTab() {
             }}
             style={{
               padding: "6px 14px",
-              background: "rgba(225,29,72,0.1)",
+              background: "rgba(200, 224, 191,0.1)",
               border: "1px solid var(--accent-border)",
               borderRadius: 6,
               color: "var(--accent)",
               fontSize: 12,
               cursor: "pointer",
-              fontWeight: 600
+              fontWeight: 500
             }}
           >
             Backlog'u Göster (Tüm Zamanlar)
           </button>
         </div>
+      ) : view === "kanban" ? (
+        <KanbanBoard columns={kanbanColumns} renderCard={renderKanbanCard} />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
           {items.map((item) => {
@@ -783,13 +858,13 @@ export default function DailyQueueTab() {
                 {/* Card Top */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>@{item.accountHandle}</span>
-                    <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#3b82f6", padding: "1px 5px", borderRadius: 4, fontWeight: 600 }}>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: "var(--accent)" }}>@{item.accountHandle}</span>
+                    <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#3b82f6", padding: "1px 5px", borderRadius: 4, fontWeight: 500 }}>
                       {item.draftType}
                     </span>
                     <span style={{
                       fontSize: 9,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       padding: "1px 5px",
                       borderRadius: 4,
                       background: statusStyle.bg,
@@ -855,7 +930,7 @@ export default function DailyQueueTab() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span style={{ fontSize: 9, color: "var(--text-muted)" }}>Score:</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: getScoreBadgeColor(publishScore) }}>
+                      <span style={{ fontSize: 10, fontWeight: 500, color: getScoreBadgeColor(publishScore) }}>
                         {publishScore}
                       </span>
                       {item.scoresParsed?.isEstimatedScore && (
@@ -867,17 +942,17 @@ export default function DailyQueueTab() {
 
                     <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span style={{ fontSize: 9, color: "var(--text-muted)" }}>Risk Score:</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: getRiskBadgeColor(riskScore) }}>{riskScore}</span>
+                      <span style={{ fontSize: 10, fontWeight: 500, color: getRiskBadgeColor(riskScore) }}>{riskScore}</span>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                       <span style={{ fontSize: 9, color: "var(--text-muted)" }}>Hook:</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: getScoreBadgeColor(hStrength) }}>{hStrength}</span>
+                      <span style={{ fontSize: 10, fontWeight: 500, color: getScoreBadgeColor(hStrength) }}>{hStrength}</span>
                     </div>
 
                     <span style={{
                       fontSize: 9,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: item.scoresParsed?.publishRecommendation === "publish" ? "var(--accent)" : "var(--yellow)"
                     }}>
                       [{item.scoresParsed?.publishRecommendation || "publish"}]
@@ -917,7 +992,7 @@ export default function DailyQueueTab() {
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>@{selectedItem.accountHandle}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>@{selectedItem.accountHandle}</span>
                 <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#3b82f6", padding: "1px 4px", borderRadius: 3 }}>{selectedItem.draftType}</span>
                 <span style={{ fontSize: 9, background: getStatusBadgeStyles(selectedItem.status).bg, color: getStatusBadgeStyles(selectedItem.status).text, padding: "1px 4px", borderRadius: 3 }}>
                   {selectedItem.status}
@@ -946,7 +1021,7 @@ export default function DailyQueueTab() {
           <div style={{ padding: 16, flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Editor Textarea */}
             <div>
-              <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Taslak Metni</label>
+              <label style={{ fontSize: 10, fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Taslak Metni</label>
               <textarea
                 value={detailContent.replace(/@@/g, "")}
                 onChange={(e) => setDetailContent(e.target.value)}
@@ -980,12 +1055,12 @@ export default function DailyQueueTab() {
                     style={{
                       flex: 1,
                       padding: "6px 12px",
-                      background: "rgba(225,29,72,0.1)",
+                      background: "rgba(200, 224, 191,0.1)",
                       border: "1px solid var(--accent-border)",
                       color: "var(--accent)",
                       borderRadius: 6,
                       fontSize: 11,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       cursor: "pointer"
                     }}
                   >
@@ -1020,7 +1095,7 @@ export default function DailyQueueTab() {
               borderRadius: 6,
               padding: 10
             }}>
-              <h4 style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px 0", textTransform: "uppercase" }}>
+              <h4 style={{ fontSize: 11, fontWeight: 500, color: "var(--text-primary)", margin: "0 0 10px 0", textTransform: "uppercase" }}>
                 AI Critic Analizi
               </h4>
 
@@ -1037,7 +1112,7 @@ export default function DailyQueueTab() {
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--text-secondary)" }}>
                       <span>{s.name}</span>
-                      <span style={{ fontWeight: 700, color: s.color }}>{s.val}</span>
+                      <span style={{ fontWeight: 500, color: s.color }}>{s.val}</span>
                     </div>
                     <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${s.val}%`, background: s.color, borderRadius: 2 }} />
@@ -1050,7 +1125,7 @@ export default function DailyQueueTab() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 8, fontSize: 11 }}>
                 <div>
                   <span style={{ color: "var(--text-muted)", display: "block" }}>Tavsiye ve Açı:</span>
-                  <span style={{ fontWeight: 700, color: "var(--accent)" }}>[{selectedItem.scoresParsed?.publishRecommendation || "publish"}]</span>
+                  <span style={{ fontWeight: 500, color: "var(--accent)" }}>[{selectedItem.scoresParsed?.publishRecommendation || "publish"}]</span>
                   <span style={{ color: "var(--text-secondary)", marginLeft: 6 }}>{selectedItem.scoresParsed?.angle || "safe"} angle</span>
                 </div>
                 <div>
@@ -1062,7 +1137,7 @@ export default function DailyQueueTab() {
                   <span style={{ color: "var(--text-muted)", display: "block" }}>Sonraki Hareket (Path):</span>
                   <span
                     style={{
-                      fontWeight: 700,
+                      fontWeight: 500,
                       color: (selectedItem.scoresParsed?.payoff ?? "none") === "none" ? "var(--yellow)" : "var(--accent)",
                     }}
                   >
@@ -1085,7 +1160,7 @@ export default function DailyQueueTab() {
                             title={leak.note}
                             style={{
                               fontSize: 10,
-                              fontWeight: 600,
+                              fontWeight: 500,
                               color,
                               border: `1px solid ${color}`,
                               borderRadius: 4,
@@ -1116,7 +1191,7 @@ export default function DailyQueueTab() {
                           style={{
                             display: "block",
                             color: it.id === selectedItem.id ? "var(--accent)" : "var(--text-secondary)",
-                            fontWeight: it.id === selectedItem.id ? 700 : 400,
+                            fontWeight: it.id === selectedItem.id ? 500 : 400,
                           }}
                         >
                           • {it.scoresParsed?.packageRole || "variant"}: {(it.editedContent || it.content).slice(0, 60)}…
@@ -1155,7 +1230,7 @@ export default function DailyQueueTab() {
                   </div>
                 )}
                 {selectedItem.scoresParsed?.modelFallbackUsed && (
-                  <div style={{ fontSize: 9, color: "var(--yellow)", marginTop: 2, background: "rgba(245,158,11,0.05)", padding: "2px 6px", borderRadius: 3 }}>
+                  <div style={{ fontSize: 9, color: "var(--yellow)", marginTop: 2, background: "rgba(217, 119, 87,0.05)", padding: "2px 6px", borderRadius: 3 }}>
                     ⚠️ Fallback Model Kullanıldı! {selectedItem.scoresParsed.modelFallbackReason ? `(${selectedItem.scoresParsed.modelFallbackReason})` : ""}
                   </div>
                 )}
@@ -1165,7 +1240,7 @@ export default function DailyQueueTab() {
             {/* Workflow Actions */}
             {!(selectedItem.status === "published" || selectedItem.status === "manual_published") && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 10, fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase" }}>
                   Kuyruk & feedback İşlemleri
                 </span>
 
@@ -1176,12 +1251,12 @@ export default function DailyQueueTab() {
                     disabled={isSaving}
                     style={{
                       padding: "8px 12px",
-                      background: selectedItem.status === "approved" ? "rgba(225,29,72,0.12)" : "rgba(225,29,72,0.08)",
+                      background: selectedItem.status === "approved" ? "rgba(200, 224, 191,0.12)" : "rgba(200, 224, 191,0.08)",
                       border: `1px solid ${selectedItem.status === "approved" ? "var(--accent)" : "var(--accent-border)"}`,
                       color: "var(--accent)",
                       borderRadius: 6,
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       cursor: "pointer"
                     }}
                   >
@@ -1199,7 +1274,7 @@ export default function DailyQueueTab() {
                       color: "var(--red)",
                       borderRadius: 6,
                       fontSize: 11,
-                      fontWeight: 700,
+                      fontWeight: 500,
                       cursor: "pointer"
                     }}
                   >
@@ -1282,7 +1357,7 @@ export default function DailyQueueTab() {
                           border: "none",
                           borderRadius: 5,
                           fontSize: 11,
-                          fontWeight: 700,
+                          fontWeight: 500,
                           cursor: "pointer"
                         }}
                       >
@@ -1303,7 +1378,7 @@ export default function DailyQueueTab() {
                 flexDirection: "column",
                 gap: 6
               }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                <label style={{ fontSize: 10, fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase" }}>
                   Hızlı Kritik Geri Bildirimi
                 </label>
 
@@ -1361,7 +1436,7 @@ export default function DailyQueueTab() {
                 borderRadius: 6,
                 fontSize: 11,
                 color: "var(--red)",
-                fontWeight: 600
+                fontWeight: 500
               }}>
                 ⚠️ Dikkat: Bu taslağın AI yayın skoru düşük. Yayınlamadan önce düzenleme yapılması önerilir.
               </div>
@@ -1375,7 +1450,7 @@ export default function DailyQueueTab() {
                 borderRadius: 6,
                 fontSize: 11,
                 color: "var(--red)",
-                fontWeight: 600
+                fontWeight: 500
               }}>
                 ⚠️ Yüksek Risk Uyarısı: Bu taslak yüksek risk skoru taşımaktadır (%{selectedItem.scoresParsed.riskScore}). Lütfen içeriği detaylıca kontrol edin.
               </div>
@@ -1393,7 +1468,7 @@ export default function DailyQueueTab() {
                   color: "#1d9bf0",
                   borderRadius: 6,
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -1413,7 +1488,7 @@ export default function DailyQueueTab() {
                   color: "var(--text-secondary)",
                   borderRadius: 6,
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
@@ -1435,7 +1510,7 @@ export default function DailyQueueTab() {
                   color: "#c084fc",
                   borderRadius: 6,
                   fontSize: 12,
-                  fontWeight: 700,
+                  fontWeight: 500,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",

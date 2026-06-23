@@ -1,17 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+
+const ActionSchema = z.object({
+  action: z.enum(["start", "stop"]),
+});
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = ActionSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return fail("Invalid action.", 400, { detail: parsed.error.flatten() });
   }
+  const { action } = parsed.data;
   try {
-    const { action } = await req.json();
-
-    if (action !== "start" && action !== "stop") {
-      return NextResponse.json({ success: false, error: "Invalid action." }, { status: 400 });
-    }
 
     const targetHandles = ["grafikcem", "maskulenkod"];
     const accounts = await prisma.account.findMany({
@@ -54,9 +60,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, action });
+    return ok({ action });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Operator mode change failed";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

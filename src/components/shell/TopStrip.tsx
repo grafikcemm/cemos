@@ -34,7 +34,9 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
         onClick={onOpenMobileNav}
         aria-label="Menüyü aç"
         style={{
-          display: "none",
+          // Görünürlük CSS sınıfı ile kontrol edilir (globals.css):
+          // varsayılan gizli, ≤640px'de flex. Inline display KULLANMA — class
+          // media-query'sini ezerdi.
           alignItems: "center",
           justifyContent: "center",
           width: 32,
@@ -57,14 +59,14 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
             </span>
             <span style={{ color: "var(--border-strong)" }}>/</span>
             <span
-              style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+              style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
             >
               {subTabLabel}
             </span>
           </>
         ) : (
           <span
-            style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+            style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
           >
             {areaLabel}
           </span>

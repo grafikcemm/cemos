@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { igConversationRepo } from "@/lib/db/igConversationRepo";
 import { igDmDraftRepo } from "@/lib/db/igDmDraftRepo";
 import { isConfigured } from "@/lib/instagram/igClient";
 import { getMetaPageId, IG_CONVERSATION_FETCH_LIMIT } from "@/lib/instagram/igConfig";
+import { ok } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +14,7 @@ export async function GET() {
     igDmDraftRepo.listConversationIdsWithDrafts(),
   ]);
   const draftSet = new Set(draftConvIds);
-  return NextResponse.json({
-    success: true,
+  return ok({
     configured,
     pageLinked: getMetaPageId() !== null,
     conversations: conversations.map((c) => ({

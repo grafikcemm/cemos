@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { modelConfigs, resolveModel } from "@/lib/ai/model-config";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 export async function GET() {
   try {
@@ -62,16 +65,30 @@ export async function GET() {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Ayarlar alınamadı";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }
 
+const ScheduleSchema = z.object({
+  accountId: z.string().min(1),
+  automationEnabled: z.boolean().optional(),
+  dailyMaxPosts: z.number().int().optional(),
+  quietStartHour: z.number().int().optional(),
+  quietEndHour: z.number().int().optional(),
+  requireApproval: z.boolean().optional(),
+  scanCron: z.string().optional(),
+  cadence: z.string().optional(),
+});
+
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = ScheduleSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
   }
   try {
-    const body = await req.json();
     const {
       accountId,
       automationEnabled,
@@ -81,11 +98,7 @@ export async function POST(req: NextRequest) {
       requireApproval,
       scanCron,
       cadence,
-    } = body;
-
-    if (!accountId) {
-      return NextResponse.json({ success: false, error: "accountId gereklidir." }, { status: 400 });
-    }
+    } = parsed.data;
 
     const schedule = await prisma.schedule.upsert({
       where: { accountId },
@@ -110,9 +123,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, schedule });
+    return ok({ schedule });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Ayarlar kaydedilemedi";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

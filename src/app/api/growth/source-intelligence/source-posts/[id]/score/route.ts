@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { scoreSourcePostFallback } from "@/lib/growth-engine/scorer";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
 
@@ -23,10 +22,7 @@ export async function POST(
     });
 
     if (!post) {
-      return NextResponse.json(
-        { success: false, error: "Source post not found" },
-        { status: 404 }
-      );
+      return fail("Source post not found", 404);
     }
 
     // 2. Score utilizing Scoring Engine Fallback
@@ -43,8 +39,7 @@ export async function POST(
     });
 
     // 3. Return preview results
-    return NextResponse.json({
-      success: true,
+    return ok({
       postText: post.text,
       targetAccount: post.account.handle,
       sourceHandle: post.source.handle,
@@ -56,6 +51,6 @@ export async function POST(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

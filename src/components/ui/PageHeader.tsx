@@ -64,7 +64,7 @@ export default function PageHeader({
             style={{
               margin: 0,
               fontSize: size === "page" ? "var(--text-display-md)" : "var(--text-display-lg)",
-              fontWeight: 600,
+              fontWeight: 500,
               color: "var(--text-primary)",
               letterSpacing: "-0.02em",
               lineHeight: 1.04,

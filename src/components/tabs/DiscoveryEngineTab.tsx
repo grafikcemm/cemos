@@ -362,7 +362,7 @@ export default function DiscoveryEngineTab() {
                   borderRadius: "var(--radius-lg)",
                   fontSize: "var(--text-sm)",
                   color: c.fg,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   boxShadow: "var(--highlight-top)",
                   transition: "background var(--ease-out), border-color var(--ease-out), color var(--ease-out)",
                 }}
@@ -385,7 +385,7 @@ export default function DiscoveryEngineTab() {
                   ) : st === "running" ? (
                     <StepIcon size={15} strokeWidth={2} />
                   ) : (
-                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 700 }}>{i + 1}</span>
+                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 500 }}>{i + 1}</span>
                   )}
                 </span>
                 <span>{s.label}</span>
@@ -448,8 +448,8 @@ export default function DiscoveryEngineTab() {
                   color: "var(--text-secondary)",
                 }}
               >
-                <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{k}</span>
-                <span className="tnum" style={{ color: "var(--accent-text)", fontWeight: 700 }}>{v}</span>
+                <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{k}</span>
+                <span className="tnum" style={{ color: "var(--accent-text)", fontWeight: 500 }}>{v}</span>
               </span>
             ))}
           </div>
@@ -509,7 +509,7 @@ export default function DiscoveryEngineTab() {
                     alignItems: "center",
                     gap: 6,
                     fontSize: "var(--text-xs)",
-                    fontWeight: 700,
+                    fontWeight: 500,
                     color: verdictColor(v.verdict),
                     minWidth: 64,
                   }}
@@ -556,7 +556,7 @@ export default function DiscoveryEngineTab() {
               className="font-display tnum"
               style={{
                 fontSize: "var(--text-4xl)",
-                fontWeight: 800,
+                fontWeight: 500,
                 lineHeight: 1,
                 letterSpacing: "-0.03em",
                 color: "var(--accent-text)",

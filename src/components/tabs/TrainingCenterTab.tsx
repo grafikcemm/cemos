@@ -186,7 +186,7 @@ export default function TrainingCenterTab() {
     switch (type) {
       case "approved":
       case "saved_as_pattern":
-        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)" };
+        return { bg: "rgba(200, 224, 191,0.12)", text: "var(--accent)" };
       case "rejected":
       case "too_ai":
       case "not_my_tone":
@@ -203,7 +203,7 @@ export default function TrainingCenterTab() {
   const getLabelBadgeColor = (labelVal: string) => {
     switch (labelVal) {
       case "good":
-        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)" };
+        return { bg: "rgba(200, 224, 191,0.12)", text: "var(--accent)" };
       case "bad":
         return { bg: "rgba(239,68,68,0.15)", text: "var(--red)" };
       case "edited":
@@ -240,7 +240,7 @@ export default function TrainingCenterTab() {
           alignItems: "center",
           gap: "var(--space-3)",
         }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500 }}>
             {actionMessage.type === "success"
               ? <CheckCircle2 size={15} strokeWidth={2} />
               : <ShieldAlert size={15} strokeWidth={2} />}
@@ -472,7 +472,7 @@ export default function TrainingCenterTab() {
             borderTop: viewTab === "feedback" ? "2px solid var(--accent)" : "2px solid transparent",
             color: viewTab === "feedback" ? "var(--text-primary)" : "var(--text-secondary)",
             fontSize: "var(--text-sm)",
-            fontWeight: 600,
+            fontWeight: 500,
             fontFamily: "inherit",
             cursor: "pointer",
             transition: "color 0.15s var(--ease-out)"
@@ -480,7 +480,7 @@ export default function TrainingCenterTab() {
         >
           <MessageSquare size={15} strokeWidth={1.8} style={{ color: viewTab === "feedback" ? "var(--accent-text)" : "var(--text-muted)" }} />
           Geri Bildirim
-          <span className="tnum" style={{ fontWeight: 700, color: viewTab === "feedback" ? "var(--accent-text)" : "var(--text-muted)" }}>{feedbackEvents.length}</span>
+          <span className="tnum" style={{ fontWeight: 500, color: viewTab === "feedback" ? "var(--accent-text)" : "var(--text-muted)" }}>{feedbackEvents.length}</span>
         </button>
         <button
           onClick={() => setViewTab("training")}
@@ -495,7 +495,7 @@ export default function TrainingCenterTab() {
             borderTop: viewTab === "training" ? "2px solid var(--accent)" : "2px solid transparent",
             color: viewTab === "training" ? "var(--text-primary)" : "var(--text-secondary)",
             fontSize: "var(--text-sm)",
-            fontWeight: 600,
+            fontWeight: 500,
             fontFamily: "inherit",
             cursor: "pointer",
             transition: "color 0.15s var(--ease-out)"
@@ -503,7 +503,7 @@ export default function TrainingCenterTab() {
         >
           <BookOpen size={15} strokeWidth={1.8} style={{ color: viewTab === "training" ? "var(--accent-text)" : "var(--text-muted)" }} />
           Eğitim Örnekleri
-          <span className="tnum" style={{ fontWeight: 700, color: viewTab === "training" ? "var(--accent-text)" : "var(--text-muted)" }}>{trainingExamples.length}</span>
+          <span className="tnum" style={{ fontWeight: 500, color: viewTab === "training" ? "var(--accent-text)" : "var(--text-muted)" }}>{trainingExamples.length}</span>
         </button>
       </div>
 
@@ -544,10 +544,10 @@ export default function TrainingCenterTab() {
                     {/* Header */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--accent-text)" }}>@{evt.accountHandle}</span>
+                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>@{evt.accountHandle}</span>
                         <span style={{
                           fontSize: "var(--text-2xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           padding: "2px 7px",
                           borderRadius: "var(--radius-sm)",
                           background: badge.bg,
@@ -612,7 +612,7 @@ export default function TrainingCenterTab() {
                           borderRadius: "var(--radius-sm)",
                           padding: "5px 10px",
                           fontSize: "var(--text-xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           fontFamily: "inherit",
                           cursor: actionLoading != null ? "default" : "pointer",
                           opacity: actionLoading != null && actionLoading !== `${evt.id}-saveAsPattern` ? 0.5 : 1,
@@ -635,7 +635,7 @@ export default function TrainingCenterTab() {
                           borderRadius: "var(--radius-sm)",
                           padding: "5px 10px",
                           fontSize: "var(--text-xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           fontFamily: "inherit",
                           cursor: actionLoading != null ? "default" : "pointer",
                           opacity: actionLoading != null && actionLoading !== `${evt.id}-saveTrainingExample` ? 0.5 : 1,
@@ -676,10 +676,10 @@ export default function TrainingCenterTab() {
                     {/* Header */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--accent-text)" }}>@{te.accountHandle}</span>
+                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>@{te.accountHandle}</span>
                         <span style={{
                           fontSize: "var(--text-2xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           padding: "2px 7px",
                           borderRadius: "var(--radius-sm)",
                           background: labelBadge.bg,
@@ -822,11 +822,11 @@ export default function TrainingCenterTab() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-hover)"; }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                   >
-                    <td style={{ padding: "11px 12px", fontWeight: 600, color: "var(--text-primary)" }}>{pat.patternName}</td>
-                    <td style={{ padding: "11px 12px", color: "var(--accent-text)", fontWeight: 600 }}>@{pat.accountHandle}</td>
+                    <td style={{ padding: "11px 12px", fontWeight: 500, color: "var(--text-primary)" }}>{pat.patternName}</td>
+                    <td style={{ padding: "11px 12px", color: "var(--accent-text)", fontWeight: 500 }}>@{pat.accountHandle}</td>
                     <td style={{ padding: "11px 12px", color: "var(--text-secondary)", fontSize: "var(--text-xs)" }}>{pat.category || pat.hookType || "—"}</td>
                     <td style={{ padding: "11px 12px", textAlign: "right" }}>
-                      <span className="font-display tnum" style={{ fontWeight: 800, color: "var(--accent-text)", letterSpacing: "-0.01em" }}>%{pat.successScore}</span>
+                      <span className="font-display tnum" style={{ fontWeight: 500, color: "var(--accent-text)", letterSpacing: "-0.01em" }}>%{pat.successScore}</span>
                     </td>
                     <td className="tnum" style={{ padding: "11px 12px", textAlign: "right", color: "var(--text-secondary)" }}>{pat.usageCount} kez</td>
                     <td style={{ padding: "11px 12px" }}>

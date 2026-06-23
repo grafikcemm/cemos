@@ -17,6 +17,7 @@ import AiRankingsTab from "@/components/tabs/AiRankingsTab";
 import YouTubeTab from "@/components/tabs/YouTubeTab";
 import InstagramTab from "@/components/tabs/InstagramTab";
 import LearnDashboardTab from "@/components/tabs/LearnDashboardTab";
+import ContentIntelligenceTab from "@/components/tabs/ContentIntelligenceTab";
 
 /**
  * Maps a (possibly legacy-aliased) activeTab id to its screen component.
@@ -61,6 +62,8 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <YouTubeTab />;
     case "learn-dashboard":
       return <LearnDashboardTab />;
+    case "content-intel":
+      return <ContentIntelligenceTab />;
     default:
       return <MorningDashboardTab />;
   }

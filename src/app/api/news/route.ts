@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { NEWS_SOURCES } from "@/lib/news-sources";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 import type { AccountHandle } from "@/lib/accounts";
 
 export interface FetchedNewsItem {
@@ -49,45 +52,55 @@ function parseRss(xml: string, sourceName: string, lang: "en" | "tr"): FetchedNe
   return items.slice(0, 8);
 }
 
+const ChannelSchema = z.object({
+  channel: z.string().min(1),
+});
+
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
-  const { channel } = (await req.json().catch(() => ({}))) as { channel?: AccountHandle };
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = ChannelSchema.safeParse(body.data);
+  const channel = parsed.success ? (parsed.data.channel as AccountHandle) : undefined;
 
   if (!channel || !NEWS_SOURCES[channel as keyof typeof NEWS_SOURCES]) {
-    return NextResponse.json({ error: "Bu kanal için haber kaynağı yok" }, { status: 400 });
+    return fail("Bu kanal için haber kaynağı yok", 400);
   }
 
-  const sources = NEWS_SOURCES[channel as keyof typeof NEWS_SOURCES]!;
-  const allItems: FetchedNewsItem[] = [];
-  const errors: string[] = [];
+  try {
+    const sources = NEWS_SOURCES[channel as keyof typeof NEWS_SOURCES]!;
+    const allItems: FetchedNewsItem[] = [];
+    const errors: string[] = [];
 
-  await Promise.allSettled(
-    sources.map(async (src) => {
-      try {
-        const res = await fetch(src.rssUrl, {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; XAgent/1.0)" },
-          next: { revalidate: 1800 },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const xml = await res.text();
-        const items = parseRss(xml, src.name, src.lang);
-        allItems.push(...items);
-      } catch (err) {
-        errors.push(`${src.name}: ${err instanceof Error ? err.message : "hata"}`);
-      }
-    })
-  );
+    await Promise.allSettled(
+      sources.map(async (src) => {
+        try {
+          const res = await fetch(src.rssUrl, {
+            headers: { "User-Agent": "Mozilla/5.0 (compatible; XAgent/1.0)" },
+            next: { revalidate: 1800 },
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const xml = await res.text();
+          const items = parseRss(xml, src.name, src.lang);
+          allItems.push(...items);
+        } catch (err) {
+          errors.push(`${src.name}: ${err instanceof Error ? err.message : "hata"}`);
+        }
+      })
+    );
 
-  // En yeniden eskiye sırala
-  allItems.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    // En yeniden eskiye sırala
+    allItems.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-  return NextResponse.json({
-    success: true,
-    channel,
-    items: allItems.slice(0, 30),
-    errors,
-    fetchedAt: new Date().toISOString(),
-  });
+    return ok({
+      channel,
+      items: allItems.slice(0, 30),
+      errors,
+      fetchedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const msg = err instanceof Error ? err.message : "Sunucu hatası";
+    return fail(msg, 500);
+  }
 }

@@ -21,10 +21,20 @@ vi.mock("@/lib/db/generationRunRepo", () => ({
 vi.mock("@/lib/services/usageService", () => ({
   usageService: {
     recordGeneration: vi.fn(),
+    recordOpenRouter: vi.fn(),
     getMonthlyCost: vi.fn().mockResolvedValue(0),
     getTodayCost: vi.fn().mockResolvedValue(0),
   },
 }));
+
+// generateJsonGated now wraps generateJson with a budget gate; keep the gate open
+// in this unit test so the LLM judge path runs (budget logic covered elsewhere).
+vi.mock("@/lib/config/costGate", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
+    "@/lib/config/costGate",
+  );
+  return { ...actual, assertGenerationAllowed: vi.fn() };
+});
 
 vi.mock("@/lib/ai/draft-pipeline", () => ({
   runDraftPipeline: vi.fn(),

@@ -1,26 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { scanService } from "@/lib/services/scanService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
-  const body = (await req.json().catch(() => ({}))) as {
-    channel?: string;
-    limit?: number;
-  };
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody<{ channel?: string; limit?: number }>(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
 
-  const { channel, limit = 10 } = body;
+  const { channel, limit = 10 } = body.data;
 
   if (!channel) {
-    return NextResponse.json({ success: false, error: "Gecersiz kanal" }, { status: 400 });
+    return fail("Gecersiz kanal", 400);
   }
 
   try {
     const result = await scanService.scanAccount(channel, limit);
-    return NextResponse.json({
-      success: true,
+    return ok({
       channel,
       scannedAt: new Date().toISOString(),
       scanRunId: result.scanRunId,
@@ -34,7 +31,8 @@ export async function POST(req: NextRequest) {
       posts: result.posts,
     });
   } catch (err) {
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
     const msg = err instanceof Error ? err.message : "Tarama hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

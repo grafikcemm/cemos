@@ -23,7 +23,7 @@ export default function SourceCard({ source, onToggle, onModeChange, onArchive }
           href={`https://x.com/${source.handle}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", textDecoration: "none" }}
+          style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", textDecoration: "none" }}
         >
           {source.displayName || `@${source.handle}`}{" "}
           <span style={{ fontSize: 10, color: "var(--text-muted)" }}>↗</span>

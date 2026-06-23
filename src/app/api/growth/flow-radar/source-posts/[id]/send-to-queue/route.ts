@@ -1,28 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+
+const SendToQueueSchema = z.object({
+  content: z.string().max(10000).optional(),
+  accountHandle: z.string().max(100).optional(),
+  modeId: z.string().max(100).optional(),
+});
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch {}
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
 
-    const { content, accountHandle, modeId } = body;
+    const parsed = SendToQueueSchema.safeParse(body.data);
+    if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
+
+    const { content, accountHandle, modeId } = parsed.data;
 
     if (content && accountHandle) {
       const account = await accountRepo.findByHandle(accountHandle);
       if (!account) {
-        return NextResponse.json({ success: false, error: "Account not found" }, { status: 404 });
+        return fail("Account not found", 404);
       }
 
       const queueItem = await queueRepo.create({
@@ -36,20 +43,18 @@ export async function POST(
         scores: "{}",
       });
 
-      return NextResponse.json({
-        success: true,
+      return ok({
         queueItemId: queueItem.id,
         message: "Taslak başarıyla sıraya (Queue) eklendi.",
       });
     }
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       placeholder: true,
       message: "Draft Generator Sprint 10’da aktif olacak.",
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

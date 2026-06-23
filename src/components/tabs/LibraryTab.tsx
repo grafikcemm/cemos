@@ -6,6 +6,7 @@ import { useXAgentStore, type FlowTweet, type QueueItem, type Channel } from "@/
 import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, SubNav } from "@/components/ui";
 import PromptKutuphanesiTab from "./PromptKutuphanesiTab";
 import PatternLibraryTab from "./PatternLibraryTab";
+import { safeExternalHref } from "@/lib/utils/url";
 
 const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
@@ -205,14 +206,14 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
               alignItems: "center",
               justifyContent: "center",
               fontSize: "var(--text-sm)",
-              fontWeight: 700,
+              fontWeight: 500,
               color: avatarColor,
               flexShrink: 0,
             }}
           >
             {tweet.handle[0].toUpperCase()}
           </div>
-          <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>
+          <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>
             @{tweet.handle}
           </span>
           {tweet.channel && <Badge variant="muted" size="xs">@{tweet.channel}</Badge>}
@@ -225,7 +226,7 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
               alignItems: "center",
               gap: 4,
               fontSize: "var(--text-xs)",
-              fontWeight: 700,
+              fontWeight: 500,
               color: "var(--accent-text)",
             }}
           >
@@ -234,9 +235,9 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
           </span>
 
           <a
-            href={tweet.url}
+            href={safeExternalHref(tweet.url)}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             title="X'te aç"
             style={{
               display: "inline-flex",
@@ -359,7 +360,7 @@ function FilterChip({ active, onClick, children }: {
         padding: "5px 12px",
         borderRadius: "var(--radius-md)",
         fontSize: "var(--text-xs)",
-        fontWeight: active ? 600 : 500,
+        fontWeight: active ? 500 : 500,
         fontFamily: "inherit",
         cursor: "pointer",
         whiteSpace: "nowrap",

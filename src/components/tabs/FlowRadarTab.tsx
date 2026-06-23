@@ -414,7 +414,7 @@ export default function FlowRadarTab() {
           marginBottom: 4,
           color: "var(--text-muted)",
           fontSize: "var(--text-xs)",
-          fontWeight: 600,
+          fontWeight: 500,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           flexWrap: "wrap",
@@ -626,7 +626,7 @@ export default function FlowRadarTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: 4, width: 140 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="eyebrow">MİN. FIRSAT SKORU</span>
-              <span className="tnum" style={{ color: "var(--accent-text)", fontSize: "var(--text-xs)", fontWeight: 700 }}>{minOpportunity}%</span>
+              <span className="tnum" style={{ color: "var(--accent-text)", fontSize: "var(--text-xs)", fontWeight: 500 }}>{minOpportunity}%</span>
             </div>
             <input
               type="range"
@@ -730,7 +730,7 @@ export default function FlowRadarTab() {
                 {/* Header info */}
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>@{cand.sourceHandle}</span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "var(--accent)" }}>@{cand.sourceHandle}</span>
                     {cand.sourceName && (
                       <span style={{ fontSize: 10, color: "var(--text-muted)" }}>({cand.sourceName})</span>
                     )}
@@ -756,7 +756,7 @@ export default function FlowRadarTab() {
                         fontSize: 9,
                         background:
                           cand.score.suggestedAction === "tweet"
-                            ? "rgba(225,29,72,0.15)"
+                            ? "rgba(200, 224, 191,0.15)"
                             : cand.score.suggestedAction === "quote"
                             ? "rgba(96,165,250,0.15)"
                             : cand.score.suggestedAction === "reply"
@@ -772,7 +772,7 @@ export default function FlowRadarTab() {
                             : "var(--text-muted)",
                         padding: "2px 6px",
                         borderRadius: 4,
-                        fontWeight: 600,
+                        fontWeight: 500,
                         textTransform: "uppercase"
                       }}
                     >
@@ -787,7 +787,7 @@ export default function FlowRadarTab() {
                           color: cand.status === "ignored" ? "var(--danger)" : "var(--green)",
                           padding: "2px 6px",
                           borderRadius: 4,
-                          fontWeight: 600,
+                          fontWeight: 500,
                           textTransform: "uppercase"
                         }}
                       >
@@ -814,7 +814,7 @@ export default function FlowRadarTab() {
                     <span
                       style={{
                         fontSize: 11,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         color: isHighOpp ? "var(--green)" : "var(--text-primary)"
                       }}
                     >
@@ -827,7 +827,7 @@ export default function FlowRadarTab() {
                     <span
                       style={{
                         fontSize: 11,
-                        fontWeight: 700,
+                        fontWeight: 500,
                         color: isHighRisk ? "var(--danger)" : "var(--text-primary)"
                       }}
                     >
@@ -861,14 +861,14 @@ export default function FlowRadarTab() {
                 {/* Heuristic Pattern recommendations */}
                 {cand.pattern.suggestedPatterns.length > 0 && (
                   <div style={{ background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ fontSize: 9, color: "var(--accent)", fontWeight: 600 }}>ÖNERİLEN VİRAL ŞABLONLAR:</div>
+                    <div style={{ fontSize: 9, color: "var(--accent)", fontWeight: 500 }}>ÖNERİLEN VİRAL ŞABLONLAR:</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {cand.pattern.suggestedPatterns.map((pat, idx) => (
                         <span
                           key={idx}
                           style={{
                             fontSize: 9,
-                            background: "rgba(225,29,72,0.12)",
+                            background: "rgba(200, 224, 191,0.12)",
                             color: "var(--accent)",
                             padding: "1px 5px",
                             borderRadius: 3
@@ -911,11 +911,11 @@ export default function FlowRadarTab() {
                   <button
                     onClick={() => handleSaveAsPattern(cand.id)}
                     style={{
-                      background: "rgba(225,29,72,0.08)",
-                      border: "1px solid rgba(225,29,72,0.15)",
+                      background: "rgba(200, 224, 191,0.08)",
+                      border: "1px solid rgba(200, 224, 191,0.15)",
                       color: "var(--accent)",
                       fontSize: 10,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       padding: "4px 8px",
                       borderRadius: 4,
                       cursor: "pointer"
@@ -965,11 +965,11 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleGenerateDrafts(cand, "tweet")}
                       style={{
-                        background: "rgba(225,29,72,0.12)",
-                        border: "1px solid rgba(225,29,72,0.2)",
+                        background: "rgba(200, 224, 191,0.12)",
+                        border: "1px solid rgba(200, 224, 191,0.2)",
                         color: "var(--accent)",
                         fontSize: 10,
-                        fontWeight: 600,
+                        fontWeight: 500,
                         padding: "4px 8px",
                         borderRadius: 4,
                         cursor: "pointer"
@@ -984,7 +984,7 @@ export default function FlowRadarTab() {
                         border: "1px solid rgba(96,165,250,0.2)",
                         color: "var(--blue)",
                         fontSize: 10,
-                        fontWeight: 600,
+                        fontWeight: 500,
                         padding: "4px 8px",
                         borderRadius: 4,
                         cursor: "pointer"
@@ -999,7 +999,7 @@ export default function FlowRadarTab() {
                         border: "1px solid rgba(244,63,94,0.2)",
                         color: "var(--danger)",
                         fontSize: 10,
-                        fontWeight: 600,
+                        fontWeight: 500,
                         padding: "4px 8px",
                         borderRadius: 4,
                         cursor: "pointer"
@@ -1049,7 +1049,7 @@ export default function FlowRadarTab() {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--accent)" }}>
+                <h3 style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "var(--accent)" }}>
                   @{selectedCandidate.sourceHandle} Karar Detayları
                 </h3>
                 <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Target Account: @{selectedCandidate.accountHandle}</span>
@@ -1072,7 +1072,7 @@ export default function FlowRadarTab() {
 
             {/* Opportunity Breakdown */}
             <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>ÖNERİ GEREKÇESİ</div>
+              <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>ÖNERİ GEREKÇESİ</div>
               <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4 }}>
                 {selectedCandidate.score.reason}
               </div>
@@ -1080,7 +1080,7 @@ export default function FlowRadarTab() {
 
             {/* Heuristic pattern details */}
             <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>PATTERN EXTRACTION DETAYLARI</div>
+              <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>PATTERN EXTRACTION DETAYLARI</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
                 <div>
                   <span style={{ color: "var(--text-muted)" }}>Tetikleyici Duygu:</span>{" "}
@@ -1156,9 +1156,9 @@ export default function FlowRadarTab() {
             {/* Modal Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 12 }}>
               <div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--accent)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0, color: "var(--accent)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
                   <span>Taslak Oluşturucu & Eleştirmen</span>
-                  <span style={{ fontSize: 10, background: "rgba(225,29,72,0.15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
+                  <span style={{ fontSize: 10, background: "rgba(200, 224, 191,0.15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
                     {selectedActionType}
                   </span>
                 </h3>
@@ -1228,7 +1228,7 @@ export default function FlowRadarTab() {
                           <span
                             style={{
                               fontSize: 10,
-                              fontWeight: 700,
+                              fontWeight: 500,
                               textTransform: "uppercase",
                               background:
                                 item.draft.angle === "safe"
@@ -1249,7 +1249,7 @@ export default function FlowRadarTab() {
                             {item.draft.angle} Açı
                           </span>
 
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)" }}>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--accent)" }}>
                             Skor: {c.publishScore}%
                           </span>
                         </div>
@@ -1296,7 +1296,7 @@ export default function FlowRadarTab() {
                             gap: 8
                           }}
                         >
-                          <div style={{ fontSize: 9, color: "var(--accent)", fontWeight: 600 }}>ELEŞTİRMEN DETAYLARI:</div>
+                          <div style={{ fontSize: 9, color: "var(--accent)", fontWeight: 500 }}>ELEŞTİRMEN DETAYLARI:</div>
                           
                           {/* Scoring Bars */}
                           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 10 }}>
@@ -1394,11 +1394,11 @@ export default function FlowRadarTab() {
                             onClick={() => handleSaveToQueue(item)}
                             disabled={isSaving}
                             style={{
-                              background: "rgba(225,29,72,0.12)",
-                              border: "1px solid rgba(225,29,72,0.2)",
+                              background: "rgba(200, 224, 191,0.12)",
+                              border: "1px solid rgba(200, 224, 191,0.2)",
                               color: "var(--accent)",
                               fontSize: 9,
-                              fontWeight: 600,
+                              fontWeight: 500,
                               padding: "4px 8px",
                               borderRadius: 4,
                               cursor: "pointer",

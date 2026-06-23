@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 
 /**
  * AI Sıralama otomatik güncelleme. Kullanıcının verdiği üç public leaderboard'u
@@ -119,11 +119,12 @@ export async function refreshRankings(): Promise<RefreshResult> {
 
   let rankings: RankingRow[] = [];
   try {
-    const result = await generateJson<{ rankings: unknown }>({
+    const result = await generateJsonGated<{ rankings: unknown }>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.1,
+      purpose: "ai_rankings",
     });
     rankings = sanitize(result.data?.rankings);
   } catch (err) {

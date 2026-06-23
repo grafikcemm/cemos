@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 import {
   syncDueSources,
   translateBatch,
@@ -56,20 +59,17 @@ async function runStage(stage: Stage, deadline: number): Promise<Record<string, 
 
 async function handle(req: NextRequest): Promise<NextResponse> {
   if (!isCronAuthorized(req)) {
-    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 401 });
+    return fail("unauthorized", 401);
   }
 
   const stageParam = (req.nextUrl.searchParams.get("stage") || "all") as Stage;
   if (!VALID_STAGES.includes(stageParam)) {
-    return NextResponse.json(
-      { success: false, error: `Geçersiz stage. Şunlardan biri olmalı: ${VALID_STAGES.join(", ")}` },
-      { status: 400 }
-    );
+    return fail(`Geçersiz stage. Şunlardan biri olmalı: ${VALID_STAGES.join(", ")}`, 400);
   }
 
   // Advisory lock via CronRun: skip if a news run is already in flight.
   if (await cronRunRepo.hasRunning("news_run")) {
-    return NextResponse.json({ success: false, error: "Zaten çalışan bir haber işlemi var" }, { status: 409 });
+    return fail("Zaten çalışan bir haber işlemi var", 409);
   }
 
   let cronRunId: string | null = null;
@@ -85,13 +85,14 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: true, result: { stage: stageParam, ...result } });
     }
-    return NextResponse.json({ success: true, stage: stageParam, ranAt: new Date().toISOString(), ...result });
+    return ok({ stage: stageParam, ranAt: new Date().toISOString(), ...result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
     }
-    return NextResponse.json({ success: false, stage: stageParam, error: msg }, { status: 500 });
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget", stage: stageParam });
+    return fail(msg, 500, { stage: stageParam });
   }
 }
 

@@ -76,12 +76,12 @@ export default function PromptKutuphanesiTab() {
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Library size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              <span className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>{filtered.length}</span>
+              <span className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{filtered.length}</span>
               <span>prompt</span>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Tag size={15} strokeWidth={1.8} style={{ color: "var(--blue)" }} />
-              <span className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>{Math.max(0, categories.length - 1)}</span>
+              <span className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{Math.max(0, categories.length - 1)}</span>
               <span>kategori</span>
             </span>
           </>
@@ -138,7 +138,7 @@ export default function PromptKutuphanesiTab() {
               (search || category !== "all") && (
                 <button
                   onClick={() => { setSearch(""); setCategory("all"); }}
-                  style={{ padding: "8px 16px", background: "var(--gradient-accent), var(--bg-elevated)", border: "1px solid var(--accent-border)", color: "var(--accent-text)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 700, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", background: "var(--gradient-accent), var(--bg-elevated)", border: "1px solid var(--accent-border)", color: "var(--accent-text)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 500, cursor: "pointer" }}
                 >
                   Filtreyi temizle
                 </button>
@@ -156,7 +156,7 @@ export default function PromptKutuphanesiTab() {
               style={{ display: "flex", flexDirection: "column", gap: 10 }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                <span className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>{p.title}</span>
+                <span className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>{p.title}</span>
                 <Badge variant="muted" size="sm">{p.category}</Badge>
               </div>
               {p.useCase && <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.45 }}>{p.useCase}</div>}
@@ -165,7 +165,7 @@ export default function PromptKutuphanesiTab() {
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); handleCopy(p.promptText); }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 600, cursor: "pointer", alignSelf: "flex-start", marginTop: "auto", transition: "border-color var(--ease-out) 150ms, color var(--ease-out) 150ms" }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 500, cursor: "pointer", alignSelf: "flex-start", marginTop: "auto", transition: "border-color var(--ease-out) 150ms, color var(--ease-out) 150ms" }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; e.currentTarget.style.color = "var(--accent-text)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
               >
@@ -190,7 +190,7 @@ export default function PromptKutuphanesiTab() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
               <div style={{ minWidth: 0 }}>
                 <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 8 }}>{selected.category}</div>
-                <h2 className="font-display" style={{ fontSize: "var(--text-xl)", fontWeight: 800, margin: "0 0 8px 0", color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.1 }}>{selected.title}</h2>
+                <h2 className="font-display" style={{ fontSize: "var(--text-xl)", fontWeight: 500, margin: "0 0 8px 0", color: "var(--text-primary)", letterSpacing: "-0.02em", lineHeight: 1.1 }}>{selected.title}</h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <Badge variant="muted" size="sm">{selected.lang}</Badge>
                   <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>· {selected.source}</span>
@@ -226,7 +226,7 @@ export default function PromptKutuphanesiTab() {
             )}
             <button
               onClick={() => handleCopy(selected.promptText)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 18, padding: "10px 18px", background: "var(--gradient-accent), var(--bg-elevated)", border: "1px solid var(--accent-border)", color: "var(--accent-text)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 700, cursor: "pointer", boxShadow: "var(--highlight-top)", transition: "box-shadow var(--ease-out) 150ms" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 18, padding: "10px 18px", background: "var(--gradient-accent), var(--bg-elevated)", border: "1px solid var(--accent-border)", color: "var(--accent-text)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)", fontWeight: 500, cursor: "pointer", boxShadow: "var(--highlight-top)", transition: "box-shadow var(--ease-out) 150ms" }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-accent), var(--highlight-top)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--highlight-top)"; }}
             >

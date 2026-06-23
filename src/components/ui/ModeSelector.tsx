@@ -31,7 +31,7 @@ export default function ModeSelector({ value, onChange, size = "sm" }: ModeSelec
               borderRadius: "var(--radius-sm)",
               padding: size === "sm" ? "2px 6px" : "3px 8px",
               fontSize: size === "sm" ? 9 : 10,
-              fontWeight: active ? 700 : 400,
+              fontWeight: active ? 500 : 400,
               cursor: "pointer",
               letterSpacing: "0.02em",
               transition: "all 0.15s",

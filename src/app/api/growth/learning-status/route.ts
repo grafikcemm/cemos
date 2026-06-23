@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +49,7 @@ export async function GET() {
         }),
       ]);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       lastDaily: serializeCronRun(lastDaily),
       lastLearn: serializeCronRun(lastLearn),
       patternsMinedLast7d,
@@ -59,6 +58,6 @@ export async function GET() {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Öğrenme durumu alınamadı";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

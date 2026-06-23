@@ -1,27 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
 import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
+
+const GenerateSchema = z
+  .object({
+    channel: z.string().min(1),
+    sourcePostId: z.string().optional(),
+    sourceTweet: z.string().max(20000).optional(),
+    sourceHandle: z.string().optional(),
+    draftType: z.string().optional(),
+    mode: z.string().optional(),
+  })
+  .refine((b) => Boolean(b.sourceTweet || b.sourcePostId), {
+    message: "sourceTweet veya sourcePostId gerekli",
+  });
 
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+    return fail("Yetkisiz", 403, { code: "forbidden" });
   }
   try {
-    const body = (await req.json()) as {
-      channel?: string;
-      sourcePostId?: string;
-      sourceTweet?: string;
-      sourceHandle?: string;
-      draftType?: string;
-      mode?: string;
-    };
-
-    if (!body.channel) {
-      return NextResponse.json({ success: false, error: "channel gerekli" }, { status: 400 });
+    const parsedBody = await parseJsonBody(req);
+    if (!parsedBody.ok) return fail("Geçersiz JSON", 400);
+    const parsed = GenerateSchema.safeParse(parsedBody.data);
+    if (!parsed.success) {
+      return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
     }
-    if (!body.sourceTweet && !body.sourcePostId) {
-      return NextResponse.json({ success: false, error: "sourceTweet veya sourcePostId gerekli" }, { status: 400 });
-    }
+    const body = parsed.data;
 
     const result = await draftService.generateDraft({
       accountHandle: body.channel,
@@ -32,8 +40,7 @@ export async function POST(req: NextRequest) {
       mode: body.mode,
     });
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       channel: body.channel,
       draftType: body.draftType ?? "TWEET",
       generated: result.generated,
@@ -45,7 +52,10 @@ export async function POST(req: NextRequest) {
       timings: result.timings,
     });
   } catch (err) {
+    if (err instanceof BudgetExceededError) {
+      return fail(err.message, 402, { code: "budget" });
+    }
     const msg = err instanceof Error ? err.message : "Generation hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

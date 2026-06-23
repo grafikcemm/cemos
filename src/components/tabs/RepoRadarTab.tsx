@@ -70,7 +70,7 @@ export default function RepoRadarTab() {
           meta={
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Radar size={15} strokeWidth={1.9} style={{ color: "var(--accent-text)" }} />
-              <span className="tnum" style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+              <span className="tnum" style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                 {filtered.length}
               </span>
               trend repo
@@ -150,10 +150,10 @@ export default function RepoRadarTab() {
                 <span
                   className="tnum"
                   title="X değer puanı"
-                  style={{ fontSize: "var(--text-md)", fontWeight: 700, fontFamily: "var(--font-display)", color: scoreColor(r.xValueScore), lineHeight: 1 }}
+                  style={{ fontSize: "var(--text-md)", fontWeight: 500, fontFamily: "var(--font-display)", color: scoreColor(r.xValueScore), lineHeight: 1 }}
                 >
                   {r.xValueScore}
-                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontWeight: 600 }}>/100</span>
+                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontWeight: 500 }}>/100</span>
                 </span>
               }
               body={
@@ -194,7 +194,7 @@ export default function RepoRadarTab() {
               }
               meta={
                 <>
-                  <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--yellow)", fontWeight: 600 }}>
+                  <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--yellow)", fontWeight: 500 }}>
                     <Star size={13} strokeWidth={2} fill="var(--yellow)" /> {r.stars.toLocaleString("tr-TR")}
                   </span>
                   {r.language && (

@@ -8,6 +8,7 @@ export { default as EmptyState } from "./EmptyState";
 export { default as EntityCard, AvatarTile } from "./EntityCard";
 export { default as FilterBar } from "./FilterBar";
 export { default as IconButton } from "./IconButton";
+export { KanbanBoard, KanbanCard, type KanbanColumnDef, type KanbanTone } from "./kanban";
 export { default as Input } from "./Input";
 export { default as MetricCard } from "./MetricCard";
 export { default as MetricGrid } from "./MetricGrid";

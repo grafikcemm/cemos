@@ -915,3 +915,311 @@ model LearnProcessingJob {
   @@unique([sourceId, pipelineVersion])
   @@index([status, currentStage])
 }
+
+// ── Content Intelligence (Eden-inspired) — Faz CI ──
+// Tamamı additive; mevcut modeller DOKUNULMAZ. Global veri (Account relation YOK,
+// Yt/News/Ig deseni) — hesap kapsamı plain `accountId` String + index ile. JSON =
+// String kolonu (safeJsonParse). Soft-provenance: ContentItem mevcut tablolara FK
+// eklemeden originTable+originId ile bağlanır → tek CREATE TABLE, kolay rollback.
+
+// Birleşik kanonik içerik birimi. Tüm platform kaynakları (X/IG/YT/News/Repo/manuel)
+// bu modele normalize olur. @@unique([platform, externalId]) → idempotent dedup:
+// aynı kaynak iki kez işlenince yeni satır değil, mevcut döner.
+model ContentItem {
+  id              String    @id @default(cuid())
+  platform        String // x | instagram | youtube | news | repo | manual
+  externalId      String // ham platform id (prefix'siz)
+  canonicalUrl    String? // tekilleştirme yardımcı anahtarı
+  sourceType      String    @default("external") // external | own | manual
+  // Soft-provenance: hangi mevcut tablodan türedi (FK eklemeden lineage).
+  originTable     String? // "SourcePost" | "NewsItem" | "YtVideo" | "IgMedia" | "RepoRadarItem"
+  originId        String? // origin tablosundaki id
+  creatorId       String? // FK → Creator (Faz 3); şimdilik null olabilir
+  creator         Creator?  @relation(fields: [creatorId], references: [id])
+  contentType     String    @default("post") // post | video | article | repo | thread
+  format          String    @default("") // x_single | x_thread | ig_reel | ig_carousel | ig_static | yt_long | yt_short | news_article | repo
+  title           String    @default("")
+  body            String    @default("")
+  transcript      String    @default("")
+  language        String?
+  author          String    @default("") // Creator bağlanmadan önceki görünen yazar/handle
+  mediaUrlsJson   String    @default("[]") // [url, ...]
+  metricsJson     String    @default("{}") // { likes, retweets, views, comments, shares, stars, ... }
+  rawMetadataJson String    @default("{}")
+  ingestionStatus String    @default("normalized") // normalized | enriched | failed
+  analysisStatus  String    @default("pending") // pending | analyzed | failed
+  publishedAt     DateTime?
+  firstSeenAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  outlierScores ContentOutlierScore[]
+  boardItems    BoardItem[]
+  ideaSources   IdeaSource[]
+  embedding     ContentEmbedding?
+
+  @@unique([platform, externalId])
+  @@index([platform, format])
+  @@index([creatorId])
+  @@index([analysisStatus])
+  @@index([publishedAt])
+  @@index([originTable, originId])
+}
+
+// İçerik üreticisi (platform hesaplarından AYRI — Eden ilkesi). Bir creator çoklu
+// platform profiline sahip olabilir; şimdilik platform+handle ile tekil.
+model Creator {
+  id          String   @id @default(cuid())
+  platform    String // x | instagram | youtube
+  handle      String // @handle veya kanal id (kanonik)
+  displayName String   @default("")
+  followers   Float    @default(0) // Float: Int32 taşma koruması
+  metaJson    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contentItems ContentItem[]
+  baselines    CreatorBaseline[]
+
+  @@unique([platform, handle])
+  @@index([platform])
+}
+
+// Creator × format medyan performansı (outlier paydası). Platform+format başına
+// bir baseline; window kapanışında yeniden hesaplanır (versiyonlanır).
+model CreatorBaseline {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id])
+  platform    String
+  format      String // x_single | x_thread | ig_reel | ...
+  metric      String   @default("engagement") // engagement | views | likes
+  medianValue Float    @default(0)
+  sampleSize  Int      @default(0)
+  windowDays  Int      @default(30)
+  version     Int      @default(1)
+  computedAt  DateTime @default(now())
+
+  @@unique([creatorId, format, metric])
+  @@index([platform, format])
+}
+
+// İçerik birimi başına açıklanabilir outlier skoru. multiplier = metric / medyan.
+model ContentOutlierScore {
+  id              String      @id @default(cuid())
+  contentItemId   String
+  contentItem     ContentItem @relation(fields: [contentItemId], references: [id])
+  metric          String      @default("engagement")
+  metricValue     Float       @default(0)
+  baselineMedian  Float       @default(0)
+  multiplier      Float       @default(0) // metricValue / baselineMedian
+  sampleSize      Int         @default(0)
+  insufficient    Boolean     @default(false) // min örneklem altı → güvenilmez
+  explanationJson String      @default("{}") // { window, sampleSize, formula, ... }
+  version         Int         @default(1)
+  computedAt      DateTime    @default(now())
+
+  @@unique([contentItemId, metric])
+  @@index([multiplier])
+}
+
+// ── Boards / Swipe-file ── (Kütüphane savedTweets → kalıcı boards)
+// Hesap-kapsamlı plain accountId (FK yok, global desen).
+model Board {
+  id          String    @id @default(cuid())
+  accountId   String? // null = paylaşılan/genel board
+  name        String
+  description String    @default("")
+  icon        String    @default("")
+  position    Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sections BoardSection[]
+  items    BoardItem[]
+
+  @@index([accountId])
+}
+
+model BoardSection {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id])
+  name      String   @default("")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  items BoardItem[]
+
+  @@index([boardId])
+}
+
+// Board içindeki birim: kanonik ContentItem referansı VEYA serbest (url/not/görsel).
+model BoardItem {
+  id            String        @id @default(cuid())
+  boardId       String
+  board         Board         @relation(fields: [boardId], references: [id])
+  sectionId     String?
+  section       BoardSection? @relation(fields: [sectionId], references: [id])
+  contentItemId String? // varsa kanonik içerik
+  contentItem   ContentItem?  @relation(fields: [contentItemId], references: [id])
+  itemType      String        @default("content") // content | url | image | note | idea | draft
+  title         String        @default("")
+  url           String        @default("")
+  note          String        @default("")
+  metaJson      String        @default("{}")
+  position      Int           @default(0)
+  createdAt     DateTime      @default(now())
+
+  @@index([boardId])
+  @@index([sectionId])
+  @@index([contentItemId])
+}
+
+// ── Idea ── kaynak + voice'a bağlı, özgünleştirilmiş fikir (Draft'tan ÖNCE).
+// QueueItem = Draft olarak korunur; Idea onun üstünde yeni katman.
+model Idea {
+  id                 String   @id @default(cuid())
+  accountId          String // hangi sosyal hesap için
+  title              String   @default("")
+  angle              String   @default("")
+  hook               String   @default("")
+  bodyOutline        String   @default("")
+  platform           String   @default("x")
+  format             String   @default("")
+  objective          String   @default("") // save | reply | follow | profile_visit
+  whyNow             String   @default("")
+  status             String   @default("new") // new | drafted | dismissed
+  voiceProfileId     String? // Faz 4 voice; şimdilik null
+  scoresJson         String   @default("{}") // opportunity score breakdown
+  // Lineage: hangi reverse-engineer/transformation'dan türedi.
+  transformationType String? // reverse_engineer | boost | manual | brief
+  promptVersion      String   @default("")
+  modelUsed          String   @default("")
+  costUsd            Float    @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sources IdeaSource[]
+
+  @@index([accountId, status])
+  @@index([platform])
+}
+
+// Idea ↔ kaynak ContentItem köprüsü (provenance; bir idea çoklu kaynak alıntılar).
+model IdeaSource {
+  id            String      @id @default(cuid())
+  ideaId        String
+  idea          Idea        @relation(fields: [ideaId], references: [id])
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id])
+  role          String      @default("primary") // primary | supporting
+  createdAt     DateTime    @default(now())
+
+  @@unique([ideaId, contentItemId])
+  @@index([contentItemId])
+}
+
+// ── Voice & Visual Identity (Faz CI-4) ── Hardcoded prompts.ts → DB profilleri.
+// Hesap-kapsamlı plain accountId. Array alanlar JSON String (proje deseni).
+model VoiceProfile {
+  id                String   @id @default(cuid())
+  accountId         String
+  name              String   @default("default")
+  mission           String   @default("")
+  pointOfView       String   @default("")
+  coreIdeasJson     String   @default("[]")
+  audience          String   @default("")
+  personality       String   @default("")
+  vocabularyJson    String   @default("[]")
+  toneTagsJson      String   @default("[]")
+  rhythm            String   @default("")
+  formatHabitsJson  String   @default("[]")
+  preferredJson     String   @default("[]") // preferred patterns
+  avoidJson         String   @default("[]") // avoid patterns
+  anchorStories     String   @default("")
+  writingSamples    String   @default("")
+  notes             String   @default("")
+  mode              String   @default("personal") // personal | brand | client
+  version           Int      @default(1)
+  isActive          Boolean  @default(true)
+  sourceAttribution String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([accountId, isActive])
+}
+
+model VisualStyleProfile {
+  id                 String   @id @default(cuid())
+  accountId          String
+  name               String   @default("default")
+  brandColorsJson    String   @default("[]")
+  typography         String   @default("")
+  layoutPatternsJson String   @default("[]")
+  aspectRatiosJson   String   @default("[]")
+  textDensity        String   @default("")
+  headlineLength     String   @default("")
+  imageStyle         String   @default("")
+  motifsJson         String   @default("[]")
+  ctaStyle           String   @default("")
+  forbiddenJson      String   @default("[]")
+  referencesJson     String   @default("[]")
+  isActive           Boolean  @default(true)
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([accountId, isActive])
+}
+
+// ── Performance & Learning (Faz CI-6) ── Published Post ≠ ContentItem (Eden ilkesi).
+model PublishedPost {
+  id               String   @id @default(cuid())
+  accountId        String
+  draftQueueItemId String? // hangi QueueItem'dan yayımlandı (provenance, FK yok)
+  ideaId           String? // köken idea (provenance)
+  platform         String   @default("x")
+  externalId       String? // platform post id
+  url              String   @default("")
+  content          String   @default("")
+  publishedAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  snapshots PerformanceSnapshot[]
+
+  @@index([accountId, publishedAt])
+  @@index([platform])
+}
+
+// Zaman-pencereli metrik anlık görüntüsü (1h/6h/24h/3d/7d/30d). predicted↔actual kalibrasyonu.
+model PerformanceSnapshot {
+  id              String        @id @default(cuid())
+  publishedPostId String
+  publishedPost   PublishedPost @relation(fields: [publishedPostId], references: [id])
+  window          String // 1h | 6h | 24h | 3d | 7d | 30d
+  metricsJson     String        @default("{}")
+  normalizedScore Float         @default(0)
+  capturedAt      DateTime      @default(now())
+
+  @@unique([publishedPostId, window])
+  @@index([publishedPostId])
+}
+
+// ── Semantic Discover (Faz CI-3) ── Searchable document embedding.
+// v1: JSON vektör + JS cosine (repo'nun mevcut vector-memory deseni). pgvector =
+// sonraki perf optimizasyonu (extension + Unsupported("vector")).
+model ContentEmbedding {
+  id            String      @id @default(cuid())
+  contentItemId String      @unique
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id])
+  model         String      @default("")
+  dim           Int         @default(0)
+  embeddingJson String      @default("[]") // Float[] JSON
+  searchableDoc String      @default("") // title+body+transcript+tags birleşimi
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([contentItemId])
+}

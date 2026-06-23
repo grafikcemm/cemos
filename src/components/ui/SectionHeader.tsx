@@ -33,7 +33,7 @@ export default function SectionHeader({ title, description, action, eyebrow }: S
           style={{
             margin: 0,
             fontSize: "var(--text-lg)",
-            fontWeight: 600,
+            fontWeight: 500,
             color: "var(--text-primary)",
             letterSpacing: "-0.015em",
           }}

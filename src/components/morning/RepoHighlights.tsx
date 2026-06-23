@@ -80,12 +80,12 @@ export default function RepoHighlights({ onToast }: Props) {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-display"
-                  style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", letterSpacing: "-0.01em" }}
+                  style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", letterSpacing: "-0.01em" }}
                 >
                   {r.owner}/{r.repoName}
                 </a>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--yellow)" }}>
+                  <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--yellow)" }}>
                     <Star size={13} strokeWidth={1.8} fill="currentColor" />
                     {r.stars.toLocaleString("tr-TR")}
                   </span>

@@ -60,7 +60,7 @@ const accentBtn: React.CSSProperties = {
   borderRadius: 6,
   padding: "7px 14px",
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 500,
   cursor: "pointer",
 };
 const tooltipStyle = {
@@ -80,7 +80,7 @@ function MetricCard({ label, value }: { label: string; value: number }) {
   return (
     <div style={{ ...card, padding: 14, flex: 1, minWidth: 120 }}>
       <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>
+      <div style={{ fontSize: 22, fontWeight: 500, color: "var(--text-primary)" }}>
         {value.toLocaleString("tr-TR")}
       </div>
     </div>
@@ -179,14 +179,14 @@ export default function InsightsPanel() {
 
           {/* Grafik 1: takipçi + reach çizgi */}
           <div style={{ ...card }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Takipçi &amp; Erişim</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Takipçi &amp; Erişim</div>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={snapshots} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <Tooltip {...tooltipStyle} />
-                <Line type="monotone" dataKey="followerCount" name="Takipçi" stroke="#e11d48" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="followerCount" name="Takipçi" stroke="#c8e0bf" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="reach" name="Erişim" stroke="#5cc8ff" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -194,14 +194,14 @@ export default function InsightsPanel() {
 
           {/* Grafik 2: haftalık saves/shares bar */}
           <div style={{ ...card }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Haftalık Kaydetme &amp; Paylaşım</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Haftalık Kaydetme &amp; Paylaşım</div>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weekly} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e1e1e" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#444" }} axisLine={false} tickLine={false} />
                 <Tooltip {...tooltipStyle} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                <Bar dataKey="saves" name="Kaydetme" fill="#e11d48" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="saves" name="Kaydetme" fill="#c8e0bf" radius={[3, 3, 0, 0]} />
                 <Bar dataKey="shares" name="Paylaşım" fill="#5cc8ff" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -209,7 +209,7 @@ export default function InsightsPanel() {
 
           {/* Seri performansı */}
           <div style={{ ...card }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
               Seri Performansı (engagement sıralı)
             </div>
             {series.length === 0 ? (
@@ -229,12 +229,12 @@ export default function InsightsPanel() {
                 <tbody>
                   {series.map((s) => (
                     <tr key={s.label} style={{ borderTop: "1px solid var(--border)" }}>
-                      <td style={{ padding: "6px 8px", fontWeight: 600 }}>{s.label}</td>
+                      <td style={{ padding: "6px 8px", fontWeight: 500 }}>{s.label}</td>
                       <td style={{ padding: "6px 8px" }}>{s.postCount}</td>
                       <td style={{ padding: "6px 8px" }}>{s.totalReach.toLocaleString("tr-TR")}</td>
                       <td style={{ padding: "6px 8px" }}>{s.totalSaves.toLocaleString("tr-TR")}</td>
                       <td style={{ padding: "6px 8px" }}>{s.totalShares.toLocaleString("tr-TR")}</td>
-                      <td style={{ padding: "6px 8px", color: "var(--accent)", fontWeight: 700 }}>
+                      <td style={{ padding: "6px 8px", color: "var(--accent)", fontWeight: 500 }}>
                         {s.avgEngagement.toFixed(1)}
                       </td>
                     </tr>
@@ -246,7 +246,7 @@ export default function InsightsPanel() {
 
           {/* Top medya */}
           <div style={{ ...card }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>En İyi Medyalar (erişim)</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>En İyi Medyalar (erişim)</div>
             {topMedia.length === 0 ? (
               <p style={{ color: "var(--text-secondary)", fontSize: 13, margin: 0 }}>Medya verisi yok.</p>
             ) : (

@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { WeeklyLearningReportInputSchema } from "@/lib/growth-engine/types";
 import { generateWeeklyLearningReport } from "@/lib/growth-engine/weekly-learning-report";
+import { fail } from "@/lib/utils/apiResponse";
 
 // Neon's pooler drops cold connections; the first request after idle can fail
 // with a transient connectivity error. One short retry absorbs that.
@@ -36,10 +38,7 @@ export async function GET(req: NextRequest) {
 
     if (!parsedInput.success) {
       const errors = parsedInput.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
-      return NextResponse.json(
-        { success: false, error: `Validation Error: ${errors}` },
-        { status: 400 }
-      );
+      return fail(`Validation Error: ${errors}`, 400);
     }
 
     // 2. Generate report (one retry on transient DB connectivity errors)
@@ -48,9 +47,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(report);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected error compiling weekly learning report.";
-    return NextResponse.json(
-      { success: false, error: msg },
-      { status: 500 }
-    );
+    return fail(msg, 500);
   }
 }

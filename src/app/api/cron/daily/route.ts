@@ -10,6 +10,7 @@ import { generateOpportunities } from "@/lib/news/opportunities";
 import { buildDailyDigest } from "@/lib/news/digest";
 import { instagramService } from "@/lib/services/instagramService";
 import { IG_SYNC_DAILY_DEADLINE_MS } from "@/lib/instagram/igConfig";
+import { syncToCanonical } from "@/lib/content/syncBridge";
 
 // With Fluid Compute (Vercel default for new projects) Hobby functions may run
 // up to 300s. If a deploy ever rejects this literal, drop it to 60 — the time
@@ -121,6 +122,19 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
+  // İçerik Zekası köprüsü — mevcut tarama çıktılarını (X/IG/YT/news/repo) kanonik
+  // havuza besler (ingest → baseline → outlier → embedding). Tam günlük koşuda,
+  // hesap üretiminden önce, kalan bütçeyle sınırlı. Fail-open.
+  let contentSync: unknown = null;
+  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
+    const ciDeadline = Date.now() + Math.min(60_000, timeBudgetMs - (Date.now() - t0));
+    try {
+      contentSync = await syncToCanonical({ limitPerSource: 100, deadlineMs: ciDeadline });
+    } catch (err) {
+      contentSync = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   const results: unknown[] = [];
   let errors = 0;
   let partial = false;
@@ -141,7 +155,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
 
   const ok = errors < handles.length;
   if (cronRunId) {
-    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, igSync, results } });
+    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, igSync, contentSync, results } });
   }
   return { ok, partial, news, results };
 }

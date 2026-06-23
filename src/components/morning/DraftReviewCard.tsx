@@ -97,14 +97,14 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span className="eyebrow" style={{ color: "var(--accent-text)" }}>@{draft.accountHandle}</span>
-          <span style={{ fontSize: "var(--text-2xs)", background: "color-mix(in srgb, var(--blue) 12%, transparent)", color: "var(--blue)", padding: "1px 6px", borderRadius: "var(--radius-sm)", fontWeight: 700 }}>
+          <span style={{ fontSize: "var(--text-2xs)", background: "color-mix(in srgb, var(--blue) 12%, transparent)", color: "var(--blue)", padding: "1px 6px", borderRadius: "var(--radius-sm)", fontWeight: 500 }}>
             {draft.draftType}
           </span>
           <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
             {draft.mode}
           </span>
           {isEdited && !isPublished && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 700, color: "var(--accent-text)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid var(--accent-border)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--accent-text)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid var(--accent-border)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
               <Dot size={14} strokeWidth={3} style={{ margin: "0 -4px" }} /> orijinalden farklı
             </span>
           )}
@@ -115,7 +115,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
           )}
         </div>
         {isPublished && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--green)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--green)" }}>
             <CheckCircle2 size={14} strokeWidth={2} /> Paylaşıldı
           </span>
         )}
@@ -145,7 +145,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
       />
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
         <span>{isEdited ? "Düzenlendi" : "Orijinal AI metni"}</span>
-        <span className="tnum" style={{ color: text.length > 280 ? "var(--danger)" : "var(--text-muted)", fontWeight: text.length > 280 ? 700 : 500 }}>
+        <span className="tnum" style={{ color: text.length > 280 ? "var(--danger)" : "var(--text-muted)", fontWeight: text.length > 280 ? 500 : 500 }}>
           {text.length} karakter
         </span>
       </div>
@@ -176,7 +176,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
             <button
               onClick={handleSave}
               disabled={saving}
-              style={btnStyle("rgba(225,29,72,0.1)", "var(--accent-border)", "var(--accent)")}
+              style={btnStyle("rgba(200, 224, 191,0.1)", "var(--accent-border)", "var(--accent)")}
             >
               💾 {saving ? "..." : "Kaydet"}
             </button>
@@ -205,7 +205,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
                 ...btnStyle("rgba(168,85,247,0.15)", "rgba(168,85,247,0.4)", "#c084fc"),
                 flex: 1,
                 minWidth: 150,
-                fontWeight: 700,
+                fontWeight: 500,
                 cursor: isEdited && !publishing ? "pointer" : "not-allowed",
                 opacity: isEdited ? 1 : 0.45,
               }}
@@ -233,7 +233,7 @@ function btnStyle(bg: string, border: string, color: string): React.CSSPropertie
     color,
     borderRadius: 6,
     fontSize: 11,
-    fontWeight: 600,
+    fontWeight: 500,
     cursor: "pointer",
     display: "flex",
     alignItems: "center",

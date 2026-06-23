@@ -85,13 +85,13 @@ export default function LearningStatusCard() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Günlük cron (keşif + üretim)</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: daily.color, marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: daily.color, marginTop: 4 }}>
             {status ? daily.text : "yükleniyor…"}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Öğrenme cronu (mining + engagement)</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: learn.color, marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: learn.color, marginTop: 4 }}>
             {status ? learn.text : "yükleniyor…"}
           </div>
         </div>

@@ -39,7 +39,7 @@ export default function ScoreBars({ rows, title, dense = false, footer }: ScoreB
           <div key={r.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
               <span style={{ color: "var(--text-secondary)" }}>{r.name}</span>
-              <span className="tnum" style={{ color, fontWeight: 600 }}>
+              <span className="tnum" style={{ color, fontWeight: 500 }}>
                 {Math.round(r.value)}
               </span>
             </div>

@@ -1,9 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { ytChannelRepo } from "@/lib/db/ytChannelRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { isYouTubeConfigured, isYtCategory } from "@/lib/youtube/ytConfig";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
+
+const PostSchema = z.object({
+  channelId: z.string().min(1),
+  action: z.string().optional(),
+  category: z.string().optional(),
+  enabled: z.boolean().optional(),
+});
 
 // GET /api/youtube/channels — rakipler + keşif onay kuyruğu.
 export async function GET() {
@@ -11,8 +20,7 @@ export async function GET() {
     ytChannelRepo.listAll(),
     ytChannelRepo.listSuggestions(),
   ]);
-  return NextResponse.json({
-    success: true,
+  return ok({
     configured: isYouTubeConfigured(),
     competitors,
     suggestions,
@@ -21,27 +29,26 @@ export async function GET() {
 
 // POST /api/youtube/channels — öneri onayla (enabled) ya da kategori düzelt.
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = PostSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
   }
-  const body = await req.json().catch(() => null);
-  const channelId = body?.channelId;
-  if (typeof channelId !== "string" || channelId === "") {
-    return NextResponse.json({ success: false, error: "channelId gerekli" }, { status: 400 });
-  }
+  const { channelId, action, category, enabled } = parsed.data;
   try {
-    if (body?.action === "setCategory") {
-      if (typeof body?.category !== "string" || !isYtCategory(body.category)) {
-        return NextResponse.json({ success: false, error: "Geçersiz kategori" }, { status: 400 });
+    if (action === "setCategory") {
+      if (typeof category !== "string" || !isYtCategory(category)) {
+        return fail("Geçersiz kategori", 400);
       }
-      const channel = await ytChannelRepo.updateCategory(channelId, body.category);
-      return NextResponse.json({ success: true, channel });
+      const channel = await ytChannelRepo.updateCategory(channelId, category);
+      return ok({ channel });
     }
-    const enabled = typeof body?.enabled === "boolean" ? body.enabled : true;
-    const channel = await ytChannelRepo.setEnabled(channelId, enabled);
-    return NextResponse.json({ success: true, channel });
+    const channel = await ytChannelRepo.setEnabled(channelId, typeof enabled === "boolean" ? enabled : true);
+    return ok({ channel });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

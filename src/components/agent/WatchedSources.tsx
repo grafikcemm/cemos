@@ -18,7 +18,7 @@ export default function WatchedSources() {
         padding: "12px 14px", display: "flex", alignItems: "center", gap: 8,
         borderBottom: "1px solid var(--border)",
       }}>
-        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
           👥 İZLENEN KAYNAKLAR ({channelSources.length})
         </span>
       </div>

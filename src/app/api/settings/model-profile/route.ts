@@ -1,18 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import fs from "fs";
 import path from "path";
+import { z } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+
+const ProfileSchema = z.object({
+  profile: z.enum(["dev", "operator_quality", "premium"]),
+});
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = ProfileSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return fail("Geçersiz profil değeri.", 400, { detail: parsed.error.flatten() });
   }
+  const { profile } = parsed.data;
   try {
-    const { profile } = await req.json();
-
-    if (profile !== "dev" && profile !== "operator_quality" && profile !== "premium") {
-      return NextResponse.json({ success: false, error: "Geçersiz profil değeri." }, { status: 400 });
-    }
 
     // 1. Update the process.env in-memory immediately for current server execution
     process.env.MODEL_PROFILE = profile;
@@ -36,9 +42,9 @@ export async function POST(req: NextRequest) {
       fs.writeFileSync(envPath, `MODEL_PROFILE=${profile}\n`, "utf-8");
     }
 
-    return NextResponse.json({ success: true, profile });
+    return ok({ profile });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Model profili güncellenemedi";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { validateAccountHandle } from "@/lib/growth-engine/account-profiles";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 import { z } from "zod";
 
 const Schema = z
@@ -27,25 +29,19 @@ const Schema = z
   );
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
-    const body = await req.json();
-    const result = Schema.safeParse(body);
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
+
+    const result = Schema.safeParse(body.data);
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: "Validation error: missing content fields or invalid types" },
-        { status: 400 }
-      );
+      return fail("Validation error: missing content fields or invalid types", 400);
     }
 
     const { accountHandle, sourceContent, manualIdea, draftContent, limitPerGroup } = result.data;
     if (!validateAccountHandle(accountHandle)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid accountHandle" },
-        { status: 400 }
-      );
+      return fail("Invalid accountHandle", 400);
     }
 
     const memoryContext = await buildMemoryContext({
@@ -58,15 +54,12 @@ export async function POST(req: NextRequest) {
 
     const promptBlock = buildMemoryPromptBlock(memoryContext);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       memoryContext,
       promptBlock
     });
   } catch (err) {
-    return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 }
-    );
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    return fail(err instanceof Error ? err.message : "Unknown error", 500);
   }
 }

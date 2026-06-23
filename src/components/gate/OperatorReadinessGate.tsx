@@ -126,15 +126,15 @@ export default function OperatorReadinessGate() {
   if (readiness.ready) {
     return (
       <div style={{
-        background: isWarning ? "rgba(245, 158, 11, 0.06)" : "rgba(225,29,72, 0.08)",
-        border: isWarning ? "1px solid rgba(245, 158, 11, 0.25)" : "1px solid rgba(225,29,72, 0.35)",
+        background: isWarning ? "rgba(217, 119, 87, 0.06)" : "rgba(200, 224, 191, 0.08)",
+        border: isWarning ? "1px solid rgba(217, 119, 87, 0.25)" : "1px solid rgba(200, 224, 191, 0.35)",
         borderRadius: 8,
         padding: "14px 16px",
         marginBottom: 16,
         fontSize: 13,
         color: "var(--text-primary)"
       }}>
-        <div style={{ color: isWarning ? "#f59e0b" : "var(--accent)", fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ color: isWarning ? "#f59e0b" : "var(--accent)", fontWeight: 500, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
           <span>{isWarning ? "⚠️ Taslaklar Hazır (Worker Uyarısı)" : "🚀 Operator Mode Hazır"}</span>
         </div>
         <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>
@@ -159,7 +159,7 @@ export default function OperatorReadinessGate() {
             borderRadius: 6,
             fontSize: 11
           }}>
-            <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+            <div style={{ fontWeight: 500, color: "var(--text-secondary)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
               <span>📊 Son Otomasyon Taraması ({new Date(readiness.lastScanResult.timestamp).toLocaleTimeString("tr-TR")}):</span>
               <span>Profil: {readiness.modelProfile === "premium" ? "Premium" : readiness.modelProfile === "operator_quality" ? "Operator Quality" : "Dev (Free)"}</span>
             </div>
@@ -234,7 +234,7 @@ export default function OperatorReadinessGate() {
       fontSize: 13,
       color: "var(--text-primary)"
     }}>
-      <div style={{ color: "#ef4444", fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ color: "#ef4444", fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
         <span>⚠️ Operator Mode Hazır Değil</span>
       </div>
       
@@ -264,7 +264,7 @@ export default function OperatorReadinessGate() {
           borderRadius: 6,
           fontSize: 11
         }}>
-          <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 500, color: "var(--text-secondary)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
             <span>📊 Son Otomasyon Taraması ({new Date(readiness.lastScanResult.timestamp).toLocaleTimeString("tr-TR")}):</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -309,7 +309,7 @@ export default function OperatorReadinessGate() {
               border: "none",
               borderRadius: 4,
               fontSize: 12,
-              fontWeight: 600,
+              fontWeight: 500,
               color: "var(--bg-base)",
               cursor: "pointer",
               display: "flex",

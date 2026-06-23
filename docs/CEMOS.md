@@ -48,3 +48,24 @@ Marka her yerde **CemOS**; kod içi legacy semboller bilinçli korunur:
 | localStorage `"xagent-store"` | Rename = tüm kullanıcı UI state'inin kaybı; kullanıcıya görünmez |
 | `XAgentApp.tsx`, `src/store/xagent.ts` | Dosya adı değişikliği kazançsız churn |
 | HTTP User-Agent kimlikleri (`grafikcem-xagent/1.0` vb.) | Dış servislere karşı fonksiyonel tanımlayıcı |
+
+## 7. Güvenlik sınırı (SEC-02)
+
+CemOS **tek-operatör** bir uygulamadır — User/Workspace/Session tablosu yoktur.
+Erişim sınırı şu katmanlarla sağlanır:
+
+- **Dış erişim kapısı = Vercel Deployment Protection.** Prod dağıtım bu koruma
+  **açık** kalacak şekilde yapılandırılır (Vercel → Project → Deployment Protection).
+  Uygulama kendi içinde anonim ziyaretçiyi bloklayan bir login katmanı taşımaz;
+  herkese-açık dağıtımda bu koruma kapatılırsa okuma uçları + panolar açığa çıkar.
+- **Cron uçları** `CRON_SECRET` bearer ile korunur (`isCronAuthorized`).
+- **Mutation uçları** `isOperatorOrCronAuthorized` ile CSRF-sınıfı korumadadır
+  (same-origin / Origin-host / cron bearer). Bu **kimlik doğrulama değil**, "üçüncü
+  taraf sayfa, ziyaretçi tarayıcısı üzerinden bütçemizi harcayamaz" garantisidir;
+  header forge eden curl'ü bilinçli olarak bloklamaz.
+- **Entegrasyon token'ları** (Meta vb.) `IntegrationCredential.value` içinde
+  `CREDENTIAL_ENC_KEY` ile **AES-256-GCM** şifreli saklanır (SEC-03).
+
+> Operasyon notu: prod'u herkese açık bir URL'de Deployment Protection olmadan
+> yayınlama. Gerekirse private network / paylaşılan-gizli bir middleware kapısı
+> eklenebilir (tek-operatör invariant'ını bozmadan).

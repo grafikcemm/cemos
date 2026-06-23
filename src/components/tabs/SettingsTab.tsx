@@ -256,14 +256,14 @@ export default function SettingsTab() {
                 }}
               />
               <span style={{ color: "var(--text-muted)" }}>Worker</span>
-              <strong style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+              <strong style={{ color: "var(--text-primary)", fontWeight: 500 }}>
                 {workerOk ? "Aktif" : workerStale ? "Eski tick" : "Pasif"}
               </strong>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Wallet size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
               <span style={{ color: "var(--text-muted)" }}>Bu ay</span>
-              <strong className="tnum" style={{ color: budgetPct > 80 ? "var(--danger)" : "var(--text-primary)", fontWeight: 700 }}>
+              <strong className="tnum" style={{ color: budgetPct > 80 ? "var(--danger)" : "var(--text-primary)", fontWeight: 500 }}>
                 ${monthlyCost.toFixed(2)}
               </strong>
             </span>
@@ -287,7 +287,7 @@ export default function SettingsTab() {
           <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-3)", padding: "var(--space-4)" }}>
             <AlertTriangle size={18} strokeWidth={2} style={{ color: "var(--accent-2-text)", flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: "var(--text-sm)", lineHeight: 1.6 }}>
-              <strong style={{ color: "var(--accent-2-text)", fontWeight: 700 }}>Worker pasif.</strong>{" "}
+              <strong style={{ color: "var(--accent-2-text)", fontWeight: 500 }}>Worker pasif.</strong>{" "}
               <span style={{ color: "var(--text-secondary)" }}>
                 Zamanlanmış paylaşımlar için{" "}
                 <code style={{ background: "var(--bg-base)", color: "var(--accent-2-text)", padding: "1px 6px", borderRadius: "var(--radius-sm)", fontFamily: "monospace", border: "1px solid var(--accent-2-border)" }}>npm run worker</code>{" "}
@@ -318,7 +318,7 @@ export default function SettingsTab() {
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                   <span style={{ color: toneColor, display: "inline-flex", flexShrink: 0 }}>{card.icon}</span>
-                  <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{card.label}</span>
+                  <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>{card.label}</span>
                   <span style={{
                     marginLeft: "auto",
                     width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
@@ -342,12 +342,12 @@ export default function SettingsTab() {
             <>
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                  <span className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 800, color: budgetTone, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                  <span className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 500, color: budgetTone, letterSpacing: "-0.02em", lineHeight: 1 }}>
                     ${monthlyCost.toFixed(2)}
                   </span>
                   <span className="tnum" style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>/ ${monthlyBudgetUSD}</span>
                 </div>
-                <span className="font-display tnum" style={{ fontSize: "var(--text-lg)", fontWeight: 800, color: budgetTone, letterSpacing: "-0.01em" }}>{budgetPct}%</span>
+                <span className="font-display tnum" style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: budgetTone, letterSpacing: "-0.01em" }}>{budgetPct}%</span>
               </div>
               <div style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", height: 8, overflow: "hidden" }}>
                 <div style={{
@@ -388,7 +388,7 @@ export default function SettingsTab() {
               background: "var(--gradient-accent-2), var(--bg-elevated)", border: "1px solid var(--accent-2-border)",
               borderRadius: "var(--radius-md)", fontSize: "var(--text-xs)", lineHeight: 1.5
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, color: "var(--accent-2-text)", marginBottom: "var(--space-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 500, color: "var(--accent-2-text)", marginBottom: "var(--space-2)" }}>
                 <AlertTriangle size={16} strokeWidth={2} />
                 Düşük Kalite Modu Aktif (Dev / Free)
               </div>
@@ -425,7 +425,7 @@ export default function SettingsTab() {
               background: "var(--bg-base)", border: "1px solid var(--border)",
               borderRadius: "var(--radius-lg)", fontSize: "var(--text-xs)"
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 600, color: "var(--text-secondary)", marginBottom: "var(--space-3)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 500, color: "var(--text-secondary)", marginBottom: "var(--space-3)" }}>
                 <BarChart3 size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
                 En Son Gerçek Üretim Bilgisi · @{lastUsedMetadata.account}
               </div>
@@ -449,7 +449,7 @@ export default function SettingsTab() {
                   {lastUsedMetadata.fallbackUsed ? (
                     <Badge variant="yellow" size="sm">Evet</Badge>
                   ) : (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--green)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 500, color: "var(--green)" }}>
                       <CheckCircle2 size={13} strokeWidth={2} /> Primary kullanıldı
                     </span>
                   )}
@@ -488,12 +488,12 @@ export default function SettingsTab() {
                 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-4)", paddingBottom: "var(--space-3)", borderBottom: "1px solid var(--border)" }}>
                     <span style={{ display: "inline-flex", alignItems: "baseline", gap: 7 }}>
-                      <strong className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                      <strong className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                         @{acc.handle}
                       </strong>
                       <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{acc.concept}</span>
                     </span>
-                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", cursor: "pointer", color: automationOn ? "var(--accent-text)" : "var(--text-secondary)", fontWeight: 600 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", cursor: "pointer", color: automationOn ? "var(--accent-text)" : "var(--text-secondary)", fontWeight: 500 }}>
                       Otomasyon
                       <Toggle
                         checked={automationOn}

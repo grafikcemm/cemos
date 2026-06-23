@@ -387,7 +387,7 @@ export default function SourceIntelligenceTab() {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
             <Radar size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
             <span>Aktif kaynak izleme · </span>
-            <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>{summary.totalSources}</strong>
+            <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{summary.totalSources}</strong>
             <span>kaynak</span>
           </span>
         }
@@ -638,7 +638,7 @@ export default function SourceIntelligenceTab() {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
                     <div>
-                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)" }}>
+                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>
                         @{src.handle}
                       </div>
                       {src.displayName && (
@@ -658,7 +658,7 @@ export default function SourceIntelligenceTab() {
                         border: src.enabled ? "1px solid rgba(63,178,127,0.25)" : "1px solid var(--border)",
                         padding: "2px 6px",
                         borderRadius: "var(--radius-sm)",
-                        fontWeight: 600,
+                        fontWeight: 500,
                         letterSpacing: "0.04em"
                       }}
                     >
@@ -708,7 +708,7 @@ export default function SourceIntelligenceTab() {
                           border: "none",
                           color: src.enabled ? "var(--danger)" : "var(--green)",
                           fontSize: "var(--text-2xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           cursor: "pointer",
                           padding: "2px 4px",
                           fontFamily: "inherit"
@@ -727,7 +727,7 @@ export default function SourceIntelligenceTab() {
                           border: "none",
                           color: "var(--accent-text)",
                           fontSize: "var(--text-2xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           cursor: "pointer",
                           padding: "2px 4px",
                           fontFamily: "inherit"
@@ -749,7 +749,7 @@ export default function SourceIntelligenceTab() {
                           border: "none",
                           color: "var(--text-muted)",
                           fontSize: "var(--text-2xs)",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           cursor: "not-allowed",
                           padding: "2px 4px",
                           fontFamily: "inherit",
@@ -862,7 +862,7 @@ export default function SourceIntelligenceTab() {
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                       {/* Source details */}
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--accent-text)" }}>@{post.sourceHandle}</span>
+                        <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>@{post.sourceHandle}</span>
                         <span style={{ fontSize: 9, color: "var(--text-muted)" }}>•</span>
                         <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>Hedef: @{post.accountHandle}</span>
                         {post.publishedAt && (
@@ -884,7 +884,7 @@ export default function SourceIntelligenceTab() {
                             className="tnum"
                             style={{
                               fontSize: "var(--text-2xs)",
-                              fontWeight: 800,
+                              fontWeight: 500,
                               background: isHighOpp ? "rgba(63,178,127,0.14)" : "var(--bg-elevated)",
                               color: isHighOpp ? "var(--green)" : "var(--text-primary)",
                               border: isHighOpp ? "1px solid rgba(63,178,127,0.25)" : "1px solid var(--border)",
@@ -903,7 +903,7 @@ export default function SourceIntelligenceTab() {
                             className="tnum"
                             style={{
                               fontSize: "var(--text-2xs)",
-                              fontWeight: 800,
+                              fontWeight: 500,
                               background: isHighRisk ? "rgba(229,72,77,0.14)" : "var(--bg-elevated)",
                               color: isHighRisk ? "var(--danger)" : "var(--text-primary)",
                               border: isHighRisk ? "1px solid rgba(229,72,77,0.25)" : "1px solid var(--border)",
@@ -919,7 +919,7 @@ export default function SourceIntelligenceTab() {
                         <span
                           style={{
                             fontSize: 9,
-                            fontWeight: 700,
+                            fontWeight: 500,
                             padding: "2px 7px",
                             borderRadius: "var(--radius-sm)",
                             letterSpacing: "0.04em",
@@ -1017,7 +1017,7 @@ export default function SourceIntelligenceTab() {
                               border: "none",
                               color: "var(--text-muted)",
                               fontSize: "var(--text-2xs)",
-                              fontWeight: 600,
+                              fontWeight: 500,
                               cursor: "not-allowed",
                               padding: "4px 8px",
                               fontFamily: "inherit",
@@ -1095,7 +1095,7 @@ export default function SourceIntelligenceTab() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 6 }}>KRİTER</div>
-                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 500, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                   @{editingSource.handle} Tarama Kriteri
                 </h3>
               </div>
@@ -1220,7 +1220,7 @@ export default function SourceIntelligenceTab() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 6 }}>YENİ KAYNAK</div>
-                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 500, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                   İzlenecek X Hesabı Ekle
                 </h3>
               </div>
@@ -1344,7 +1344,7 @@ export default function SourceIntelligenceTab() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 6 }}>GÖNDERİ DETAYI</div>
-                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 700, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+                <h3 className="font-display" style={{ fontSize: "var(--text-lg)", fontWeight: 500, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                   @{selectedPost.sourceHandle}
                 </h3>
                 <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>Hedef hesap: @{selectedPost.accountHandle}</span>
@@ -1407,21 +1407,21 @@ export default function SourceIntelligenceTab() {
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: "var(--space-3)" }}>
                       <div>
                         <div className="eyebrow" style={{ color: "var(--text-muted)" }}>Fırsat Değeri</div>
-                        <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 800, letterSpacing: "-0.02em", marginTop: 4, color: previewScore.opportunityScore >= 75 ? "var(--green)" : "var(--text-primary)" }}>
+                        <div className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 500, letterSpacing: "-0.02em", marginTop: 4, color: previewScore.opportunityScore >= 75 ? "var(--green)" : "var(--text-primary)" }}>
                           {previewScore.opportunityScore}%
                         </div>
                       </div>
 
                       <div>
                         <div className="eyebrow" style={{ color: "var(--text-muted)" }}>Önerilen Eylem</div>
-                        <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--accent-text)", textTransform: "uppercase", marginTop: 6 }}>
+                        <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)", textTransform: "uppercase", marginTop: 6 }}>
                           {previewScore.suggestedAction}
                         </div>
                       </div>
 
                       <div>
                         <div className="eyebrow" style={{ color: "var(--text-muted)" }}>Güven Endeksi</div>
-                        <div className="tnum" style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", marginTop: 6 }}>
+                        <div className="tnum" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", marginTop: 6 }}>
                           {previewScore.confidence}%
                         </div>
                       </div>
@@ -1529,7 +1529,7 @@ function StatCard({
         className="font-display tnum"
         style={{
           fontSize: "var(--text-xl)",
-          fontWeight: 800,
+          fontWeight: 500,
           color,
           lineHeight: 1.1,
           letterSpacing: "-0.01em",
@@ -1549,7 +1549,7 @@ function ScoreBar({ label, pct, color, valueColor }: { label: string; pct: numbe
     <div>
       <div className="tnum" style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
         <span>{label}</span>
-        <span style={{ color: valueColor || "var(--text-secondary)", fontWeight: 700 }}>{pct}%</span>
+        <span style={{ color: valueColor || "var(--text-secondary)", fontWeight: 500 }}>{pct}%</span>
       </div>
       <div style={{ height: 5, background: "var(--bg-elevated)", borderRadius: "var(--radius-sm)", marginTop: 5, overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: "var(--radius-sm)", transition: "width 0.3s var(--ease-out)" }} />

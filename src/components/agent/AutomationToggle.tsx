@@ -12,7 +12,7 @@ export default function AutomationToggle() {
       <div style={{
         padding: "12px 14px", display: "flex", alignItems: "center", gap: 8,
       }}>
-        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
           ⚙ OTOMASYON
         </span>
         <div style={{ marginLeft: "auto" }}>

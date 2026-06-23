@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { accountProfiles } from "@/lib/accounts";
 import { computePillarConsistency } from "@/lib/growth-engine/pillar-consistency";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,8 +28,7 @@ export async function GET(req: NextRequest) {
         targetAccountId = acc.id;
       } else {
         // If account handle given but not found, return empty candidates list
-        return NextResponse.json({
-          success: true,
+        return ok({
           summary: {
             totalItems: 0,
             draftItems: 0,
@@ -275,13 +275,12 @@ export async function GET(req: NextRequest) {
       pillarConsistency,
     };
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary,
       items: filteredItems,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue fetch.";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

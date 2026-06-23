@@ -86,7 +86,7 @@ export default function AiRankingsTab() {
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Sparkles size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
-              <span>{meta.date ? <>Snapshot <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>{meta.date}</strong></> : "Model sıralamaları"}</span>
+              <span>{meta.date ? <>Snapshot <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{meta.date}</strong></> : "Model sıralamaları"}</span>
             </span>
             {meta.source && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
@@ -97,7 +97,7 @@ export default function AiRankingsTab() {
             {!loading && !error && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                 <span style={{ color: "var(--text-muted)" }}>Model</span>
-                <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 700 }}>{sorted.length}</strong>
+                <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{sorted.length}</strong>
               </span>
             )}
           </>
@@ -154,13 +154,13 @@ export default function AiRankingsTab() {
                     <Td>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                         <RankMedal rank={r.rank} />
-                        <span className="font-display tnum" style={{ fontWeight: 800, color: rankColor(r.rank), fontSize: "var(--text-md)", letterSpacing: "-0.02em" }}>{displayRank}</span>
+                        <span className="font-display tnum" style={{ fontWeight: 500, color: rankColor(r.rank), fontSize: "var(--text-md)", letterSpacing: "-0.02em" }}>{displayRank}</span>
                       </span>
                     </Td>
-                    <Td><span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{name(r)}</span></Td>
+                    <Td><span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{name(r)}</span></Td>
                     <Td>{r.provider ? <Badge variant="default" size="sm">{r.provider}</Badge> : <span style={{ color: "var(--text-muted)" }}>—</span>}</Td>
                     <Td style={{ textAlign: "right" }}>
-                      {r.score != null ? <span className="font-display tnum" style={{ fontWeight: 800, color: "var(--accent-text)", letterSpacing: "-0.01em" }}>{r.score}</span> : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                      {r.score != null ? <span className="font-display tnum" style={{ fontWeight: 500, color: "var(--accent-text)", letterSpacing: "-0.01em" }}>{r.score}</span> : <span style={{ color: "var(--text-muted)" }}>—</span>}
                     </Td>
                     <Td><span style={{ color: "var(--text-secondary)" }}>{resolveUseCase(r)}</span></Td>
                   </tr>

@@ -58,7 +58,7 @@ export default function DigestSection() {
           color: "var(--text-primary)",
         }}
       >
-        <span style={{ fontSize: 14, fontWeight: 700 }}>Günlük Özet (Digest)</span>
+        <span style={{ fontSize: 14, fontWeight: 500 }}>Günlük Özet (Digest)</span>
         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{open ? "▲ Gizle" : "▼ Göster"}</span>
       </button>
 
@@ -76,7 +76,7 @@ export default function DigestSection() {
           ) : (
             blocks.map((b) => (
               <div key={b.label} style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 6 }}>
                   {b.label}
                 </div>
                 <div style={{ fontSize: 12, lineHeight: 1.6, color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>

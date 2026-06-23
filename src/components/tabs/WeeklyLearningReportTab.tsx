@@ -167,7 +167,7 @@ export default function WeeklyLearningReportTab() {
   const getSignalBadgeColor = (sig: string) => {
     switch (sig) {
       case "rising":
-        return { bg: "rgba(225,29,72,0.12)", text: "var(--accent)", border: "1px solid rgba(225,29,72,0.2)" };
+        return { bg: "rgba(200, 224, 191,0.12)", text: "var(--accent)", border: "1px solid rgba(200, 224, 191,0.2)" };
       case "weak":
         return { bg: "rgba(239,68,68,0.12)", text: "var(--red)", border: "1px solid rgba(239,68,68,0.2)" };
       case "stable":
@@ -291,12 +291,12 @@ export default function WeeklyLearningReportTab() {
           style={{
             alignSelf: "flex-end",
             padding: "5px 12px",
-            background: "rgba(225,29,72,0.1)",
+            background: "rgba(200, 224, 191,0.1)",
             border: "1px solid var(--accent-border)",
             borderRadius: 5,
             color: "var(--accent)",
             fontSize: 11,
-            fontWeight: 600,
+            fontWeight: 500,
             cursor: "pointer",
             height: 25,
             transition: "opacity 0.15s"
@@ -336,7 +336,7 @@ export default function WeeklyLearningReportTab() {
           color: "var(--text-muted)"
         }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>Henüz yeterli öğrenme verisi yok.</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 6 }}>Henüz yeterli öğrenme verisi yok.</div>
           <p style={{ fontSize: 12, width: "100%" }}>
             Seçilen tarih aralığında ({report?.dateRange.label || "Son 7 Gün"}) herhangi bir kuyruk veya geri bildirim verisi bulunamadı.
             Daily Queue üzerinden onaylama, reddetme veya düzenleme aksiyonları geldikçe öğrenme raporu on-demand oluşacaktır.
@@ -366,7 +366,7 @@ export default function WeeklyLearningReportTab() {
                 <div style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
                   {card.icon} {card.label}
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: card.color || "var(--text-primary)" }}>
+                <div style={{ fontSize: 16, fontWeight: 500, color: card.color || "var(--text-primary)" }}>
                   {card.val}
                 </div>
               </div>
@@ -376,7 +376,7 @@ export default function WeeklyLearningReportTab() {
           {/* AI Summary Block */}
           {report.aiSummary && (
             <div style={{
-              background: "rgba(225,29,72,0.03)",
+              background: "rgba(200, 224, 191,0.03)",
               border: "1px dashed var(--accent-border)",
               borderRadius: 8,
               padding: 16,
@@ -387,7 +387,7 @@ export default function WeeklyLearningReportTab() {
               flexDirection: "column",
               gap: 4
             }}>
-              <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "var(--accent)", letterSpacing: "0.05em" }}>
+              <span style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", color: "var(--accent)", letterSpacing: "0.05em" }}>
                 🤖 AI Copilot Yorumu
               </span>
               <p style={{ margin: 0, fontStyle: "italic" }}>"{report.aiSummary}"</p>
@@ -403,7 +403,7 @@ export default function WeeklyLearningReportTab() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))", gap: 20 }}>
             {/* Top Patterns */}
             <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px 0", color: "var(--text-primary)" }}>
+              <h4 style={{ fontSize: 13, fontWeight: 500, margin: "0 0 10px 0", color: "var(--text-primary)" }}>
                 🚀 Yükselişteki Şablonlar (Top Patterns)
               </h4>
               {report.topPatterns.length === 0 ? (
@@ -415,7 +415,7 @@ export default function WeeklyLearningReportTab() {
                     return (
                       <div key={pat.patternName} style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 6, padding: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{pat.patternName}</span>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{pat.patternName}</span>
                           <span style={{ fontSize: 9, background: badge.bg, color: badge.text, border: badge.border, padding: "1px 5px", borderRadius: 3 }}>
                             {pat.signal}
                           </span>
@@ -434,7 +434,7 @@ export default function WeeklyLearningReportTab() {
 
             {/* Weak Patterns / Signals */}
             <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, margin: "0 0 10px 0", color: "var(--text-primary)" }}>
+              <h4 style={{ fontSize: 13, fontWeight: 500, margin: "0 0 10px 0", color: "var(--text-primary)" }}>
                 ⚠️ Zayıflayan / Dikkat Gereken Şablonlar
               </h4>
               {report.weakPatterns.length === 0 ? (
@@ -448,7 +448,7 @@ export default function WeeklyLearningReportTab() {
                     return (
                       <div key={pat.patternName} style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: 6, padding: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{pat.patternName}</span>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)" }}>{pat.patternName}</span>
                           <span style={{ fontSize: 9, background: badge.bg, color: badge.text, border: badge.border, padding: "1px 5px", borderRadius: 3 }}>
                             {pat.signal}
                           </span>
@@ -472,7 +472,7 @@ export default function WeeklyLearningReportTab() {
             borderRadius: 8,
             padding: 16
           }}>
-            <h4 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 12px 0", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px 0", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
               <span>🚀</span> Gelecek Hafta İçin Tavsiye Edilen Altın Aksiyonlar
             </h4>
 
@@ -490,7 +490,7 @@ export default function WeeklyLearningReportTab() {
                   borderRadius: 6,
                   borderLeft: "3px solid var(--accent)"
                 }}>
-                  <span style={{ fontWeight: 700, color: "var(--accent)" }}>#{idx + 1}</span>
+                  <span style={{ fontWeight: 500, color: "var(--accent)" }}>#{idx + 1}</span>
                   <span>{action}</span>
                 </div>
               ))}

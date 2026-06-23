@@ -1,6 +1,7 @@
 "use client";
 
 import { useXAgentStore, type FlowTweet } from "@/store/xagent";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type TweetCardProps = {
   tweet: FlowTweet;
@@ -67,20 +68,20 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
         <div style={{
           width: 40, height: 40, borderRadius: "50%", background: avatarColor, flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 15, fontWeight: 700, color: "#fff",
+          fontSize: 15, fontWeight: 500, color: "#fff",
         }}>{initial}</div>
 
         {/* Name + handle row */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>@{tweet.handle}</span>
+            <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>@{tweet.handle}</span>
             {timeAgo && (
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {timeAgo}</span>
             )}
             <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
               {/* Viral score badge */}
               <span style={{
-                fontSize: 10, fontWeight: 700, color: viralColor,
+                fontSize: 10, fontWeight: 500, color: viralColor,
                 background: `${viralColor}18`, borderRadius: 4, padding: "1px 5px",
               }}>▲{tweet.viralScore}</span>
               {/* Save */}
@@ -94,7 +95,7 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
                 }}
               >{isSaved ? "★" : "☆"}</button>
               {/* External link */}
-              <a href={tweet.url} target="_blank" rel="noopener noreferrer"
+              <a href={safeExternalHref(tweet.url)} target="_blank" rel="noopener noreferrer"
                 style={{ color: "var(--text-muted)", fontSize: 13, textDecoration: "none", lineHeight: 1 }}>↗</a>
               {/* Dismiss */}
               <button onClick={onDismiss} style={{
@@ -175,7 +176,7 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 50 }}>
         <button onClick={() => onGenerate("TWEET")} disabled={isGenerating} style={{
           background: isGenerating ? "#1a1a1a" : "var(--accent)", color: isGenerating ? "var(--text-muted)" : "var(--accent-fg)",
-          border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 700,
+          border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 500,
           cursor: isGenerating ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 4,
         }}>{isGenerating ? <><span className="spinner" /> Üretiyor...</> : "✦ ÜRET"}</button>
         <button onClick={() => onGenerate("QUOTE")} disabled={isGenerating} style={{

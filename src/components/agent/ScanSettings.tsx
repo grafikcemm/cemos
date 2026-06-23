@@ -64,7 +64,7 @@ export default function ScanSettings() {
         padding: "12px 14px", display: "flex", alignItems: "center", gap: 8,
         borderBottom: "1px solid var(--border)",
       }}>
-        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
           🔍 TARAMA AYARLARI
         </span>
         <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: "auto" }}>
@@ -78,10 +78,10 @@ export default function ScanSettings() {
           background: "var(--accent-dark)", border: "1px solid var(--accent-border)",
           borderRadius: 8, padding: 10, marginBottom: 12,
         }}>
-          <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>
+          <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500, textTransform: "uppercase", marginBottom: 2 }}>
             📊 TARAMA MALİYETİ
           </div>
-          <div style={{ fontSize: 20, color: "var(--accent)", fontWeight: 800, marginBottom: 4 }}>
+          <div style={{ fontSize: 20, color: "var(--accent)", fontWeight: 500, marginBottom: 4 }}>
             ~${estimatedUsd.toFixed(4)}
           </div>
           <div style={{ fontSize: 10, color: "var(--text-muted)" }}>

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { ytVideoRepo } from "@/lib/db/ytVideoRepo";
 import { isYouTubeConfigured } from "@/lib/youtube/ytConfig";
+import { ok } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,7 @@ export async function GET(req: NextRequest) {
     limit: Number.isFinite(limit) ? limit : undefined,
   });
 
-  return NextResponse.json({
-    success: true,
+  return ok({
     configured: isYouTubeConfigured(),
     count: videos.length,
     videos,

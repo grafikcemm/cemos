@@ -42,7 +42,7 @@ export default function SubNav({ items, activeId, onSelect }: SubNavProps) {
               borderBottom: `2px solid ${isActive ? "var(--accent)" : "transparent"}`,
               color: isActive ? "var(--text-primary)" : "var(--text-secondary)",
               fontSize: "var(--text-sm)",
-              fontWeight: isActive ? 600 : 400,
+              fontWeight: isActive ? 500 : 400,
               fontFamily: "inherit",
               padding: "8px 12px",
               marginBottom: -1,
@@ -62,7 +62,7 @@ export default function SubNav({ items, activeId, onSelect }: SubNavProps) {
               <span
                 style={{
                   fontSize: "var(--text-2xs)",
-                  fontWeight: 600,
+                  fontWeight: 500,
                   color: "var(--text-muted)",
                   background: "var(--bg-elevated)",
                   borderRadius: "var(--radius-sm)",

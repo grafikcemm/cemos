@@ -42,7 +42,7 @@ export default function AutomationManager() {
   // On serverless (cron mode) an offline status is informational, not a hard
   // error: automation runs once daily, so amber framing fits better than red.
   const isCron = health.worker.mode === "cron";
-  const accent = isCron ? "245, 158, 11" : "239, 68, 68";
+  const accent = isCron ? "217, 119, 87" : "239, 68, 68";
   const textColor = isCron ? "#fcd34d" : "#fca5a5";
   const title = isCron
     ? "Otomasyon: Günlük Cron"

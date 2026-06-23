@@ -44,6 +44,9 @@ import {
   Textarea,
   Skeleton,
   Drawer,
+  KanbanBoard,
+  KanbanCard,
+  type KanbanTone,
 } from "@/components/ui";
 
 type YtVideo = {
@@ -398,6 +401,20 @@ function FeedSection({
   onDismiss: (videoId: string) => void;
 }) {
   const hotCount = videos.filter((v) => v.outlierScore >= 3).length;
+  const [view, setView] = useState<"grid" | "board">("grid");
+
+  // Pano: outlier tier'ına göre fırsat kolonları.
+  const YT_COLS: { id: string; label: string; tone: KanbanTone; match: (s: number) => boolean }[] = [
+    { id: "hot", label: "Sıcak (≥3×)", tone: "danger", match: (s) => s >= 3 },
+    { id: "rising", label: "Yükselen (1.5–3×)", tone: "yellow", match: (s) => s >= 1.5 && s < 3 },
+    { id: "normal", label: "Normal (<1.5×)", tone: "muted", match: (s) => s < 1.5 },
+  ];
+  const ytKanbanColumns = YT_COLS.map((col) => ({
+    id: col.id,
+    label: col.label,
+    tone: col.tone,
+    items: videos.filter((v) => col.match(v.outlierScore)),
+  })).filter((c) => c.items.length > 0);
 
   return (
     <>
@@ -468,6 +485,27 @@ function FeedSection({
         <Button variant="secondary" size="sm" onClick={onFilter}>
           Filtrele
         </Button>
+        <div style={{ display: "inline-flex", gap: 2, marginLeft: "auto", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 3 }}>
+          {([["grid", "Akış"], ["board", "Pano"]] as const).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                padding: "5px 12px",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "var(--text-xs)",
+                fontWeight: 500,
+                fontFamily: "inherit",
+                background: view === v ? "var(--accent)" : "transparent",
+                color: view === v ? "var(--accent-fg)" : "var(--text-secondary)",
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -504,6 +542,25 @@ function FeedSection({
             }
           />
         </Card>
+      ) : view === "board" ? (
+        <KanbanBoard
+          columns={ytKanbanColumns}
+          renderCard={(v) => (
+            <KanbanCard
+              key={v.videoId}
+              priority={{ label: `${v.outlierScore.toFixed(1)}×`, tone: v.outlierScore >= 3 ? "danger" : v.outlierScore >= 1.5 ? "yellow" : "muted" }}
+              tag={v.channel ? { label: v.channel.category, tone: "accent" } : undefined}
+              title={v.title}
+              meta={
+                <>
+                  <span>{v.channel?.title ?? "—"}</span>
+                  <span className="tnum">{v.viewCount.toLocaleString("tr-TR")} izlenme</span>
+                </>
+              }
+              onClick={() => onGenerate(v.videoId)}
+            />
+          )}
+        />
       ) : (
         <div
           style={{
@@ -587,7 +644,7 @@ function VideoCard({
             <div
               style={{
                 fontSize: "var(--text-sm)",
-                fontWeight: 600,
+                fontWeight: 500,
                 color: "var(--text-primary)",
                 lineHeight: 1.35,
                 display: "-webkit-box",
@@ -637,7 +694,7 @@ function VideoCard({
               alignItems: "center",
               gap: 5,
               fontSize: "var(--text-sm)",
-              fontWeight: 700,
+              fontWeight: 500,
               color: tone.color,
               border: `1px solid color-mix(in srgb, ${tone.color} 40%, transparent)`,
               background: `color-mix(in srgb, ${tone.color} 12%, transparent)`,
@@ -749,7 +806,7 @@ function ChannelsSection({
                       flex: 1,
                       minWidth: 0,
                       fontSize: "var(--text-sm)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: "var(--text-primary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -788,7 +845,7 @@ function ChannelsSection({
                       alignItems: "center",
                       gap: 5,
                       fontSize: "var(--text-xs)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: c.enabled ? "var(--green)" : "var(--text-muted)",
                     }}
                   >
@@ -833,7 +890,7 @@ function ChannelsSection({
                       flex: 1,
                       minWidth: 0,
                       fontSize: "var(--text-sm)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: "var(--text-primary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -930,7 +987,7 @@ function BriefDetail({
                     padding: "6px 12px",
                     borderRadius: "var(--radius-md)",
                     fontSize: "var(--text-xs)",
-                    fontWeight: active ? 600 : 500,
+                    fontWeight: active ? 500 : 500,
                     fontFamily: "inherit",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
@@ -1014,7 +1071,7 @@ function BriefDetail({
                           alignItems: "center",
                           gap: 8,
                           fontSize: "var(--text-sm)",
-                          fontWeight: 700,
+                          fontWeight: 500,
                           color: "var(--text-primary)",
                         }}
                       >
@@ -1184,7 +1241,7 @@ function MiniCopy({ onCopy }: { onCopy: () => void }) {
         borderRadius: "var(--radius-sm)",
         padding: "2px 8px",
         fontSize: "var(--text-2xs)",
-        fontWeight: 600,
+        fontWeight: 500,
         fontFamily: "inherit",
         cursor: "pointer",
         transition: "background 0.15s var(--ease-out), border-color 0.15s",

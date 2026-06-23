@@ -27,11 +27,11 @@ export default function PatternsTab() {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontSize: 14, fontWeight: 600 }}>Viral Paternler</span>
+        <span style={{ fontSize: 14, fontWeight: 500 }}>Viral Paternler</span>
         <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>({patterns.length})</span>
         <button onClick={() => setShowForm(!showForm)} style={{
           marginLeft: "auto", background: "var(--accent)", color: "#000", border: "none",
-          borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 500, cursor: "pointer",
         }}>+ Pattern Kaydet</button>
       </div>
 
@@ -60,7 +60,7 @@ export default function PatternsTab() {
             }}>İptal</button>
             <button onClick={handleSave} style={{
               background: "var(--accent)", color: "#000", border: "none", borderRadius: 6,
-              padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+              padding: "5px 14px", fontSize: 11, fontWeight: 500, cursor: "pointer",
             }}>Kaydet</button>
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function PatternsTab() {
             background: "var(--bg-elevated)", border: "1px solid var(--border)",
             borderRadius: 10, padding: 14,
           }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{p.name}</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginBottom: 10, lineHeight: 1.5 }}>
               &ldquo;{p.hookText}&rdquo;
             </div>
@@ -84,7 +84,7 @@ export default function PatternsTab() {
               }}>{p.type}</span>
               <button style={{
                 marginLeft: "auto", background: "var(--accent)", color: "#000", border: "none",
-                borderRadius: 5, padding: "3px 10px", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                borderRadius: 5, padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer",
               }}>Kullan</button>
               <button onClick={() => removePattern(p.id)} style={{
                 background: "transparent", border: "none", color: "var(--text-muted)",

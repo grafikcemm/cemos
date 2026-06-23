@@ -65,15 +65,15 @@ export default function StatusBar({ onScanComplete }: StatusBarProps) {
       <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid var(--border)", padding: "10px 16px", gap: 0 }}>
         <div style={{ flex: 1, borderRight: "1px solid var(--border)", paddingRight: 16 }}>
           <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>PAYLAŞIM</div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>@{activeChannel}</div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>@{activeChannel}</div>
         </div>
         <div style={{ flex: 1, paddingLeft: 16, borderRight: "1px solid var(--border)", paddingRight: 16 }}>
           <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>TARAMA ZAMANI</div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{scheduleLabel}</div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{scheduleLabel}</div>
         </div>
         <div style={{ display: "flex", gap: 6, paddingLeft: 16 }}>
           {isScanning && (
-            <span style={{ fontSize: 11, color: "var(--accent)", alignSelf: "center", fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: "var(--accent)", alignSelf: "center", fontWeight: 500 }}>
               ⏳ Tarıyor...
             </span>
           )}
@@ -83,7 +83,7 @@ export default function StatusBar({ onScanComplete }: StatusBarProps) {
               background: automationEnabled ? "var(--accent)" : "transparent",
               color: automationEnabled ? "#000" : "var(--text-secondary)",
               border: automationEnabled ? "none" : "1px solid var(--border)",
-              borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+              borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 500, cursor: "pointer",
             }}
           >
             ⚡ {automationEnabled ? "Otomasyon Aktif" : "Otomasyonu Başlat"}
@@ -122,7 +122,7 @@ function MetricBlock({ label, value, hint, warn }: { label: string; value: strin
       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
         {label}
       </div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: warn ? "var(--red)" : undefined }}>{value}</div>
+      <div style={{ fontSize: 16, fontWeight: 500, color: warn ? "var(--red)" : undefined }}>{value}</div>
       {hint && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>{hint}</div>}
     </div>
   );

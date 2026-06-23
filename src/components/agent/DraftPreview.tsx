@@ -108,7 +108,7 @@ export default function DraftPreview() {
             display: "inline-block",
           }}
         />
-        <span style={{ fontSize: 13, fontWeight: 600 }}>
+        <span style={{ fontSize: 13, fontWeight: 500 }}>
           {drafts.length} Taslak hazır
         </span>
         <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto" }}>
@@ -140,7 +140,7 @@ export default function DraftPreview() {
                 background: i === activeIndex ? "var(--accent-dark)" : "transparent",
                 color: i === activeIndex ? "var(--accent)" : "var(--text-muted)",
                 fontSize: 10,
-                fontWeight: 600,
+                fontWeight: 500,
                 cursor: "pointer",
               }}
             >
@@ -213,7 +213,7 @@ export default function DraftPreview() {
             borderRadius: 6,
             padding: "5px 14px",
             fontSize: 11,
-            fontWeight: 700,
+            fontWeight: 500,
             cursor: publishing ? "not-allowed" : "pointer",
             opacity: publishing ? 0.7 : 1,
           }}

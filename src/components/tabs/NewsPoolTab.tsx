@@ -344,7 +344,7 @@ export default function NewsPoolTab() {
                     </div>
                     <span
                       className="font-display tnum"
-                      style={{ fontSize: "var(--text-lg)", fontWeight: 800, color: scoreColor(score), letterSpacing: "-0.02em", lineHeight: 1 }}
+                      style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: scoreColor(score), letterSpacing: "-0.02em", lineHeight: 1 }}
                       title={`X-değer skoru: ${score}`}
                     >
                       {score}
@@ -353,10 +353,10 @@ export default function NewsPoolTab() {
 
                   {n.newsSource && (
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 600 }}>{n.newsSource.name}</span>
+                      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 500 }}>{n.newsSource.name}</span>
                       <span
                         title={`Kaynak güvenilirliği: ${n.newsSource.reliability}`}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 700, color: RELIABILITY_COLORS[n.newsSource.reliability] || "var(--text-muted)", border: `1px solid ${RELIABILITY_COLORS[n.newsSource.reliability] || "var(--border)"}`, padding: "0 5px", borderRadius: "var(--radius-sm)", textTransform: "uppercase" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: RELIABILITY_COLORS[n.newsSource.reliability] || "var(--text-muted)", border: `1px solid ${RELIABILITY_COLORS[n.newsSource.reliability] || "var(--border)"}`, padding: "0 5px", borderRadius: "var(--radius-sm)", textTransform: "uppercase" }}
                       >
                         <ShieldCheck size={11} strokeWidth={1.8} />
                         {n.newsSource.reliability}
@@ -373,7 +373,7 @@ export default function NewsPoolTab() {
                         return (
                           <span
                             title="Çapraz kaynak teyidi"
-                            style={{ fontSize: "var(--text-2xs)", fontWeight: 700, color: badge.color, border: `1px solid ${badge.color}`, padding: "0 5px", borderRadius: "var(--radius-sm)" }}
+                            style={{ fontSize: "var(--text-2xs)", fontWeight: 500, color: badge.color, border: `1px solid ${badge.color}`, padding: "0 5px", borderRadius: "var(--radius-sm)" }}
                           >
                             {badge.label}
                           </span>
@@ -387,7 +387,7 @@ export default function NewsPoolTab() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-display"
-                    style={{ display: "inline-flex", alignItems: "flex-start", gap: 6, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
+                    style={{ display: "inline-flex", alignItems: "flex-start", gap: 6, fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
                   >
                     <span>{n.trTitle || n.originalTitle}</span>
                     <ExternalLink size={13} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 3, color: "var(--text-muted)" }} />
@@ -401,7 +401,7 @@ export default function NewsPoolTab() {
 
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: "auto" }}>
                     {n.isUsed ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 600 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 500 }}>
                         <CheckCircle2 size={13} strokeWidth={1.8} />
                         Kullanıldı
                       </span>
@@ -451,7 +451,7 @@ const metaStat: React.CSSProperties = {
 
 const metaNum: React.CSSProperties = {
   color: "var(--text-primary)",
-  fontWeight: 700,
+  fontWeight: 500,
   fontSize: "var(--text-base)",
 };
 
@@ -477,7 +477,7 @@ const genBtnStyle: React.CSSProperties = {
   color: "var(--accent-text)",
   borderRadius: "var(--radius-sm)",
   fontSize: "var(--text-2xs)",
-  fontWeight: 700,
+  fontWeight: 500,
   fontFamily: "inherit",
   textTransform: "uppercase",
   letterSpacing: "0.02em",
@@ -532,7 +532,7 @@ function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }
         padding: "12px 18px",
         borderRadius: "var(--radius-lg)",
         fontSize: "var(--text-sm)",
-        fontWeight: 600,
+        fontWeight: 500,
         background: "var(--bg-elevated)",
         color: "var(--text-primary)",
         border: `1px solid ${ok ? "rgba(63,178,127,0.4)" : "rgba(229,72,77,0.4)"}`,

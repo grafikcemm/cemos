@@ -126,7 +126,7 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
           <div
             style={{
               fontSize: "var(--text-base)",
-              fontWeight: 700,
+              fontWeight: 500,
               color: "var(--text-primary)",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -211,7 +211,7 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
           {pack.concepts.map((c) => (
             <Card key={c.id} variant="default" padded>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>{c.label}</span>
+                <span style={{ fontWeight: 500, fontSize: "var(--text-sm)", color: "var(--text-primary)", flex: 1 }}>{c.label}</span>
                 <Badge variant="muted" size="xs">
                   önem {c.importance}
                 </Badge>
@@ -239,7 +239,7 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
               <Card key={f.id} variant="default" padded>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{f.front}</div>
+                    <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>{f.front}</div>
                     <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 4 }}>{f.back}</div>
                   </div>
                   <TimestampChip chunkIdx={f.chunkIdx} />
@@ -258,14 +258,14 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
             quizzes.map((q) => (
               <Card key={q.id} variant="default" padded>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-primary)" }}>{q.front}</div>
+                  <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>{q.front}</div>
                   <TimestampChip chunkIdx={q.chunkIdx} />
                 </div>
                 <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--text-sm)" }}>
                   {q.options.map((o, i) => (
                     <li
                       key={i}
-                      style={{ color: i === q.correctIdx ? "var(--green)" : "var(--text-secondary)", fontWeight: i === q.correctIdx ? 600 : 400 }}
+                      style={{ color: i === q.correctIdx ? "var(--green)" : "var(--text-secondary)", fontWeight: i === q.correctIdx ? 500 : 400 }}
                     >
                       {o}
                     </li>

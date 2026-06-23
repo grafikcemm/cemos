@@ -137,7 +137,7 @@ export default function LearnReviewView({ onBack }: { onBack: () => void }) {
             </Badge>
           </div>
         )}
-        <div style={{ fontSize: "var(--text-lg)", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4, marginBottom: "var(--space-4)" }}>
+        <div style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.4, marginBottom: "var(--space-4)" }}>
           {current.front}
         </div>
 

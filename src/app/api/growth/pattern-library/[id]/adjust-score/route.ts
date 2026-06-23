@@ -1,33 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+
+const AdjustScoreSchema = z.object({
+  delta: z.number().optional(),
+});
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
-    const body = await req.json();
-    const delta = Number(body.delta || 0);
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
+
+    const parsed = AdjustScoreSchema.safeParse(body.data);
+    if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
+
+    const delta = Number(parsed.data.delta || 0);
 
     const pattern = await viralPatternRepo.findById(id);
     if (!pattern) {
-      return NextResponse.json({ success: false, error: "Pattern not found" }, { status: 404 });
+      return fail("Pattern not found", 404);
     }
 
     const newScore = Math.max(0, Math.min(100, (pattern.successScore ?? 50) + delta));
     const updated = await viralPatternRepo.update(id, { successScore: newScore });
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       pattern: updated,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

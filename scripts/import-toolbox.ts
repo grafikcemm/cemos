@@ -15,7 +15,13 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { PrismaClient } from "../src/generated/prisma/client";
 
-const prisma = new PrismaClient();
+// Neon serverless auto-suspends; the first connect after idle can exceed the
+// default 10s pool/connect timeout (P2024 / init timeout). Bump both.
+const rawUrl = process.env.DATABASE_URL ?? "";
+const tunedUrl = rawUrl
+  ? rawUrl + (rawUrl.includes("?") ? "&" : "?") + "connect_timeout=30&pool_timeout=30"
+  : rawUrl;
+const prisma = tunedUrl ? new PrismaClient({ datasourceUrl: tunedUrl }) : new PrismaClient();
 const COMMIT = process.argv.includes("--commit");
 
 type LegacyRow = {
@@ -84,19 +90,22 @@ async function main() {
     return;
   }
 
-  let created = 0;
-  let updated = 0;
-  for (const data of byUrl.values()) {
-    const existing = await prisma.toolboxResource.findUnique({ where: { url: data.url } });
-    await prisma.toolboxResource.upsert({
-      where: { url: data.url },
-      create: data,
-      update: data,
-    });
-    if (existing) updated++;
-    else created++;
+  // Chunked $transaction: 1 connection acquisition per chunk instead of one
+  // per row. Neon serverless pools time out (P2024) under per-row round-trips.
+  const all = [...byUrl.values()];
+  const CHUNK = 25;
+  let done = 0;
+  for (let i = 0; i < all.length; i += CHUNK) {
+    const slice = all.slice(i, i + CHUNK);
+    await prisma.$transaction(
+      slice.map((data) =>
+        prisma.toolboxResource.upsert({ where: { url: data.url }, create: data, update: data })
+      )
+    );
+    done += slice.length;
+    console.log(`  ${done}/${all.length} upsert…`);
   }
-  console.log(`\n✅ ${created} yeni, ${updated} güncellenen kayıt.`);
+  console.log(`\n✅ ${done} kayıt upsert edildi (yeni + güncellenen).`);
 }
 
 main()

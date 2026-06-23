@@ -89,7 +89,7 @@ export default function Drawer({ open, onClose, title, width = 520, children }: 
           >
             <div
               className="font-display"
-              style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+              style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
             >
               {title}
             </div>

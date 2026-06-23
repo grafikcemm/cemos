@@ -21,7 +21,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useXAgentStore } from "@/store/xagent";
-import { EmptyState, SubNav } from "@/components/ui";
+import { EmptyState, SubNav, KanbanBoard, KanbanCard, type KanbanTone } from "@/components/ui";
 import DmInbox from "@/components/instagram/DmInbox";
 import InsightsPanel from "@/components/instagram/InsightsPanel";
 
@@ -94,7 +94,7 @@ const accentBtn: React.CSSProperties = {
   borderRadius: 6,
   padding: "7px 14px",
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 500,
   cursor: "pointer",
 };
 const ghostBtn: React.CSSProperties = {
@@ -117,7 +117,7 @@ const selStyle: React.CSSProperties = {
 const miniBtn: React.CSSProperties = {
   background: "transparent",
   color: "var(--accent)",
-  border: "1px solid rgba(225,29,72,0.3)",
+  border: "1px solid rgba(200, 224, 191,0.3)",
   borderRadius: 5,
   padding: "2px 8px",
   fontSize: 11,
@@ -187,6 +187,7 @@ export default function InstagramTab() {
   const [mediaOrder, setMediaOrder] = useState<string[]>([]);
   // İçerik-önce: seçili gönderi (null = gönderi listesi göster).
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
+  const [view, setView] = useState<"posts" | "board">("posts");
   const [tokenHealth, setTokenHealth] = useState<TokenHealth | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -204,6 +205,20 @@ export default function InstagramTab() {
   const [drafts, setDrafts] = useState<IgReplyDraft[]>([]);
   const [draftLoading, setDraftLoading] = useState(false);
   const [edits, setEdits] = useState<Record<string, string>>({});
+
+  // Kanban (Pano) — all comments grouped by status across posts.
+  const IG_COLS: { id: string; label: string; tone: KanbanTone; match: (s: string) => boolean; core?: boolean }[] = [
+    { id: "new", label: "Yeni", tone: "blue", match: (s) => s === "new" || s === "analyzed", core: true },
+    { id: "drafted", label: "Taslaklı", tone: "yellow", match: (s) => s === "drafted", core: true },
+    { id: "replied", label: "Yanıtlandı", tone: "green", match: (s) => s === "replied", core: true },
+    { id: "ignored", label: "Yoksayıldı", tone: "muted", match: (s) => s === "ignored" },
+  ];
+  const igKanbanColumns = IG_COLS.map((col) => ({
+    id: col.id,
+    label: col.label,
+    tone: col.tone,
+    items: comments.filter((c) => col.match(c.status)),
+  })).filter((c, i) => c.items.length > 0 || IG_COLS[i].core);
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
@@ -460,6 +475,29 @@ export default function InstagramTab() {
         <button style={ghostBtn} onClick={loadFeed}>
           Filtrele
         </button>
+        {selectedMediaId === null && (
+          <div style={{ display: "inline-flex", gap: 2, marginLeft: "auto", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 3 }}>
+            {([["posts", "Gönderiler"], ["board", "Pano"]] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={{
+                  padding: "5px 12px",
+                  border: "none",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  fontFamily: "inherit",
+                  background: view === v ? "var(--accent)" : "transparent",
+                  color: view === v ? "var(--accent-fg)" : "var(--text-secondary)",
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -469,6 +507,26 @@ export default function InstagramTab() {
           Henüz gönderi yok. Sync çalıştırın (Meta kurulumu sonrası).
         </p>
       ) : selectedMediaId === null ? (
+        view === "board" ? (
+          <KanbanBoard
+            columns={igKanbanColumns}
+            renderCard={(c) => (
+              <KanbanCard
+                key={c.commentId}
+                priority={{ label: `Ö${c.priority}`, tone: c.priority >= 7 ? "danger" : c.priority >= 4 ? "yellow" : "muted" }}
+                tag={{ label: INTENT_LABEL[c.intent] ?? c.intent ?? "—", tone: "accent" }}
+                title={c.text}
+                meta={
+                  <>
+                    <span>@{c.username || "?"}</span>
+                    <span>{c.sentiment}</span>
+                  </>
+                }
+                onClick={() => setSelectedMediaId(c.mediaId)}
+              />
+            )}
+          />
+        ) : (
         /* İçerik (gönderi) listesi — her gönderi, 0 yorumlu olsa bile görünür */
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
           {mediaOrder.map((mediaId) => {
@@ -490,11 +548,11 @@ export default function InstagramTab() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontWeight: 700, color: "var(--accent-text)", fontSize: 12 }}>📷 Gönderi</span>
+                <span style={{ fontWeight: 500, color: "var(--accent-text)", fontSize: 12 }}>📷 Gönderi</span>
                 <span
                   style={{
                     fontSize: 11,
-                    fontWeight: 700,
+                    fontWeight: 500,
                     color: "var(--accent-fg)",
                     background: "var(--accent)",
                     borderRadius: "var(--radius-sm)",
@@ -523,6 +581,7 @@ export default function InstagramTab() {
             );
           })}
         </div>
+        )
       ) : (
         /* Seçili gönderinin yorumları */
         <div style={{ display: "grid", gap: 10 }}>
@@ -570,7 +629,7 @@ export default function InstagramTab() {
                 >
                   {INTENT_LABEL[c.intent] ?? c.intent ?? "—"}
                 </span>
-                <span style={{ color: priorityColor(c.priority), fontWeight: 700 }}>{c.priority}</span>
+                <span style={{ color: priorityColor(c.priority), fontWeight: 500 }}>{c.priority}</span>
                 <span style={{ color: "var(--text-secondary)", flex: 1 }}>{c.sentiment}</span>
                 {c.lang && c.lang !== "tr" && (
                   <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>
@@ -642,7 +701,7 @@ export default function InstagramTab() {
                 borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                 color: isActive ? "var(--accent)" : "var(--text-secondary)",
                 fontSize: 13,
-                fontWeight: isActive ? 600 : 400,
+                fontWeight: isActive ? 500 : 400,
                 cursor: "pointer",
               }}
             >

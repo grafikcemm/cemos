@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { reviewService } from "@/lib/learning/reviewService";
 import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import type { ReviewGrade } from "@/lib/learning/scheduling/srs";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +18,14 @@ const bodySchema = z.object({
 // POST /api/learn/review/attempt { itemId, grade, responseMs?, correct? }
 export async function POST(req: NextRequest) {
   if (!isLearnEnabled()) {
-    return NextResponse.json({ success: false, code: "disabled" }, { status: 404 });
+    return fail("disabled", 404, { code: "disabled" });
   }
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
-  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = bodySchema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Geçersiz istek" }, { status: 400 });
+    return fail("Geçersiz istek", 400);
   }
   try {
     const result = await reviewService.grade({
@@ -33,12 +34,12 @@ export async function POST(req: NextRequest) {
       responseMs: parsed.data.responseMs,
       correct: parsed.data.correct,
     });
-    return NextResponse.json({ success: true, ...result });
+    return ok({ ...result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "item_not_found") {
-      return NextResponse.json({ success: false, code: "not_found", error: msg }, { status: 404 });
+      return fail(msg, 404, { code: "not_found" });
     }
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

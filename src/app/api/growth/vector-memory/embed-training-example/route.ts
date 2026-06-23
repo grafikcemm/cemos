@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { embedTrainingExample } from "@/lib/growth-engine/vector-memory";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { BudgetExceededError } from "@/lib/config/costGate";
 import { z } from "zod";
 
 const Schema = z.object({
@@ -8,24 +10,20 @@ const Schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
-    const body = await req.json();
-    const result = Schema.safeParse(body);
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
+
+    const result = Schema.safeParse(body.data);
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: "Validation error", details: result.error.format() },
-        { status: 400 }
-      );
+      return fail("Validation error", 400, { details: result.error.format() });
     }
 
     const { exampleId } = result.data;
     const embedding = await embedTrainingExample(exampleId);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       embedding: {
         provider: embedding.provider,
         model: embedding.model,
@@ -34,10 +32,8 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: msg },
-      { status: msg.includes("not found") ? 404 : 500 }
-    );
+    return fail(msg, msg.includes("not found") ? 404 : 500);
   }
 }

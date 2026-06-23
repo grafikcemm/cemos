@@ -61,7 +61,7 @@ export default function ContentRadarTab() {
           meta={
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Radar size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              <span className="tnum" style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+              <span className="tnum" style={{ fontWeight: 500, color: "var(--text-primary)" }}>
                 {items.length}
               </span>
               içerik fırsatı
@@ -84,7 +84,7 @@ export default function ContentRadarTab() {
                   color: isActive ? "var(--accent-text)" : "var(--text-secondary)",
                   borderRadius: "var(--radius-md)",
                   fontSize: "var(--text-sm)",
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 500 : 500,
                   fontFamily: "inherit",
                   cursor: "pointer",
                   transition: "background 0.15s, border-color 0.15s, color 0.15s",
@@ -150,7 +150,7 @@ export default function ContentRadarTab() {
                       alignItems: "center",
                       gap: 4,
                       fontSize: "var(--text-sm)",
-                      fontWeight: 700,
+                      fontWeight: 500,
                       color: scoreColor(o.xValueScore),
                     }}
                   >
@@ -185,15 +185,15 @@ export default function ContentRadarTab() {
                 <>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <Lightbulb size={13} strokeWidth={1.8} />
-                    Yenilik <strong className="tnum" style={{ color: scoreColor(o.noveltyScore), fontWeight: 700 }}>{o.noveltyScore}</strong>
+                    Yenilik <strong className="tnum" style={{ color: scoreColor(o.noveltyScore), fontWeight: 500 }}>{o.noveltyScore}</strong>
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <Sparkles size={13} strokeWidth={1.8} />
-                    Fayda <strong className="tnum" style={{ color: scoreColor(o.usefulnessScore), fontWeight: 700 }}>{o.usefulnessScore}</strong>
+                    Fayda <strong className="tnum" style={{ color: scoreColor(o.usefulnessScore), fontWeight: 500 }}>{o.usefulnessScore}</strong>
                   </span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <ImageIcon size={13} strokeWidth={1.8} />
-                    Görsel <strong className="tnum" style={{ color: scoreColor(o.visualScore), fontWeight: 700 }}>{o.visualScore}</strong>
+                    Görsel <strong className="tnum" style={{ color: scoreColor(o.visualScore), fontWeight: 500 }}>{o.visualScore}</strong>
                   </span>
                 </>
               }
@@ -217,7 +217,7 @@ export default function ContentRadarTab() {
                         color: "var(--text-secondary)",
                         borderRadius: "var(--radius-md)",
                         fontSize: "var(--text-xs)",
-                        fontWeight: 600,
+                        fontWeight: 500,
                         textDecoration: "none",
                       }}
                     >

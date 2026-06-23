@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { scoreSourcePostFallback } from "@/lib/growth-engine/scorer";
 import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
 export async function GET(req: NextRequest) {
   try {
@@ -194,8 +195,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary: {
         totalSources,
         activeSources,
@@ -217,6 +217,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

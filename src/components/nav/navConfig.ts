@@ -34,6 +34,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: "Haber",
     tabs: [
       { id: "news-pool", label: "Radar" },
+      { id: "content-intel", label: "İçerik Zekası" },
       { id: "ai-rankings", label: "AI Sıralama" },
       { id: "toolbox", label: "Toolbox" },
       { id: "library", label: "Kütüphane" },
@@ -131,7 +132,7 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
     id: "kesfet",
     label: "Keşfet",
     icon: "Compass",
-    tabIds: ["discovery-engine", "flow-radar", "news-pool"],
+    tabIds: ["discovery-engine", "flow-radar", "news-pool", "content-intel"],
   },
   {
     id: "ogren",

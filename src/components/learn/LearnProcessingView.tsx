@@ -148,7 +148,7 @@ export default function LearnProcessingView({
                 gap: 10,
                 fontSize: "var(--text-sm)",
                 color: done ? "var(--text-secondary)" : active ? "var(--text-primary)" : "var(--text-muted)",
-                fontWeight: active ? 600 : 400,
+                fontWeight: active ? 500 : 400,
               }}
             >
               <span style={{ width: 18, display: "inline-flex" }}>

@@ -147,7 +147,7 @@ export default function CostsTab() {
               borderRadius: "var(--radius-md)",
               padding: "8px 14px",
               fontSize: "var(--text-xs)",
-              fontWeight: 600,
+              fontWeight: 500,
               fontFamily: "inherit",
               cursor: "pointer",
               transition: "color var(--ease-out) 0.15s, border-color var(--ease-out) 0.15s",
@@ -211,7 +211,7 @@ export default function CostsTab() {
           value={
             <span>
               <span className="tnum">{today.socialDataTweets}</span>
-              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 600 }}> tweet · </span>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 500 }}> tweet · </span>
               <span className="tnum" style={{ color: "var(--blue)" }}>{fmt(today.socialDataUsd)}</span>
             </span>
           }
@@ -243,7 +243,7 @@ export default function CostsTab() {
           action={
             <span
               className="tnum"
-              style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: budgetTextTone, display: "inline-flex", alignItems: "center", gap: 7 }}
+              style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: budgetTextTone, display: "inline-flex", alignItems: "center", gap: 7 }}
             >
               {budgetPct >= 80 && <Gauge size={15} strokeWidth={2} />}
               {fmt(month.totalUsd)} / ${month.budgetUsd}
@@ -290,7 +290,7 @@ export default function CostsTab() {
             {/* SocialData row */}
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <Td>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, color: "var(--text-primary)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 500, color: "var(--text-primary)" }}>
                   <BarChart3 size={15} strokeWidth={2} style={{ color: "var(--blue)" }} /> SocialData
                 </span>
               </Td>
@@ -298,20 +298,20 @@ export default function CostsTab() {
                 <span className="tnum">{(lineItems?.socialData.tweets ?? 0).toLocaleString()}</span> tweet × ${lineItems?.socialData.unitPriceUsd ?? 0.0002}
               </Td>
               <Td style={{ textAlign: "right" }}>
-                <span className="tnum" style={{ fontWeight: 700, color: "var(--text-primary)" }}>{fmt(lineItems?.socialData.costUsd ?? month.socialDataUsd)}</span>
+                <span className="tnum" style={{ fontWeight: 500, color: "var(--text-primary)" }}>{fmt(lineItems?.socialData.costUsd ?? month.socialDataUsd)}</span>
               </Td>
             </tr>
 
             {/* OpenRouter header row */}
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <Td>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, color: "var(--text-primary)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 500, color: "var(--text-primary)" }}>
                   <Zap size={15} strokeWidth={2} style={{ color: "var(--accent-2-text)" }} /> OpenRouter
                 </span>
               </Td>
               <Td style={{ textAlign: "right", color: "var(--text-muted)" }}>amaç / model kırılımı</Td>
               <Td style={{ textAlign: "right" }}>
-                <span className="tnum" style={{ fontWeight: 700, color: "var(--accent-2-text)" }}>{fmt(lineItems?.openRouter.costUsd ?? month.openRouterUsd)}</span>
+                <span className="tnum" style={{ fontWeight: 500, color: "var(--accent-2-text)" }}>{fmt(lineItems?.openRouter.costUsd ?? month.openRouterUsd)}</span>
               </Td>
             </tr>
 
