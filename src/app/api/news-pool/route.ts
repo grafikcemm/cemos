@@ -21,6 +21,10 @@ const COMPACT_SELECT = {
   category: true,
   viralScore: true,
   xValueScore: true,
+  buzzScore: true,
+  hnPoints: true,
+  hnComments: true,
+  redditScore: true,
   tweetAngle: true,
   suggestedFormat: true,
   sourceVerification: true,
@@ -40,6 +44,7 @@ export async function GET(req: NextRequest) {
   const category = sp.get("category");
   const minScoreRaw = sp.get("minScore");
   const compact = sp.get("compact") === "true";
+  const sort = sp.get("sort") || "buzz"; // buzz (reader default) | recent | score
   const limit = Math.min(Number(sp.get("limit")) || 50, 200);
 
   const where: Prisma.NewsItemWhereInput = {};
@@ -52,14 +57,28 @@ export async function GET(req: NextRequest) {
     where.xValueScore = { gte: Number(minScoreRaw) };
   }
 
+  // Reader-first default: "çok konuşulan" (buzz) ranking. "recent" = newest,
+  // "score" = legacy tweet-value ranking (operator view).
+  const ORDER_BY: Record<string, Prisma.NewsItemOrderByWithRelationInput[]> = {
+    buzz: [
+      { buzzScore: { sort: "desc", nulls: "last" } },
+      { publishedAt: { sort: "desc", nulls: "last" } },
+    ],
+    recent: [
+      { publishedAt: { sort: "desc", nulls: "last" } },
+      { fetchedAt: "desc" },
+    ],
+    score: [
+      { xValueScore: { sort: "desc", nulls: "last" } },
+      { fetchedAt: "desc" },
+    ],
+  };
+
   try {
     // Prisma forbids select+include in one call → two explicit branches.
     const baseQuery = {
       where,
-      orderBy: [
-        { xValueScore: { sort: "desc", nulls: "last" } },
-        { fetchedAt: "desc" },
-      ],
+      orderBy: ORDER_BY[sort] ?? ORDER_BY.buzz,
       take: limit,
     } satisfies Prisma.NewsItemFindManyArgs;
     const items = compact

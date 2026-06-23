@@ -30,4 +30,10 @@ export const DEFAULT_SOURCES: DefaultSource[] = [
   { name: "UX Collective", feedUrl: "https://uxdesign.cc/feed", url: "https://uxdesign.cc", sourceType: "rss", category: "creative_design", priority: 85, reliability: "high", fetchIntervalMin: 1440 },
   { name: "Nielsen Norman Group", feedUrl: "https://www.nngroup.com/articles/feed/rss/", url: "https://www.nngroup.com", sourceType: "rss", category: "creative_design", priority: 90, reliability: "high", fetchIntervalMin: 1440 },
   { name: "Indie Hackers", feedUrl: "https://www.indiehackers.com/feed.xml", url: "https://www.indiehackers.com", sourceType: "rss", category: "product_tools", priority: 75, reliability: "medium", fetchIntervalMin: 1440 },
+  // En sağlam AI kaynakları genişletmesi — "en güncel ve çok konuşulan" hedefi.
+  { name: "Wired AI", feedUrl: "https://www.wired.com/feed/tag/ai/latest/rss", url: "https://www.wired.com", sourceType: "rss", category: "tech_news", priority: 88, reliability: "high", fetchIntervalMin: 1440 },
+  { name: "Engadget", feedUrl: "https://www.engadget.com/rss.xml", url: "https://www.engadget.com", sourceType: "rss", category: "tech_news", priority: 78, reliability: "medium", fetchIntervalMin: 1440 },
+  { name: "Hugging Face Blog", feedUrl: "https://huggingface.co/blog/feed.xml", url: "https://huggingface.co", sourceType: "rss", category: "tech_news", priority: 88, reliability: "high", fetchIntervalMin: 1440 },
+  { name: "Simon Willison", feedUrl: "https://simonwillison.net/atom/everything/", url: "https://simonwillison.net", sourceType: "rss", category: "tech_news", priority: 82, reliability: "high", fetchIntervalMin: 1440 },
+  { name: "Latent Space", feedUrl: "https://www.latent.space/feed", url: "https://www.latent.space", sourceType: "rss", category: "tech_news", priority: 80, reliability: "medium", fetchIntervalMin: 1440 },
 ];

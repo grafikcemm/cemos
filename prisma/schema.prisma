@@ -360,6 +360,13 @@ model NewsItem {
   imageUrl           String?
   viralScore         Int?
   xValueScore        Int?
+  // "Çok konuşulan" ekseni — viral/xValue tweet potansiyeli ölçer; buzz dünya
+  // gündemini ölçer: çapraz-kaynak teyidi + tazelik + dış popülerlik (HN/Reddit).
+  buzzScore          Int?
+  hnPoints           Int?
+  hnComments         Int?
+  redditScore        Int?
+  externalSignalsAt  DateTime?
   whyPeopleCare      String?
   tweetAngle         String?
   suggestedFormat    String? // micro | punch | spark | storm | thread
@@ -383,6 +390,7 @@ model NewsItem {
 
   @@index([processingStatus])
   @@index([viralScore])
+  @@index([buzzScore])
   @@index([fetchedAt])
 }
 

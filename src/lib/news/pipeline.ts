@@ -6,6 +6,12 @@ import {
   classifySourceVerification,
   type VerificationCandidate,
 } from "@/lib/news/sourceVerification";
+import { computeBuzzScore } from "@/lib/news/buzz";
+import {
+  fetchHackerNewsSignals,
+  fetchRedditSignals,
+  matchSignalsToItems,
+} from "@/lib/news/externalSignals";
 
 // =============================================================================
 // Chunked, idempotent, deadline-bounded news pipeline (Prisma/Neon port of
@@ -31,6 +37,8 @@ export interface TickSummary {
   sync: StageResult;
   translate: StageResult;
   analyze: StageResult;
+  /** Buzz enrichment stage (external HN/Reddit popularity → buzzScore). */
+  buzz?: StageResult;
   remainingTotal: number;
   errorMessages: string[];
 }
@@ -49,6 +57,10 @@ export const LOW_SCORE_THRESHOLD = 70;
 // Cross-source corroboration looks at headlines fetched within this window.
 const VERIFICATION_WINDOW_MS = 72 * 60 * 60 * 1000;
 const VERIFICATION_CORPUS_LIMIT = 300;
+
+// Buzz enrichment scores items fetched within this window (reader feed horizon).
+const BUZZ_WINDOW_MS = 48 * 60 * 60 * 1000;
+const BUZZ_MAX_ITEMS = 300;
 
 function timeLeft(deadline: number): number {
   return deadline - Date.now();
@@ -230,9 +242,10 @@ export function parseRSSItems(xml: string): ParsedFeedItem[] {
 // --- Source seeding ----------------------------------------------------------
 // First sync seeds the static list. feedUrl is @unique so re-seeding is a no-op.
 
+// createMany + skipDuplicates (feedUrl @unique) makes this idempotent AND
+// additive: brand-new default feeds are inserted on the next sync of an
+// already-seeded DB, while existing rows (with their health stats) are untouched.
 async function ensureSourcesSeeded(): Promise<void> {
-  const count = await prisma.newsSource.count();
-  if (count > 0) return;
   await prisma.newsSource.createMany({
     data: DEFAULT_SOURCES.map((s) => ({
       name: s.name,
@@ -590,6 +603,91 @@ export async function analyzeBatch(
 }
 
 // =============================================================================
+// STAGE: enrichBuzz — compute the "çok konuşulan" buzzScore for the reader feed.
+// Pulls external popularity (Hacker News + Reddit) ONCE per tick, matches it to
+// recent items by URL, and combines it with cross-source corroboration + recency
+// + source quality (computeBuzzScore). Fail-open: if external fetch is blocked
+// (e.g. Reddit on a Vercel IP), buzz still computes from internal signals.
+// =============================================================================
+
+export async function enrichBuzz(
+  deadline: number,
+  opts: { maxItems?: number } = {},
+): Promise<StageResult> {
+  const maxItems = opts.maxItems ?? BUZZ_MAX_ITEMS;
+  const result: StageResult = { processed: 0, errors: 0, remaining: 0 };
+  if (timeLeft(deadline) < 4000) {
+    result.deadlineHit = true;
+    return result;
+  }
+
+  const items = await prisma.newsItem.findMany({
+    where: {
+      fetchedAt: { gte: new Date(Date.now() - BUZZ_WINDOW_MS) },
+      processingStatus: { not: "quarantined" },
+    },
+    select: {
+      id: true,
+      url: true,
+      canonicalUrl: true,
+      publishedAt: true,
+      fetchedAt: true,
+      sourceVerification: true,
+      newsSource: { select: { reliability: true, priority: true } },
+    },
+    orderBy: { fetchedAt: "desc" },
+    take: maxItems,
+  });
+  result.remaining = items.length;
+  if (items.length === 0) return result;
+
+  // One external fetch per tick (both are no-throw → [] on failure).
+  const [hn, reddit] = await Promise.all([
+    fetchHackerNewsSignals(),
+    fetchRedditSignals(),
+  ]);
+  const matched = matchSignalsToItems(items, [...hn, ...reddit]);
+  const now = Date.now();
+
+  for (const item of items) {
+    if (timeLeft(deadline) < 3000) {
+      result.deadlineHit = true;
+      break;
+    }
+    const ext = matched.get(item.id);
+    const buzzScore = computeBuzzScore({
+      sourceVerification: item.sourceVerification,
+      publishedAt: item.publishedAt,
+      fetchedAt: item.fetchedAt,
+      reliability: item.newsSource?.reliability ?? null,
+      priority: item.newsSource?.priority ?? null,
+      hnPoints: ext?.hnPoints ?? null,
+      hnComments: ext?.hnComments ?? null,
+      redditScore: ext?.redditScore ?? null,
+      now,
+    });
+    try {
+      await prisma.newsItem.update({
+        where: { id: item.id },
+        data: {
+          buzzScore,
+          hnPoints: ext?.hnPoints ?? null,
+          hnComments: ext?.hnComments ?? null,
+          redditScore: ext?.redditScore ?? null,
+          externalSignalsAt: new Date(),
+        },
+      });
+      result.processed++;
+    } catch {
+      result.errors++;
+    }
+    result.remaining--;
+  }
+
+  return result;
+}
+
+// =============================================================================
 // sweepStuck — re-queue recent failures so the next ticks retry them. Uses
 // lastAttemptedAt instead of a retry counter: items keep getting one retry per
 // sweep until they age out of the 48h window.
@@ -704,7 +802,9 @@ export async function runPipelineTick(budgetMs = 45_000): Promise<TickSummary> {
   const translate = await safeRun("translate", () =>
     translateBatch(stageDeadline(0.5)),
   );
-  const analyze = await safeRun("analyze", () => analyzeBatch(deadline));
+  // Reserve the final budget slice for buzz enrichment so analyze can't eat it.
+  const analyze = await safeRun("analyze", () => analyzeBatch(stageDeadline(0.85)));
+  const buzz = await safeRun("buzz", () => enrichBuzz(deadline));
 
   if (translate.deadlineHit) {
     errorMessages.push(
@@ -722,5 +822,5 @@ export async function runPipelineTick(budgetMs = 45_000): Promise<TickSummary> {
     Math.max(0, translate.remaining) +
     Math.max(0, analyze.remaining);
 
-  return { sync, translate, analyze, remainingTotal, errorMessages };
+  return { sync, translate, analyze, buzz, remainingTotal, errorMessages };
 }
