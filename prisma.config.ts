@@ -5,7 +5,17 @@
 // dotenv/config only loads `.env`, so load .env.local explicitly here.
 import { config } from "dotenv";
 config({ path: ".env.local" });
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
+
+// `prisma generate` (Vercel postinstall) çalışırken DATABASE_URL build env'inde
+// olmayabilir — generate'in DB'ye ihtiyacı yok. `env("DATABASE_URL")` eksikse
+// fırlatıp build'i kırıyordu (PrismaConfigEnvError). Bunun yerine env'i doğrudan
+// oku; yoksa placeholder kullan. Gerçek bağlantı runtime'da @prisma/client
+// (src/lib/db/client.ts) ve `db push` tarafından process.env.DATABASE_URL ile
+// kurulur — placeholder yalnız generate sırasında, env yokken devreye girer.
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://placeholder:placeholder@localhost:5432/placeholder";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -14,6 +24,6 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: env("DATABASE_URL"),
+    url: databaseUrl,
   },
 });
