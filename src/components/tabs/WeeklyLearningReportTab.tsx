@@ -179,7 +179,7 @@ export default function WeeklyLearningReportTab() {
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
       <PageHeader
-        title="Weekly Learning Report"
+        title="Haftalık Öğrenme Raporu"
         subtitle="Growth Intelligence Engine’in öğrendiği pattern, feedback ve kuyruk sinyallerini on-demand analiz et."
       />
 

@@ -300,7 +300,7 @@ export default function SettingsTab() {
 
       {/* Health cards 3-column grid */}
       <Section eyebrow="DURUM" title="Bağlantı & Sağlık">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: "var(--space-3)" }}>
           {healthCards.map((card) => {
             const cardOk = card.ok;
             const cardWarn = card.stale;
@@ -503,7 +503,7 @@ export default function SettingsTab() {
                     </label>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap: "var(--space-3)" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
                       <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Tarama Sıklığı</span>
                       <Select
@@ -536,7 +536,7 @@ export default function SettingsTab() {
                         options={Array.from({ length: 24 }, (_, i) => ({ value: String(i), label: `${String(i).padStart(2, "0")}:00` }))}
                       />
                     </div>
-                    <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "var(--space-1)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--border)" }}>
+                    <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "var(--space-1)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--border)" }}>
                       <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>Paylaşım öncesi onay gereksin</span>
                       <Toggle
                         checked={sched.requireApproval ?? true}

@@ -548,7 +548,7 @@ export default function DailyQueueTab() {
         <div style={{ width: "100%", height: 1, background: "var(--border)", margin: "4px 0" }} />
 
         {/* Status Selector */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Durum</label>
           <select
             value={status}
@@ -561,7 +561,8 @@ export default function DailyQueueTab() {
               padding: "6px 8px",
               fontSize: "var(--text-xs)",
               outline: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              maxWidth: "100%"
             }}
           >
             <option value="active">Aktif İşler (Önerilen)</option>
@@ -576,7 +577,7 @@ export default function DailyQueueTab() {
         </div>
 
         {/* Date Selector */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Zaman Aralığı</label>
           <select
             value={dateRange}
@@ -589,7 +590,8 @@ export default function DailyQueueTab() {
               padding: "6px 8px",
               fontSize: "var(--text-xs)",
               outline: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              maxWidth: "100%"
             }}
           >
             <option value="all">Tüm Zamanlar</option>
@@ -601,7 +603,7 @@ export default function DailyQueueTab() {
         </div>
 
         {/* Risk Selector */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Risk Derecesi</label>
           <select
             value={risk}
@@ -614,7 +616,8 @@ export default function DailyQueueTab() {
               padding: "6px 8px",
               fontSize: "var(--text-xs)",
               outline: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              maxWidth: "100%"
             }}
           >
             <option value="all">Tüm Riskler</option>
@@ -650,7 +653,7 @@ export default function DailyQueueTab() {
         </div>
 
         {/* Sort */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
           <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Sıralama</label>
           <select
             value={sort}
@@ -663,7 +666,8 @@ export default function DailyQueueTab() {
               padding: "6px 8px",
               fontSize: "var(--text-xs)",
               outline: "none",
-              cursor: "pointer"
+              cursor: "pointer",
+              maxWidth: "100%"
             }}
           >
             <option value="createdAt">Yaratılış Tarihi</option>

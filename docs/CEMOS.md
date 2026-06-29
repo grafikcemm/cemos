@@ -22,7 +22,7 @@ Nav, platform gruplarına ayrılmıştır (`src/components/nav/navConfig.ts` tek
 - **Manuel yayın felsefesi:** Hiçbir platforma API yazma çağrısı yok. Sistem okur, analiz eder, taslak üretir; gönderme kararı ve eylemi her zaman insandadır.
 - **Bütçe disiplini:** Tüm LLM çağrıları `generateJson({role})` üzerinden; her amaç `UsageLog.meta.purpose` yazar. `usageService.getMonthlySpendByPurpose(prefix)` purpose-bazlı aylık tavan gate'lerinin temelidir (örn. `"yt_"` → tüm YouTube harcaması).
 - **Additive-only DB:** Şema değişiklikleri ekleme + default'lu olur; `prisma db push` prod'da güvenli kalır.
-- **Vercel Hobby 2-cron limiti:** Yeni cron girdisi asla eklenmez; yeni sync işleri mevcut daily/learn cron'una deadline'lı stage olarak girer.
+- **Vercel Hobby cron limiti:** Hobby gerçekte proje başına ~100 cron'a kadar izin verir (eski "2-cron" notu yanlıştı), günde-1 sıklıkla. Sabah taslak üretimi `0 4 * * *` `/api/cron/generate-morning` cron'una ayrıldı — generation İLK çalışır, kendi `deadlineMs` bütçesinde, `try/finally` ile terminal CronRun. `/api/cron/daily` News/IG/CI'yi deadline'lı stage olarak tutar + dailyMax-guard'lı backfill generation yapar.
 - **Tüm UI Türkçe.**
 
 ## 4. Veri modeli — platform attribution

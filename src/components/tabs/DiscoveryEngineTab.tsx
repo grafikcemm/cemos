@@ -425,7 +425,7 @@ export default function DiscoveryEngineTab() {
             <Search size={15} strokeWidth={1.8} />
             Keşif
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 12, marginBottom: 14 }}>
             <MetricCard label="Kaydedildi" value={result.discovery.inserted} accent />
             <MetricCard label="Ön-filtre sonrası" value={result.discovery.kept} />
           </div>
@@ -484,7 +484,7 @@ export default function DiscoveryEngineTab() {
           <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 }}>
             hook · persona · risk · novelty mercekleri
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 12, marginBottom: 16 }}>
             <MetricCard label="Pattern çıkarıldı" value={mining.mined} accent />
             <MetricCard label="Müzakere edildi" value={mining.deliberated} />
             <MetricCard label="Elendi" value={mining.skipped} />
@@ -496,6 +496,7 @@ export default function DiscoveryEngineTab() {
                 style={{
                   display: "flex",
                   alignItems: "center",
+                  flexWrap: "wrap",
                   gap: 12,
                   padding: "10px 12px",
                   background: "var(--bg-base)",
@@ -533,7 +534,7 @@ export default function DiscoveryEngineTab() {
                 >
                   {v.sourceType}
                 </span>
-                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5, flex: 1, minWidth: 0 }}>
                   {v.rationale}
                 </span>
               </div>

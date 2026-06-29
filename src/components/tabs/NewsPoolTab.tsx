@@ -443,7 +443,7 @@ function Thumb({ item, height }: { item: NewsItem; height: number }) {
 
 function RankBadge({ rank }: { rank: number }) {
   return (
-    <span style={{ position: "absolute", top: 12, left: 12, zIndex: 2, display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 26, height: 22, padding: "0 7px", borderRadius: "var(--radius-sm)", background: "var(--nw-accent)", color: "#1a1208", fontSize: "var(--text-2xs)", fontWeight: 600, fontFamily: "var(--font-display, inherit)" }} className="tnum">
+    <span style={{ position: "absolute", top: 12, left: 12, zIndex: 2, display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 26, height: 22, padding: "0 7px", borderRadius: "var(--radius-sm)", background: "var(--nw-accent)", color: "#1a1208", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "var(--font-display, inherit)" }} className="tnum">
       {String(rank).padStart(2, "0")}
     </span>
   );
@@ -547,7 +547,7 @@ function SourceLine({ item, badge, buzz, small }: { item: NewsItem; badge: { lab
         </span>
       )}
       {buzz != null && (
-        <span title={`Buzz: ${buzz}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--nw-accent)" }}>
+        <span title={`Buzz: ${buzz}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--nw-accent)" }}>
           <Flame size={11} strokeWidth={2} /><span className="tnum">{buzz}</span>
         </span>
       )}
@@ -588,9 +588,9 @@ const controlsRow: React.CSSProperties = { display: "flex", gap: 12, flexWrap: "
 
 const marqueeItem: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "0 18px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" };
 
-const readLink: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--nw-accent-2)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em" };
+const readLink: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--nw-accent-2)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em" };
 
-const warmBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", background: "var(--nw-accent)", border: "1px solid var(--nw-accent)", color: "#1a1208", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 600, fontFamily: "inherit", cursor: "pointer" };
+const warmBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", background: "var(--nw-accent)", border: "1px solid var(--nw-accent)", color: "#1a1208", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" };
 const ghostBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" };
 const pageBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit" };
 

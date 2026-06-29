@@ -65,7 +65,7 @@ function ProgressRing({ pct, color, size }: { pct: number; color: string; size: 
         strokeDashoffset={offset}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
       />
-      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--text-primary)">
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fontSize="12" fontWeight="500" fill="var(--text-primary)">
         {Math.round(clamped)}
       </text>
     </svg>

@@ -119,7 +119,7 @@ export default function MorningHeroStats() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
         gap: 14,
         padding: 16,
         marginBottom: "var(--space-6)",

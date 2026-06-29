@@ -320,10 +320,24 @@ body {
   background: rgba(var(--ink), 0.18);
 }
 
-/* Textarea focus */
+/* Textarea focus — remove mouse-focus outline noise only */
 textarea:focus,
 input:focus {
   outline: none;
+}
+
+/* A11y: keyboard focus must always be visible (Eden sage focus ring). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* Eden no-bold: <strong>/<b> stay at medium weight (500). */
+strong,
+b {
+  font-weight: 500;
 }
 
 /* Spinner animation */

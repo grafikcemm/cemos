@@ -91,7 +91,7 @@ export default function CostsTab() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
             gap: "var(--space-3)",
             marginBottom: "var(--space-6)",
           }}
@@ -170,7 +170,7 @@ export default function CostsTab() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
           gap: "var(--space-3)",
           marginBottom: "var(--space-3)",
         }}
@@ -201,7 +201,7 @@ export default function CostsTab() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
           gap: "var(--space-3)",
           marginBottom: "var(--space-6)",
         }}
@@ -278,7 +278,8 @@ export default function CostsTab() {
           title="Sağlayıcı Kalemleri"
           description="Amaç ve model bazında maliyet kırılımı."
         />
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+        <div style={{ minWidth: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", minWidth: 360, borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
           <thead>
             <tr>
               <Th>Sağlayıcı / Kalem</Th>
@@ -356,6 +357,7 @@ export default function CostsTab() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {/* Cost chart */}
@@ -377,6 +379,7 @@ export default function CostsTab() {
             compact
           />
         ) : (
+          <div style={{ width: "100%", minWidth: 0 }}>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={dailySeries} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <defs>
@@ -397,6 +400,7 @@ export default function CostsTab() {
               <Area type="monotone" dataKey="totalUsd" stroke="var(--chart-1)" strokeWidth={2} fill="url(#costGradient)" dot={{ fill: "var(--chart-1)", r: 3 }} activeDot={{ r: 5 }} />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         )}
       </Card>
     </div>
