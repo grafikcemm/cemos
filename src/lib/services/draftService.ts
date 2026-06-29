@@ -227,6 +227,18 @@ export const draftService = {
         // Faz B: content-quality signals surfaced in the queue drawer.
         payoff: payoff ?? "none",
         leaks,
+        // Phase 2 quality telemetry (DH-015): explains WHY a draft is the length
+        // it is — surfaces the mode/tier/charCount so a too-short draft is visible.
+        telemetry: {
+          selectedMode,
+          tier: tier.id,
+          charCount: generated.length,
+          minChars: tier.minChars,
+          maxChars: tierMaxChars,
+          candidateCount: (pipelineResult.rankedCandidates ?? []).length,
+          judged,
+          writerFallback: pipelineResult.modelUsed?.writerFallbackUsed ?? false,
+        },
       }),
       lintReport: JSON.stringify(lintReport),
       candidatesJson: JSON.stringify(pipelineResult.rankedCandidates ?? []),

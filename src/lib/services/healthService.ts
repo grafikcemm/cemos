@@ -120,15 +120,32 @@ export const healthService = {
       }
     }
 
-    // 3. Database
+    // 3. Database — bounded retry so a transient Neon pool timeout (P2024) or a
+    // cold-start hiccup doesn't flip readiness red on a single flaky probe (DH-007).
     let databaseOk = false;
     let databaseMsg = "";
-    try {
-      await prisma.account.count();
-      databaseOk = true;
-      databaseMsg = "Veritabanı bağlantısı aktif.";
-    } catch (err) {
-      databaseMsg = err instanceof Error ? err.message : "Veritabanı hatası";
+    {
+      const DB_PROBE_ATTEMPTS = 3;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < DB_PROBE_ATTEMPTS; attempt++) {
+        try {
+          await prisma.account.count();
+          databaseOk = true;
+          databaseMsg =
+            attempt === 0
+              ? "Veritabanı bağlantısı aktif."
+              : `Veritabanı bağlantısı aktif (${attempt + 1}. denemede).`;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < DB_PROBE_ATTEMPTS - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+          }
+        }
+      }
+      if (!databaseOk) {
+        databaseMsg = lastErr instanceof Error ? lastErr.message : "Veritabanı hatası";
+      }
     }
 
     // 4. Worker / automation liveness
