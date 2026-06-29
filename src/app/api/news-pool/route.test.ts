@@ -12,7 +12,10 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 function makeReq(query = "") {
-  return new NextRequest(`http://localhost:3000/api/news-pool${query}`);
+  // Same-origin header so the operator-auth guard treats it like a UI fetch.
+  return new NextRequest(`http://localhost:3000/api/news-pool${query}`, {
+    headers: { "sec-fetch-site": "same-origin" },
+  });
 }
 
 type FindManyArgs = {
@@ -83,5 +86,10 @@ describe("GET /api/news-pool", () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.success).toBe(false);
+  });
+
+  it("rejects a non-same-origin (header-less) request with 403", async () => {
+    const res = await GET(new NextRequest("http://localhost:3000/api/news-pool"));
+    expect(res.status).toBe(403);
   });
 });

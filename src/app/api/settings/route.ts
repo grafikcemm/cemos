@@ -6,7 +6,8 @@ import { modelConfigs, resolveModel } from "@/lib/ai/model-config";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const accounts = await prisma.account.findMany({
       include: {

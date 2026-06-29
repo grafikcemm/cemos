@@ -4,8 +4,10 @@ import { accountRepo } from "@/lib/db/accountRepo";
 import { accountProfiles } from "@/lib/accounts";
 import { computePillarConsistency } from "@/lib/growth-engine/pillar-consistency";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const accountHandle = req.nextUrl.searchParams.get("accountHandle") || "all";
     const statusFilter = req.nextUrl.searchParams.get("status") || "all";

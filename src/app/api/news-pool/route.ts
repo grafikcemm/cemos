@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ const COMPACT_SELECT = {
 // GET /api/news-pool?status=&category=&minScore=&limit=&compact=
 // Lists the news pool with optional filters.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status");
   const category = sp.get("category");

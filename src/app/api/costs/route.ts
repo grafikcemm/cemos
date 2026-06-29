@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { getCostLimits } from "@/lib/config/costLimits";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 // SocialData per-tweet unit price (mirrors calculateCost in socialdata.ts).
 const SOCIALDATA_UNIT_PRICE = 0.0002;
@@ -40,7 +42,10 @@ function purposeOf(row: UsageLogRow): string {
   return parsePurpose(row.meta) ?? (row.type === "generation" ? "draft_generation" : "other");
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
     const thisMonthStr = new Date().toISOString().slice(0, 7);
