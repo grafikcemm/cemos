@@ -1,3 +1,5 @@
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
+
 // ============================================================
 // News AI prompts (ported from grafikcem-news-ai, retargeted to the
 // two finalized accounts: grafikcem + maskulenkod. No sports/pixelspor.)
@@ -17,10 +19,12 @@ Kurallar:
 - Türkçe özet 400 karakterin altında olsun.
 - Çeviri gibi kokmasın; doğal Türkçe yaz.
 - SADECE şu formatta geçerli JSON döndür:
-{"tr_title": "...", "tr_summary": "...", "language": "tr", "confidence": 95}`;
+{"tr_title": "...", "tr_summary": "...", "language": "tr", "confidence": 95}
+
+${UNTRUSTED_DATA_NOTICE}`;
 
 export function buildTranslateUser(originalTitle: string, originalSummary: string | null): string {
-  return `Title: ${originalTitle}\nSummary: ${originalSummary || "No summary available."}`;
+  return wrapUntrustedData(`Title: ${originalTitle}\nSummary: ${originalSummary || "No summary available."}`);
 }
 
 // --- Viral / X-value scoring (5-criteria rubric, retargeted) -------------
@@ -50,10 +54,12 @@ SADECE şu formatta geçerli JSON döndür:
 {"relevance_score": 85, "viral_score": 75, "confidence_score": 90, "x_value_score": 80, "why_people_care": "Türkçe açıklama: bunu bilmek neden önemli", "tweet_angle": "Türkçe hook/açı önerisi", "suggested_content_format": "thread", "best_account": "grafikcem"}
 
 suggested_content_format şunlardan biri olmalı: "tweet" | "thread" | "carousel" | "tool_drop" | "repo_spotlight".
-best_account şunlardan biri olmalı: "grafikcem" | "maskulenkod".`;
+best_account şunlardan biri olmalı: "grafikcem" | "maskulenkod".
+
+${UNTRUSTED_DATA_NOTICE}`;
 
 export function buildScoringUser(trTitle: string, trSummary: string | null): string {
-  return `Title: ${trTitle}\nSummary: ${trSummary || "No summary available."}`;
+  return wrapUntrustedData(`Title: ${trTitle}\nSummary: ${trSummary || "No summary available."}`);
 }
 
 // --- Repo radar (translate + score + hook for a trending GitHub repo) -----
@@ -68,7 +74,9 @@ export const REPO_SYSTEM = `Sen bir teknoloji editörüsün. Sana bir GitHub dep
 - x_value_score (0-100): X'te paylaşıldığında değeri.
 
 SADECE şu formatta geçerli JSON döndür:
-{"description_tr": "...", "why_it_matters": "...", "best_for": "...", "tweet_hook": "...", "x_value_score": 80}`;
+{"description_tr": "...", "why_it_matters": "...", "best_for": "...", "tweet_hook": "...", "x_value_score": 80}
+
+${UNTRUSTED_DATA_NOTICE}`;
 
 export function buildRepoUser(repo: {
   name: string;
@@ -78,11 +86,11 @@ export function buildRepoUser(repo: {
   stars: number;
   topics: string[];
 }): string {
-  return `Repo: ${repo.owner}/${repo.name}
+  return wrapUntrustedData(`Repo: ${repo.owner}/${repo.name}
 Stars: ${repo.stars}
 Language: ${repo.language || "unknown"}
 Topics: ${repo.topics.join(", ") || "none"}
-Description: ${repo.description || "No description."}`;
+Description: ${repo.description || "No description."}`);
 }
 
 // --- Daily digest (summarize top news + repos + 3 AI tips) ----------------
@@ -95,7 +103,9 @@ export const DIGEST_SYSTEM = `Sen @grafikcem için günlük bir teknoloji brifin
 - ai_tips: Bugünün haberlerinden çıkan 3 pratik AI/tasarım/operatör ipucu (madde madde, her biri uygulanabilir).
 
 SADECE şu formatta geçerli JSON döndür:
-{"news_summary": "...", "repo_summary": "...", "ai_tips": "1. ...\\n2. ...\\n3. ..."}`;
+{"news_summary": "...", "repo_summary": "...", "ai_tips": "1. ...\\n2. ...\\n3. ..."}
+
+${UNTRUSTED_DATA_NOTICE}`;
 
 export function buildDigestUser(
   news: { title: string; why: string }[],
@@ -107,5 +117,5 @@ export function buildDigestUser(
   const repoBlock = repos.length
     ? repos.map((r, i) => `${i + 1}. ${r.name} — ${r.hook}`).join("\n")
     : "Bugün öne çıkan repo yok.";
-  return `Bugünün haberleri:\n${newsBlock}\n\nBugünün repoları:\n${repoBlock}`;
+  return wrapUntrustedData(`Bugünün haberleri:\n${newsBlock}\n\nBugünün repoları:\n${repoBlock}`);
 }

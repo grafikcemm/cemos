@@ -2,6 +2,7 @@ import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
 import { generateJson } from "@/lib/ai/openrouter";
 import { getBudgetStatus } from "@/lib/config/costGate";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 
 /**
  * örn1-style deep structural analysis of an EXTERNAL viral item. This is the
@@ -62,6 +63,7 @@ function buildSystemPrompt(handle: AccountHandle): string {
     "Şunları çıkar: özet, duygu, ana argümanlar, trend potansiyeli, hedef kitle ilgisi, haber değeri, yeni açı önerileri, hook, yapı, duygu, viralite nedeni.",
     `Çıktı SADECE şu JSON:`,
     `{"summary":"","sentiment":"positive|negative|mixed","key_arguments":[],"trending_potential":<1-10>,"audience_interest":<1-10>,"news_value":<1-10>,"angle_suggestions":[],"hook":"","structure":"","emotion":"","virality_reason":""}`,
+    UNTRUSTED_DATA_NOTICE,
   ].join("\n");
 }
 
@@ -88,7 +90,7 @@ export async function analyzeViralItem(text: string, handle: AccountHandle): Pro
     const run = await generateJson<RawAnalysis>({
       role: "cheapWriter",
       system: buildSystemPrompt(handle),
-      user: `İçerik:\n"""${text.slice(0, 900)}"""`,
+      user: `İçerik:\n${wrapUntrustedData(text.slice(0, 900))}`,
       temperature: 0.4,
     });
     const d = run.data;
