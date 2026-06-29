@@ -142,6 +142,31 @@ export const operatorReadinessService = {
     checks.dailyMaxPostsOne = allMaxPostsOne;
     checks.todayItemsPerfect = allTodayItemsReady;
 
+    // 4b. Scheduled morning generation cron — distinguish "automation worked"
+    // from "drafts exist but the scheduled run failed / it was a manual scan"
+    // (DH-015). Warning only: existing drafts keep `ready` green, but the operator
+    // sees when overnight automation is actually broken.
+    try {
+      const { cronRunRepo } = await import("@/lib/db/cronRunRepo");
+      const morningRun = await cronRunRepo.latestByKind("generate_morning");
+      const ranToday = Boolean(
+        morningRun?.finishedAt &&
+          morningRun.startedAt >= todayStart &&
+          morningRun.startedAt <= todayEnd
+      );
+      if (!ranToday) {
+        warnings.push(
+          "Sabah otomatik üretim cron'u (generate-morning) bugün başarıyla tamamlanmadı — mevcut taslaklar manuel tarama veya önceki çalışmadan olabilir. Vercel cron + CRON_SECRET kontrol edin."
+        );
+      } else if (!morningRun?.ok || morningRun?.partial) {
+        warnings.push(
+          "Sabah üretim cron'u bugün kısmi/hatalı tamamlandı — bazı hesaplar üretilememiş olabilir."
+        );
+      }
+    } catch {
+      // fail-open: a CronRun read error must never break readiness.
+    }
+
     // 5. Maliyet kontrolü → uyarı (bloklamaz).
     const thisMonthStr = new Date().toISOString().slice(0, 7);
     const logs = await prisma.usageLog.findMany({
