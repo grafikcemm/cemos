@@ -1,6 +1,7 @@
 import type { AccountProfile } from "@/lib/accounts";
 import { getCompetitorPromptContext } from "@/lib/competitors";
 import type { NextMove } from "@/lib/ai/next-move";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 
 export type Draft = {
   content: string;
@@ -290,6 +291,8 @@ export function buildDraftSystemPrompt(profile: AccountProfile) {
     "",
     "GÖRSEL MODLAR (visual_drop / stat / taktik_kirilim): mode bu modlardan biriyse, metne ek olarak 'imagePrompt' alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk). Diğer modlarda imagePrompt boş bırak.",
     "",
+    UNTRUSTED_DATA_NOTICE,
+    "",
     "Sadece JSON döndür. Markdown yok.",
   ].join("\n");
 }
@@ -300,7 +303,7 @@ export function buildDraftUserPrompt(profile: AccountProfile, sourceInput: strin
   return JSON.stringify({
     task: "Verilen kaynak için farklı açılardan Türkçe X taslakları üret.",
     account: profile.xHandle,
-    sourceInput,
+    sourceInput: wrapUntrustedData(sourceInput),
     angleCount: angles.length,
     outputSchema: {
       drafts: angles.map((a, i) => ({
@@ -348,6 +351,8 @@ export function buildJudgeSystemPrompt(profile: AccountProfile) {
     "- hold: Kaynak belirsiz, ton riskli, skor sınırda veya payoff zayıf/none",
     "- reject: Persona uyumsuz, güvensiz iddia, düşük kalite",
     "",
+    UNTRUSTED_DATA_NOTICE,
+    "",
     "En iyi 3 taslağı sıralayarak döndür. Sadece JSON. Markdown yok.",
   ].join("\n");
 }
@@ -359,7 +364,7 @@ export function buildJudgeUserPrompt(profile: AccountProfile, sourceInput: strin
     task: "Taslakları viral potansiyel ve hesap uyumuna göre puanla ve en iyi 3'ü sırala.",
     account: profile.xHandle,
     persona: profile.persona,
-    sourceInput,
+    sourceInput: wrapUntrustedData(sourceInput),
     competitorContext: { niche: competitorContext.nicheDescription },
     drafts,
     outputSchema: {
