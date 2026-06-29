@@ -10,7 +10,39 @@ type GenerateJsonOptions = {
   system: string;
   user: string;
   temperature?: number;
+  /** Hard ceiling for completion tokens. Defaults per-role; without it providers
+   *  apply a low default cap that silently truncates large JSON (the multi-draft
+   *  writer), yielding short/half drafts. */
+  maxTokens?: number;
+  /** Absolute wall-clock deadline (epoch ms). Per-call abort timeout becomes
+   *  clamp(5s, deadline-now, 60s) so a cron time budget bounds each LLM call. */
+  deadlineMs?: number;
 };
+
+/** Per-role completion-token ceilings. Writer needs the most (multi-angle JSON
+ *  incl. a long thread); judge/editor far less. */
+const DEFAULT_MAX_TOKENS_BY_ROLE: Partial<Record<ModelRole, number>> = {
+  creativeWriter: 5000,
+  viralJudge: 2500,
+  finalEditor: 1500,
+};
+
+function resolveMaxTokens(role: ModelRole, override?: number): number {
+  if (typeof override === "number" && override > 0) return override;
+  return DEFAULT_MAX_TOKENS_BY_ROLE[role] ?? 2000;
+}
+
+/** Map a raw provider error to a non-sensitive category so it can be stored /
+ *  surfaced without leaking provider account, credit, or key diagnostics (DH-014). */
+export function classifyOpenRouterError(message: string | undefined | null): string {
+  const m = (message ?? "").toLowerCase();
+  if (/402|credit|insufficient|payment|quota/.test(m)) return "provider_credit";
+  if (/429|rate.?limit|too many/.test(m)) return "rate_limit";
+  if (/abort|timeout|timed out|etimedout/.test(m)) return "timeout";
+  if (/json|parse|parseable/.test(m)) return "invalid_json";
+  if (/\b5\d\d\b|server error|internal/.test(m)) return "server_error";
+  return "unknown";
+}
 
 export type GenerateJsonResult<T> = {
   data: T;
@@ -71,10 +103,17 @@ export async function generateJson<T>({
   system,
   user,
   temperature = 0.7,
+  maxTokens,
+  deadlineMs,
 }: GenerateJsonOptions): Promise<GenerateJsonResult<T>> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPENROUTER_API_KEY is missing.");
+  }
+  const maxCompletionTokens = resolveMaxTokens(role, maxTokens);
+  // Skip a call whose deadline is already spent — no doomed network request.
+  if (typeof deadlineMs === "number" && deadlineMs - Date.now() <= 0) {
+    throw new Error("LLM call skipped: deadline exceeded");
   }
 
   const baseModel = resolveModel(role);
@@ -92,6 +131,7 @@ export async function generateJson<T>({
       model,
       messages,
       temperature,
+      max_tokens: maxCompletionTokens,
       response_format: { type: "json_object" },
       // Ask OpenRouter to include the real request cost in the response payload.
       usage: { include: true },
@@ -101,9 +141,15 @@ export async function generateJson<T>({
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const LLM_CALL_TIMEOUT_MS = 60_000;
+        // When a cron deadline is supplied, bound each call to the remaining wall
+        // clock (min 5s) so generation can't overrun the invocation budget.
+        const timeoutMs =
+          typeof deadlineMs === "number"
+            ? Math.max(5_000, Math.min(LLM_CALL_TIMEOUT_MS, deadlineMs - Date.now()))
+            : LLM_CALL_TIMEOUT_MS;
         const makeAbortSignal = () => {
           const ctrl = new AbortController();
-          setTimeout(() => ctrl.abort(), LLM_CALL_TIMEOUT_MS);
+          setTimeout(() => ctrl.abort(), timeoutMs);
           return ctrl.signal;
         };
 
@@ -132,6 +178,7 @@ export async function generateJson<T>({
               model,
               messages,
               temperature,
+              max_tokens: maxCompletionTokens,
               usage: { include: true },
             }),
             signal: makeAbortSignal(),
@@ -162,8 +209,10 @@ export async function generateJson<T>({
             : estimatedCostUsd;
 
         const modelFallbackUsed = model !== baseModel;
+        // Store only a non-sensitive category (DH-014); the raw provider body is
+        // logged to stderr in the catch below, never persisted/returned.
         const modelFallbackReason = modelFallbackUsed
-          ? `${baseModel} failed: ${lastError?.message || "Unknown error"}`
+          ? `${baseModel}→${model}:${classifyOpenRouterError(lastError?.message)}`
           : undefined;
 
         return {

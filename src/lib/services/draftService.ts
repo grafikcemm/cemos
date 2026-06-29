@@ -3,8 +3,9 @@ import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { generationRunRepo } from "@/lib/db/generationRunRepo";
 import { usageService } from "@/lib/services/usageService";
-import { accountProfiles, resolveFormatTier, effectiveMaxChars } from "@/lib/accounts";
+import { accountProfiles, resolveFormatTier, effectiveMaxChars, selectMode, isKnownMode } from "@/lib/accounts";
 import { runDraftPipeline } from "@/lib/ai/draft-pipeline";
+import { classifyOpenRouterError } from "@/lib/ai/openrouter";
 import { buildGroundingContext } from "@/lib/ai/grounding";
 import { createMockBenchmark } from "@/lib/ai/mock-benchmark";
 import { qualityLintService } from "@/lib/services/qualityLintService";
@@ -42,6 +43,9 @@ export type GenerateDraftInput = {
   // Faz C — opt-in: atomize a strong winner into a linked content package
   //   (reuses ranked candidates, no extra LLM spend). Default off.
   atomize?: boolean;
+  /** Optional wall-clock deadline (epoch ms) propagated to each LLM call so a
+   *  cron time budget bounds generation (morning cron). */
+  deadlineMs?: number;
 };
 
 export type GenerateDraftResult = {
@@ -125,14 +129,27 @@ export const draftService = {
     let pipelineResult: BenchmarkResult;
     let pipelineError: string | undefined;
     try {
-      pipelineResult = await runDraftPipeline(profile, groundedInput);
+      pipelineResult = await runDraftPipeline(profile, groundedInput, { deadlineMs: input.deadlineMs });
     } catch (err) {
       pipelineError = err instanceof Error ? err.message : String(err);
+      // Raw provider text stays in stderr only; the DB stores a category (DH-014).
+      console.warn("[draftService] pipeline failed, degrading to mock:", pipelineError);
       pipelineResult = { ...createMockBenchmark(profile), sourceInput, rankedCandidates: [] };
     }
-    // ── Format tier: derive the target length band from the chosen mode so the
-    //    char-cap and lint match the intended tier (e.g. punch ≤280, thread variable). ──
-    const tier = resolveFormatTier(profile, input.mode);
+    // ── Single source of truth for format/length: honor the WINNING draft's own
+    //    mode — the multi-angle writer + judge already picked the strongest angle
+    //    for this source. An explicit caller `input.mode` wins; else the validated
+    //    winner mode; else a deliberate source-aware selection. NEVER the accidental
+    //    `micro`(140) tier that silently truncated every draft (DH-002). ──
+    // Stable per-source seed so the fallback rotation actually varies by source.
+    const modeSeed = (input.sourcePostId ?? sourceText)
+      .split("")
+      .reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) | 0, 0);
+    const selectedMode =
+      (isKnownMode(profile, input.mode) ? input.mode! : undefined) ??
+      (isKnownMode(profile, pipelineResult.winner?.mode) ? pipelineResult.winner.mode : undefined) ??
+      selectMode(profile, { sourceType, seed: modeSeed }).id;
+    const tier = resolveFormatTier(profile, selectedMode);
     const tierMaxChars = effectiveMaxChars(profile, tier);
     let generated = fitToMaxChars(pipelineResult.winner.content, tierMaxChars);
 
@@ -176,7 +193,8 @@ export const draftService = {
     // ── Faz B: payoff (writer next-move) + content-quality leak detection. ──
     //    hookStrength is only trustworthy when the judge actually ran; the fast
     //    paths leave it at 0, so we pass undefined there to avoid false weak_hook.
-    const draftMode = input.mode ?? profile.modes[0]?.id ?? "default";
+    // Persisted mode == the mode the tier was derived from → label and length agree.
+    const draftMode = selectedMode;
     const payoff = pipelineResult.winner.payoff;
     const judgeModel = pipelineResult.modelUsed?.judge;
     const judged =
@@ -212,7 +230,7 @@ export const draftService = {
       }),
       lintReport: JSON.stringify(lintReport),
       candidatesJson: JSON.stringify(pipelineResult.rankedCandidates ?? []),
-      lastError: pipelineError,
+      lastError: pipelineError ? classifyOpenRouterError(pipelineError) : undefined,
     });
 
     await generationRunRepo.create({

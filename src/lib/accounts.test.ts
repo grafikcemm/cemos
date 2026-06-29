@@ -3,6 +3,8 @@ import {
   accountProfiles,
   resolveFormatTier,
   effectiveMaxChars,
+  selectMode,
+  isKnownMode,
   FORMAT_TIERS,
 } from "./accounts";
 
@@ -44,5 +46,35 @@ describe("accounts format tiers", () => {
         expect(tier.maxChars).toBeLessThanOrEqual(280);
       }
     }
+  });
+});
+
+describe("selectMode + isKnownMode (DH-002 mode selection)", () => {
+  it("isKnownMode is true only for real mode ids", () => {
+    const p = accountProfiles.grafikcem;
+    expect(isKnownMode(p, p.modes[0].id)).toBe(true);
+    expect(isKnownMode(p, "nope")).toBe(false);
+    expect(isKnownMode(p, undefined)).toBe(false);
+    expect(isKnownMode(p, null)).toBe(false);
+  });
+
+  it("never selects a mode whose tier is the accidental micro(140) default", () => {
+    for (const profile of Object.values(accountProfiles)) {
+      const mode = selectMode(profile);
+      const tier = resolveFormatTier(profile, mode.id);
+      expect(tier.id).not.toBe("micro");
+    }
+  });
+
+  it("rotates across modes by seed for variety", () => {
+    const p = accountProfiles.grafikcem;
+    expect(selectMode(p, { seed: 0 }).id).toBe(p.modes[0].id);
+    expect(selectMode(p, { seed: 1 }).id).toBe(p.modes[1 % p.modes.length].id);
+  });
+
+  it("prefers a repo/source mode for repo-flavored sources", () => {
+    const p = accountProfiles.grafikcem; // has a repo_kaynak mode
+    const mode = selectMode(p, { sourceType: "github_repo" });
+    expect(/repo|kaynak/.test(mode.id)).toBe(true);
   });
 });

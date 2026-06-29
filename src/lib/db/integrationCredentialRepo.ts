@@ -17,17 +17,16 @@ export type UpsertCredentialExtra = {
   meta?: Record<string, unknown>;
 };
 
-let warnedMissingKey = false;
-
-/** Şifreleme yalnız anahtar mevcutsa; aksi halde düz metin (geri uyumluluk). */
+/** Şifreleme yalnız anahtar mevcutsa. Prod'da anahtar yoksa FAIL-CLOSED: düz metin
+ *  secret yazmaktansa hata fırlat (SEC-03 / DH-010). Local/test'te (prod değil)
+ *  geri uyumluluk için düz metin korunur. */
 function encodeValue(value: string): string {
   if (process.env.CREDENTIAL_ENC_KEY) return encryptSecret(value);
-  // Anahtar yoksa düz metin yazılır. Prod'da bu sessiz bir güvenlik düşüşüdür —
-  // bir kez uyar (SEC-03). Local/test'te beklenen davranış.
-  if (process.env.NODE_ENV === "production" && !warnedMissingKey) {
-    warnedMissingKey = true;
-    console.warn(
-      "[integrationCredentialRepo] CREDENTIAL_ENC_KEY tanımlı değil — credential'lar DÜZ METİN yazılıyor (SEC-03).",
+  const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+  if (isProd) {
+    throw new Error(
+      "CREDENTIAL_ENC_KEY tanımlı değil — credential düz metin olarak yazılamaz (SEC-03/DH-010). " +
+        "Vercel production env'e 32-byte base64 bir anahtar ekleyin.",
     );
   }
   return value;

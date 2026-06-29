@@ -28,7 +28,7 @@ export const pipelineService = {
    */
   async runDailyForAccount(
     handle: AccountHandle,
-    opts?: { discover?: boolean; mine?: boolean; dailyMax?: number }
+    opts?: { discover?: boolean; mine?: boolean; dailyMax?: number; deadlineMs?: number }
   ): Promise<DailyRunSummary> {
     const profile = accountProfiles[handle];
     if (!profile) throw new Error(`Profile not found: ${handle}`);
@@ -89,12 +89,19 @@ export const pipelineService = {
     for (const post of candidates) {
       if (summary.created >= target) break;
       if (summary.attempts >= target + 5) break;
+      // In-flight cancellation: stop starting new drafts once the cron deadline
+      // is reached so the invocation can persist its result before being killed.
+      if (opts?.deadlineMs && Date.now() > opts.deadlineMs) {
+        summary.reason = summary.reason || "deadline";
+        break;
+      }
       summary.attempts++;
       try {
         const result = await draftService.generateDraft({
           accountHandle: handle,
           sourcePostId: post.id,
           draftType: "TWEET",
+          deadlineMs: opts?.deadlineMs,
         });
         if (result.blocked) {
           summary.blocked++;

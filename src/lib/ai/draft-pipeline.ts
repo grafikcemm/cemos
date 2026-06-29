@@ -41,7 +41,11 @@ function rankedToScore(rc: RankedCandidate): DraftScore {
   };
 }
 
-export async function runDraftPipeline(profile: AccountProfile, sourceInput: string): Promise<BenchmarkResult> {
+export async function runDraftPipeline(
+  profile: AccountProfile,
+  sourceInput: string,
+  opts?: { deadlineMs?: number }
+): Promise<BenchmarkResult> {
   const totalStart = Date.now();
   if (!process.env.OPENROUTER_API_KEY) {
     const mock = createMockBenchmark(profile);
@@ -56,19 +60,32 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
   const costOf = (run: { actualCostUsd?: number; estimatedCostUsd: number }) =>
     typeof run.actualCostUsd === "number" ? run.actualCostUsd : run.estimatedCostUsd;
 
-  // ── Phase 1: Multi-angle writer ───────────────────────────────────────────
+  // ── Phase 1: Multi-angle writer (one repair retry before falling back to mock) ──
   const writerStart = Date.now();
-  const draftRun = await generateJson<DraftResponse>({
-    role: "creativeWriter",
-    system: buildDraftSystemPrompt(profile),
-    user: buildDraftUserPrompt(profile, sourceInput),
-    temperature: 0.9,
-  });
-  const writerMs = Date.now() - writerStart;
+  const callWriter = () =>
+    generateJson<DraftResponse>({
+      role: "creativeWriter",
+      system: buildDraftSystemPrompt(profile),
+      user: buildDraftUserPrompt(profile, sourceInput),
+      temperature: 0.9,
+      deadlineMs: opts?.deadlineMs,
+    });
 
-  const draftsRaw: DraftWithAngle[] = Array.isArray(draftRun.data.drafts)
+  let draftRun = await callWriter();
+  let draftsRaw: DraftWithAngle[] = Array.isArray(draftRun.data.drafts)
     ? draftRun.data.drafts.filter((d) => d?.content?.trim())
     : [];
+
+  // Empty/truncated writer JSON → one repair retry (the writer is the most
+  // expensive output to lose). Mock only as a last resort, and only while time
+  // remains in the deadline budget.
+  if (draftsRaw.length === 0 && (!opts?.deadlineMs || Date.now() < opts.deadlineMs)) {
+    draftRun = await callWriter();
+    draftsRaw = Array.isArray(draftRun.data.drafts)
+      ? draftRun.data.drafts.filter((d) => d?.content?.trim())
+      : [];
+  }
+  const writerMs = Date.now() - writerStart;
 
   if (draftsRaw.length === 0) {
     const mock = createMockBenchmark(profile);
@@ -153,6 +170,35 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
     }
   }
 
+  // ── Deadline guard: out of time → promote the writer's drafts directly rather
+  //    than spend a doomed judge call or lose everything to the mock fallback. ──
+  if (typeof opts?.deadlineMs === "number" && Date.now() >= opts.deadlineMs) {
+    const promoted: RankedCandidate[] = draftsRaw.slice(0, 3).map((d) => ({
+      content: d.content, mode: d.mode, angle: d.angle ?? "",
+      hookStrength: 50, viralPotential: 50, accountFit: 50,
+      turkishNaturalness: 50, noveltyScore: 50, risk: 20, sourceFaithfulness: 80,
+      verdict: "hold" as const, reason: "deadline: judge atlandı",
+      payoff: d.payoff,
+    }));
+    return {
+      account: profile.handle,
+      modelUsed: {
+        writer: draftRun.model,
+        judge: "skipped:deadline",
+        writerFallbackUsed: draftRun.modelFallbackUsed ?? false,
+        writerFallbackReason: draftRun.modelFallbackReason,
+      },
+      sourceInput,
+      drafts: promoted.map(rankedToScore),
+      rankedCandidates: promoted,
+      winner: rankedToScore(promoted[0]),
+      publishDecision: "hold",
+      estimatedCostUsd: costOf(draftRun),
+      usedMock: false,
+      timings: { writerMs, judgeMs: 0 },
+    };
+  }
+
   // ── Phase 2: Viral judge ──────────────────────────────────────────────────
   const judgeStart = Date.now();
   const judgeRun = await generateJson<JudgeResponse>({
@@ -160,6 +206,7 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
     system: buildJudgeSystemPrompt(profile),
     user: buildJudgeUserPrompt(profile, sourceInput, draftsRaw),
     temperature: 0.2,
+    deadlineMs: opts?.deadlineMs,
   });
   const judgeMs = Date.now() - judgeStart;
 
@@ -188,7 +235,8 @@ export async function runDraftPipeline(profile: AccountProfile, sourceInput: str
   let finalEditorCost = 0;
   let finalEditorModelUsed = "none";
 
-  if (enableFinalEditor && winner && winner.content) {
+  const editorDeadlineOk = !(typeof opts?.deadlineMs === "number" && Date.now() >= opts.deadlineMs);
+  if (enableFinalEditor && editorDeadlineOk && winner && winner.content) {
     const editorStart = Date.now();
     try {
       const buildFinalEditorSystemPrompt = (prof: AccountProfile) => `
@@ -226,6 +274,7 @@ Lütfen bu metni cila kurallarına göre düzenle ve aşağıdaki JSON formatın
         system: buildFinalEditorSystemPrompt(profile),
         user: buildFinalEditorUserPrompt(winner.content),
         temperature: 0.3,
+        deadlineMs: opts?.deadlineMs,
       });
 
       if (editorRun.data?.content) {

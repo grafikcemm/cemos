@@ -215,3 +215,43 @@ export function resolveFormatTier(profile: AccountProfile, modeId?: string): For
 export function effectiveMaxChars(profile: AccountProfile, tier: FormatTier): number {
   return tier.maxChars > 0 ? tier.maxChars : profile.maxChars;
 }
+
+/** True when `modeId` names a real mode on this account. */
+export function isKnownMode(profile: AccountProfile, modeId?: string | null): boolean {
+  return Boolean(modeId) && profile.modes.some((m) => m.id === modeId);
+}
+
+/**
+ * Pick a generation mode for an account — source-aware with a rotation fallback,
+ * so the resulting length tier is always intentional and NEVER the accidental
+ * `micro` (140-char) default that silently truncated drafts.
+ *
+ * Note: at runtime the multi-angle writer already drafts one candidate per mode
+ * and the judge selects the strongest for the source (`winner.mode`). This helper
+ * is the deliberate pre-selection / fallback used when no winning mode is known.
+ */
+export function selectMode(
+  profile: AccountProfile,
+  opts?: { sourceType?: string | null; seed?: number }
+): AccountMode {
+  const modes = profile.modes;
+  if (modes.length === 0) {
+    throw new Error(`Account ${profile.handle} has no generation modes.`);
+  }
+  // Source-aware: repo/GitHub signals map to a repo/source mode when present.
+  const sourceType = (opts?.sourceType ?? "").toLowerCase();
+  if (/repo|github/.test(sourceType)) {
+    const repoMode = modes.find((m) => /repo|kaynak/.test(m.id));
+    if (repoMode) return repoMode;
+  }
+  // Otherwise rotate across the account's modes for format/length variety.
+  // Exclude the `micro` tier from the default rotation — it is the accidental
+  // 140-char trap; only fall back to the full set if an account has nothing else.
+  const rotatable = modes.filter((m) => m.format !== "micro");
+  const pool = rotatable.length > 0 ? rotatable : modes;
+  const seed =
+    typeof opts?.seed === "number" && Number.isFinite(opts.seed)
+      ? Math.abs(Math.trunc(opts.seed))
+      : 0;
+  return pool[seed % pool.length];
+}
