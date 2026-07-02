@@ -5,13 +5,10 @@ import { engagementLearningService } from "@/lib/services/engagementLearningServ
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { getBudgetStatus } from "@/lib/config/costGate";
-import { generateWeeklyLearningReport } from "@/lib/growth-engine/weekly-learning-report";
 import { runPipelineTick } from "@/lib/news/pipeline";
 import { prisma } from "@/lib/db/client";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { YT_SYNC_DEADLINE_MS } from "@/lib/youtube/ytConfig";
-import { instagramService } from "@/lib/services/instagramService";
-import { IG_SYNC_LEARN_DEADLINE_MS } from "@/lib/instagram/igConfig";
 import { ytOwnPerformanceService } from "@/lib/services/ytOwnPerformanceService";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { learnService } from "@/lib/learning/learnService";
@@ -21,8 +18,9 @@ import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnCon
 // continuously learn without anyone clicking a button —
 //   1. council mining over the day's discovered posts (viral patterns),
 //   2. engagement sync: own-tweet performance → pattern re-weights + training,
-//   3. Mondays: auto-generate the weekly learning report,
-//   4. retention cleanup (serverless never runs the local pruneTick).
+//   3. retention cleanup (serverless never runs the local pruneTick).
+// IA v2: weeklyReport / rankingsRefresh / IG sync blokları kaldırıldı
+// (özellikler emekli edildi; motor kütüphaneleri yerinde duruyor).
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
@@ -35,13 +33,6 @@ function getMiningLimit(): number {
   if (raw === undefined || raw.trim() === "") return 2;
   const n = Number(raw);
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 2;
-}
-
-function isIstanbulMonday(d: Date): boolean {
-  return (
-    new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Istanbul", weekday: "short" }).format(d) ===
-    "Mon"
-  );
 }
 
 const SOURCE_POST_RETENTION_DAYS = 30;
@@ -123,32 +114,6 @@ async function runLearn(handleParam: string | null) {
     }
   }
 
-  // Instagram yorum sync — ytSync'ten sonra, mining'den önce (LLM'siz çekme + sınırlı
-  // sınıflandırma). Deadline'lı, fail-open; cron'u bozmaz.
-  let igSync: unknown = null;
-  if (Date.now() - t0 < timeBudgetMs) {
-    const igDeadlineMs = Math.min(IG_SYNC_LEARN_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
-    if (igDeadlineMs > 0) {
-      try {
-        igSync = await instagramService.sync({ deadlineMs: igDeadlineMs });
-      } catch (err) {
-        igSync = { error: err instanceof Error ? err.message : String(err) };
-      }
-    }
-  }
-
-  // Instagram engagement learning — own top-media performance → IG feedback +
-  // pattern re-weights. Cheap (1 snapshot read, no LLM), global (one IG
-  // account), fail-open; runs after igSync, before the per-handle loop.
-  let igEngagement: unknown = null;
-  if (Date.now() - t0 < timeBudgetMs) {
-    try {
-      igEngagement = await engagementLearningService.syncInstagram();
-    } catch (err) {
-      igEngagement = { error: err instanceof Error ? err.message : String(err) };
-    }
-  }
-
   // YouTube own-video engagement learning — kendi kanal performansı → ytOutcome
   // verdict'leri (FeedbackEvent + TrainingExample). Env'siz no-op, LLM'siz
   // (yalnız Data API ~2-3 quota unit), fail-open.
@@ -206,33 +171,6 @@ async function runLearn(handleParam: string | null) {
     results.push(entry);
   }
 
-  // Mondays: persist the weekly report into the CronRun payload so the tab
-  // has a precomputed snapshot even before its own on-demand call.
-  let weeklyReport: unknown = null;
-  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
-    try {
-      weeklyReport = await generateWeeklyLearningReport({
-        accountHandle: "all",
-        dateRange: "last_7_days",
-      });
-    } catch (err) {
-      weeklyReport = { error: err instanceof Error ? err.message : String(err) };
-    }
-  }
-
-  // Mondays: refresh the AI model leaderboard (AI Sıralama) from the public
-  // sources. Best-effort + graceful — keeps the last good snapshot if the
-  // sources are unreadable. Weekly here avoids a separate Vercel cron slot.
-  let rankingsRefresh: unknown = null;
-  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
-    try {
-      const { refreshRankings } = await import("@/lib/services/aiRankingsService");
-      rankingsRefresh = await refreshRankings();
-    } catch (err) {
-      rankingsRefresh = { error: err instanceof Error ? err.message : String(err) };
-    }
-  }
-
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -256,10 +194,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh, learnSweep },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep },
     });
   }
-  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement, rankingsRefresh, learnSweep };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

@@ -7,7 +7,6 @@ import ReviewQueue from "../morning/ReviewQueue";
 import DigestSection from "../morning/DigestSection";
 import NewsHighlights from "../morning/NewsHighlights";
 import RepoHighlights from "../morning/RepoHighlights";
-import InstagramHighlights from "../morning/InstagramHighlights";
 import YouTubeHighlights from "../morning/YouTubeHighlights";
 import PageHeader from "../ui/PageHeader";
 import SectionHeader from "../ui/SectionHeader";
@@ -56,7 +55,6 @@ export default function MorningDashboardTab() {
             marginTop: "var(--space-5)",
           }}
         >
-          <InstagramHighlights />
           <YouTubeHighlights />
           <NewsHighlights onToast={showToast} />
           <RepoHighlights onToast={showToast} />

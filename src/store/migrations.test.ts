@@ -21,8 +21,24 @@ function v5State(): Record<string, unknown> {
 }
 
 describe("migrateXAgentStore", () => {
-  it("should_be_version_7", () => {
-    expect(XAGENT_STORE_VERSION).toBe(7);
+  it("should_be_version_8", () => {
+    expect(XAGENT_STORE_VERSION).toBe(8);
+  });
+
+  it("should_migrate_retired_tabs_to_live_screens_when_version_below_8", () => {
+    expect(migrateXAgentStore({ activeTab: "instagram" }, 7).activeTab).toBe("morning");
+    expect(migrateXAgentStore({ activeTab: "training-center" }, 7).activeTab).toBe("morning");
+    expect(migrateXAgentStore({ activeTab: "weekly-learning-report" }, 7).activeTab).toBe("morning");
+    expect(migrateXAgentStore({ activeTab: "ai-rankings" }, 7).activeTab).toBe("toolbox");
+    expect(migrateXAgentStore({ activeTab: "content-intel" }, 7).activeTab).toBe("discovery-engine");
+    expect(migrateXAgentStore({ activeTab: "library" }, 7).activeTab).toBe("viral-library");
+  });
+
+  it("should_normalize_removed_radar_content_view_when_version_below_8", () => {
+    const result = migrateXAgentStore({ activeTab: "news-pool", radarView: "content" }, 7);
+    expect(result.radarView).toBe("news");
+    // Yaşayan görünümler dokunulmaz
+    expect(migrateXAgentStore({ radarView: "repo" }, 7).radarView).toBe("repo");
   });
 
   it("should_return_state_unchanged_when_migrating_from_v5_to_v6", () => {

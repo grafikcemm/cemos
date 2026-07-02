@@ -90,11 +90,6 @@ interface XAgentStore {
   radarView: string; // "news" | "content" | "repo"
   setRadarView: (v: string) => void;
 
-  // Instagram iç-sekme deep-link (ephemeral — persist edilmez). morning kartı set eder,
-  // InstagramTab okuyup uygular ve temizler.
-  igDeepLink: "comments" | "dm" | "stats" | null;
-  setIgDeepLink: (v: "comments" | "dm" | "stats" | null) => void;
-
   // Kanal
   activeChannel: Channel;
   setActiveChannel: (ch: Channel) => void;
@@ -221,10 +216,6 @@ export const useXAgentStore = create<XAgentStore>()(
       setLibraryView: (v) => set({ libraryView: v }),
       radarView: "news",
       setRadarView: (v) => set({ radarView: v }),
-
-      // Instagram deep-link (ephemeral)
-      igDeepLink: null,
-      setIgDeepLink: (v) => set({ igDeepLink: v }),
 
       // Kanal
       activeChannel: "grafikcem",

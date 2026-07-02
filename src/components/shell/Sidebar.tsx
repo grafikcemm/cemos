@@ -2,13 +2,9 @@
 
 import {
   Sunrise,
-  PenLine,
   Compass,
-  GraduationCap,
-  Share2,
   DollarSign,
   Settings,
-  BarChart3,
   PanelLeftClose,
   PanelLeftOpen,
   ListChecks,
@@ -18,11 +14,13 @@ import {
   TrendingUp,
   Newspaper,
   AtSign,
-  FileBarChart,
   BrainCircuit,
-  Camera,
   Video,
-  Telescope,
+  MonitorPlay,
+  Users,
+  Star,
+  Type,
+  Puzzle,
   type LucideIcon,
 } from "lucide-react";
 import { useXAgentStore, type Channel } from "@/store/xagent";
@@ -38,30 +36,28 @@ const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
 const ICONS: Record<string, LucideIcon> = {
   Sunrise,
-  PenLine,
-  Compass,
-  GraduationCap,
-  Share2,
+  AtSign,
+  Library,
+  MonitorPlay,
+  Wrench,
   DollarSign,
   Settings,
-  BarChart3,
 };
 
 /** Alt-sekme ikonları — düz metin listesini gerçek uygulama navigasyonuna çevirir. */
 const TAB_ICONS: Record<string, LucideIcon> = {
+  morning: Sunrise,
   "daily-queue": ListChecks,
-  toolbox: Wrench,
-  library: Library,
-  "discovery-engine": Sparkles,
-  "flow-radar": TrendingUp,
   "news-pool": Newspaper,
-  "content-intel": Telescope,
-  "training-center": GraduationCap,
-  "source-intelligence": AtSign,
-  "weekly-learning-report": FileBarChart,
-  "learn-dashboard": BrainCircuit,
-  instagram: Camera,
+  "flow-radar": TrendingUp,
+  "discovery-engine": Sparkles,
+  "source-intelligence": Users,
+  "viral-library": Star,
+  "keyword-library": Type,
+  "prompt-library": Library,
+  "pattern-library": Puzzle,
   youtube: Video,
+  "learn-dashboard": BrainCircuit,
 };
 
 const ACTIVE_PILL = "linear-gradient(135deg, var(--accent), var(--accent-hover))";

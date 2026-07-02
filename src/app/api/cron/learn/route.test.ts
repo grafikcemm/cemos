@@ -5,7 +5,6 @@ import { miningService } from "@/lib/services/miningService";
 import { engagementLearningService } from "@/lib/services/engagementLearningService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { getBudgetStatus } from "@/lib/config/costGate";
-import { generateWeeklyLearningReport } from "@/lib/growth-engine/weekly-learning-report";
 
 vi.mock("@/lib/accounts", () => {
   const profiles = {
@@ -21,8 +20,7 @@ vi.mock("@/lib/services/miningService", () => ({
 
 vi.mock("@/lib/services/engagementLearningService", () => ({
   engagementLearningService: {
-    syncForAccount: vi.fn(() => Promise.resolve({ matched: 0, reason: "no_candidates" })),
-    syncInstagram: vi.fn(() => Promise.resolve({ reason: "no_snapshot", highs: 0, lows: 0 }))
+    syncForAccount: vi.fn(() => Promise.resolve({ matched: 0, reason: "no_candidates" }))
   }
 }));
 
@@ -38,10 +36,6 @@ vi.mock("@/lib/config/costGate", () => ({
   getBudgetStatus: vi.fn(() =>
     Promise.resolve({ allowed: true, spentUsd: 1, limitUsd: 7, remainingUsd: 6 })
   )
-}));
-
-vi.mock("@/lib/growth-engine/weekly-learning-report", () => ({
-  generateWeeklyLearningReport: vi.fn(() => Promise.resolve({ summary: "ok" }))
 }));
 
 // News catch-up stage is folded into the learn cron; mock it (no network/DB).
@@ -99,7 +93,6 @@ describe("/api/cron/learn", () => {
     expect(miningService.mineTopItems).toHaveBeenCalledTimes(2);
     expect(miningService.mineTopItems).toHaveBeenCalledWith("grafikcem", 2);
     expect(engagementLearningService.syncForAccount).toHaveBeenCalledTimes(2);
-    expect(engagementLearningService.syncInstagram).toHaveBeenCalledTimes(1);
     expect(cronRunRepo.start).toHaveBeenCalledWith("learn");
     expect(cronRunRepo.finish).toHaveBeenCalledWith(
       "cr-learn-1",
@@ -142,27 +135,6 @@ describe("/api/cron/learn", () => {
     const res = await GET(makeReq());
     expect(res.status).toBe(401);
     expect(cronRunRepo.start).not.toHaveBeenCalled();
-  });
-
-  it("generates the weekly report on Istanbul Mondays", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-06-08T19:00:00.000Z")); // Monday evening Istanbul
-
-    await GET(makeReq());
-
-    expect(generateWeeklyLearningReport).toHaveBeenCalledWith({
-      accountHandle: "all",
-      dateRange: "last_7_days"
-    });
-  });
-
-  it("does NOT generate the weekly report on other days", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-06-09T19:00:00.000Z")); // Tuesday
-
-    await GET(makeReq());
-
-    expect(generateWeeklyLearningReport).not.toHaveBeenCalled();
   });
 
   it("marks partial and skips accounts when the time budget is exhausted", async () => {

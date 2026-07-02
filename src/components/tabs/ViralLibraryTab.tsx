@@ -1,59 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, ExternalLink, X, Heart, Repeat2, Sparkles, Quote, Reply, Library } from "lucide-react";
-import { useXAgentStore, type FlowTweet, type QueueItem, type Channel } from "@/store/xagent";
-import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, SubNav } from "@/components/ui";
-import PromptKutuphanesiTab from "./PromptKutuphanesiTab";
-import PatternLibraryTab from "./PatternLibraryTab";
+import { useXAgentStore, type QueueItem, type Channel } from "@/store/xagent";
+import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, Skeleton } from "@/components/ui";
+import { fetchJson } from "@/lib/utils/safeFetch";
 import { safeExternalHref } from "@/lib/utils/url";
 
 const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
-const VIEWS = [
-  { id: "tweets", label: "Tweetler" },
-  { id: "prompts", label: "Promptlar" },
-  { id: "patterns", label: "Patternler" },
-];
+type SavedTweetRow = {
+  id: string;
+  channel: string | null;
+  authorHandle: string;
+  text: string;
+  likeCount: number;
+  retweetCount: number;
+  viewCount: number;
+  viralScore: number;
+  url: string;
+  source: string;
+  mediaUrl: string | null;
+  mediaType: string | null;
+  savedAt: string;
+};
+
+type ListResponse = { success: boolean; items?: SavedTweetRow[]; error?: string };
 
 /**
- * Kütüphane host — eski Kütüphane (tweetler) + Prompt Kütüphanesi + Pattern
- * Kütüphanesi tek sekme + üst SubNav altında birleşir. Alt sayfalar kendi
- * başlıklarını korur. Alt-görünüm `libraryView` ile persist edilir.
+ * Viral Kütüphane (Twitter grubu) — DB-backed yıldızlanan tweetler.
+ * Eski localStorage kütüphanesi (Zustand savedTweets) ilk açılışta tek-seferlik
+ * bulk upsert ile taşınır; API idempotent olduğundan yarım kalan göç güvenle tekrarlar.
  */
-export default function LibraryTab() {
-  const libraryView = useXAgentStore((s) => s.libraryView);
-  const setLibraryView = useXAgentStore((s) => s.setLibraryView);
-  const view = VIEWS.some((v) => v.id === libraryView) ? libraryView : "tweets";
-
-  return (
-    <div style={{ width: "100%", minWidth: 0 }}>
-      <SubNav items={VIEWS} activeId={view} onSelect={setLibraryView} />
-      {view === "tweets" && <TweetsView />}
-      {view === "prompts" && <PromptKutuphanesiTab />}
-      {view === "patterns" && <PatternLibraryTab />}
-    </div>
-  );
-}
-
-function TweetsView() {
+export default function ViralLibraryTab() {
   const savedTweets = useXAgentStore((s) => s.savedTweets);
   const removeSavedTweet = useXAgentStore((s) => s.removeSavedTweet);
   const addQueueItem = useXAgentStore((s) => s.addQueueItem);
   const activeChannel = useXAgentStore((s) => s.activeChannel);
 
+  const [items, setItems] = useState<SavedTweetRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const migrated = useRef(false);
 
-  const filtered = channelFilter === "all"
-    ? savedTweets
-    : savedTweets.filter((t) => t.channel === channelFilter);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchJson<ListResponse>("/api/viral-library?limit=500");
+      if (data.success && data.items) setItems(data.items);
+    } catch {
+      // boş durum ekranı devralır
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const avgScore = savedTweets.length
-    ? Math.round(savedTweets.reduce((a, t) => a + (t.viralScore ?? 0), 0) / savedTweets.length)
+  // Tek-seferlik localStorage → DB göçü, sonra normal yükleme.
+  useEffect(() => {
+    if (migrated.current) return;
+    migrated.current = true;
+    (async () => {
+      if (savedTweets.length > 0) {
+        try {
+          const res = await fetch("/api/viral-library", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tweets: savedTweets.map((t) => ({
+                id: t.id,
+                channel: t.channel ?? null,
+                authorHandle: t.handle,
+                text: t.text,
+                likeCount: t.likeCount,
+                retweetCount: t.retweetCount,
+                viewCount: t.viewCount,
+                viralScore: t.viralScore,
+                url: t.url,
+                source: t.source,
+                mediaUrl: t.mediaUrl ?? null,
+                mediaType: t.mediaType ?? null,
+              })),
+            }),
+          });
+          const data = (await res.json()) as { success?: boolean };
+          if (data.success) {
+            for (const t of savedTweets) removeSavedTweet(t.id);
+          }
+        } catch {
+          // Göç başarısızsa localStorage kopyası korunur; sonraki açılış tekrar dener.
+          migrated.current = false;
+        }
+      }
+      await load();
+    })();
+    // savedTweets bilinçli olarak deps dışında: göç yalnız mount'ta bir kez koşar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
+
+  const filtered = channelFilter === "all" ? items : items.filter((t) => t.channel === channelFilter);
+
+  const avgScore = items.length
+    ? Math.round(items.reduce((a, t) => a + (t.viralScore ?? 0), 0) / items.length)
     : 0;
 
-  const handleGenerate = async (tweet: FlowTweet, draftType: "TWEET" | "QUOTE" | "REPLY") => {
+  const handleRemove = async (id: string) => {
+    setItems((prev) => prev.filter((t) => t.id !== id)); // optimistic
+    try {
+      await fetch(`/api/viral-library?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {
+      load(); // geri al — sunucu durumuna dön
+    }
+  };
+
+  const handleGenerate = async (tweet: SavedTweetRow, draftType: "TWEET" | "QUOTE" | "REPLY") => {
     setGeneratingId(`${tweet.id}-${draftType}`);
     try {
       const res = await fetch("/api/generate", {
@@ -62,11 +122,11 @@ function TweetsView() {
         body: JSON.stringify({
           channel: activeChannel,
           sourceTweet: tweet.text,
-          sourceHandle: tweet.handle,
-          draftType
-        })
+          sourceHandle: tweet.authorHandle,
+          draftType,
+        }),
       });
-      const data = await res.json() as { success: boolean; generated?: string };
+      const data = (await res.json()) as { success: boolean; generated?: string };
       if (!data.success || !data.generated) return;
       const item: QueueItem = {
         id: `lib-draft-${Date.now()}`,
@@ -75,10 +135,10 @@ function TweetsView() {
         content: data.generated,
         charCount: data.generated.length,
         sourceTweet: tweet.text,
-        sourceHandle: tweet.handle,
+        sourceHandle: tweet.authorHandle,
         viralScore: tweet.viralScore,
         status: "new",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       addQueueItem(item);
     } finally {
@@ -89,13 +149,12 @@ function TweetsView() {
   return (
     <div>
       <PageHeader
-        eyebrow="KÜTÜPHANE"
+        eyebrow="TWITTER"
         title="Viral Kütüphane"
         subtitle="Yıldızladığın viral tweetler — referans ve yeni üretim kaynağı."
         size="page"
       />
 
-      {/* Editöryal stat şeridi */}
       <div
         style={{
           display: "grid",
@@ -106,23 +165,14 @@ function TweetsView() {
       >
         <MetricCard
           label="Kayıtlı tweet"
-          value={savedTweets.length}
+          value={items.length}
           icon={<Library size={16} strokeWidth={1.8} />}
           accent
         />
-        <MetricCard
-          label="Görünen"
-          value={filtered.length}
-          icon={<Star size={16} strokeWidth={1.8} />}
-        />
-        <MetricCard
-          label="Ort. viral skor"
-          value={avgScore}
-          icon={<Sparkles size={16} strokeWidth={1.8} />}
-        />
+        <MetricCard label="Görünen" value={filtered.length} icon={<Star size={16} strokeWidth={1.8} />} />
+        <MetricCard label="Ort. viral skor" value={avgScore} icon={<Sparkles size={16} strokeWidth={1.8} />} />
       </div>
 
-      {/* Filtre control-bar */}
       <div
         style={{
           display: "flex",
@@ -136,10 +186,10 @@ function TweetsView() {
           KANAL
         </span>
         <FilterChip active={channelFilter === "all"} onClick={() => setChannelFilter("all")}>
-          Tümü · {savedTweets.length}
+          Tümü · {items.length}
         </FilterChip>
         {CHANNELS.map((ch) => {
-          const count = savedTweets.filter((t) => t.channel === ch).length;
+          const count = items.filter((t) => t.channel === ch).length;
           return (
             <FilterChip key={ch} active={channelFilter === ch} onClick={() => setChannelFilter(ch)}>
               @{ch} · {count}
@@ -148,12 +198,24 @@ function TweetsView() {
         })}
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} variant="default">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Skeleton width="35%" height={14} />
+                <Skeleton width="100%" height={40} />
+                <Skeleton width="55%" height={24} />
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <Card variant="quiet">
           <EmptyState
             icon={<Library size={22} strokeWidth={1.8} />}
             title="Kütüphane boş"
-            description="Akıştaki tweetlerde yıldız ikonuna tıklayarak referans ve üretim için buraya kaydet."
+            description="Viral Radar'daki tweetlerde yıldız ikonuna tıklayarak referans ve üretim için buraya kaydet."
           />
         </Card>
       ) : (
@@ -164,7 +226,7 @@ function TweetsView() {
               tweet={tweet}
               generatingId={generatingId}
               onGenerate={handleGenerate}
-              onRemove={() => removeSavedTweet(tweet.id)}
+              onRemove={() => handleRemove(tweet.id)}
             />
           ))}
         </div>
@@ -173,10 +235,15 @@ function TweetsView() {
   );
 }
 
-function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
-  tweet: FlowTweet;
+function SavedTweetCard({
+  tweet,
+  generatingId,
+  onGenerate,
+  onRemove,
+}: {
+  tweet: SavedTweetRow;
   generatingId: string | null;
-  onGenerate: (tweet: FlowTweet, type: "TWEET" | "QUOTE" | "REPLY") => void;
+  onGenerate: (tweet: SavedTweetRow, type: "TWEET" | "QUOTE" | "REPLY") => void;
   onRemove: () => void;
 }) {
   const avatarTones = [
@@ -186,14 +253,14 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
     "var(--yellow)",
     "var(--green)",
   ];
-  const avatarColor = avatarTones[tweet.handle.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % avatarTones.length];
+  const avatarColor =
+    avatarTones[tweet.authorHandle.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % avatarTones.length];
   const isGen = (type: string) => generatingId === `${tweet.id}-${type}`;
   const anyGen = generatingId?.startsWith(tweet.id) ?? false;
 
   return (
     <Card variant="feature" padded={false}>
       <div style={{ padding: "var(--space-4)" }}>
-        {/* Header satırı */}
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
           <div
             style={{
@@ -211,12 +278,16 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
               flexShrink: 0,
             }}
           >
-            {tweet.handle[0].toUpperCase()}
+            {tweet.authorHandle[0]?.toUpperCase()}
           </div>
           <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>
-            @{tweet.handle}
+            @{tweet.authorHandle}
           </span>
-          {tweet.channel && <Badge variant="muted" size="xs">@{tweet.channel}</Badge>}
+          {tweet.channel && (
+            <Badge variant="muted" size="xs">
+              @{tweet.channel}
+            </Badge>
+          )}
 
           <span
             className="tnum"
@@ -268,7 +339,6 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
           </button>
         </div>
 
-        {/* Gövde metni */}
         <div
           style={{
             fontSize: "var(--text-sm)",
@@ -280,7 +350,6 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
           {tweet.text}
         </div>
 
-        {/* Alt aksiyon şeridi */}
         <div
           style={{
             display: "flex",
@@ -347,7 +416,11 @@ function SavedTweetCard({ tweet, generatingId, onGenerate, onRemove }: {
   );
 }
 
-function FilterChip({ active, onClick, children }: {
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
@@ -360,7 +433,7 @@ function FilterChip({ active, onClick, children }: {
         padding: "5px 12px",
         borderRadius: "var(--radius-md)",
         fontSize: "var(--text-xs)",
-        fontWeight: active ? 500 : 500,
+        fontWeight: 500,
         fontFamily: "inherit",
         cursor: "pointer",
         whiteSpace: "nowrap",

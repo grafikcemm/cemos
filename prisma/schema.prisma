@@ -481,6 +481,34 @@ model PromptTemplate {
   createdAt  DateTime @default(now())
 }
 
+// ── Anahtar Kelime Kütüphanesi (IA v2) ── Tasarım-prompt anahtar kelimeleri;
+// TR/EN çift + (RU/JA/ZH/KO e-ticaret kategorilerinde) yerel-dil terim.
+// scripts/import-keywords.ts ile scripts/data/keywords.txt'den idempotent seed.
+model KeywordEntry {
+  id        String   @id @default(cuid())
+  slug      String   @unique // kategori-termEn kebab
+  category  String
+  termTr    String
+  termEn    String
+  termLocal String? // yalnız yerel-dil kolonu olan kategorilerde
+  tags      String   @default("[]")
+  source    String   @default("seed") // seed | user
+  createdAt DateTime @default(now())
+
+  @@index([category])
+}
+
+// Prompt formülleri (F-1..F-50): şablon + örnek prompt listesi.
+model PromptFormula {
+  id           String   @id @default(cuid())
+  code         String   @unique // F-1, F-22, F-LOCAL-2...
+  name         String
+  pattern      String // ör. "style + industry"
+  examplesJson String   @default("[]")
+  category     String   @default("general")
+  createdAt    DateTime @default(now())
+}
+
 // AI model rankings snapshot (static fallback + optional live fetch).
 model AiModelSnapshot {
   id           String   @id @default(cuid())
@@ -1213,6 +1241,30 @@ model PerformanceSnapshot {
 
   @@unique([publishedPostId, window])
   @@index([publishedPostId])
+}
+
+// ── Viral Kütüphane (IA v2) ── Yıldızlanan viral tweetler; eskiden yalnız
+// localStorage'daydı (Zustand savedTweets). id = tweet id → idempotent upsert;
+// ViralLibraryTab mount'ında tek-seferlik localStorage göçü bunu kullanır.
+model SavedViralTweet {
+  id           String   @id // tweet id
+  channel      String? // grafikcem | maskulenkod
+  authorHandle String
+  text         String
+  likeCount    Int      @default(0)
+  retweetCount Int      @default(0)
+  viewCount    Int      @default(0)
+  viralScore   Int      @default(0)
+  url          String   @default("")
+  source       String   @default("")
+  mediaUrl     String?
+  mediaType    String?
+  note         String   @default("")
+  tags         String   @default("[]")
+  savedAt      DateTime @default(now())
+
+  @@index([savedAt])
+  @@index([channel])
 }
 
 // ── Semantic Discover (Faz CI-3) ── Searchable document embedding.

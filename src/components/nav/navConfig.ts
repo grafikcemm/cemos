@@ -1,17 +1,22 @@
 /**
  * CemOS nav yapılandırması — tek doğruluk kaynağı.
- * Saf TS: React yok; Topbar, NavGroups, vitest ve e2e helper aynı modülü kullanır.
+ * Saf TS: React yok; Sidebar, AppShell, vitest ve e2e helper aynı modülü kullanır.
+ *
+ * IA v2 (2026-07): platform-bazlı gruplar — Bugün / Twitter / Kütüphane / Youtube
+ * + Araçlar utility kümesi. Eski alanlar (Üret/Keşfet/Öğren/Sosyal Medya) ve
+ * kaldırılan sekmeler (instagram, training-center, weekly-learning-report,
+ * ai-rankings, content-intel, library host) TAB_ALIASES ile canlı id'lere iner.
  */
 
 export type NavTab = { readonly id: string; readonly label: string };
 
-export type NavGroupId = "x" | "haber" | "sistem" | "instagram" | "youtube";
+export type NavGroupId = "bugun" | "twitter" | "kutuphane" | "youtube";
 
 export type NavGroup = {
   readonly id: NavGroupId;
   readonly label: string;
   readonly tabs: readonly NavTab[];
-  /** Tanımlı ama render edilmez — Faz C (YouTube) / Faz D (Instagram) açar. */
+  /** Tanımlı ama render edilmez. */
   readonly hidden?: boolean;
 };
 
@@ -20,70 +25,69 @@ export const DIRECT_TABS: readonly NavTab[] = [{ id: "morning", label: "Bugün" 
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
-    id: "x",
-    label: "X",
+    id: "bugun",
+    label: "Bugün",
     tabs: [
-      { id: "discovery-engine", label: "Keşif Motoru" },
       { id: "daily-queue", label: "Günlük Kuyruk" },
+      { id: "news-pool", label: "Haberler" },
+    ],
+  },
+  {
+    id: "twitter",
+    label: "Twitter",
+    tabs: [
       { id: "flow-radar", label: "Viral Radar" },
+      { id: "discovery-engine", label: "Keşif Motoru" },
       { id: "source-intelligence", label: "X Hesabı Kaynakları" },
+      { id: "viral-library", label: "Viral Kütüphane" },
     ],
   },
   {
-    id: "haber",
-    label: "Haber",
+    id: "kutuphane",
+    label: "Kütüphane",
     tabs: [
-      { id: "news-pool", label: "Radar" },
-      { id: "content-intel", label: "İçerik Zekası" },
-      { id: "ai-rankings", label: "AI Sıralama" },
-      { id: "toolbox", label: "Toolbox" },
-      { id: "library", label: "Kütüphane" },
+      { id: "keyword-library", label: "Anahtar Kelime Kütüphanesi" },
+      { id: "prompt-library", label: "Prompt Kütüphanesi" },
+      { id: "pattern-library", label: "Pattern Kütüphanesi" },
     ],
   },
-  {
-    id: "sistem",
-    label: "Sistem",
-    tabs: [
-      { id: "costs", label: "Maliyetler" },
-      { id: "settings", label: "Ayarlar" },
-      { id: "weekly-learning-report", label: "Haftalık Öğrenme Raporu" },
-      { id: "training-center", label: "Eğitim Merkezi" },
-    ],
-  },
-  { id: "instagram", label: "Instagram", tabs: [{ id: "instagram", label: "Instagram" }] },
   {
     id: "youtube",
-    label: "YouTube",
-    tabs: [{ id: "youtube", label: "Fırsat Motoru" }],
+    label: "Youtube",
+    tabs: [{ id: "youtube", label: "YouTube Fırsat Motoru" }],
   },
 ];
 
 /**
  * XAgentApp render alias'ları + persist edilmiş legacy activeTab değerleri.
- * Grup vurgusu ve normalize için; render tarafı XAgentApp'te zaten ele alınıyor.
+ * Her eski id canlı bir ekrana iner — ölü sekme yok. Alias ANAHTARLARI asla
+ * canlı tab id'leriyle çakışamaz (test garantisi: navConfig.test.ts).
  */
 export const TAB_ALIASES: Readonly<Record<string, string>> = {
   flow: "flow-radar",
   queue: "daily-queue",
-  // "sources" (Keşfet → Kaynaklar) merged into "source-intelligence".
   sources: "source-intelligence",
-  // Agresif birleştirme: folded sekmeler host'a yönlenir (ölü sekme yok).
-  // Kütüphane host = Tweetler / Promptlar / Patternler.
-  patterns: "library",
-  "pattern-library": "library",
-  "prompt-kutuphanesi": "library",
-  // Radar host = Haberler / İçerik / Repo.
+  // Kütüphane host (library) dağıldı: Tweetler → Viral Kütüphane (Twitter),
+  // Promptlar/Patternler → Kütüphane grubunda bağımsız sekmeler.
+  library: "viral-library",
+  patterns: "pattern-library",
+  "prompt-kutuphanesi": "prompt-library",
+  // Radar host = Haberler (news-pool); İçerik görünümü kaldırıldı.
   "content-radar": "news-pool",
   "repo-radar": "news-pool",
+  // İçerik Zekası Keşif Motoru'na eridi.
+  "content-intel": "discovery-engine",
+  // Kaldırılan sekmeler → en yakın canlı ekran.
+  "ai-rankings": "toolbox",
+  "weekly-learning-report": "morning",
+  "training-center": "morning",
+  instagram: "morning",
 };
 
 /** Folded/legacy sekme id → host + alt-görünüm (deep-link seeding için). */
 export function seedTargetForTab(tabId: string): { host: string; view?: string } {
   const map: Record<string, { host: string; view: string }> = {
-    "prompt-kutuphanesi": { host: "library", view: "prompts" },
-    "pattern-library": { host: "library", view: "patterns" },
-    patterns: { host: "library", view: "patterns" },
-    "content-radar": { host: "news-pool", view: "content" },
+    "content-radar": { host: "news-pool", view: "news" },
     "repo-radar": { host: "news-pool", view: "repo" },
   };
   return map[tabId] ?? { host: normalizeTabId(tabId) };
@@ -96,6 +100,7 @@ export function normalizeTabId(tabId: string): string {
 /** Sekmenin ait olduğu grup; direkt sekme veya bilinmeyen id → null. */
 export function resolveGroupForTab(tabId: string): NavGroupId | null {
   const id = normalizeTabId(tabId);
+  if (id === "learn-dashboard") return "youtube";
   for (const group of NAV_GROUPS) {
     if (group.tabs.some((tab) => tab.id === id)) return group.id;
   }
@@ -103,14 +108,14 @@ export function resolveGroupForTab(tabId: string): NavGroupId | null {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Birincil alan katmanı (sol sidebar IA) — additive projeksiyon.
+ * Birincil alan katmanı (sol sidebar IA).
  *
- * Mevcut DIRECT_TABS + NAV_GROUPS dokunulmadan, aynı sekme id'leri 5 kullanıcı
- * alanına yeniden gruplanır. Yeni id YOK → store migration YOK; `activeTab`
- * tek persist edilen kaynak kalır, alan ondan türetilir (resolveAreaForTab).
+ * IA v2'de alanlar ile gruplar bire bir örtüşür; alan katmanı `morning`
+ * direkt sekmesini Bugün grubuna ve koşullu `learn-dashboard`'ı Youtube
+ * grubuna projekte eder. Yeni id YOK → store migration yalnız alias'lar için.
  * ──────────────────────────────────────────────────────────────────────── */
 
-export type PrimaryAreaId = "bugun" | "uret" | "kesfet" | "ogren" | "sosyal-medya";
+export type PrimaryAreaId = NavGroupId;
 
 export type PrimaryArea = {
   readonly id: PrimaryAreaId;
@@ -121,43 +126,40 @@ export type PrimaryArea = {
 };
 
 export const PRIMARY_AREAS: readonly PrimaryArea[] = [
-  { id: "bugun", label: "Bugün", icon: "Sunrise", tabIds: ["morning"] },
   {
-    id: "uret",
-    label: "Üret",
-    icon: "PenLine",
-    tabIds: ["daily-queue", "toolbox", "library"],
+    id: "bugun",
+    label: "Bugün",
+    icon: "Sunrise",
+    tabIds: ["morning", "daily-queue", "news-pool"],
   },
   {
-    id: "kesfet",
-    label: "Keşfet",
-    icon: "Compass",
-    tabIds: ["discovery-engine", "flow-radar", "news-pool", "content-intel"],
+    id: "twitter",
+    label: "Twitter",
+    icon: "AtSign",
+    tabIds: ["flow-radar", "discovery-engine", "source-intelligence", "viral-library"],
   },
   {
-    id: "ogren",
-    label: "Öğren",
-    icon: "GraduationCap",
-    // CemOS Learn (learn-dashboard) yalnız NEXT_PUBLIC_LEARN_ENABLED=true iken görünür
-    // (build-time inline). Kapalıyken Öğren alanı dokunulmadan kalır.
+    id: "kutuphane",
+    label: "Kütüphane",
+    icon: "Library",
+    tabIds: ["keyword-library", "prompt-library", "pattern-library"],
+  },
+  {
+    id: "youtube",
+    label: "Youtube",
+    icon: "MonitorPlay",
+    // Youtube Öğrenme Kütüphanesi (learn-dashboard) yalnız
+    // NEXT_PUBLIC_LEARN_ENABLED=true iken görünür (build-time inline).
     tabIds: [
-      "training-center",
-      "source-intelligence",
-      "weekly-learning-report",
+      "youtube",
       ...(process.env.NEXT_PUBLIC_LEARN_ENABLED === "true" ? ["learn-dashboard"] : []),
     ],
-  },
-  {
-    id: "sosyal-medya",
-    label: "Sosyal Medya",
-    icon: "Share2",
-    tabIds: ["instagram", "youtube"],
   },
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Yardımcı (utility) sekmeler — birincil alanların DIŞINDA, sol sidebar
- * footer'ında ayrı bir ikon kümesi olarak yaşar (Maliyet / Ayarlar / AI Sıralama).
+ * "Araçlar" kümesinde yaşar (Toolbox / Maliyetler / Ayarlar).
  * resolveAreaForTab bunlar için null döner (kasıtlı); shell isUtilityTab ile ele alır.
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -169,9 +171,9 @@ export type UtilityTab = {
 };
 
 export const UTILITY_TABS: readonly UtilityTab[] = [
+  { id: "toolbox", label: "Toolbox", icon: "Wrench" },
   { id: "costs", label: "Maliyetler", icon: "DollarSign" },
   { id: "settings", label: "Ayarlar", icon: "Settings" },
-  { id: "ai-rankings", label: "AI Sıralama", icon: "BarChart3" },
 ];
 
 /** Sekme yardımcı kümeye mi ait? (alias normalize edilir) */
@@ -180,15 +182,16 @@ export function isUtilityTab(tabId: string): boolean {
   return UTILITY_TABS.some((t) => t.id === id);
 }
 
-/** Tüm sekmelerin id→label sözlüğü (DIRECT_TABS + NAV_GROUPS tek kaynak). */
+/** Tüm sekmelerin id→label sözlüğü (DIRECT_TABS + NAV_GROUPS + utility tek kaynak). */
 const TAB_LABELS: Readonly<Record<string, string>> = (() => {
   const map: Record<string, string> = {};
   for (const tab of DIRECT_TABS) map[tab.id] = tab.label;
   for (const group of NAV_GROUPS) {
     for (const tab of group.tabs) map[tab.id] = tab.label;
   }
-  // CemOS Learn — NAV_GROUPS dışında yaşar (Öğren alanına projekte edilir).
-  map["learn-dashboard"] = "CemOS Learn";
+  for (const tab of UTILITY_TABS) map[tab.id] = tab.label;
+  // Youtube Öğrenme Kütüphanesi — NAV_GROUPS dışında yaşar (koşullu projeksiyon).
+  map["learn-dashboard"] = "Youtube Öğrenme Kütüphanesi";
   return map;
 })();
 

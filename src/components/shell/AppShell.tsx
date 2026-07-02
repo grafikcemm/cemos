@@ -28,7 +28,6 @@ type AppShellProps = {
 export default function AppShell({ initialTab }: AppShellProps) {
   const activeTab = useXAgentStore((s) => s.activeTab);
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
-  const setLibraryView = useXAgentStore((s) => s.setLibraryView);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
 
   const [collapsed, setCollapsed] = useState(false);
@@ -43,18 +42,15 @@ export default function AppShell({ initialTab }: AppShellProps) {
   }, []);
 
   // Standalone route seeding: force the route's tab once. Folded deep-link id'leri
-  // (pattern-library, content-radar…) host + alt-görünüme yönlendirilir.
+  // (content-radar/repo-radar…) host + alt-görünüme yönlendirilir.
   useEffect(() => {
     if (initialTab && !seeded.current) {
       seeded.current = true;
       const { host, view } = seedTargetForTab(initialTab);
       setActiveTab(host);
-      if (view) {
-        if (host === "library") setLibraryView(view);
-        else if (host === "news-pool") setRadarView(view);
-      }
+      if (view && host === "news-pool") setRadarView(view);
     }
-  }, [initialTab, setActiveTab, setLibraryView, setRadarView]);
+  }, [initialTab, setActiveTab, setRadarView]);
 
   // Unknown persisted id (ne birincil alan ne utility) → morning'e düş; shell asla alansız render etmez.
   useEffect(() => {

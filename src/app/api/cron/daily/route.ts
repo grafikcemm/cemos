@@ -8,8 +8,6 @@ import { syncHackerNews } from "@/lib/news/hackernews";
 import { syncRepoRadar } from "@/lib/news/repoRadar";
 import { generateOpportunities } from "@/lib/news/opportunities";
 import { buildDailyDigest } from "@/lib/news/digest";
-import { instagramService } from "@/lib/services/instagramService";
-import { IG_SYNC_DAILY_DEADLINE_MS } from "@/lib/instagram/igConfig";
 import { syncToCanonical } from "@/lib/content/syncBridge";
 
 // With Fluid Compute (Vercel default for new projects) Hobby functions may run
@@ -108,20 +106,6 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
-  // Instagram yorum sync — LLM'siz çekme + deadline'lı sınıflandırma. News'ten sonra,
-  // hesap üretiminden önce. Sadece tam günlük koşuda (manuel tek-hesapta değil). Fail-open.
-  let igSync: unknown = null;
-  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
-    const igDeadlineMs = Math.min(IG_SYNC_DAILY_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
-    if (igDeadlineMs > 0) {
-      try {
-        igSync = await instagramService.sync({ deadlineMs: igDeadlineMs });
-      } catch (err) {
-        igSync = { error: err instanceof Error ? err.message : String(err) };
-      }
-    }
-  }
-
   // İçerik Zekası köprüsü — mevcut tarama çıktılarını (X/IG/YT/news/repo) kanonik
   // havuza besler (ingest → baseline → outlier → embedding). Tam günlük koşuda,
   // hesap üretiminden önce, kalan bütçeyle sınırlı. Fail-open.
@@ -155,7 +139,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
 
   const ok = errors < handles.length;
   if (cronRunId) {
-    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, igSync, contentSync, results } });
+    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, contentSync, results } });
   }
   return { ok, partial, news, results };
 }

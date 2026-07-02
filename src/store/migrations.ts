@@ -3,7 +3,7 @@
  * localStorage key "xagent-store" KORUNUR; sadece version + migrate burada evrilir.
  */
 
-export const XAGENT_STORE_VERSION = 7;
+export const XAGENT_STORE_VERSION = 8;
 
 /** Birleştirilen sekme → host + alt-görünüm (persist edilmiş activeTab göçü). */
 const FOLDED_TAB_SEED: Record<string, { activeTab: string; viewKey: "libraryView" | "radarView"; view: string }> = {
@@ -11,6 +11,20 @@ const FOLDED_TAB_SEED: Record<string, { activeTab: string; viewKey: "libraryView
   "pattern-library": { activeTab: "library", viewKey: "libraryView", view: "patterns" },
   "content-radar": { activeTab: "news-pool", viewKey: "radarView", view: "content" },
   "repo-radar": { activeTab: "news-pool", viewKey: "radarView", view: "repo" },
+};
+
+/** IA v2 (v8): kaldırılan/yeniden adlandırılan sekmeler → canlı id. */
+const IA_V2_TAB_SEED: Record<string, string> = {
+  library: "viral-library",
+  patterns: "pattern-library",
+  "prompt-kutuphanesi": "prompt-library",
+  "content-intel": "discovery-engine",
+  "content-radar": "news-pool",
+  "repo-radar": "news-pool",
+  "ai-rankings": "toolbox",
+  "weekly-learning-report": "morning",
+  "training-center": "morning",
+  instagram: "morning",
 };
 
 export function migrateXAgentStore(persisted: unknown, version: number): Record<string, unknown> {
@@ -46,6 +60,14 @@ export function migrateXAgentStore(persisted: unknown, version: number): Record<
       state.activeTab = seed.activeTab;
       state[seed.viewKey] = seed.view;
     }
+  }
+  if (version < 8) {
+    // IA v2: platform-bazlı gruplar. Kaldırılan/yeniden adlandırılan sekmeler
+    // canlı id'lere iner (TAB_ALIASES ile aynı harita — render-time yedeği var).
+    const seed = IA_V2_TAB_SEED[state.activeTab as string];
+    if (seed) state.activeTab = seed;
+    // Radar "İçerik" görünümü kaldırıldı → Haberler'e düş.
+    if (state.radarView === "content") state.radarView = "news";
   }
   return state;
 }
