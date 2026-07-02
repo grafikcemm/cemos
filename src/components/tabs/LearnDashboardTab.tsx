@@ -106,7 +106,7 @@ export default function LearnDashboardTab() {
   if (view.mode === "processing")
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader eyebrow="ÖĞREN" title="CemOS Learn" />
+        <PageHeader eyebrow="YOUTUBE" title="Youtube Öğrenme Kütüphanesi" />
         <LearnProcessingView
           jobId={view.jobId}
           sourceId={view.sourceId}
@@ -124,7 +124,7 @@ export default function LearnDashboardTab() {
   if (view.mode === "review")
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader eyebrow="ÖĞREN" title="Tekrar Oturumu" />
+        <PageHeader eyebrow="YOUTUBE" title="Tekrar Oturumu" />
         <LearnReviewView onBack={() => setView({ mode: "dash" })} />
       </div>
     );
@@ -132,12 +132,12 @@ export default function LearnDashboardTab() {
   if (disabled)
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader eyebrow="ÖĞREN" title="CemOS Learn" subtitle="YouTube videolarını kalıcı öğrenmeye dönüştüren motor." />
+        <PageHeader eyebrow="YOUTUBE" title="Youtube Öğrenme Kütüphanesi" subtitle="YouTube videolarını kalıcı öğrenmeye dönüştüren motor." />
         <Card variant="feature" padded>
           <EmptyState
             icon={<GraduationCap size={22} strokeWidth={1.8} />}
             title="Modül kapalı"
-            description="CemOS Learn şu an devre dışı. Etkinleştirmek için LEARN_ENABLED=true ortam değişkenini ayarlayın."
+            description="Youtube Öğrenme Kütüphanesi şu an devre dışı. Etkinleştirmek için LEARN_ENABLED=true ortam değişkenini ayarlayın."
           />
         </Card>
       </div>
@@ -146,9 +146,9 @@ export default function LearnDashboardTab() {
   return (
     <div style={{ width: "100%" }}>
       <PageHeader
-        eyebrow="ÖĞREN"
-        title="CemOS Learn"
-        subtitle="Eğitici YouTube videolarını kaynaklı notlara, karta ve aralıklı tekrara dönüştür."
+        eyebrow="YOUTUBE"
+        title="Youtube Öğrenme Kütüphanesi"
+        subtitle="Eğitici YouTube videolarını kaynaklı notlara, karta ve aralıklı tekrara dönüştür — hazır paketler Obsidian vault'una otomatik düşer."
         actions={
           <Button variant="secondary" size="sm" onClick={load} iconLeft={<RefreshCw size={15} strokeWidth={2} />}>
             Yenile

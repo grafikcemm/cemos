@@ -32,6 +32,37 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
   const removeSavedTweet = useXAgentStore((s) => s.removeSavedTweet);
   const isSaved = useXAgentStore((s) => s.savedTweets.some((t) => t.id === tweet.id));
 
+  // Yıldız → store (anlık UI) + Viral Kütüphane DB'si. API düşerse store kopyası
+  // kalır; ViralLibraryTab'ın tek-seferlik göçü sonradan drenaj eder (fail-soft).
+  const handleToggleSave = () => {
+    if (isSaved) {
+      removeSavedTweet(tweet.id);
+      void fetch(`/api/viral-library?id=${encodeURIComponent(tweet.id)}`, { method: "DELETE" }).catch(() => {});
+      return;
+    }
+    saveTweet(tweet);
+    void fetch("/api/viral-library", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tweet: {
+          id: tweet.id,
+          channel: tweet.channel ?? null,
+          authorHandle: tweet.handle,
+          text: tweet.text,
+          likeCount: tweet.likeCount,
+          retweetCount: tweet.retweetCount,
+          viewCount: tweet.viewCount,
+          viralScore: tweet.viralScore,
+          url: tweet.url,
+          source: tweet.source,
+          mediaUrl: tweet.mediaUrl ?? null,
+          mediaType: tweet.mediaType ?? null,
+        },
+      }),
+    }).catch(() => {});
+  };
+
   const initial = (tweet.handle || "?")[0].toUpperCase();
   const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#6366f1"];
   const avatarColor = colors[tweet.handle.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
@@ -86,7 +117,7 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
               }}>▲{tweet.viralScore}</span>
               {/* Save */}
               <button
-                onClick={() => isSaved ? removeSavedTweet(tweet.id) : saveTweet(tweet)}
+                onClick={handleToggleSave}
                 title={isSaved ? "Kütüphaneden çıkar" : "Kütüphaneye kaydet"}
                 style={{
                   background: "none", border: "none", padding: 0,

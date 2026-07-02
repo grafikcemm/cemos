@@ -31,6 +31,7 @@ import { fetchVideoMetadata, fetchTimedTranscript, type TimedSegment } from "./t
 import { fetchTranscriptViaGemini } from "@/lib/learning/gemini";
 import { fetchTranscriptViaSupadata } from "@/lib/learning/supadata";
 import { exportPackToVault } from "@/lib/learning/obsidianWriter";
+import { exportPackToGithub } from "@/lib/learning/githubVault";
 import { chunkSegments } from "./chunk";
 import {
   runSectionAnalysis,
@@ -264,9 +265,13 @@ export async function advanceJob(
         return runReviewScheduleStage();
 
       case "integration_suggestions": {
-        // Obsidian otomatik yazma (vault set'liyse + pack ready). Fail-open: yazamazsa
-        // job'u bozmaz. Vault yoksa no-op.
-        if (state.packId) await exportPackToVault(state.packId);
+        // Obsidian otomatik aktarım — iki kanal, ikisi de fail-open (job'u bozmaz):
+        //  1. Yerel vault (OBSIDIAN_VAULT_PATH — Vercel'de no-op),
+        //  2. GitHub vault reposu (OBSIDIAN_GITHUB_REPO — Obsidian Git eklentisi çeker).
+        if (state.packId) {
+          await exportPackToVault(state.packId);
+          await exportPackToGithub(state.packId);
+        }
         return nextStage(stage)!;
       }
 

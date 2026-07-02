@@ -617,6 +617,135 @@ export default function DiscoveryEngineTab() {
           />
         </Card>
       )}
+
+      <OutlierHighlights />
     </div>
+  );
+}
+
+type OutlierItem = {
+  id: string;
+  multiplier: number;
+  metricValue: number;
+  baselineMedian: number;
+  contentItem?: {
+    id: string;
+    platform?: string | null;
+    title?: string | null;
+    body?: string | null;
+    url?: string | null;
+  } | null;
+};
+
+/**
+ * Öne Çıkanlar — eski İçerik Zekası sekmesinin sadeleşmiş hali. Arkaplandaki
+ * outlier motoru (cron'daki syncToCanonical) kendi ortalamasının belirgin
+ * üstünde performans gösteren içerikleri işaretler; burada insan diliyle
+ * listelenir. Veri yoksa bölüm hiç görünmez (teknik boş-durum jargonu yok).
+ */
+function OutlierHighlights() {
+  const [items, setItems] = useState<OutlierItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchJson<{ success: boolean; items?: OutlierItem[] }>("/api/content/outliers?limit=10")
+      .then((data) => {
+        if (mounted && data.success && data.items) setItems(data.items);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card variant="feature" style={{ marginTop: "var(--space-5)" }}>
+      <div
+        className="eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-text)", marginBottom: 4 }}
+      >
+        <Sparkles size={15} strokeWidth={1.8} />
+        Öne Çıkanlar
+      </div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 }}>
+        Takip edilen kaynaklarda kendi ortalamasının belirgin üstüne çıkan içerikler — üretim için en sıcak referanslar.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {items.map((o) => {
+          const title = o.contentItem?.title || o.contentItem?.body?.slice(0, 120) || "İçerik";
+          const times = o.multiplier >= 10 ? Math.round(o.multiplier) : Math.round(o.multiplier * 10) / 10;
+          return (
+            <div
+              key={o.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 12px",
+                background: "var(--bg-base)",
+                borderRadius: "var(--radius-md)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <span
+                className="tnum"
+                title={`Bu içerik, üreticisinin tipik performansının ${times} katına ulaştı`}
+                style={{
+                  flexShrink: 0,
+                  minWidth: 52,
+                  textAlign: "center",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: 500,
+                  color: "var(--accent-text)",
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  border: "1px solid var(--accent-border)",
+                  borderRadius: "var(--radius-pill)",
+                  padding: "3px 10px",
+                }}
+              >
+                {times}×
+              </span>
+              {o.contentItem?.platform && (
+                <span className="eyebrow" style={{ color: "var(--text-muted)", fontSize: "var(--text-2xs)", flexShrink: 0 }}>
+                  {o.contentItem.platform}
+                </span>
+              )}
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: "var(--text-sm)",
+                  color: "var(--text-secondary)",
+                  lineHeight: 1.5,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {o.contentItem?.url ? (
+                  <a
+                    href={o.contentItem.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "inherit", textDecoration: "none" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "inherit")}
+                  >
+                    {title}
+                  </a>
+                ) : (
+                  title
+                )}
+              </span>
+              <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", flexShrink: 0 }}>
+                ortalaması {Math.round(o.baselineMedian).toLocaleString("tr-TR")} → {Math.round(o.metricValue).toLocaleString("tr-TR")}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

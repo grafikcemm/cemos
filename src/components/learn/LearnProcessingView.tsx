@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Loader2, AlertTriangle, RotateCcw, ClipboardPaste } from "lucide-react";
 import { Card, Button, Textarea } from "@/components/ui";
-import { STAGE_ORDER, STAGE_LABELS, type LearnStage } from "@/lib/learning/pipeline/stages";
+import { STAGE_ORDER, STAGE_LABELS, PASSTHROUGH_STAGES, type LearnStage } from "@/lib/learning/pipeline/stages";
 
 type JobView = {
   id: string;
@@ -134,7 +134,8 @@ export default function LearnProcessingView({
       )}
 
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        {STAGE_ORDER.filter((s) => s !== "source_created").map((s) => {
+        {/* Passthrough (no-op) aşamalar kullanıcıya gösterilmez — ölü adım yok. */}
+        {STAGE_ORDER.filter((s) => s !== "source_created" && !PASSTHROUGH_STAGES.has(s)).map((s) => {
           const idx = STAGE_ORDER.indexOf(s);
           const done = idx < currentIdx || status === "done";
           const active = idx === currentIdx && status !== "done" && !failed && !transcriptMissing;

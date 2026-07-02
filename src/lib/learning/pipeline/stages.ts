@@ -64,6 +64,6 @@ export const STAGE_LABELS: Record<LearnStage, string> = {
   tasks: "Uygulama görevleri çıkarılıyor",
   qa: "Kalite kontrolü yapılıyor",
   review_schedule: "Tekrar programı hazırlanıyor",
-  integration_suggestions: "Aktarım önerileri çıkarılıyor",
+  integration_suggestions: "Obsidian'a aktarılıyor",
   completed: "Öğrenme paketi tamamlandı",
 };
