@@ -1,5 +1,7 @@
 import type { AccountProfile } from "@/lib/accounts";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
+import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
+import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
 
 /**
@@ -27,6 +29,9 @@ export type GroundingContext = {
    * QueueItem `scores` JSON so the engagement learning loop can later
    * re-weight exactly these patterns by real post performance. */
   patternIds: string[];
+  /** IDs of the live viral SourcePosts injected as "what's working now"
+   * research context (xpatla-parity). Stored alongside patternIds. */
+  sourcePostIds: string[];
 };
 
 /**
@@ -43,6 +48,7 @@ export async function buildGroundingContext(
 ): Promise<GroundingContext> {
   const parts: string[] = [];
   const patternIds: string[] = [];
+  const sourcePostIds: string[] = [];
 
   // 1) Mined viral patterns (the externally-learned "training").
   try {
@@ -62,6 +68,63 @@ export async function buildGroundingContext(
             })
             .join("\n")
       );
+    }
+  } catch {
+    /* fail-soft */
+  }
+
+  // 1.5) Araştırma katmanı (xpatla-parity): nişte ŞU AN patlayan gerçek örnekler.
+  //      Rakibin çekirdek farkı buydu — yazımdan önce güncel viral içeriği tara.
+  //      Ekstra LLM yok (viralScore zaten hesaplı); en yüksek skorlu 5 taze post.
+  try {
+    const hot = await sourcePostRepo.listNewByAccount(accountId, 5);
+    const strong = hot.filter((p) => (p.viralScore ?? 0) >= 40);
+    if (strong.length > 0) {
+      sourcePostIds.push(...strong.map((p) => p.id));
+      parts.push(
+        "=== GÜNCEL VİRAL ÖRNEKLER (nişte şu an patlayan içerik — neyin tuttuğunu gör, KOPYALAMA) ===\n" +
+          strong
+            .map((p) => {
+              const txt = (p.text ?? "").replace(/\s+/g, " ").slice(0, 160);
+              return `* [skor ${p.viralScore}] @${p.source?.handle ?? "?"}: "${txt}"`;
+            })
+            .join("\n")
+      );
+    }
+  } catch {
+    /* fail-soft */
+  }
+
+  // 1.7) Ses profili (xpatla stil klonlama): hesabın kendi yayınlanmış sesinden
+  //      damıtılan aktif profil. voiceProfileService haftalık/manuel doldurur.
+  try {
+    const voice = await voiceProfileRepo.getActiveVoice(accountId);
+    if (voice) {
+      const parseArr = (json: string): string[] => {
+        try {
+          const p = JSON.parse(json);
+          return Array.isArray(p) ? p.filter((x) => typeof x === "string") : [];
+        } catch {
+          return [];
+        }
+      };
+      const dims: string[] = [];
+      if (voice.personality) dims.push(`Kişilik/ton: ${voice.personality}`);
+      const tones = parseArr(voice.toneTagsJson);
+      if (tones.length) dims.push(`Ton etiketleri: ${tones.join(", ")}`);
+      const vocab = parseArr(voice.vocabularyJson);
+      if (vocab.length) dims.push(`Kelime dağarcığı: ${vocab.slice(0, 12).join(", ")}`);
+      if (voice.rhythm) dims.push(`Ritim: ${voice.rhythm}`);
+      const avoid = parseArr(voice.avoidJson);
+      if (avoid.length) dims.push(`Kaçınılacaklar: ${avoid.join(", ")}`);
+      if (dims.length > 0) {
+        parts.push(
+          "=== SES PROFİLİ (@" +
+            profile.handle +
+            " kendi yayınlanmış tweetlerinden öğrenildi — bu sesle yaz) ===\n" +
+            dims.join("\n")
+        );
+      }
     }
   } catch {
     /* fail-soft */
@@ -89,7 +152,7 @@ export async function buildGroundingContext(
     );
   }
 
-  return { block: parts.join("\n\n"), patternIds };
+  return { block: parts.join("\n\n"), patternIds, sourcePostIds };
 }
 
 /** Back-compat string wrapper around {@link buildGroundingContext}. */

@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db/client";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { YT_SYNC_DEADLINE_MS } from "@/lib/youtube/ytConfig";
 import { ytOwnPerformanceService } from "@/lib/services/ytOwnPerformanceService";
+import { voiceProfileService } from "@/lib/services/voiceProfileService";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
@@ -33,6 +34,13 @@ function getMiningLimit(): number {
   if (raw === undefined || raw.trim() === "") return 2;
   const n = Number(raw);
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 2;
+}
+
+function isIstanbulMonday(d: Date): boolean {
+  return (
+    new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Istanbul", weekday: "short" }).format(d) ===
+    "Mon"
+  );
 }
 
 const SOURCE_POST_RETENTION_DAYS = 30;
@@ -171,6 +179,23 @@ async function runLearn(handleParam: string | null) {
     results.push(entry);
   }
 
+  // Mondays: hesabın kendi yayınlanmış tweetlerinden ses profilini yeniden
+  // damıt (xpatla stil klonlama). Silinen weeklyReport/rankings slotunu kullanır.
+  // Bütçe kapılı + fail-open; grounding aktif profili yazımda kullanır.
+  let voiceProfiles: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    const out: unknown[] = [];
+    for (const handle of handles) {
+      if (Date.now() - t0 > timeBudgetMs) break;
+      try {
+        out.push(await voiceProfileService.syncForAccount(handle));
+      } catch (err) {
+        out.push({ handle, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    voiceProfiles = out;
+  }
+
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -194,10 +219,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

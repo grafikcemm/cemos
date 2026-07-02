@@ -830,6 +830,10 @@ export default function DailyQueueTab() {
             const riskScore = item.scoresParsed?.riskScore ?? 20;
             const pMatch = item.scoresParsed?.personaMatchScore ?? 75;
             const hStrength = item.scoresParsed?.hookStrengthScore ?? 75;
+            // Ön-yayın viral skoru (F5d): judge sinyallerinden tek 0-10 tahmin.
+            const viralityScore = item.scoresParsed?.viralityScore ?? publishScore;
+            const viralScore10 =
+              Math.round(((viralityScore + hStrength + publishScore) / 3 / 10) * 10) / 10;
 
             return (
               <div
@@ -911,7 +915,22 @@ export default function DailyQueueTab() {
                   paddingTop: 8,
                   marginTop: 2
                 }}>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    {/* Ön-yayın viral skoru (F5d) — tek net 0-10 tahmin */}
+                    <span
+                      title="Ön-yayın viral skoru: hook + virality + publish sinyallerinden 0-10 tahmin"
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 500,
+                        color: "var(--accent-text)",
+                        background: "var(--accent-tint-12)",
+                        border: "1px solid var(--accent-border)",
+                        padding: "1px 7px",
+                        borderRadius: "var(--radius-pill)",
+                      }}
+                    >
+                      Viral {viralScore10.toFixed(1)}
+                    </span>
                     {/* Angle / Mode */}
                     <span style={{ fontSize: 9, color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
                       {item.scoresParsed?.angle || "safe"}

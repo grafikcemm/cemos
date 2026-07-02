@@ -5,7 +5,7 @@ export type AccountHandle = "grafikcem" | "maskulenkod";
  * character band; `maxChars: 0` means variable-length (thread), in which case
  * callers fall back to the account's own maxChars cap.
  */
-export type FormatTierId = "micro" | "punch" | "spark" | "storm" | "thread";
+export type FormatTierId = "micro" | "punch" | "spark" | "storm" | "thunder" | "mega" | "thread";
 
 export type FormatTier = {
   id: FormatTierId;
@@ -13,6 +13,8 @@ export type FormatTier = {
   description: string;
   minChars: number;
   maxChars: number;
+  /** X Premium (uzun post) gerektirir — dwell-time odaklı uzun formatlar. */
+  requiresPremium?: boolean;
 };
 
 export const FORMAT_TIERS: Record<FormatTierId, FormatTier> = {
@@ -20,6 +22,10 @@ export const FORMAT_TIERS: Record<FormatTierId, FormatTier> = {
   punch: { id: "punch", label: "Punch", description: "Direkt etki, tek vuruş", minChars: 140, maxChars: 280 },
   spark: { id: "spark", label: "Spark", description: "Değer + fikir, kısa analiz", minChars: 400, maxChars: 600 },
   storm: { id: "storm", label: "Storm", description: "Derin analiz, uzun form", minChars: 600, maxChars: 900 },
+  // Dwell-time formatları (xpatla-parity): X algoritması okumada geçen süreyi
+  // ödüllendirir → uzun, hikâye/analiz akışı okuyucuyu daha uzun tutar.
+  thunder: { id: "thunder", label: "Thunder", description: "Uzun hikâye/analiz — okuma süresi hedefli", minChars: 900, maxChars: 1500, requiresPremium: true },
+  mega: { id: "mega", label: "Mega", description: "Maksimum uzun form — derin thread-tek-post", minChars: 1400, maxChars: 2000, requiresPremium: true },
   thread: { id: "thread", label: "Thread", description: "5-8 tweet zincir akışı", minChars: 0, maxChars: 0 },
 };
 
@@ -84,9 +90,23 @@ export const accountProfiles: Record<AccountHandle, AccountProfile> = {
       "Kaynakta olmayan sayı veya iddia uydurma.",
       "'Bu tweet', 'Bu içerik', 'Bir düşünce' gibi içeriğe kendini işaret eden meta ifade yazma.",
     ],
-    // Verified hesap → tüm tier'lar açık; uzun form thread ile.
-    formats: ["micro", "punch", "spark", "storm", "thread"],
+    // Verified hesap → tüm tier'lar açık; uzun form thread + premium dwell-time.
+    formats: ["micro", "punch", "spark", "storm", "thunder", "mega", "thread"],
     modes: [
+      {
+        id: "thunder",
+        label: "Thunder (uzun)",
+        format: "thunder",
+        instruction:
+          "Dwell-time formatı: okuyucuyu ekranda tutan uzun tek-post. Güçlü hook → akıcı hikâye/analiz → net payoff. Somut örnek/sayı/araç dökümü; paragraf ritmi ile okunabilir. 900-1500 karakter. X Premium.",
+      },
+      {
+        id: "mega",
+        label: "Mega (maks uzun)",
+        format: "mega",
+        instruction:
+          "Maksimum uzun form: derin, kaydedilmeyi hak eden tek-post makale. Hook → çok bölümlü döküm (→ maddeler / mini başlıklar) → güçlü kapanış. 1400-2000 karakter. Sadece gerçekten değer varsa; dolgu yok. X Premium.",
+      },
       {
         id: "tool_spotlight",
         label: "Tool Spotlight",
@@ -155,8 +175,8 @@ export const accountProfiles: Record<AccountHandle, AccountProfile> = {
       "Herkesin durumu farkli gibi yumusatma yapma.",
       "Cringe manosphere jargonu yazma: 'Hustle', 'Sigma', 'Alfa', 'Redpill', 'Beta' gibi terimler yasak.",
     ],
-    // thread disi modlar ≤280 (punch); uzun form yalniz thread.
-    formats: ["micro", "punch", "spark", "storm", "thread"],
+    // thread disi modlar ≤280 (punch); uzun form thread + premium dwell-time.
+    formats: ["micro", "punch", "spark", "storm", "thunder", "mega", "thread"],
     modes: [
       {
         id: "sistem_analizi",
@@ -245,9 +265,14 @@ export function selectMode(
     if (repoMode) return repoMode;
   }
   // Otherwise rotate across the account's modes for format/length variety.
-  // Exclude the `micro` tier from the default rotation — it is the accidental
-  // 140-char trap; only fall back to the full set if an account has nothing else.
-  const rotatable = modes.filter((m) => m.format !== "micro");
+  // Exclude the `micro` tier (accidental 140-char trap) AND premium dwell-time
+  // tiers (thunder/mega) from the default rotation — those are opt-in only
+  // (explicit input.mode / UI), never auto-selected. Fall back to full set only
+  // if an account has nothing else.
+  const rotatable = modes.filter((m) => {
+    if (m.format === "micro") return false;
+    return !FORMAT_TIERS[m.format]?.requiresPremium;
+  });
   const pool = rotatable.length > 0 ? rotatable : modes;
   const seed =
     typeof opts?.seed === "number" && Number.isFinite(opts.seed)

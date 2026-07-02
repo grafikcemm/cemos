@@ -37,12 +37,13 @@ describe("accounts format tiers", () => {
     expect(effectiveMaxChars(profile, FORMAT_TIERS.thread)).toBe(profile.maxChars);
   });
 
-  it("non-thread modes resolve to a tier capped at or below 280", () => {
+  it("non-thread standard modes resolve to a tier capped at or below 280", () => {
     for (const profile of Object.values(accountProfiles)) {
       for (const mode of profile.modes) {
-        if (mode.format === "thread") continue;
         const tier = resolveFormatTier(profile, mode.id);
-        // punch/micro are the short tiers used for single-tweet modes.
+        // thread + premium dwell-time tiers (thunder/mega) are intentionally long.
+        if (tier.id === "thread" || tier.requiresPremium) continue;
+        // punch/micro are the short tiers used for standard single-tweet modes.
         expect(tier.maxChars).toBeLessThanOrEqual(280);
       }
     }
@@ -66,10 +67,19 @@ describe("selectMode + isKnownMode (DH-002 mode selection)", () => {
     }
   });
 
-  it("rotates across modes by seed for variety", () => {
+  it("rotates across the rotatable pool by seed for variety", () => {
     const p = accountProfiles.grafikcem;
-    expect(selectMode(p, { seed: 0 }).id).toBe(p.modes[0].id);
-    expect(selectMode(p, { seed: 1 }).id).toBe(p.modes[1 % p.modes.length].id);
+    // selectMode rotation excludes micro + premium (thunder/mega) tiers.
+    const pool = p.modes.filter((m) => {
+      if (m.format === "micro") return false;
+      return !FORMAT_TIERS[m.format]?.requiresPremium;
+    });
+    expect(selectMode(p, { seed: 0 }).id).toBe(pool[0].id);
+    expect(selectMode(p, { seed: 1 }).id).toBe(pool[1 % pool.length].id);
+    // Premium tiers never surface in the default rotation.
+    for (let seed = 0; seed < 20; seed++) {
+      expect(resolveFormatTier(p, selectMode(p, { seed }).id).requiresPremium).toBeFalsy();
+    }
   });
 
   it("prefers a repo/source mode for repo-flavored sources", () => {

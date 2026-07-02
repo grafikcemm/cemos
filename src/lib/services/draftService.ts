@@ -119,7 +119,7 @@ export const draftService = {
     // ── Phase 3 grounding: prepend mined viral patterns + semantic memory +
     //    brand-voice discipline so the writer is grounded, not generic. Fail-soft. ──
     const groundingCtx = await buildGroundingContext(profile, account.id, sourceText, sourceType).catch(
-      () => ({ block: "", patternIds: [] as string[] })
+      () => ({ block: "", patternIds: [] as string[], sourcePostIds: [] as string[] })
     );
     const grounding = groundingCtx.block;
     const groundedInput = grounding ? `${grounding}\n\n--- KAYNAK ---\n${sourceInput}` : sourceInput;
@@ -224,6 +224,7 @@ export const draftService = {
         modelUsed: pipelineResult.modelUsed,
         // Engagement learning loop re-weights exactly these patterns later.
         groundingPatternIds: groundingCtx.patternIds,
+        groundingSourcePostIds: groundingCtx.sourcePostIds,
         // Faz B: content-quality signals surfaced in the queue drawer.
         payoff: payoff ?? "none",
         leaks,

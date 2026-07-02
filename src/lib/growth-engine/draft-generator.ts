@@ -2,6 +2,7 @@ import { buildGenerationContext, buildGenerationContextFallback } from "./contex
 import { critiqueDrafts } from "./draft-critic";
 import { buildMemoryPromptBlock } from "./vector-memory";
 import { buildTurkeyContext } from "./turkey-context";
+import { pickVisualKeywordHints } from "./keyword-hints";
 import { normalizeNextMove } from "@/lib/ai/next-move";
 import type {
   GenerateDraftsInputRaw,
@@ -430,8 +431,17 @@ HEDEF STİL ÖRNEKLERİ (yoğunluğu yakala, kopyalama):
   const selectedModeEmitsImage = Boolean(
     (context.selectedMode as { emitsImagePrompt?: boolean } | undefined)?.emitsImagePrompt
   );
+  // Anahtar Kelime Kütüphanesi'nden görsel stil ipuçları (F5e) — image prompt'a
+  // premium tasarım terimleri enjekte edilir (fail-soft: liste boşsa atlanır).
+  const keywordHints = selectedModeEmitsImage
+    ? pickVisualKeywordHints(context.sourceContent ?? profile.handle, 10)
+    : [];
+  const keywordHintLine =
+    keywordHints.length > 0
+      ? ` Aşağıdaki İngilizce stil anahtar kelimelerini uygun olanları seçerek değerlendir (hepsini kullanma): ${keywordHints.join(", ")}.`
+      : "";
   const imagePromptBlock = selectedModeEmitsImage
-    ? `\nGÖRSEL ÜRETİMİ (bu mod görsel direği): Her taslak için metne ek olarak "imagePrompt" alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk, oran). Görselin kendisini üretme; sadece promptu ver.\n`
+    ? `\nGÖRSEL ÜRETİMİ (bu mod görsel direği): Her taslak için metne ek olarak "imagePrompt" alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk, oran).${keywordHintLine} Görselin kendisini üretme; sadece promptu ver.\n`
     : "";
 
   // Türkiye-stickiness bağlamı (doğal Türkçe + yerel gündem).
