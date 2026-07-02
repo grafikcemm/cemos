@@ -1,0 +1,1127 @@
+- generic [ref=f4e1]:
+  - generic [ref=f4e2]:
+    - generic [ref=f4e243]:
+      - generic [ref=f4e244]:
+        - generic [ref=f4e245]: ⚠️
+        - generic [ref=f4e246]:
+          - strong [ref=f4e247]: "Arka Plan İşçisi (Worker) Çalışmıyor:"
+          - text: "Worker aktif değil. Son tick: 28779 dakika önce. npm run dev:operator çalıştırın."
+      - generic [ref=f4e248]:
+        - button "Yeniden Dene" [ref=f4e249] [cursor=pointer]
+        - button "×" [ref=f4e250] [cursor=pointer]
+    - generic [ref=f4e3]:
+      - complementary [ref=f4e5]:
+        - generic [ref=f4e6]:
+          - img [ref=f4e8]
+          - generic [ref=f4e10]:
+            - generic [ref=f4e11]: CemOS
+            - generic [ref=f4e12]: ÜRETİM MOTORU
+        - navigation [ref=f4e13]:
+          - generic [ref=f4e14]:
+            - button "Bugün" [ref=f4e15] [cursor=pointer]:
+              - img [ref=f4e16]
+              - text: Bugün
+            - button "Bugün" [ref=f4e21] [cursor=pointer]:
+              - img [ref=f4e22]
+              - generic [ref=f4e27]: Bugün
+            - button "Günlük Kuyruk" [ref=f4e28] [cursor=pointer]:
+              - img [ref=f4e29]
+              - generic [ref=f4e32]: Günlük Kuyruk
+            - button "Haberler" [ref=f4e33] [cursor=pointer]:
+              - img [ref=f4e34]
+              - generic [ref=f4e37]: Haberler
+          - generic [ref=f4e38]:
+            - button "Twitter" [ref=f4e39] [cursor=pointer]:
+              - img [ref=f4e40]
+              - text: Twitter
+            - button "Viral Radar" [ref=f4e43] [cursor=pointer]:
+              - img [ref=f4e44]
+              - generic [ref=f4e47]: Viral Radar
+            - button "Keşif Motoru" [ref=f4e48] [cursor=pointer]:
+              - img [ref=f4e49]
+              - generic [ref=f4e52]: Keşif Motoru
+            - button "X Hesabı Kaynakları" [ref=f4e53] [cursor=pointer]:
+              - img [ref=f4e54]
+              - generic [ref=f4e59]: X Hesabı Kaynakları
+            - button "Viral Kütüphane" [ref=f4e60] [cursor=pointer]:
+              - img [ref=f4e61]
+              - generic [ref=f4e63]: Viral Kütüphane
+          - generic [ref=f4e64]:
+            - button "Kütüphane" [ref=f4e65] [cursor=pointer]:
+              - img [ref=f4e66]
+              - text: Kütüphane
+            - button "Anahtar Kelime Kütüphanesi" [ref=f4e68] [cursor=pointer]:
+              - img [ref=f4e69]
+              - generic [ref=f4e71]: Anahtar Kelime Kütüphanesi
+            - button "Prompt Kütüphanesi" [ref=f4e72] [cursor=pointer]:
+              - img [ref=f4e73]
+              - generic [ref=f4e75]: Prompt Kütüphanesi
+            - button "Pattern Kütüphanesi" [ref=f4e76] [cursor=pointer]:
+              - img [ref=f4e77]
+              - generic [ref=f4e79]: Pattern Kütüphanesi
+          - generic [ref=f4e80]:
+            - button "Youtube" [ref=f4e81] [cursor=pointer]:
+              - img [ref=f4e82]
+              - text: Youtube
+            - button "YouTube Fırsat Motoru" [ref=f4e85] [cursor=pointer]:
+              - img [ref=f4e86]
+              - generic [ref=f4e89]: YouTube Fırsat Motoru
+            - button "Youtube Öğrenme Kütüphanesi" [ref=f4e90] [cursor=pointer]:
+              - img [ref=f4e91]
+              - generic [ref=f4e103]: Youtube Öğrenme Kütüphanesi
+          - generic [ref=f4e104]:
+            - generic [ref=f4e105]: Araçlar
+            - button "Toolbox" [ref=f4e106] [cursor=pointer]:
+              - img [ref=f4e107]
+              - generic [ref=f4e109]: Toolbox
+            - button "Maliyetler" [ref=f4e110] [cursor=pointer]:
+              - img [ref=f4e111]
+              - generic [ref=f4e113]: Maliyetler
+            - button "Ayarlar" [ref=f4e114] [cursor=pointer]:
+              - img [ref=f4e115]
+              - generic [ref=f4e118]: Ayarlar
+        - generic [ref=f4e119]:
+          - generic [ref=f4e120]:
+            - generic [ref=f4e123]: "Worker: Stale"
+            - generic [ref=f4e124]: Bugün $0.1615
+          - combobox "Aktif kanal" [ref=f4e125] [cursor=pointer]:
+            - option "@grafikcem" [selected]
+            - option "@maskulenkod"
+          - button "Menüyü daralt" [ref=f4e126] [cursor=pointer]:
+            - img [ref=f4e127]
+            - text: Daralt
+      - generic [ref=f4e130]:
+        - banner [ref=f4e131]:
+          - navigation "Breadcrumb" [ref=f4e132]:
+            - generic [ref=f4e133]: Kütüphane
+            - generic [ref=f4e498]: /
+            - generic [ref=f4e499]: Anahtar Kelime Kütüphanesi
+        - main [ref=f4e134]:
+          - generic [ref=f4e500]:
+            - navigation [ref=f4e501]:
+              - button "Anahtar Kelimeler" [ref=f4e502] [cursor=pointer]
+              - button "Formüller" [active] [ref=f4e503] [cursor=pointer]
+            - generic [ref=f4e6736]:
+              - generic [ref=f4e6737]:
+                - generic [ref=f4e6739]:
+                  - generic [ref=f4e6740]: KÜTÜPHANE
+                  - heading "Prompt Formülleri" [level=1] [ref=f4e6741]
+                  - paragraph [ref=f4e6742]: Kanıtlanmış arama/prompt kalıpları — formülü al, kendi stilin ve sektörünle doldur.
+                - generic [ref=f4e6744]:
+                  - img [ref=f4e6745]
+                  - generic [ref=f4e6747]: "49"
+                  - generic [ref=f4e6748]: formül
+              - generic [ref=f4e6751]:
+                - img
+                - textbox "Formül veya örnek ara..." [ref=f4e6752]
+              - generic [ref=f4e6753]:
+                - generic [ref=f4e6754]: Temel Formüller
+                - generic [ref=f4e6755]:
+                  - generic [ref=f4e6756]:
+                    - generic [ref=f4e6757]:
+                      - generic [ref=f4e6758]: F-1
+                      - generic [ref=f4e6759]: Stil + Sektör
+                    - code [ref=f4e6760]: style + industry
+                    - generic [ref=f4e6761]:
+                      - button "luxury skincare" [ref=f4e6762] [cursor=pointer]:
+                        - generic [ref=f4e6763]: luxury skincare
+                        - img [ref=f4e6764]
+                      - button "futuristic tech ad" [ref=f4e6767] [cursor=pointer]:
+                        - generic [ref=f4e6768]: futuristic tech ad
+                        - img [ref=f4e6769]
+                      - button "cinematic sportswear campaign" [ref=f4e6772] [cursor=pointer]:
+                        - generic [ref=f4e6773]: cinematic sportswear campaign
+                        - img [ref=f4e6774]
+                      - button "premium coffee branding" [ref=f4e6777] [cursor=pointer]:
+                        - generic [ref=f4e6778]: premium coffee branding
+                        - img [ref=f4e6779]
+                      - button "editorial perfume ad" [ref=f4e6782] [cursor=pointer]:
+                        - generic [ref=f4e6783]: editorial perfume ad
+                        - img [ref=f4e6784]
+                  - generic [ref=f4e6787]:
+                    - generic [ref=f4e6788]:
+                      - generic [ref=f4e6789]: F-2
+                      - generic [ref=f4e6790]: Stil + Teknik Detay
+                    - code [ref=f4e6791]: style + visual element
+                    - generic [ref=f4e6792]:
+                      - button "cinematic lighting" [ref=f4e6793] [cursor=pointer]:
+                        - generic [ref=f4e6794]: cinematic lighting
+                        - img [ref=f4e6795]
+                      - button "brutalist typography" [ref=f4e6798] [cursor=pointer]:
+                        - generic [ref=f4e6799]: brutalist typography
+                        - img [ref=f4e6800]
+                      - button "luxury composition" [ref=f4e6803] [cursor=pointer]:
+                        - generic [ref=f4e6804]: luxury composition
+                        - img [ref=f4e6805]
+                      - button "editorial framing" [ref=f4e6808] [cursor=pointer]:
+                        - generic [ref=f4e6809]: editorial framing
+                        - img [ref=f4e6810]
+                      - button "moody product placement" [ref=f4e6813] [cursor=pointer]:
+                        - generic [ref=f4e6814]: moody product placement
+                        - img [ref=f4e6815]
+                  - generic [ref=f4e6818]:
+                    - generic [ref=f4e6819]:
+                      - generic [ref=f4e6820]: F-3
+                      - generic [ref=f4e6821]: Sektör + Teknik Detay
+                    - code [ref=f4e6822]: industry + visual element
+                    - generic [ref=f4e6823]:
+                      - button "supplement typography" [ref=f4e6824] [cursor=pointer]:
+                        - generic [ref=f4e6825]: supplement typography
+                        - img [ref=f4e6826]
+                      - button "perfume lighting" [ref=f4e6829] [cursor=pointer]:
+                        - generic [ref=f4e6830]: perfume lighting
+                        - img [ref=f4e6831]
+                      - button "fashion composition" [ref=f4e6834] [cursor=pointer]:
+                        - generic [ref=f4e6835]: fashion composition
+                        - img [ref=f4e6836]
+                      - button "ecommerce product placement" [ref=f4e6839] [cursor=pointer]:
+                        - generic [ref=f4e6840]: ecommerce product placement
+                        - img [ref=f4e6841]
+                      - button "coffee packaging layout" [ref=f4e6844] [cursor=pointer]:
+                        - generic [ref=f4e6845]: coffee packaging layout
+                        - img [ref=f4e6846]
+                  - generic [ref=f4e6849]:
+                    - generic [ref=f4e6850]:
+                      - generic [ref=f4e6851]: F-4
+                      - generic [ref=f4e6852]: Stil + Sektör + Teknik Detay
+                    - code [ref=f4e6853]: style + industry + visual element
+                    - generic [ref=f4e6854]:
+                      - button "luxury skincare cinematic lighting" [ref=f4e6855] [cursor=pointer]:
+                        - generic [ref=f4e6856]: luxury skincare cinematic lighting
+                        - img [ref=f4e6857]
+                      - button "futuristic tech product composition" [ref=f4e6860] [cursor=pointer]:
+                        - generic [ref=f4e6861]: futuristic tech product composition
+                        - img [ref=f4e6862]
+                      - button "editorial perfume typography" [ref=f4e6865] [cursor=pointer]:
+                        - generic [ref=f4e6866]: editorial perfume typography
+                        - img [ref=f4e6867]
+                      - button "dark supplement advertising" [ref=f4e6870] [cursor=pointer]:
+                        - generic [ref=f4e6871]: dark supplement advertising
+                        - img [ref=f4e6872]
+                      - button "minimal coffee packaging" [ref=f4e6875] [cursor=pointer]:
+                        - generic [ref=f4e6876]: minimal coffee packaging
+                        - img [ref=f4e6877]
+              - generic [ref=f4e6880]:
+                - generic [ref=f4e6881]: Duygu Formülleri
+                - generic [ref=f4e6882]:
+                  - generic [ref=f4e6883]:
+                    - generic [ref=f4e6884]:
+                      - generic [ref=f4e6885]: F-5
+                      - generic [ref=f4e6886]: Duygu + Stil
+                    - code [ref=f4e6887]: emotion + style
+                    - generic [ref=f4e6888]:
+                      - button "mysterious cinematic" [ref=f4e6889] [cursor=pointer]:
+                        - generic [ref=f4e6890]: mysterious cinematic
+                        - img [ref=f4e6891]
+                      - button "emotional editorial" [ref=f4e6894] [cursor=pointer]:
+                        - generic [ref=f4e6895]: emotional editorial
+                        - img [ref=f4e6896]
+                      - button "futuristic dark aesthetic" [ref=f4e6899] [cursor=pointer]:
+                        - generic [ref=f4e6900]: futuristic dark aesthetic
+                        - img [ref=f4e6901]
+                      - button "calm luxury atmosphere" [ref=f4e6904] [cursor=pointer]:
+                        - generic [ref=f4e6905]: calm luxury atmosphere
+                        - img [ref=f4e6906]
+                      - button "aggressive sports campaign" [ref=f4e6909] [cursor=pointer]:
+                        - generic [ref=f4e6910]: aggressive sports campaign
+                        - img [ref=f4e6911]
+                  - generic [ref=f4e6914]:
+                    - generic [ref=f4e6915]:
+                      - generic [ref=f4e6916]: F-6
+                      - generic [ref=f4e6917]: Duygu + Sektör
+                    - code [ref=f4e6918]: emotion + industry
+                    - generic [ref=f4e6919]:
+                      - button "emotional perfume ad" [ref=f4e6920] [cursor=pointer]:
+                        - generic [ref=f4e6921]: emotional perfume ad
+                        - img [ref=f4e6922]
+                      - button "energetic sportswear campaign" [ref=f4e6925] [cursor=pointer]:
+                        - generic [ref=f4e6926]: energetic sportswear campaign
+                        - img [ref=f4e6927]
+                      - button "calming skincare branding" [ref=f4e6930] [cursor=pointer]:
+                        - generic [ref=f4e6931]: calming skincare branding
+                        - img [ref=f4e6932]
+                      - button "powerful automotive ad" [ref=f4e6935] [cursor=pointer]:
+                        - generic [ref=f4e6936]: powerful automotive ad
+                        - img [ref=f4e6937]
+                      - button "premium jewelry atmosphere" [ref=f4e6940] [cursor=pointer]:
+                        - generic [ref=f4e6941]: premium jewelry atmosphere
+                        - img [ref=f4e6942]
+                  - generic [ref=f4e6945]:
+                    - generic [ref=f4e6946]:
+                      - generic [ref=f4e6947]: F-7
+                      - generic [ref=f4e6948]: Duygu + Teknik Detay
+                    - code [ref=f4e6949]: emotion + visual element
+                    - generic [ref=f4e6950]:
+                      - button "dramatic shadows" [ref=f4e6951] [cursor=pointer]:
+                        - generic [ref=f4e6952]: dramatic shadows
+                        - img [ref=f4e6953]
+                      - button "emotional lighting" [ref=f4e6956] [cursor=pointer]:
+                        - generic [ref=f4e6957]: emotional lighting
+                        - img [ref=f4e6958]
+                      - button "aggressive typography" [ref=f4e6961] [cursor=pointer]:
+                        - generic [ref=f4e6962]: aggressive typography
+                        - img [ref=f4e6963]
+                      - button "calm composition" [ref=f4e6966] [cursor=pointer]:
+                        - generic [ref=f4e6967]: calm composition
+                        - img [ref=f4e6968]
+                      - button "mysterious framing" [ref=f4e6971] [cursor=pointer]:
+                        - generic [ref=f4e6972]: mysterious framing
+                        - img [ref=f4e6973]
+              - generic [ref=f4e6976]:
+                - generic [ref=f4e6977]: Kamera Formülleri
+                - generic [ref=f4e6978]:
+                  - generic [ref=f4e6979]:
+                    - generic [ref=f4e6980]:
+                      - generic [ref=f4e6981]: F-8
+                      - generic [ref=f4e6982]: Kamera + Stil
+                    - code [ref=f4e6983]: camera angle + style
+                    - generic [ref=f4e6984]:
+                      - button "close up editorial" [ref=f4e6985] [cursor=pointer]:
+                        - generic [ref=f4e6986]: close up editorial
+                        - img [ref=f4e6987]
+                      - button "macro luxury shot" [ref=f4e6990] [cursor=pointer]:
+                        - generic [ref=f4e6991]: macro luxury shot
+                        - img [ref=f4e6992]
+                      - button "cinematic wide angle" [ref=f4e6995] [cursor=pointer]:
+                        - generic [ref=f4e6996]: cinematic wide angle
+                        - img [ref=f4e6997]
+                      - button "low angle futuristic" [ref=f4e7000] [cursor=pointer]:
+                        - generic [ref=f4e7001]: low angle futuristic
+                        - img [ref=f4e7002]
+                      - button "top down minimal composition" [ref=f4e7005] [cursor=pointer]:
+                        - generic [ref=f4e7006]: top down minimal composition
+                        - img [ref=f4e7007]
+                  - generic [ref=f4e7010]:
+                    - generic [ref=f4e7011]:
+                      - generic [ref=f4e7012]: F-9
+                      - generic [ref=f4e7013]: Kamera + Sektör
+                    - code [ref=f4e7014]: camera angle + industry
+                    - generic [ref=f4e7015]:
+                      - button "macro skincare photography" [ref=f4e7016] [cursor=pointer]:
+                        - generic [ref=f4e7017]: macro skincare photography
+                        - img [ref=f4e7018]
+                      - button "top down food photography" [ref=f4e7021] [cursor=pointer]:
+                        - generic [ref=f4e7022]: top down food photography
+                        - img [ref=f4e7023]
+                      - button "cinematic automotive shot" [ref=f4e7026] [cursor=pointer]:
+                        - generic [ref=f4e7027]: cinematic automotive shot
+                        - img [ref=f4e7028]
+                      - button "close up watch commercial" [ref=f4e7031] [cursor=pointer]:
+                        - generic [ref=f4e7032]: close up watch commercial
+                        - img [ref=f4e7033]
+                      - button "wide angle sportswear ad" [ref=f4e7036] [cursor=pointer]:
+                        - generic [ref=f4e7037]: wide angle sportswear ad
+                        - img [ref=f4e7038]
+                  - generic [ref=f4e7041]:
+                    - generic [ref=f4e7042]:
+                      - generic [ref=f4e7043]: F-10
+                      - generic [ref=f4e7044]: Kamera + Teknik Detay
+                    - code [ref=f4e7045]: camera angle + visual element
+                    - generic [ref=f4e7046]:
+                      - button "close up dramatic lighting" [ref=f4e7047] [cursor=pointer]:
+                        - generic [ref=f4e7048]: close up dramatic lighting
+                        - img [ref=f4e7049]
+                      - button "macro product composition" [ref=f4e7052] [cursor=pointer]:
+                        - generic [ref=f4e7053]: macro product composition
+                        - img [ref=f4e7054]
+                      - button "wide framing negative space" [ref=f4e7057] [cursor=pointer]:
+                        - generic [ref=f4e7058]: wide framing negative space
+                        - img [ref=f4e7059]
+                      - button "low angle product placement" [ref=f4e7062] [cursor=pointer]:
+                        - generic [ref=f4e7063]: low angle product placement
+                        - img [ref=f4e7064]
+                      - button "top down typography layout" [ref=f4e7067] [cursor=pointer]:
+                        - generic [ref=f4e7068]: top down typography layout
+                        - img [ref=f4e7069]
+              - generic [ref=f4e7072]:
+                - generic [ref=f4e7073]: Renk Formülleri
+                - generic [ref=f4e7074]:
+                  - generic [ref=f4e7075]:
+                    - generic [ref=f4e7076]:
+                      - generic [ref=f4e7077]: F-11
+                      - generic [ref=f4e7078]: Renk + Stil
+                    - code [ref=f4e7079]: color palette + style
+                    - generic [ref=f4e7080]:
+                      - button "black luxury aesthetic" [ref=f4e7081] [cursor=pointer]:
+                        - generic [ref=f4e7082]: black luxury aesthetic
+                        - img [ref=f4e7083]
+                      - button "neon cyberpunk atmosphere" [ref=f4e7086] [cursor=pointer]:
+                        - generic [ref=f4e7087]: neon cyberpunk atmosphere
+                        - img [ref=f4e7088]
+                      - button "monochrome editorial style" [ref=f4e7091] [cursor=pointer]:
+                        - generic [ref=f4e7092]: monochrome editorial style
+                        - img [ref=f4e7093]
+                      - button "electric blue futuristic design" [ref=f4e7096] [cursor=pointer]:
+                        - generic [ref=f4e7097]: electric blue futuristic design
+                        - img [ref=f4e7098]
+                      - button "warm cinematic palette" [ref=f4e7101] [cursor=pointer]:
+                        - generic [ref=f4e7102]: warm cinematic palette
+                        - img [ref=f4e7103]
+                  - generic [ref=f4e7106]:
+                    - generic [ref=f4e7107]:
+                      - generic [ref=f4e7108]: F-12
+                      - generic [ref=f4e7109]: Renk + Sektör
+                    - code [ref=f4e7110]: color palette + industry
+                    - generic [ref=f4e7111]:
+                      - button "dark skincare branding" [ref=f4e7112] [cursor=pointer]:
+                        - generic [ref=f4e7113]: dark skincare branding
+                        - img [ref=f4e7114]
+                      - button "neon gaming campaign" [ref=f4e7117] [cursor=pointer]:
+                        - generic [ref=f4e7118]: neon gaming campaign
+                        - img [ref=f4e7119]
+                      - button "minimal coffee packaging" [ref=f4e7122] [cursor=pointer]:
+                        - generic [ref=f4e7123]: minimal coffee packaging
+                        - img [ref=f4e7124]
+                      - button "gold jewelry advertisement" [ref=f4e7127] [cursor=pointer]:
+                        - generic [ref=f4e7128]: gold jewelry advertisement
+                        - img [ref=f4e7129]
+                      - button "blue tech branding" [ref=f4e7132] [cursor=pointer]:
+                        - generic [ref=f4e7133]: blue tech branding
+                        - img [ref=f4e7134]
+                  - generic [ref=f4e7137]:
+                    - generic [ref=f4e7138]:
+                      - generic [ref=f4e7139]: F-13
+                      - generic [ref=f4e7140]: Renk + Teknik Detay
+                    - code [ref=f4e7141]: color palette + visual element
+                    - generic [ref=f4e7142]:
+                      - button "blue volumetric lighting" [ref=f4e7143] [cursor=pointer]:
+                        - generic [ref=f4e7144]: blue volumetric lighting
+                        - img [ref=f4e7145]
+                      - button "monochrome typography" [ref=f4e7148] [cursor=pointer]:
+                        - generic [ref=f4e7149]: monochrome typography
+                        - img [ref=f4e7150]
+                      - button "dark composition" [ref=f4e7153] [cursor=pointer]:
+                        - generic [ref=f4e7154]: dark composition
+                        - img [ref=f4e7155]
+                      - button "neon reflections" [ref=f4e7158] [cursor=pointer]:
+                        - generic [ref=f4e7159]: neon reflections
+                        - img [ref=f4e7160]
+                      - button "gradient shadows" [ref=f4e7163] [cursor=pointer]:
+                        - generic [ref=f4e7164]: gradient shadows
+                        - img [ref=f4e7165]
+              - generic [ref=f4e7168]:
+                - generic [ref=f4e7169]: Atmosfer Formülleri
+                - generic [ref=f4e7170]:
+                  - generic [ref=f4e7171]:
+                    - generic [ref=f4e7172]:
+                      - generic [ref=f4e7173]: F-14
+                      - generic [ref=f4e7174]: Atmosfer + Stil
+                    - code [ref=f4e7175]: atmosphere + style
+                    - generic [ref=f4e7176]:
+                      - button "moody editorial" [ref=f4e7177] [cursor=pointer]:
+                        - generic [ref=f4e7178]: moody editorial
+                        - img [ref=f4e7179]
+                      - button "futuristic cinematic" [ref=f4e7182] [cursor=pointer]:
+                        - generic [ref=f4e7183]: futuristic cinematic
+                        - img [ref=f4e7184]
+                      - button "dreamy luxury aesthetic" [ref=f4e7187] [cursor=pointer]:
+                        - generic [ref=f4e7188]: dreamy luxury aesthetic
+                        - img [ref=f4e7189]
+                      - button "dark premium atmosphere" [ref=f4e7192] [cursor=pointer]:
+                        - generic [ref=f4e7193]: dark premium atmosphere
+                        - img [ref=f4e7194]
+                      - button "ambient tech design" [ref=f4e7197] [cursor=pointer]:
+                        - generic [ref=f4e7198]: ambient tech design
+                        - img [ref=f4e7199]
+                  - generic [ref=f4e7202]:
+                    - generic [ref=f4e7203]:
+                      - generic [ref=f4e7204]: F-15
+                      - generic [ref=f4e7205]: Atmosfer + Sektör
+                    - code [ref=f4e7206]: atmosphere + industry
+                    - generic [ref=f4e7207]:
+                      - button "moody perfume ad" [ref=f4e7208] [cursor=pointer]:
+                        - generic [ref=f4e7209]: moody perfume ad
+                        - img [ref=f4e7210]
+                      - button "futuristic automotive campaign" [ref=f4e7213] [cursor=pointer]:
+                        - generic [ref=f4e7214]: futuristic automotive campaign
+                        - img [ref=f4e7215]
+                      - button "dreamy skincare branding" [ref=f4e7218] [cursor=pointer]:
+                        - generic [ref=f4e7219]: dreamy skincare branding
+                        - img [ref=f4e7220]
+                      - button "dark supplement ad" [ref=f4e7223] [cursor=pointer]:
+                        - generic [ref=f4e7224]: dark supplement ad
+                        - img [ref=f4e7225]
+                      - button "atmospheric coffee shop branding" [ref=f4e7228] [cursor=pointer]:
+                        - generic [ref=f4e7229]: atmospheric coffee shop branding
+                        - img [ref=f4e7230]
+                  - generic [ref=f4e7233]:
+                    - generic [ref=f4e7234]:
+                      - generic [ref=f4e7235]: F-16
+                      - generic [ref=f4e7236]: Atmosfer + Teknik Detay
+                    - code [ref=f4e7237]: atmosphere + visual element
+                    - generic [ref=f4e7238]:
+                      - button "moody lighting" [ref=f4e7239] [cursor=pointer]:
+                        - generic [ref=f4e7240]: moody lighting
+                        - img [ref=f4e7241]
+                      - button "atmospheric framing" [ref=f4e7244] [cursor=pointer]:
+                        - generic [ref=f4e7245]: atmospheric framing
+                        - img [ref=f4e7246]
+                      - button "ambient reflections" [ref=f4e7249] [cursor=pointer]:
+                        - generic [ref=f4e7250]: ambient reflections
+                        - img [ref=f4e7251]
+                      - button "cinematic shadows" [ref=f4e7254] [cursor=pointer]:
+                        - generic [ref=f4e7255]: cinematic shadows
+                        - img [ref=f4e7256]
+                      - button "dreamy composition" [ref=f4e7259] [cursor=pointer]:
+                        - generic [ref=f4e7260]: dreamy composition
+                        - img [ref=f4e7261]
+              - generic [ref=f4e7264]:
+                - generic [ref=f4e7265]: Render Formülleri
+                - generic [ref=f4e7266]:
+                  - generic [ref=f4e7267]:
+                    - generic [ref=f4e7268]:
+                      - generic [ref=f4e7269]: F-17
+                      - generic [ref=f4e7270]: Render + Stil
+                    - code [ref=f4e7271]: render type + style
+                    - generic [ref=f4e7272]:
+                      - button "ultra realistic luxury render" [ref=f4e7273] [cursor=pointer]:
+                        - generic [ref=f4e7274]: ultra realistic luxury render
+                        - img [ref=f4e7275]
+                      - button "3d editorial composition" [ref=f4e7278] [cursor=pointer]:
+                        - generic [ref=f4e7279]: 3d editorial composition
+                        - img [ref=f4e7280]
+                      - button "cinematic product render" [ref=f4e7283] [cursor=pointer]:
+                        - generic [ref=f4e7284]: cinematic product render
+                        - img [ref=f4e7285]
+                      - button "photorealistic futuristic ad" [ref=f4e7288] [cursor=pointer]:
+                        - generic [ref=f4e7289]: photorealistic futuristic ad
+                        - img [ref=f4e7290]
+                      - button "stylized brutalist render" [ref=f4e7293] [cursor=pointer]:
+                        - generic [ref=f4e7294]: stylized brutalist render
+                        - img [ref=f4e7295]
+                  - generic [ref=f4e7298]:
+                    - generic [ref=f4e7299]:
+                      - generic [ref=f4e7300]: F-18
+                      - generic [ref=f4e7301]: Render + Sektör
+                    - code [ref=f4e7302]: render type + industry
+                    - generic [ref=f4e7303]:
+                      - button "3d supplement ad" [ref=f4e7304] [cursor=pointer]:
+                        - generic [ref=f4e7305]: 3d supplement ad
+                        - img [ref=f4e7306]
+                      - button "photorealistic skincare render" [ref=f4e7309] [cursor=pointer]:
+                        - generic [ref=f4e7310]: photorealistic skincare render
+                        - img [ref=f4e7311]
+                      - button "ultra realistic automotive shot" [ref=f4e7314] [cursor=pointer]:
+                        - generic [ref=f4e7315]: ultra realistic automotive shot
+                        - img [ref=f4e7316]
+                      - button "stylized tech product render" [ref=f4e7319] [cursor=pointer]:
+                        - generic [ref=f4e7320]: stylized tech product render
+                        - img [ref=f4e7321]
+                      - button "cinematic beverage render" [ref=f4e7324] [cursor=pointer]:
+                        - generic [ref=f4e7325]: cinematic beverage render
+                        - img [ref=f4e7326]
+              - generic [ref=f4e7329]:
+                - generic [ref=f4e7330]: Sistem Formülleri
+                - generic [ref=f4e7331]:
+                  - generic [ref=f4e7332]:
+                    - generic [ref=f4e7333]:
+                      - generic [ref=f4e7334]: F-19
+                      - generic [ref=f4e7335]: UI / Grafik Sistemleri
+                    - code [ref=f4e7336]: graphic system + style
+                    - generic [ref=f4e7337]:
+                      - button "swiss grid layout" [ref=f4e7338] [cursor=pointer]:
+                        - generic [ref=f4e7339]: swiss grid layout
+                        - img [ref=f4e7340]
+                      - button "brutalist ui design" [ref=f4e7343] [cursor=pointer]:
+                        - generic [ref=f4e7344]: brutalist ui design
+                        - img [ref=f4e7345]
+                      - button "futuristic dashboard interface" [ref=f4e7348] [cursor=pointer]:
+                        - generic [ref=f4e7349]: futuristic dashboard interface
+                        - img [ref=f4e7350]
+                      - button "cinematic ui overlay" [ref=f4e7353] [cursor=pointer]:
+                        - generic [ref=f4e7354]: cinematic ui overlay
+                        - img [ref=f4e7355]
+                      - button "minimal infographic system" [ref=f4e7358] [cursor=pointer]:
+                        - generic [ref=f4e7359]: minimal infographic system
+                        - img [ref=f4e7360]
+                  - generic [ref=f4e7363]:
+                    - generic [ref=f4e7364]:
+                      - generic [ref=f4e7365]: F-20
+                      - generic [ref=f4e7366]: Marka Hissi
+                    - code [ref=f4e7367]: brand perception + sector
+                    - generic [ref=f4e7368]:
+                      - button "premium tech branding" [ref=f4e7369] [cursor=pointer]:
+                        - generic [ref=f4e7370]: premium tech branding
+                        - img [ref=f4e7371]
+                      - button "luxury skincare campaign" [ref=f4e7374] [cursor=pointer]:
+                        - generic [ref=f4e7375]: luxury skincare campaign
+                        - img [ref=f4e7376]
+                      - button "high end coffee packaging" [ref=f4e7379] [cursor=pointer]:
+                        - generic [ref=f4e7380]: high end coffee packaging
+                        - img [ref=f4e7381]
+                      - button "expensive looking supplement ad" [ref=f4e7384] [cursor=pointer]:
+                        - generic [ref=f4e7385]: expensive looking supplement ad
+                        - img [ref=f4e7386]
+                      - button "elite fashion branding" [ref=f4e7389] [cursor=pointer]:
+                        - generic [ref=f4e7390]: elite fashion branding
+                        - img [ref=f4e7391]
+                  - generic [ref=f4e7394]:
+                    - generic [ref=f4e7395]:
+                      - generic [ref=f4e7396]: F-22
+                      - generic [ref=f4e7397]: Pinterest Araştırma Sistemi
+                    - code [ref=f4e7398]: industry + inspiration
+                    - generic [ref=f4e7399]:
+                      - button "skincare ad inspiration" [ref=f4e7400] [cursor=pointer]:
+                        - generic [ref=f4e7401]: skincare ad inspiration
+                        - img [ref=f4e7402]
+                      - button "luxury typography inspiration" [ref=f4e7405] [cursor=pointer]:
+                        - generic [ref=f4e7406]: luxury typography inspiration
+                        - img [ref=f4e7407]
+                      - button "cinematic poster inspiration" [ref=f4e7410] [cursor=pointer]:
+                        - generic [ref=f4e7411]: cinematic poster inspiration
+                        - img [ref=f4e7412]
+                      - button "fashion campaign inspiration" [ref=f4e7415] [cursor=pointer]:
+                        - generic [ref=f4e7416]: fashion campaign inspiration
+                        - img [ref=f4e7417]
+                      - button "premium packaging inspiration" [ref=f4e7420] [cursor=pointer]:
+                        - generic [ref=f4e7421]: premium packaging inspiration
+                        - img [ref=f4e7422]
+                  - generic [ref=f4e7425]:
+                    - generic [ref=f4e7426]:
+                      - generic [ref=f4e7427]: F-24
+                      - generic [ref=f4e7428]: Çalışan Reklam Analizi
+                    - code [ref=f4e7429]: high converting + industry
+                    - generic [ref=f4e7430]:
+                      - button "high converting ecommerce ad" [ref=f4e7431] [cursor=pointer]:
+                        - generic [ref=f4e7432]: high converting ecommerce ad
+                        - img [ref=f4e7433]
+                      - button "high ctr supplement creative" [ref=f4e7436] [cursor=pointer]:
+                        - generic [ref=f4e7437]: high ctr supplement creative
+                        - img [ref=f4e7438]
+                      - button "viral skincare ad" [ref=f4e7441] [cursor=pointer]:
+                        - generic [ref=f4e7442]: viral skincare ad
+                        - img [ref=f4e7443]
+                      - button "conversion focused landing page" [ref=f4e7446] [cursor=pointer]:
+                        - generic [ref=f4e7447]: conversion focused landing page
+                        - img [ref=f4e7448]
+                      - button "scroll stopping ad design" [ref=f4e7451] [cursor=pointer]:
+                        - generic [ref=f4e7452]: scroll stopping ad design
+                        - img [ref=f4e7453]
+                  - generic [ref=f4e7456]:
+                    - generic [ref=f4e7457]:
+                      - generic [ref=f4e7458]: F-25
+                      - generic [ref=f4e7459]: Sinematik Sistem
+                    - code [ref=f4e7460]: cinematic + subject + technical detail
+                    - generic [ref=f4e7461]:
+                      - button "cinematic portrait lighting" [ref=f4e7462] [cursor=pointer]:
+                        - generic [ref=f4e7463]: cinematic portrait lighting
+                        - img [ref=f4e7464]
+                      - button "cinematic product composition" [ref=f4e7467] [cursor=pointer]:
+                        - generic [ref=f4e7468]: cinematic product composition
+                        - img [ref=f4e7469]
+                      - button "cinematic shadows photography" [ref=f4e7472] [cursor=pointer]:
+                        - generic [ref=f4e7473]: cinematic shadows photography
+                        - img [ref=f4e7474]
+                      - button "cinematic ad framing" [ref=f4e7477] [cursor=pointer]:
+                        - generic [ref=f4e7478]: cinematic ad framing
+                        - img [ref=f4e7479]
+                      - button "cinematic luxury campaign" [ref=f4e7482] [cursor=pointer]:
+                        - generic [ref=f4e7483]: cinematic luxury campaign
+                        - img [ref=f4e7484]
+              - generic [ref=f4e7487]:
+                - generic [ref=f4e7488]: İllüstrasyon & 3D Formülleri
+                - generic [ref=f4e7489]:
+                  - generic [ref=f4e7490]:
+                    - generic [ref=f4e7491]:
+                      - generic [ref=f4e7492]: F-26
+                      - generic [ref=f4e7493]: İllüstrasyon Stili + Konu
+                    - code [ref=f4e7494]: illustration style + subject
+                    - generic [ref=f4e7495]:
+                      - button "flat illustration of skincare routine" [ref=f4e7496] [cursor=pointer]:
+                        - generic [ref=f4e7497]: flat illustration of skincare routine
+                        - img [ref=f4e7498]
+                      - button "isometric illustration of remote work" [ref=f4e7501] [cursor=pointer]:
+                        - generic [ref=f4e7502]: isometric illustration of remote work
+                        - img [ref=f4e7503]
+                      - button "watercolor illustration of botanical elements" [ref=f4e7506] [cursor=pointer]:
+                        - generic [ref=f4e7507]: watercolor illustration of botanical elements
+                        - img [ref=f4e7508]
+                      - button "line art portrait illustration" [ref=f4e7511] [cursor=pointer]:
+                        - generic [ref=f4e7512]: line art portrait illustration
+                        - img [ref=f4e7513]
+                      - button "risograph print of city skyline" [ref=f4e7516] [cursor=pointer]:
+                        - generic [ref=f4e7517]: risograph print of city skyline
+                        - img [ref=f4e7518]
+                  - generic [ref=f4e7521]:
+                    - generic [ref=f4e7522]:
+                      - generic [ref=f4e7523]: F-27
+                      - generic [ref=f4e7524]: Karakter + Stil
+                    - code [ref=f4e7525]: character + style
+                    - generic [ref=f4e7526]:
+                      - button "Pixar style character design" [ref=f4e7527] [cursor=pointer]:
+                        - generic [ref=f4e7528]: Pixar style character design
+                        - img [ref=f4e7529]
+                      - button "minimalist mascot character" [ref=f4e7532] [cursor=pointer]:
+                        - generic [ref=f4e7533]: minimalist mascot character
+                        - img [ref=f4e7534]
+                      - button "90s anime character portrait" [ref=f4e7537] [cursor=pointer]:
+                        - generic [ref=f4e7538]: 90s anime character portrait
+                        - img [ref=f4e7539]
+                      - button "stylized 3D character" [ref=f4e7542] [cursor=pointer]:
+                        - generic [ref=f4e7543]: stylized 3D character
+                        - img [ref=f4e7544]
+                      - button "editorial illustration character" [ref=f4e7547] [cursor=pointer]:
+                        - generic [ref=f4e7548]: editorial illustration character
+                        - img [ref=f4e7549]
+                  - generic [ref=f4e7552]:
+                    - generic [ref=f4e7553]:
+                      - generic [ref=f4e7554]: F-28
+                      - generic [ref=f4e7555]: 3D Stil + Sektör
+                    - code [ref=f4e7556]: 3D style + industry
+                    - generic [ref=f4e7557]:
+                      - button "soft 3D skincare product" [ref=f4e7558] [cursor=pointer]:
+                        - generic [ref=f4e7559]: soft 3D skincare product
+                        - img [ref=f4e7560]
+                      - button "inflatable 3D typography" [ref=f4e7563] [cursor=pointer]:
+                        - generic [ref=f4e7564]: inflatable 3D typography
+                        - img [ref=f4e7565]
+                      - button "claymation style food ad" [ref=f4e7568] [cursor=pointer]:
+                        - generic [ref=f4e7569]: claymation style food ad
+                        - img [ref=f4e7570]
+                      - button "glass material tech product" [ref=f4e7573] [cursor=pointer]:
+                        - generic [ref=f4e7574]: glass material tech product
+                        - img [ref=f4e7575]
+                      - button "low poly game asset" [ref=f4e7578] [cursor=pointer]:
+                        - generic [ref=f4e7579]: low poly game asset
+                        - img [ref=f4e7580]
+                  - generic [ref=f4e7583]:
+                    - generic [ref=f4e7584]:
+                      - generic [ref=f4e7585]: F-29
+                      - generic [ref=f4e7586]: Pattern + Kullanım Alanı
+                    - code [ref=f4e7587]: pattern + use case
+                    - generic [ref=f4e7588]:
+                      - button "geometric pattern for packaging" [ref=f4e7589] [cursor=pointer]:
+                        - generic [ref=f4e7590]: geometric pattern for packaging
+                        - img [ref=f4e7591]
+                      - button "seamless pattern for textile" [ref=f4e7594] [cursor=pointer]:
+                        - generic [ref=f4e7595]: seamless pattern for textile
+                        - img [ref=f4e7596]
+                      - button "botanical pattern for branding" [ref=f4e7599] [cursor=pointer]:
+                        - generic [ref=f4e7600]: botanical pattern for branding
+                        - img [ref=f4e7601]
+                      - button "abstract pattern for poster" [ref=f4e7604] [cursor=pointer]:
+                        - generic [ref=f4e7605]: abstract pattern for poster
+                        - img [ref=f4e7606]
+                      - button "risograph pattern for editorial" [ref=f4e7609] [cursor=pointer]:
+                        - generic [ref=f4e7610]: risograph pattern for editorial
+                        - img [ref=f4e7611]
+                  - generic [ref=f4e7614]:
+                    - generic [ref=f4e7615]:
+                      - generic [ref=f4e7616]: F-30
+                      - generic [ref=f4e7617]: Logo Stili + Sektör
+                    - code [ref=f4e7618]: logo style + industry
+                    - generic [ref=f4e7619]:
+                      - button "minimalist logo for tech startup" [ref=f4e7620] [cursor=pointer]:
+                        - generic [ref=f4e7621]: minimalist logo for tech startup
+                        - img [ref=f4e7622]
+                      - button "vintage logo for coffee shop" [ref=f4e7625] [cursor=pointer]:
+                        - generic [ref=f4e7626]: vintage logo for coffee shop
+                        - img [ref=f4e7627]
+                      - button "geometric logo for fashion brand" [ref=f4e7630] [cursor=pointer]:
+                        - generic [ref=f4e7631]: geometric logo for fashion brand
+                        - img [ref=f4e7632]
+                      - button "mascot logo for sports team" [ref=f4e7635] [cursor=pointer]:
+                        - generic [ref=f4e7636]: mascot logo for sports team
+                        - img [ref=f4e7637]
+                      - button "luxury monogram for jewelry" [ref=f4e7640] [cursor=pointer]:
+                        - generic [ref=f4e7641]: luxury monogram for jewelry
+                        - img [ref=f4e7642]
+                  - generic [ref=f4e7645]:
+                    - generic [ref=f4e7646]:
+                      - generic [ref=f4e7647]: F-31
+                      - generic [ref=f4e7648]: UI Stili + Ürün
+                    - code [ref=f4e7649]: UI style + product
+                    - generic [ref=f4e7650]:
+                      - button "glassmorphism dashboard design" [ref=f4e7651] [cursor=pointer]:
+                        - generic [ref=f4e7652]: glassmorphism dashboard design
+                        - img [ref=f4e7653]
+                      - button "neumorphism mobile app" [ref=f4e7656] [cursor=pointer]:
+                        - generic [ref=f4e7657]: neumorphism mobile app
+                        - img [ref=f4e7658]
+                      - button "dark mode SaaS interface" [ref=f4e7661] [cursor=pointer]:
+                        - generic [ref=f4e7662]: dark mode SaaS interface
+                        - img [ref=f4e7663]
+                      - button "minimalist fintech UI" [ref=f4e7666] [cursor=pointer]:
+                        - generic [ref=f4e7667]: minimalist fintech UI
+                        - img [ref=f4e7668]
+                      - button "3D landing page design" [ref=f4e7671] [cursor=pointer]:
+                        - generic [ref=f4e7672]: 3D landing page design
+                        - img [ref=f4e7673]
+                  - generic [ref=f4e7676]:
+                    - generic [ref=f4e7677]:
+                      - generic [ref=f4e7678]: F-32
+                      - generic [ref=f4e7679]: Sanat Akımı + Modern Uygulama
+                    - code [ref=f4e7680]: art movement + modern application
+                    - generic [ref=f4e7681]:
+                      - button "bauhaus inspired branding" [ref=f4e7682] [cursor=pointer]:
+                        - generic [ref=f4e7683]: bauhaus inspired branding
+                        - img [ref=f4e7684]
+                      - button "art deco poster design" [ref=f4e7687] [cursor=pointer]:
+                        - generic [ref=f4e7688]: art deco poster design
+                        - img [ref=f4e7689]
+                      - button "memphis style packaging" [ref=f4e7692] [cursor=pointer]:
+                        - generic [ref=f4e7693]: memphis style packaging
+                        - img [ref=f4e7694]
+                      - button "swiss design editorial" [ref=f4e7697] [cursor=pointer]:
+                        - generic [ref=f4e7698]: swiss design editorial
+                        - img [ref=f4e7699]
+                      - button "vaporwave album cover" [ref=f4e7702] [cursor=pointer]:
+                        - generic [ref=f4e7703]: vaporwave album cover
+                        - img [ref=f4e7704]
+                  - generic [ref=f4e7707]:
+                    - generic [ref=f4e7708]:
+                      - generic [ref=f4e7709]: F-33
+                      - generic [ref=f4e7710]: Tekstür + Konu
+                    - code [ref=f4e7711]: texture + subject
+                    - generic [ref=f4e7712]:
+                      - button "paper texture poster design" [ref=f4e7713] [cursor=pointer]:
+                        - generic [ref=f4e7714]: paper texture poster design
+                        - img [ref=f4e7715]
+                      - button "marble texture luxury branding" [ref=f4e7718] [cursor=pointer]:
+                        - generic [ref=f4e7719]: marble texture luxury branding
+                        - img [ref=f4e7720]
+                      - button "grunge texture concert poster" [ref=f4e7723] [cursor=pointer]:
+                        - generic [ref=f4e7724]: grunge texture concert poster
+                        - img [ref=f4e7725]
+                      - button "holographic texture packaging" [ref=f4e7728] [cursor=pointer]:
+                        - generic [ref=f4e7729]: holographic texture packaging
+                        - img [ref=f4e7730]
+                      - button "noise texture editorial layout" [ref=f4e7733] [cursor=pointer]:
+                        - generic [ref=f4e7734]: noise texture editorial layout
+                        - img [ref=f4e7735]
+                  - generic [ref=f4e7738]:
+                    - generic [ref=f4e7739]:
+                      - generic [ref=f4e7740]: F-34
+                      - generic [ref=f4e7741]: Motion + Kullanım
+                    - code [ref=f4e7742]: motion + use case
+                    - generic [ref=f4e7743]:
+                      - button "kinetic typography for ads" [ref=f4e7744] [cursor=pointer]:
+                        - generic [ref=f4e7745]: kinetic typography for ads
+                        - img [ref=f4e7746]
+                      - button "logo animation for branding" [ref=f4e7749] [cursor=pointer]:
+                        - generic [ref=f4e7750]: logo animation for branding
+                        - img [ref=f4e7751]
+                      - button "liquid motion for transitions" [ref=f4e7754] [cursor=pointer]:
+                        - generic [ref=f4e7755]: liquid motion for transitions
+                        - img [ref=f4e7756]
+                      - button "particle animation for hero section" [ref=f4e7759] [cursor=pointer]:
+                        - generic [ref=f4e7760]: particle animation for hero section
+                        - img [ref=f4e7761]
+                      - button "loop animation for social media" [ref=f4e7764] [cursor=pointer]:
+                        - generic [ref=f4e7765]: loop animation for social media
+                        - img [ref=f4e7766]
+              - generic [ref=f4e7769]:
+                - generic [ref=f4e7770]: E-ticaret & Sosyal Medya Formülleri
+                - generic [ref=f4e7771]:
+                  - generic [ref=f4e7772]:
+                    - generic [ref=f4e7773]:
+                      - generic [ref=f4e7774]: F-35
+                      - generic [ref=f4e7775]: Platform + Ürün + Estetik
+                    - code [ref=f4e7776]: platform + product + aesthetic
+                    - generic [ref=f4e7777]:
+                      - button "Instagram ad skincare minimal aesthetic" [ref=f4e7778] [cursor=pointer]:
+                        - generic [ref=f4e7779]: Instagram ad skincare minimal aesthetic
+                        - img [ref=f4e7780]
+                      - button "TikTok ad supplement UGC style" [ref=f4e7783] [cursor=pointer]:
+                        - generic [ref=f4e7784]: TikTok ad supplement UGC style
+                        - img [ref=f4e7785]
+                      - button "Amazon main image headphones white background" [ref=f4e7788] [cursor=pointer]:
+                        - generic [ref=f4e7789]: Amazon main image headphones white background
+                        - img [ref=f4e7790]
+                      - button "Pinterest pin home decor editorial" [ref=f4e7793] [cursor=pointer]:
+                        - generic [ref=f4e7794]: Pinterest pin home decor editorial
+                        - img [ref=f4e7795]
+                  - generic [ref=f4e7798]:
+                    - generic [ref=f4e7799]:
+                      - generic [ref=f4e7800]: F-37
+                      - generic [ref=f4e7801]: Pazar + Sektör (Japon Pazarı)
+                    - code [ref=f4e7802]: Japanese platform + sector
+                    - generic [ref=f4e7803]:
+                      - button "Rakuten skincare listing dense layout" [ref=f4e7804] [cursor=pointer]:
+                        - generic [ref=f4e7805]: Rakuten skincare listing dense layout
+                        - img [ref=f4e7806]
+                      - button "Japanese ecommerce supplement infographic" [ref=f4e7809] [cursor=pointer]:
+                        - generic [ref=f4e7810]: Japanese ecommerce supplement infographic
+                        - img [ref=f4e7811]
+                      - button "Tokyo style beauty product image" [ref=f4e7814] [cursor=pointer]:
+                        - generic [ref=f4e7815]: Tokyo style beauty product image
+                        - img [ref=f4e7816]
+                      - button "Kawaii product packaging design" [ref=f4e7819] [cursor=pointer]:
+                        - generic [ref=f4e7820]: Kawaii product packaging design
+                        - img [ref=f4e7821]
+                  - generic [ref=f4e7824]:
+                    - generic [ref=f4e7825]:
+                      - generic [ref=f4e7826]: F-38
+                      - generic [ref=f4e7827]: Pazar + Sektör (Çin Pazarı)
+                    - code [ref=f4e7828]: Chinese platform + sector
+                    - generic [ref=f4e7829]:
+                      - button "Tmall luxury skincare listing" [ref=f4e7830] [cursor=pointer]:
+                        - generic [ref=f4e7831]: Tmall luxury skincare listing
+                        - img [ref=f4e7832]
+                      - button "Taobao product image red gold" [ref=f4e7835] [cursor=pointer]:
+                        - generic [ref=f4e7836]: Taobao product image red gold
+                        - img [ref=f4e7837]
+                      - button "Singles Day mega sale banner" [ref=f4e7840] [cursor=pointer]:
+                        - generic [ref=f4e7841]: Singles Day mega sale banner
+                        - img [ref=f4e7842]
+                      - button "Chinese new year campaign creative" [ref=f4e7845] [cursor=pointer]:
+                        - generic [ref=f4e7846]: Chinese new year campaign creative
+                        - img [ref=f4e7847]
+                  - generic [ref=f4e7850]:
+                    - generic [ref=f4e7851]:
+                      - generic [ref=f4e7852]: F-39
+                      - generic [ref=f4e7853]: Bilgi Yoğunluk + Sektör
+                    - code [ref=f4e7854]: information density + sector
+                    - generic [ref=f4e7855]:
+                      - button "information dense supplement infographic" [ref=f4e7856] [cursor=pointer]:
+                        - generic [ref=f4e7857]: information dense supplement infographic
+                        - img [ref=f4e7858]
+                      - button "maximalist beauty product card" [ref=f4e7861] [cursor=pointer]:
+                        - generic [ref=f4e7862]: maximalist beauty product card
+                        - img [ref=f4e7863]
+                      - button "dense feature callout electronics" [ref=f4e7866] [cursor=pointer]:
+                        - generic [ref=f4e7867]: dense feature callout electronics
+                        - img [ref=f4e7868]
+                      - button "multi panel kitchen product listing" [ref=f4e7871] [cursor=pointer]:
+                        - generic [ref=f4e7872]: multi panel kitchen product listing
+                        - img [ref=f4e7873]
+                  - generic [ref=f4e7876]:
+                    - generic [ref=f4e7877]:
+                      - generic [ref=f4e7878]: F-40
+                      - generic [ref=f4e7879]: Hook Tipi + Format
+                    - code [ref=f4e7880]: hook type + format
+                    - generic [ref=f4e7881]:
+                      - button "pattern interrupt video thumbnail" [ref=f4e7882] [cursor=pointer]:
+                        - generic [ref=f4e7883]: pattern interrupt video thumbnail
+                        - img [ref=f4e7884]
+                      - button "curiosity gap carousel slide" [ref=f4e7887] [cursor=pointer]:
+                        - generic [ref=f4e7888]: curiosity gap carousel slide
+                        - img [ref=f4e7889]
+                      - button "before after instagram reel cover" [ref=f4e7892] [cursor=pointer]:
+                        - generic [ref=f4e7893]: before after instagram reel cover
+                        - img [ref=f4e7894]
+                      - button "question hook tiktok thumbnail" [ref=f4e7897] [cursor=pointer]:
+                        - generic [ref=f4e7898]: question hook tiktok thumbnail
+                        - img [ref=f4e7899]
+                  - generic [ref=f4e7902]:
+                    - generic [ref=f4e7903]:
+                      - generic [ref=f4e7904]: F-41
+                      - generic [ref=f4e7905]: Reklam Yapısı + Sektör
+                    - code [ref=f4e7906]: ad framework + sector
+                    - generic [ref=f4e7907]:
+                      - button "PAS framework supplement ad" [ref=f4e7908] [cursor=pointer]:
+                        - generic [ref=f4e7909]: PAS framework supplement ad
+                        - img [ref=f4e7910]
+                      - button "AIDA structure beauty creative" [ref=f4e7913] [cursor=pointer]:
+                        - generic [ref=f4e7914]: AIDA structure beauty creative
+                        - img [ref=f4e7915]
+                      - button "problem solution skincare ad" [ref=f4e7918] [cursor=pointer]:
+                        - generic [ref=f4e7919]: problem solution skincare ad
+                        - img [ref=f4e7920]
+                      - button "testimonial overlay fitness ad" [ref=f4e7923] [cursor=pointer]:
+                        - generic [ref=f4e7924]: testimonial overlay fitness ad
+                        - img [ref=f4e7925]
+                  - generic [ref=f4e7928]:
+                    - generic [ref=f4e7929]:
+                      - generic [ref=f4e7930]: F-42
+                      - generic [ref=f4e7931]: Rozet / Etiket Sistemi
+                    - code [ref=f4e7932]: badge + product card
+                    - generic [ref=f4e7933]:
+                      - button "bestseller badge product card" [ref=f4e7934] [cursor=pointer]:
+                        - generic [ref=f4e7935]: bestseller badge product card
+                        - img [ref=f4e7936]
+                      - button "discount burst effect listing" [ref=f4e7939] [cursor=pointer]:
+                        - generic [ref=f4e7940]: discount burst effect listing
+                        - img [ref=f4e7941]
+                      - button "limited edition ribbon corner" [ref=f4e7944] [cursor=pointer]:
+                        - generic [ref=f4e7945]: limited edition ribbon corner
+                        - img [ref=f4e7946]
+                      - button "free shipping emphasis design" [ref=f4e7949] [cursor=pointer]:
+                        - generic [ref=f4e7950]: free shipping emphasis design
+                        - img [ref=f4e7951]
+                  - generic [ref=f4e7954]:
+                    - generic [ref=f4e7955]:
+                      - generic [ref=f4e7956]: F-44
+                      - generic [ref=f4e7957]: Karşılaştırma Görseli
+                    - code [ref=f4e7958]: comparison + product
+                    - generic [ref=f4e7959]:
+                      - button "before after skincare comparison" [ref=f4e7960] [cursor=pointer]:
+                        - generic [ref=f4e7961]: before after skincare comparison
+                        - img [ref=f4e7962]
+                      - button "with without product result" [ref=f4e7965] [cursor=pointer]:
+                        - generic [ref=f4e7966]: with without product result
+                        - img [ref=f4e7967]
+                      - button "product size scale reference" [ref=f4e7970] [cursor=pointer]:
+                        - generic [ref=f4e7971]: product size scale reference
+                        - img [ref=f4e7972]
+                      - button "competitor comparison chart" [ref=f4e7975] [cursor=pointer]:
+                        - generic [ref=f4e7976]: competitor comparison chart
+                        - img [ref=f4e7977]
+                  - generic [ref=f4e7980]:
+                    - generic [ref=f4e7981]:
+                      - generic [ref=f4e7982]: F-45
+                      - generic [ref=f4e7983]: Carousel / Çoklu Slide
+                    - code [ref=f4e7984]: carousel format + content
+                    - generic [ref=f4e7985]:
+                      - button "educational carousel slide 1 hook" [ref=f4e7986] [cursor=pointer]:
+                        - generic [ref=f4e7987]: educational carousel slide 1 hook
+                        - img [ref=f4e7988]
+                      - button "problem solution carousel design" [ref=f4e7991] [cursor=pointer]:
+                        - generic [ref=f4e7992]: problem solution carousel design
+                        - img [ref=f4e7993]
+                      - button "step by step tutorial carousel" [ref=f4e7996] [cursor=pointer]:
+                        - generic [ref=f4e7997]: step by step tutorial carousel
+                        - img [ref=f4e7998]
+                      - button "listicle format social media post" [ref=f4e8001] [cursor=pointer]:
+                        - generic [ref=f4e8002]: listicle format social media post
+                        - img [ref=f4e8003]
+                  - generic [ref=f4e8006]:
+                    - generic [ref=f4e8007]:
+                      - generic [ref=f4e8008]: F-46
+                      - generic [ref=f4e8009]: UGC & Native Görünüm
+                    - code [ref=f4e8010]: UGC style + product
+                    - generic [ref=f4e8011]:
+                      - button "UGC style skincare ad" [ref=f4e8012] [cursor=pointer]:
+                        - generic [ref=f4e8013]: UGC style skincare ad
+                        - img [ref=f4e8014]
+                      - button "native looking supplement post" [ref=f4e8017] [cursor=pointer]:
+                        - generic [ref=f4e8018]: native looking supplement post
+                        - img [ref=f4e8019]
+                      - button "phone screenshot style ad" [ref=f4e8022] [cursor=pointer]:
+                        - generic [ref=f4e8023]: phone screenshot style ad
+                        - img [ref=f4e8024]
+                      - button "authentic creator content ad" [ref=f4e8027] [cursor=pointer]:
+                        - generic [ref=f4e8028]: authentic creator content ad
+                        - img [ref=f4e8029]
+                  - generic [ref=f4e8032]:
+                    - generic [ref=f4e8033]:
+                      - generic [ref=f4e8034]: F-47
+                      - generic [ref=f4e8035]: Kampanya Tipleri
+                    - code [ref=f4e8036]: campaign type + design
+                    - generic [ref=f4e8037]:
+                      - button "Black Friday mega sale design" [ref=f4e8038] [cursor=pointer]:
+                        - generic [ref=f4e8039]: Black Friday mega sale design
+                        - img [ref=f4e8040]
+                      - button "Singles Day 11.11 campaign visual" [ref=f4e8043] [cursor=pointer]:
+                        - generic [ref=f4e8044]: Singles Day 11.11 campaign visual
+                        - img [ref=f4e8045]
+                      - button "flash sale countdown creative" [ref=f4e8048] [cursor=pointer]:
+                        - generic [ref=f4e8049]: flash sale countdown creative
+                        - img [ref=f4e8050]
+                      - button "seasonal campaign hero image" [ref=f4e8053] [cursor=pointer]:
+                        - generic [ref=f4e8054]: seasonal campaign hero image
+                        - img [ref=f4e8055]
+                  - generic [ref=f4e8058]:
+                    - generic [ref=f4e8059]:
+                      - generic [ref=f4e8060]: F-48
+                      - generic [ref=f4e8061]: Mockup & Sunum
+                    - code [ref=f4e8062]: mockup type + product
+                    - generic [ref=f4e8063]:
+                      - button "phone mockup app interface" [ref=f4e8064] [cursor=pointer]:
+                        - generic [ref=f4e8065]: phone mockup app interface
+                        - img [ref=f4e8066]
+                      - button "product in hand lifestyle mockup" [ref=f4e8069] [cursor=pointer]:
+                        - generic [ref=f4e8070]: product in hand lifestyle mockup
+                        - img [ref=f4e8071]
+                      - button "package opening lifestyle shot" [ref=f4e8074] [cursor=pointer]:
+                        - generic [ref=f4e8075]: package opening lifestyle shot
+                        - img [ref=f4e8076]
+                      - button "product on shelf retail mockup" [ref=f4e8079] [cursor=pointer]:
+                        - generic [ref=f4e8080]: product on shelf retail mockup
+                        - img [ref=f4e8081]
+                  - generic [ref=f4e8084]:
+                    - generic [ref=f4e8085]:
+                      - generic [ref=f4e8086]: F-49
+                      - generic [ref=f4e8087]: Lifestyle vs Studio
+                    - code [ref=f4e8088]: shot type + product
+                    - generic [ref=f4e8089]:
+                      - button "lifestyle product photography supplement" [ref=f4e8090] [cursor=pointer]:
+                        - generic [ref=f4e8091]: lifestyle product photography supplement
+                        - img [ref=f4e8092]
+                      - button "studio white background headphones" [ref=f4e8095] [cursor=pointer]:
+                        - generic [ref=f4e8096]: studio white background headphones
+                        - img [ref=f4e8097]
+                      - button "in-use scenario fitness product" [ref=f4e8100] [cursor=pointer]:
+                        - generic [ref=f4e8101]: in-use scenario fitness product
+                        - img [ref=f4e8102]
+                      - button "clean studio cosmetic product" [ref=f4e8105] [cursor=pointer]:
+                        - generic [ref=f4e8106]: clean studio cosmetic product
+                        - img [ref=f4e8107]
+                  - generic [ref=f4e8110]:
+                    - generic [ref=f4e8111]:
+                      - generic [ref=f4e8112]: F-50
+                      - generic [ref=f4e8113]: A/B Test Varyasyonları
+                    - code [ref=f4e8114]: variation type + creative
+                    - generic [ref=f4e8115]:
+                      - button "bold typography product ad variation" [ref=f4e8116] [cursor=pointer]:
+                        - generic [ref=f4e8117]: bold typography product ad variation
+                        - img [ref=f4e8118]
+                      - button "minimal layout supplement creative version" [ref=f4e8121] [cursor=pointer]:
+                        - generic [ref=f4e8122]: minimal layout supplement creative version
+                        - img [ref=f4e8123]
+                      - button "color blocked listing variant" [ref=f4e8126] [cursor=pointer]:
+                        - generic [ref=f4e8127]: color blocked listing variant
+                        - img [ref=f4e8128]
+                      - button "bright background ad alternative" [ref=f4e8131] [cursor=pointer]:
+                        - generic [ref=f4e8132]: bright background ad alternative
+                        - img [ref=f4e8133]
+              - generic [ref=f4e8136]:
+                - generic [ref=f4e8137]: Yerel Dil Formülleri
+                - generic [ref=f4e8138]:
+                  - generic [ref=f4e8139]:
+                    - generic [ref=f4e8140]:
+                      - generic [ref=f4e8141]: F-LOCAL-2
+                      - generic [ref=f4e8142]: Platform + Sektör (Yerel)
+                    - code [ref=f4e8143]: platform + sector (local language)
+                    - generic [ref=f4e8144]:
+                      - button "Wildberries косметика" [ref=f4e8145] [cursor=pointer]:
+                        - generic [ref=f4e8146]: Wildberries косметика
+                        - img [ref=f4e8147]
+                      - button "淘宝 护肤品 主图" [ref=f4e8150] [cursor=pointer]:
+                        - generic [ref=f4e8151]: 淘宝 护肤品 主图
+                        - img [ref=f4e8152]
+                      - button "상세페이지 화장품" [ref=f4e8155] [cursor=pointer]:
+                        - generic [ref=f4e8156]: 상세페이지 화장품
+                        - img [ref=f4e8157]
+                      - button "楽天 サプリ LP" [ref=f4e8160] [cursor=pointer]:
+                        - generic [ref=f4e8161]: 楽天 サプリ LP
+                        - img [ref=f4e8162]
+                  - generic [ref=f4e8165]:
+                    - generic [ref=f4e8166]:
+                      - generic [ref=f4e8167]: F-LOCAL-3
+                      - generic [ref=f4e8168]: Tasarım Platformu + Pazar
+                    - code [ref=f4e8169]: design platform + market
+                    - generic [ref=f4e8170]:
+                      - button "Behance Wildberries" [ref=f4e8171] [cursor=pointer]:
+                        - generic [ref=f4e8172]: Behance Wildberries
+                        - img [ref=f4e8173]
+                      - button "Behance 상세페이지" [ref=f4e8176] [cursor=pointer]:
+                        - generic [ref=f4e8177]: Behance 상세페이지
+                        - img [ref=f4e8178]
+                      - button "站酷 主图" [ref=f4e8181] [cursor=pointer]:
+                        - generic [ref=f4e8182]: 站酷 主图
+                        - img [ref=f4e8183]
+                      - button "pixiv バナー" [ref=f4e8186] [cursor=pointer]:
+                        - generic [ref=f4e8187]: pixiv バナー
+                        - img [ref=f4e8188]
+                  - generic [ref=f4e8191]:
+                    - generic [ref=f4e8192]:
+                      - generic [ref=f4e8193]: F-LOCAL-4
+                      - generic [ref=f4e8194]: Kampanya Dönemi + Pazar
+                    - code [ref=f4e8195]: campaign period + market (local language)
+                    - generic [ref=f4e8196]:
+                      - button "双十一 海报 (Çin)" [ref=f4e8197] [cursor=pointer]:
+                        - generic [ref=f4e8198]: 双十一 海报 (Çin)
+                        - img [ref=f4e8199]
+                      - button "Чёрная пятница дизайн (Rus)" [ref=f4e8202] [cursor=pointer]:
+                        - generic [ref=f4e8203]: Чёрная пятница дизайн (Rus)
+                        - img [ref=f4e8204]
+                      - button "ブラックフライデー バナー (Japon)" [ref=f4e8207] [cursor=pointer]:
+                        - generic [ref=f4e8208]: ブラックフライデー バナー (Japon)
+                        - img [ref=f4e8209]
+                      - button "블랙프라이데이 배너 (Kore)" [ref=f4e8212] [cursor=pointer]:
+                        - generic [ref=f4e8213]: 블랙프라이데이 배너 (Kore)
+                        - img [ref=f4e8214]
+  - button "Open Next.js Dev Tools" [ref=f4e239] [cursor=pointer]:
+    - img [ref=f4e240]
+  - alert [ref=f4e479]

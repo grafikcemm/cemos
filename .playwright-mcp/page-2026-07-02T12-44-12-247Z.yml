@@ -1,0 +1,132 @@
+- generic [ref=e2]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e9]:
+        - generic [ref=e10]: CemOS
+        - generic [ref=e11]: ÜRETİM MOTORU
+    - navigation [ref=e12]:
+      - generic [ref=e13]:
+        - button "Bugün" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+          - text: Bugün
+        - button "Bugün" [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+          - generic [ref=e26]: Bugün
+        - button "Günlük Kuyruk" [ref=e27] [cursor=pointer]:
+          - img [ref=e28]
+          - generic [ref=e31]: Günlük Kuyruk
+        - button "Haberler" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - generic [ref=e36]: Haberler
+      - generic [ref=e37]:
+        - button "Twitter" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Twitter
+        - button "Viral Radar" [ref=e42] [cursor=pointer]:
+          - img [ref=e43]
+          - generic [ref=e46]: Viral Radar
+        - button "Keşif Motoru" [ref=e47] [cursor=pointer]:
+          - img [ref=e48]
+          - generic [ref=e51]: Keşif Motoru
+        - button "X Hesabı Kaynakları" [ref=e52] [cursor=pointer]:
+          - img [ref=e53]
+          - generic [ref=e58]: X Hesabı Kaynakları
+        - button "Viral Kütüphane" [ref=e59] [cursor=pointer]:
+          - img [ref=e60]
+          - generic [ref=e62]: Viral Kütüphane
+      - generic [ref=e63]:
+        - button "Kütüphane" [ref=e64] [cursor=pointer]:
+          - img [ref=e65]
+          - text: Kütüphane
+        - button "Anahtar Kelime Kütüphanesi" [ref=e67] [cursor=pointer]:
+          - img [ref=e68]
+          - generic [ref=e70]: Anahtar Kelime Kütüphanesi
+        - button "Prompt Kütüphanesi" [ref=e71] [cursor=pointer]:
+          - img [ref=e72]
+          - generic [ref=e74]: Prompt Kütüphanesi
+        - button "Pattern Kütüphanesi" [ref=e75] [cursor=pointer]:
+          - img [ref=e76]
+          - generic [ref=e78]: Pattern Kütüphanesi
+      - generic [ref=e79]:
+        - button "Youtube" [ref=e80] [cursor=pointer]:
+          - img [ref=e81]
+          - text: Youtube
+        - button "YouTube Fırsat Motoru" [ref=e84] [cursor=pointer]:
+          - img [ref=e85]
+          - generic [ref=e88]: YouTube Fırsat Motoru
+        - button "Youtube Öğrenme Kütüphanesi" [ref=e89] [cursor=pointer]:
+          - img [ref=e90]
+          - generic [ref=e102]: Youtube Öğrenme Kütüphanesi
+      - generic [ref=e103]:
+        - generic [ref=e104]: Araçlar
+        - button "Toolbox" [ref=e105] [cursor=pointer]:
+          - img [ref=e106]
+          - generic [ref=e108]: Toolbox
+        - button "Maliyetler" [ref=e109] [cursor=pointer]:
+          - img [ref=e110]
+          - generic [ref=e112]: Maliyetler
+        - button "Ayarlar" [ref=e113] [cursor=pointer]:
+          - img [ref=e114]
+          - generic [ref=e117]: Ayarlar
+    - generic [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e122]: "Worker: ?"
+        - generic [ref=e123]: Maliyet —
+      - combobox "Aktif kanal" [ref=e124] [cursor=pointer]:
+        - option "@grafikcem" [selected]
+        - option "@maskulenkod"
+      - button "Menüyü daralt" [ref=e125] [cursor=pointer]:
+        - img [ref=e126]
+        - text: Daralt
+  - generic [ref=e129]:
+    - banner [ref=e130]:
+      - navigation "Breadcrumb" [ref=e131]:
+        - generic [ref=e132]: Bugün
+    - main [ref=e133]:
+      - generic [ref=e135]:
+        - generic [ref=e138]:
+          - generic [ref=e139]: GÜNLÜK OPERASYON
+          - heading "Bugün" [level=1] [ref=e140]
+          - paragraph [ref=e141]: Sıralı inceleme akışı — incele, düzenle, kopyala, paylaş. Yaklaşık 5 dakika.
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - generic [ref=e145]:
+              - img [ref=e147]
+              - generic [ref=e149]: Bugünkü üretim
+            - generic [ref=e150]: –
+            - generic [ref=e151]: yükleniyor…
+          - generic [ref=e152]:
+            - generic [ref=e154]:
+              - img [ref=e156]
+              - generic [ref=e158]: Bu ay maliyet
+            - generic [ref=e159]: –
+            - generic [ref=e160]: yükleniyor…
+          - generic [ref=e161]:
+            - generic [ref=e163]:
+              - img [ref=e165]
+              - generic [ref=e167]: Sistem
+            - generic [ref=e168]: …
+            - generic [ref=e169]: yükleniyor…
+        - generic [ref=e170]: 🌀 Sistem hazırlık durumu kontrol ediliyor...
+        - generic [ref=e173]:
+          - generic [ref=e174]: İNCELE & PAYLAŞ
+          - heading "İnceleme Kuyruğu" [level=2] [ref=e175]
+        - button "Günlük Özet (Digest) ▼ Göster" [ref=e180] [cursor=pointer]:
+          - generic [ref=e181]: Günlük Özet (Digest)
+          - generic [ref=e182]: ▼ Göster
+        - generic [ref=e183]:
+          - generic [ref=e185]:
+            - generic [ref=e186]: GÜNÜN NABZI
+            - heading "Öne çıkanlar" [level=3] [ref=e187]
+            - paragraph [ref=e188]: Sosyal kanallar, haber havuzu ve repo radarından bugüne dair sinyaller.
+          - generic [ref=e189]:
+            - generic [ref=e190]:
+              - generic [ref=e191]: YouTube fırsatları
+              - generic [ref=e192]: ⏳ YouTube yükleniyor...
+            - generic [ref=e195]:
+              - generic [ref=e196]: VIRAL AKIŞ
+              - heading "Viral Haber Öne Çıkanlar" [level=3] [ref=e197]
+            - generic [ref=e217]:
+              - generic [ref=e218]: KEŞIF
+              - heading "Repo Öne Çıkanlar" [level=3] [ref=e219]

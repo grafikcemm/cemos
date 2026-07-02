@@ -89,9 +89,12 @@ export default function AppShell({ initialTab }: AppShellProps) {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
+      {/* Full-width top bar (worker/cron uyarısı) — flex-row'un DIŞINDA, yoksa
+          flex item olarak yatay yer kaplayıp sidebar'ı sağa iter. */}
       <AutomationManager />
 
+      <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
       {/* Desktop sidebar */}
       <div className="app-sidebar-desktop">
         <Sidebar
@@ -154,6 +157,7 @@ export default function AppShell({ initialTab }: AppShellProps) {
             {renderScreen(activeTab)}
           </div>
         </main>
+      </div>
       </div>
     </div>
   );

@@ -42,8 +42,9 @@ export default function AutomationManager() {
   // On serverless (cron mode) an offline status is informational, not a hard
   // error: automation runs once daily, so amber framing fits better than red.
   const isCron = health.worker.mode === "cron";
-  const accent = isCron ? "217, 119, 87" : "239, 68, 68";
-  const textColor = isCron ? "#fcd34d" : "#fca5a5";
+  const bandBg = isCron ? "var(--accent-2-dark)" : "color-mix(in srgb, var(--status-error) 8%, transparent)";
+  const bandBorder = isCron ? "var(--accent-2-border)" : "color-mix(in srgb, var(--status-error) 20%, transparent)";
+  const textColor = isCron ? "var(--status-warn)" : "var(--status-error)";
   const title = isCron
     ? "Otomasyon: Günlük Cron"
     : "Arka Plan İşçisi (Worker) Çalışmıyor:";
@@ -55,9 +56,9 @@ export default function AutomationManager() {
     return (
       <div
         style={{
-          background: `rgba(${accent}, 0.08)`,
+          background: bandBg,
           backdropFilter: "blur(8px)",
-          borderBottom: `1px solid rgba(${accent}, 0.2)`,
+          borderBottom: `1px solid ${bandBorder}`,
           padding: "8px 20px",
           display: "flex",
           alignItems: "center",
@@ -65,7 +66,7 @@ export default function AutomationManager() {
           fontSize: 12,
           color: textColor,
           gap: 12,
-          position: "relative",
+          flexShrink: 0,
           zIndex: 99,
         }}
       >
@@ -97,7 +98,7 @@ export default function AutomationManager() {
             style={{
               background: "transparent",
               border: "none",
-              color: "#fca5a5",
+              color: textColor,
               fontSize: 14,
               cursor: "pointer",
               padding: "2px 6px",

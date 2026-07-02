@@ -1,0 +1,178 @@
+- generic [ref=f5e1]:
+  - generic [ref=f5e2]:
+    - generic [ref=f5e243]:
+      - generic [ref=f5e244]:
+        - generic [ref=f5e245]: ⚠️
+        - generic [ref=f5e246]:
+          - strong [ref=f5e247]: "Arka Plan İşçisi (Worker) Çalışmıyor:"
+          - text: "Worker aktif değil. Son tick: 28782 dakika önce. npm run dev:operator çalıştırın."
+      - generic [ref=f5e248]:
+        - button "Yeniden Dene" [ref=f5e249] [cursor=pointer]
+        - button "×" [ref=f5e250] [cursor=pointer]
+    - generic [ref=f5e3]:
+      - complementary [ref=f5e5]:
+        - generic [ref=f5e6]:
+          - img [ref=f5e8]
+          - generic [ref=f5e10]:
+            - generic [ref=f5e11]: CemOS
+            - generic [ref=f5e12]: ÜRETİM MOTORU
+        - navigation [ref=f5e13]:
+          - generic [ref=f5e14]:
+            - button "Bugün" [ref=f5e15] [cursor=pointer]:
+              - img [ref=f5e16]
+              - text: Bugün
+            - button "Bugün" [ref=f5e21] [cursor=pointer]:
+              - img [ref=f5e22]
+              - generic [ref=f5e27]: Bugün
+            - button "Günlük Kuyruk" [ref=f5e28] [cursor=pointer]:
+              - img [ref=f5e29]
+              - generic [ref=f5e32]: Günlük Kuyruk
+            - button "Haberler" [ref=f5e33] [cursor=pointer]:
+              - img [ref=f5e34]
+              - generic [ref=f5e37]: Haberler
+          - generic [ref=f5e38]:
+            - button "Twitter" [ref=f5e39] [cursor=pointer]:
+              - img [ref=f5e40]
+              - text: Twitter
+            - button "Viral Radar" [ref=f5e43] [cursor=pointer]:
+              - img [ref=f5e44]
+              - generic [ref=f5e47]: Viral Radar
+            - button "Keşif Motoru" [ref=f5e48] [cursor=pointer]:
+              - img [ref=f5e49]
+              - generic [ref=f5e52]: Keşif Motoru
+            - button "X Hesabı Kaynakları" [ref=f5e53] [cursor=pointer]:
+              - img [ref=f5e54]
+              - generic [ref=f5e59]: X Hesabı Kaynakları
+            - button "Viral Kütüphane" [ref=f5e60] [cursor=pointer]:
+              - img [ref=f5e61]
+              - generic [ref=f5e63]: Viral Kütüphane
+          - generic [ref=f5e64]:
+            - button "Kütüphane" [ref=f5e65] [cursor=pointer]:
+              - img [ref=f5e66]
+              - text: Kütüphane
+            - button "Anahtar Kelime Kütüphanesi" [ref=f5e68] [cursor=pointer]:
+              - img [ref=f5e69]
+              - generic [ref=f5e71]: Anahtar Kelime Kütüphanesi
+            - button "Prompt Kütüphanesi" [ref=f5e72] [cursor=pointer]:
+              - img [ref=f5e73]
+              - generic [ref=f5e75]: Prompt Kütüphanesi
+            - button "Pattern Kütüphanesi" [ref=f5e76] [cursor=pointer]:
+              - img [ref=f5e77]
+              - generic [ref=f5e79]: Pattern Kütüphanesi
+          - generic [ref=f5e80]:
+            - button "Youtube" [ref=f5e81] [cursor=pointer]:
+              - img [ref=f5e82]
+              - text: Youtube
+            - button "YouTube Fırsat Motoru" [ref=f5e85] [cursor=pointer]:
+              - img [ref=f5e86]
+              - generic [ref=f5e89]: YouTube Fırsat Motoru
+            - button "Youtube Öğrenme Kütüphanesi" [active] [ref=f5e90] [cursor=pointer]:
+              - img [ref=f5e91]
+              - generic [ref=f5e103]: Youtube Öğrenme Kütüphanesi
+          - generic [ref=f5e104]:
+            - generic [ref=f5e105]: Araçlar
+            - button "Toolbox" [ref=f5e106] [cursor=pointer]:
+              - img [ref=f5e107]
+              - generic [ref=f5e109]: Toolbox
+            - button "Maliyetler" [ref=f5e110] [cursor=pointer]:
+              - img [ref=f5e111]
+              - generic [ref=f5e113]: Maliyetler
+            - button "Ayarlar" [ref=f5e114] [cursor=pointer]:
+              - img [ref=f5e115]
+              - generic [ref=f5e118]: Ayarlar
+        - generic [ref=f5e119]:
+          - generic [ref=f5e120]:
+            - generic [ref=f5e123]: "Worker: Stale"
+            - generic [ref=f5e124]: Bugün $0.1615
+          - combobox "Aktif kanal" [ref=f5e125] [cursor=pointer]:
+            - option "@grafikcem" [selected]
+            - option "@maskulenkod"
+          - button "Menüyü daralt" [ref=f5e126] [cursor=pointer]:
+            - img [ref=f5e127]
+            - text: Daralt
+      - generic [ref=f5e130]:
+        - banner [ref=f5e131]:
+          - navigation "Breadcrumb" [ref=f5e132]:
+            - generic [ref=f5e133]: Youtube
+            - generic [ref=f5e480]: /
+            - generic [ref=f5e481]: Youtube Öğrenme Kütüphanesi
+        - main [ref=f5e134]:
+          - generic [ref=f5e543]:
+            - generic [ref=f5e545]:
+              - generic [ref=f5e546]:
+                - generic [ref=f5e547]: YOUTUBE
+                - heading "Youtube Öğrenme Kütüphanesi" [level=1] [ref=f5e548]
+                - paragraph [ref=f5e549]: Eğitici YouTube videolarını kaynaklı notlara, karta ve aralıklı tekrara dönüştür — hazır paketler Obsidian vault'una otomatik düşer.
+              - button "Yenile" [ref=f5e551] [cursor=pointer]:
+                - img [ref=f5e552]
+                - text: Yenile
+            - generic [ref=f5e557]:
+              - generic [ref=f5e558]:
+                - img [ref=f5e561]
+                - generic [ref=f5e565]:
+                  - generic [ref=f5e566]: Hazır paket
+                  - generic [ref=f5e567]: "3"
+              - generic [ref=f5e568]:
+                - img [ref=f5e571]
+                - generic [ref=f5e575]:
+                  - generic [ref=f5e576]: Bugün tekrar
+                  - generic [ref=f5e577]: "40"
+              - generic [ref=f5e578]:
+                - img [ref=f5e581]
+                - generic [ref=f5e589]:
+                  - generic [ref=f5e590]: Ort. mastery
+                  - generic [ref=f5e591]: "0"
+            - generic [ref=f5e593]:
+              - img [ref=f5e594]
+              - generic [ref=f5e598]: Bugün tekrar edilecek 40 kart var.
+              - button "Tekrara başla" [ref=f5e599] [cursor=pointer]
+            - generic [ref=f5e600]:
+              - generic [ref=f5e601]: KAYNAK EKLE
+              - generic [ref=f5e602]:
+                - textbox "YouTube video URL'si" [ref=f5e603]
+                - button "Ekle" [disabled] [ref=f5e604]:
+                  - img [ref=f5e605]
+                  - text: Ekle
+              - button "Transkript yoksa manuel yapıştır" [ref=f5e606] [cursor=pointer]
+            - generic [ref=f5e607]:
+              - generic [ref=f5e609]:
+                - generic [ref=f5e610]:
+                  - generic [ref=f5e611] [cursor=pointer]: https://www.youtube.com/watch?v=sAVCAfw-fXU
+                  - generic [ref=f5e612]: —
+                - generic [ref=f5e613]: Yapay Zeka
+                - generic [ref=f5e614]: mastery 0
+                - generic [ref=f5e615]: Hazır
+                - button "Aç" [ref=f5e616] [cursor=pointer]
+              - generic [ref=f5e618]:
+                - generic [ref=f5e619]:
+                  - generic [ref=f5e620] [cursor=pointer]: https://www.youtube.com/watch?v=AzCaZkN_qa8
+                  - generic [ref=f5e621]: —
+                - img [ref=f5e622]
+                - generic [ref=f5e624]: Hata
+                - button "Devam" [ref=f5e625] [cursor=pointer]
+              - generic [ref=f5e627]:
+                - generic [ref=f5e628]:
+                  - generic [ref=f5e629] [cursor=pointer]: https://www.youtube.com/watch?v=HfYxt8qVTw0
+                  - generic [ref=f5e630]: —
+                - generic [ref=f5e631]: Yapay Zeka
+                - generic [ref=f5e632]: mastery 0
+                - generic [ref=f5e633]: Hazır
+                - button "Aç" [ref=f5e634] [cursor=pointer]
+              - generic [ref=f5e636]:
+                - generic [ref=f5e637]:
+                  - generic [ref=f5e638] [cursor=pointer]: https://www.youtube.com/watch?v=k3nP4BffVWg
+                  - generic [ref=f5e639]: —
+                - img [ref=f5e640]
+                - generic [ref=f5e642]: Hata
+                - button "Devam" [ref=f5e643] [cursor=pointer]
+              - generic [ref=f5e645]:
+                - generic [ref=f5e646]:
+                  - generic [ref=f5e647] [cursor=pointer]: Yapay Zeka 92 Milyon İşi Yok Edecek (Ama Gerçek Farklı)
+                  - generic [ref=f5e648]: Görkem Sakınmaz
+                - generic [ref=f5e649]: Diğer
+                - generic [ref=f5e650]: mastery 0
+                - generic [ref=f5e651]: Hazır
+                - button "Aç" [ref=f5e652] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=f5e239] [cursor=pointer]:
+    - img [ref=f5e240]
+  - alert [ref=f5e479]
