@@ -43,7 +43,7 @@ function buildImagePrompt(handle: AccountHandle, draftText: string): string {
       `Account concept: ${concept}`,
       `Post context: "${cleaned}"`,
       "Style: dark, high-contrast, disciplined and stoic mood; strong geometric composition,",
-      "single cold accent (steel blue #60a5fa) on near-black; editorial, no faces, no text,",
+      "single cold accent (steel blue var(--status-info)) on near-black; editorial, no faces, no text,",
       "no motivational-poster cliché, no stock photo look, sharp focus.",
       "FULL-BLEED 1:1 square that fills the ENTIRE 1080x1080 frame edge-to-edge;",
       "absolutely no white border, no margins, no passe-partout, no frame, no mockup,",

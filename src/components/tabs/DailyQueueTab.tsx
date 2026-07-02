@@ -807,7 +807,7 @@ export default function DailyQueueTab() {
             }}
             style={{
               padding: "6px 14px",
-              background: "rgba(200, 224, 191,0.1)",
+              background: "var(--accent-tint-12)",
               border: "1px solid var(--accent-border)",
               borderRadius: 6,
               color: "var(--accent)",
@@ -1059,7 +1059,7 @@ export default function DailyQueueTab() {
                     style={{
                       flex: 1,
                       padding: "6px 12px",
-                      background: "rgba(200, 224, 191,0.1)",
+                      background: "var(--accent-tint-12)",
                       border: "1px solid var(--accent-border)",
                       color: "var(--accent)",
                       borderRadius: 6,
@@ -1234,7 +1234,7 @@ export default function DailyQueueTab() {
                   </div>
                 )}
                 {selectedItem.scoresParsed?.modelFallbackUsed && (
-                  <div style={{ fontSize: 9, color: "var(--yellow)", marginTop: 2, background: "rgba(217, 119, 87,0.05)", padding: "2px 6px", borderRadius: 3 }}>
+                  <div style={{ fontSize: 9, color: "var(--yellow)", marginTop: 2, background: "color-mix(in srgb, var(--accent-2) 5%, transparent)", padding: "2px 6px", borderRadius: 3 }}>
                     ⚠️ Fallback Model Kullanıldı! {selectedItem.scoresParsed.modelFallbackReason ? `(${selectedItem.scoresParsed.modelFallbackReason})` : ""}
                   </div>
                 )}
@@ -1255,7 +1255,7 @@ export default function DailyQueueTab() {
                     disabled={isSaving}
                     style={{
                       padding: "8px 12px",
-                      background: selectedItem.status === "approved" ? "rgba(200, 224, 191,0.12)" : "rgba(200, 224, 191,0.08)",
+                      background: selectedItem.status === "approved" ? "var(--accent-tint-12)" : "var(--accent-tint-08)",
                       border: `1px solid ${selectedItem.status === "approved" ? "var(--accent)" : "var(--accent-border)"}`,
                       color: "var(--accent)",
                       borderRadius: 6,

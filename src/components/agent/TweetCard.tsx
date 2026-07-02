@@ -64,11 +64,11 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
   };
 
   const initial = (tweet.handle || "?")[0].toUpperCase();
-  const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#6366f1"];
+  const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "var(--status-warn)", "#10b981", "#6366f1"];
   const avatarColor = colors[tweet.handle.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
   const timeAgo = tweet.createdAt ? formatTimeAgo(tweet.createdAt) : "";
 
-  const viralColor = tweet.viralScore >= 70 ? "var(--green)" : tweet.viralScore >= 40 ? "#f59e0b" : "#666";
+  const viralColor = tweet.viralScore >= 70 ? "var(--green)" : tweet.viralScore >= 40 ? "var(--status-warn)" : "#666";
 
   return (
     <div

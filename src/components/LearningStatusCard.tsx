@@ -22,7 +22,7 @@ type LearningStatus = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "#0e0e0e",
+  background: "var(--bg-sunken)",
   border: "1px solid rgba(255,255,255,0.08)",
   borderRadius: 10,
   padding: 16,
@@ -37,10 +37,10 @@ function formatRun(run: CronRunInfo): { text: string; color: string } {
     hour: "2-digit",
     minute: "2-digit",
   });
-  if (!run.finishedAt) return { text: `${dt} — çalışıyor…`, color: "#f59e0b" };
-  if (!run.ok) return { text: `${dt} — hata: ${run.error || "bilinmiyor"}`, color: "#f87171" };
-  if (run.partial) return { text: `${dt} — kısmi tamamlandı`, color: "#f59e0b" };
-  return { text: `${dt} — başarılı`, color: "#4ade80" };
+  if (!run.finishedAt) return { text: `${dt} — çalışıyor…`, color: "var(--status-warn)" };
+  if (!run.ok) return { text: `${dt} — hata: ${run.error || "bilinmiyor"}`, color: "var(--status-error)" };
+  if (run.partial) return { text: `${dt} — kısmi tamamlandı`, color: "var(--status-warn)" };
+  return { text: `${dt} — başarılı`, color: "var(--status-ok)" };
 }
 
 /**
@@ -67,7 +67,7 @@ export default function LearningStatusCard() {
 
   if (error) {
     return (
-      <div style={{ ...cardStyle, borderColor: "rgba(239,68,68,0.3)", color: "#f87171", fontSize: 12 }}>
+      <div style={{ ...cardStyle, borderColor: "color-mix(in srgb, var(--status-error) 30%, transparent)", color: "var(--status-error)", fontSize: 12 }}>
         Öğrenme durumu yüklenemedi: {error}
       </div>
     );
@@ -100,7 +100,7 @@ export default function LearningStatusCard() {
           <div style={{ fontSize: 12, marginTop: 4 }}>
             <strong style={{ color: "var(--accent)" }}>{status ? status.patternsMinedLast7d : "–"}</strong>{" "}
             yeni pattern ·{" "}
-            <strong style={{ color: "#60a5fa" }}>{status ? status.engagementEventsLast7d : "–"}</strong>{" "}
+            <strong style={{ color: "var(--status-info)" }}>{status ? status.engagementEventsLast7d : "–"}</strong>{" "}
             engagement sinyali
           </div>
         </div>

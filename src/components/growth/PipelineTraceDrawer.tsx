@@ -36,7 +36,7 @@ const card: CSSProperties = {
 
 function badge(variant: "accent" | "red" | "yellow"): CSSProperties {
   const map = {
-    accent: { color: "var(--accent)", bg: "rgba(200, 224, 191,0.12)", border: "rgba(200, 224, 191,0.2)" },
+    accent: { color: "var(--accent)", bg: "var(--accent-tint-12)", border: "var(--accent-tint-20)" },
     red: { color: "var(--red)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.2)" },
     yellow: { color: "var(--yellow)", bg: "rgba(250,204,21,0.12)", border: "rgba(250,204,21,0.2)" },
   }[variant];

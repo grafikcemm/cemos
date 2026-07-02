@@ -756,7 +756,7 @@ export default function FlowRadarTab() {
                         fontSize: 9,
                         background:
                           cand.score.suggestedAction === "tweet"
-                            ? "rgba(200, 224, 191,0.15)"
+                            ? "var(--accent-tint-15)"
                             : cand.score.suggestedAction === "quote"
                             ? "rgba(96,165,250,0.15)"
                             : cand.score.suggestedAction === "reply"
@@ -868,7 +868,7 @@ export default function FlowRadarTab() {
                           key={idx}
                           style={{
                             fontSize: 9,
-                            background: "rgba(200, 224, 191,0.12)",
+                            background: "var(--accent-tint-12)",
                             color: "var(--accent)",
                             padding: "1px 5px",
                             borderRadius: 3
@@ -911,8 +911,8 @@ export default function FlowRadarTab() {
                   <button
                     onClick={() => handleSaveAsPattern(cand.id)}
                     style={{
-                      background: "rgba(200, 224, 191,0.08)",
-                      border: "1px solid rgba(200, 224, 191,0.15)",
+                      background: "var(--accent-tint-08)",
+                      border: "1px solid var(--accent-tint-15)",
                       color: "var(--accent)",
                       fontSize: 10,
                       fontWeight: 500,
@@ -965,8 +965,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleGenerateDrafts(cand, "tweet")}
                       style={{
-                        background: "rgba(200, 224, 191,0.12)",
-                        border: "1px solid rgba(200, 224, 191,0.2)",
+                        background: "var(--accent-tint-12)",
+                        border: "1px solid var(--accent-tint-20)",
                         color: "var(--accent)",
                         fontSize: 10,
                         fontWeight: 500,
@@ -1158,7 +1158,7 @@ export default function FlowRadarTab() {
               <div>
                 <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0, color: "var(--accent)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
                   <span>Taslak Oluşturucu & Eleştirmen</span>
-                  <span style={{ fontSize: 10, background: "rgba(200, 224, 191,0.15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
+                  <span style={{ fontSize: 10, background: "var(--accent-tint-15)", color: "var(--accent)", padding: "1px 5px", borderRadius: 3 }}>
                     {selectedActionType}
                   </span>
                 </h3>
@@ -1394,8 +1394,8 @@ export default function FlowRadarTab() {
                             onClick={() => handleSaveToQueue(item)}
                             disabled={isSaving}
                             style={{
-                              background: "rgba(200, 224, 191,0.12)",
-                              border: "1px solid rgba(200, 224, 191,0.2)",
+                              background: "var(--accent-tint-12)",
+                              border: "1px solid var(--accent-tint-20)",
                               color: "var(--accent)",
                               fontSize: 9,
                               fontWeight: 500,

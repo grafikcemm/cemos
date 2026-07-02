@@ -126,15 +126,15 @@ export default function OperatorReadinessGate() {
   if (readiness.ready) {
     return (
       <div style={{
-        background: isWarning ? "rgba(217, 119, 87, 0.06)" : "rgba(200, 224, 191, 0.08)",
-        border: isWarning ? "1px solid rgba(217, 119, 87, 0.25)" : "1px solid rgba(200, 224, 191, 0.35)",
+        background: isWarning ? "color-mix(in srgb, var(--accent-2) 6%, transparent)" : "var(--accent-tint-08)",
+        border: isWarning ? "1px solid color-mix(in srgb, var(--accent-2) 25%, transparent)" : "1px solid var(--accent-tint-30)",
         borderRadius: 8,
         padding: "14px 16px",
         marginBottom: 16,
         fontSize: 13,
         color: "var(--text-primary)"
       }}>
-        <div style={{ color: isWarning ? "#f59e0b" : "var(--accent)", fontWeight: 500, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ color: isWarning ? "var(--status-warn)" : "var(--accent)", fontWeight: 500, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
           <span>{isWarning ? "⚠️ Taslaklar Hazır (Worker Uyarısı)" : "🚀 Operator Mode Hazır"}</span>
         </div>
         <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>
@@ -184,7 +184,7 @@ export default function OperatorReadinessGate() {
                 return (
                   <div key={idx} style={{ color: "var(--text-muted)", display: "flex", justifyContent: "space-between" }}>
                     <span>@{r.account} (Scan: {r.tweetsFound ?? 0} tweet / Aday: {r.candidateSourcePostsFound ?? 0})</span>
-                    <span style={{ fontWeight: 500, color: r.draftsCreated > 0 ? "var(--accent)" : "#f87171" }}>
+                    <span style={{ fontWeight: 500, color: r.draftsCreated > 0 ? "var(--accent)" : "var(--status-error)" }}>
                       {reasonText}
                     </span>
                   </div>
@@ -245,7 +245,7 @@ export default function OperatorReadinessGate() {
       <ul style={{ margin: "0 0 12px 0", paddingLeft: 20, color: "var(--text-secondary)", fontSize: 12, display: "flex", flexDirection: "column", gap: 4 }}>
         {readiness.issues.map((iss, i) => (
           <li key={i} style={{ color: "var(--text-primary)" }}>
-            <span style={{ color: "#f87171", marginRight: 4 }}>•</span> {iss}
+            <span style={{ color: "var(--status-error)", marginRight: 4 }}>•</span> {iss}
           </li>
         ))}
         {readiness.warnings.map((warn, i) => (
@@ -288,7 +288,7 @@ export default function OperatorReadinessGate() {
               return (
                 <div key={idx} style={{ color: "var(--text-muted)", display: "flex", justifyContent: "space-between" }}>
                   <span>@{r.account} (Scan: {r.tweetsFound ?? 0} tweet / Aday: {r.candidateSourcePostsFound ?? 0})</span>
-                  <span style={{ fontWeight: 500, color: r.draftsCreated > 0 ? "var(--accent)" : "#f87171" }}>
+                  <span style={{ fontWeight: 500, color: r.draftsCreated > 0 ? "var(--accent)" : "var(--status-error)" }}>
                     {reasonText}
                   </span>
                 </div>

@@ -52,7 +52,7 @@ const GENERATE: SurfaceSpec = {
   bg: "var(--accent-2-dark)",
   color: "var(--accent-2-text)",
   border: "var(--accent-2-border)",
-  hover: "rgba(217,119,87,0.2)",
+  hover: "color-mix(in srgb, var(--accent-2) 20%, transparent)",
 };
 
 export default function Button({

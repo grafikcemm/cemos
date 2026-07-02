@@ -21,7 +21,7 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
         gap: 10,
         padding: "0 var(--space-page-x)",
         borderBottom: "1px solid var(--border-faint)",
-        background: "rgba(11,12,16,0.82)",
+        background: "var(--surface-overlay)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         position: "sticky",

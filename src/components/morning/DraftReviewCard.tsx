@@ -176,7 +176,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
             <button
               onClick={handleSave}
               disabled={saving}
-              style={btnStyle("rgba(200, 224, 191,0.1)", "var(--accent-border)", "var(--accent)")}
+              style={btnStyle("var(--accent-tint-12)", "var(--accent-border)", "var(--accent)")}
             >
               💾 {saving ? "..." : "Kaydet"}
             </button>

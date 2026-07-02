@@ -10,7 +10,7 @@ const TONES: Record<KanbanTone, { bg: string; text: string; border: string; dot:
   accent2: { bg: "var(--accent-2-dark)", text: "var(--accent-2-text)", border: "var(--accent-2-border)", dot: "var(--accent-2)" },
   danger: { bg: "rgba(190,18,60,0.12)", text: "var(--danger)", border: "rgba(190,18,60,0.26)", dot: "var(--danger)" },
   green: { bg: "rgba(110,141,122,0.16)", text: "var(--green)", border: "rgba(110,141,122,0.3)", dot: "var(--green)" },
-  yellow: { bg: "rgba(217,119,87,0.16)", text: "var(--yellow)", border: "rgba(217,119,87,0.3)", dot: "var(--yellow)" },
+  yellow: { bg: "color-mix(in srgb, var(--accent-2) 16%, transparent)", text: "var(--yellow)", border: "color-mix(in srgb, var(--accent-2) 30%, transparent)", dot: "var(--yellow)" },
   blue: { bg: "rgba(91,149,255,0.12)", text: "var(--blue)", border: "rgba(91,149,255,0.26)", dot: "var(--blue)" },
   muted: { bg: "var(--bg-elevated)", text: "var(--text-muted)", border: "var(--border)", dot: "var(--text-muted)" },
 };

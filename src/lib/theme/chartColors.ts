@@ -4,14 +4,14 @@
  * so chart series must pull their colors from this JS module instead.
  */
 export const chartColors = {
-  primary: "#c8e0bf", // sage (brand)
-  secondary: "#6e8d7a", // forest (positive)
-  tertiary: "#d97757", // coral (AI / accent-2)
-  quaternary: "#4d6d5a", // sage-muted
-  grid: "rgba(255,255,255,0.07)",
-  axis: "rgba(255,255,255,0.40)",
-  tooltipBg: "#222222",
-  tooltipBorder: "rgba(255,255,255,0.15)",
+  primary: "#b8a8f0", // lavender (brand)
+  secondary: "#f0c4a8", // peach (accent-2)
+  tertiary: "#8fb8ff", // soft blue (info)
+  quaternary: "#7fce9e", // soft green (positive)
+  grid: "rgba(255,255,255,0.06)",
+  axis: "rgba(255,255,255,0.36)",
+  tooltipBg: "#1a1a1e",
+  tooltipBorder: "rgba(255,255,255,0.12)",
 } as const;
 
 export type ChartColorKey = keyof typeof chartColors;
