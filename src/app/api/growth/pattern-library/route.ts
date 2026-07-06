@@ -2,8 +2,10 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   try {
     const { searchParams } = new URL(req.url);
     const accountHandle = searchParams.get("accountHandle") || "all";

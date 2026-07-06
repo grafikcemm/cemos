@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/prompt-library?category=&search=&limit=
 // Lists the prompt template library (PromptTemplate table).
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   const sp = req.nextUrl.searchParams;
   const category = sp.get("category");
   const search = sp.get("search");

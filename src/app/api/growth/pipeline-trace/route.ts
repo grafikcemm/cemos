@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ async function withRetryOnce<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   const parsed = QuerySchema.safeParse({
     subjectType: req.nextUrl.searchParams.get("subjectType") ?? "",
     subjectId: req.nextUrl.searchParams.get("subjectId") ?? "",

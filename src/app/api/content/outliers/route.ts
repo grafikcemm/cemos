@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { creatorRepo } from "@/lib/db/creatorRepo";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/content/outliers?limit=
 // Top creator-relative outliers (insufficient-sample ones excluded), explainable.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   const limit = Number(req.nextUrl.searchParams.get("limit")) || 50;
   try {
     const rows = await creatorRepo.listTopOutliers(limit);

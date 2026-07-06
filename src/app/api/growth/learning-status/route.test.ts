@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { GET } from "./route";
 import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+
+// The route is same-origin-guarded; supply the browser signal so these
+// behavioral tests exercise the handler rather than the 403 short-circuit.
+function sameOriginReq(): NextRequest {
+  return new NextRequest("http://localhost:3000/api/growth/learning-status", {
+    headers: { "sec-fetch-site": "same-origin" },
+  });
+}
 
 vi.mock("@/lib/db/client", () => ({
   prisma: {
@@ -25,7 +34,7 @@ describe("/api/growth/learning-status", () => {
     vi.mocked(prisma.feedbackEvent.count).mockResolvedValue(0);
     vi.mocked(prisma.viralPattern.findMany).mockResolvedValue([] as never);
 
-    const res = await GET();
+    const res = await GET(sameOriginReq());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toMatchObject({
@@ -58,7 +67,7 @@ describe("/api/growth/learning-status", () => {
       { patternName: "Workflow Değişimi", successScore: 82, usageCount: 6 },
     ] as never);
 
-    const res = await GET();
+    const res = await GET(sameOriginReq());
     const json = await res.json();
 
     expect(json.lastDaily).toMatchObject({ kind: "daily", ok: true, startedAt: startedAt.toISOString() });
@@ -71,7 +80,7 @@ describe("/api/growth/learning-status", () => {
   it("returns 500 with the error message on DB failure", async () => {
     vi.mocked(cronRunRepo.latestByKind).mockRejectedValue(new Error("db down"));
 
-    const res = await GET();
+    const res = await GET(sameOriginReq());
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe("db down");

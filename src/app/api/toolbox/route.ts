@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { TOOLBOX_BUCKETS, categoriesForBucket } from "@/lib/toolbox/buckets";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ export const dynamic = "force-dynamic";
 // The counts + bucket split is what keeps this off a full 254-row scan on every
 // page load — the catalog is fetched group-by-group on demand instead.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   const sp = req.nextUrl.searchParams;
 
   // Counts mode: one grouped aggregate instead of streaming every row. Powers

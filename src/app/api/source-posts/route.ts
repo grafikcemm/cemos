@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   try {
     const { searchParams } = new URL(req.url);
     const accountHandle = searchParams.get("account");

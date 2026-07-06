@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PenLine, DollarSign, Activity } from "lucide-react";
+import { PenLine, DollarSign, Activity, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 
@@ -90,30 +90,46 @@ function StatTile({
 /** Bugün ekranının hero stat şeridi — taslak / maliyet / sistem (3 tasarımlı tile). */
 export default function MorningHeroStats() {
   const [data, setData] = useState<Readiness | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let mounted = true;
+    setFailed(false);
+    // fetchJson enforces a timeout, so this promise always settles — on failure
+    // we flip to an error state (with retry) instead of hanging on "yükleniyor…".
     fetchJson<Readiness>("/api/settings/operator-readiness")
       .then((d) => mounted && setData(d))
-      .catch(() => {});
+      .catch(() => mounted && setFailed(true));
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadNonce]);
 
-  const loading = !data;
+  const loading = !data && !failed;
   const drafts = data?.todayItemsCount ?? 0;
   const cost = data?.totalMonthCost ?? 0;
   const budget = data?.monthlyBudgetUSD;
   const statusReady = data?.ready === true && !data?.readyWithWarning;
   const statusWarn = data?.ready === true && data?.readyWithWarning === true;
 
-  const draftSub = loading ? "yükleniyor…" : drafts >= DRAFT_TARGET ? "hedef tamam ✓" : `${DRAFT_TARGET} hedefin ${drafts}'i`;
-  const costSub = loading ? "yükleniyor…" : budget ? `$${budget} aylık bütçe` : "bu ay";
-  const costTone: StatTone = !budget ? "amber" : cost / budget > 0.85 ? "amber" : "green";
-  const statusValue = loading ? "…" : statusReady ? "Hazır" : statusWarn ? "Uyarılı" : "Bekliyor";
-  const statusTone: StatTone = statusReady ? "green" : statusWarn ? "amber" : "muted";
-  const statusSub = loading ? "yükleniyor…" : statusReady ? "tüm sistemler çalışıyor" : statusWarn ? "uyarılar var" : "üretim bekleniyor";
+  const placeholder = failed ? "—" : "–";
+  const numSub = (base: string) => (failed ? "yüklenemedi" : loading ? "yükleniyor…" : base);
+
+  const draftSub = numSub(drafts >= DRAFT_TARGET ? "hedef tamam ✓" : `${DRAFT_TARGET} hedefin ${drafts}'i`);
+  const costSub = numSub(budget ? `$${budget} aylık bütçe` : "bu ay");
+  const costTone: StatTone = failed ? "muted" : !budget ? "amber" : cost / budget > 0.85 ? "amber" : "green";
+  const statusValue = failed ? "Hata" : loading ? "…" : statusReady ? "Hazır" : statusWarn ? "Uyarılı" : "Bekliyor";
+  const statusTone: StatTone = failed ? "amber" : statusReady ? "green" : statusWarn ? "amber" : "muted";
+  const statusSub = failed
+    ? "durum alınamadı"
+    : loading
+      ? "yükleniyor…"
+      : statusReady
+        ? "tüm sistemler çalışıyor"
+        : statusWarn
+          ? "uyarılar var"
+          : "üretim bekleniyor";
 
   return (
     <div
@@ -131,14 +147,14 @@ export default function MorningHeroStats() {
     >
       <StatTile
         eyebrow="Bugünkü üretim"
-        value={loading ? "–" : String(drafts)}
+        value={loading || failed ? placeholder : String(drafts)}
         sub={draftSub}
         tone="accent"
         icon={<PenLine size={16} strokeWidth={1.9} />}
       />
       <StatTile
         eyebrow="Bu ay maliyet"
-        value={loading ? "–" : `$${cost.toFixed(2)}`}
+        value={loading || failed ? placeholder : `$${cost.toFixed(2)}`}
         sub={costSub}
         tone={costTone}
         icon={<DollarSign size={16} strokeWidth={1.9} />}
@@ -150,6 +166,32 @@ export default function MorningHeroStats() {
         tone={statusTone}
         icon={<Activity size={16} strokeWidth={1.9} />}
       />
+      {failed && (
+        <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+            Durum bilgisi yüklenemedi.
+          </span>
+          <button
+            type="button"
+            onClick={() => setReloadNonce((n) => n + 1)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: "var(--radius-md)",
+              background: "var(--bg-hover)",
+              border: "1px solid var(--border)",
+              color: "var(--text-primary)",
+              fontSize: "var(--text-sm)",
+              cursor: "pointer",
+            }}
+          >
+            <RotateCw size={14} strokeWidth={1.9} />
+            Tekrar dene
+          </button>
+        </div>
+      )}
     </div>
   );
 }

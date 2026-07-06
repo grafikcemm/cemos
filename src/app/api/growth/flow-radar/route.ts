@@ -4,8 +4,10 @@ import { accountRepo } from "@/lib/db/accountRepo";
 import { scoreSourcePostFallback } from "@/lib/growth-engine/scorer";
 import { extractPatternSyncFallback } from "@/lib/growth-engine/pattern-extractor";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   try {
     const { searchParams } = new URL(req.url);
     const accountHandle = searchParams.get("accountHandle") || searchParams.get("account") || "all";

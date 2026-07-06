@@ -8,7 +8,9 @@ vi.mock("@/lib/db/pipelineTraceRepo", () => ({
 }));
 
 function makeReq(query: string) {
-  return new NextRequest(`http://localhost:3000/api/growth/pipeline-trace${query}`);
+  return new NextRequest(`http://localhost:3000/api/growth/pipeline-trace${query}`, {
+    headers: { "sec-fetch-site": "same-origin" },
+  });
 }
 
 describe("/api/growth/pipeline-trace", () => {

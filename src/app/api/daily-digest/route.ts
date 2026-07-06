@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDigestForDate } from "@/lib/news/digest";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/daily-digest?date=YYYY-MM-DD
 // Defaults to today's Europe/Istanbul calendar day.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   const date = req.nextUrl.searchParams.get("date") ?? undefined;
 
   try {
