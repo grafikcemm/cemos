@@ -35,6 +35,18 @@
 - "Tepki vermeye değer" içindeki üç highlight bileşeninin iç limitleri (5/3/3) spec'in
   "~3 öğe" hedefine indirilebilir; şimdilik bölüm varsayılan katlanmış.
 
+## Eval — legacy vaka takibi (non-blocking, Sprint 1 kapsamı dışı)
+`eval:run --all` (2026-07-09): 51/51 golden vaka PASS; 4 non-PASS'ın tümü
+research-ingest döneminden kalan LEGACY testler — Sprint 1 regresyonu değil,
+eski eşik hedefleri (heuristik fallback critic 402 nedeniyle koştu; gerçek-LLM
+skorlarıyla yeniden değerlendirilmeli):
+- `grafikcem_thread_prefers_bookmark_depth` (0): hookStrength>=75 (70), virality>=75 (45)
+- `grafikcem_youtube_short_needs_related_video_bridge` (67): virality>=70 (45)
+- `maskulenkod_reel_should_not_be_motivation_slop` (67): virality>=60 (45)
+- `maskulenkod_youtube_longform_needs_model_not_rant` (33): clarity>=85 (80), hookStrength>=75 (70)
+Takip: OpenRouter kredisi eklendikten sonra `eval:run --all` tekrar; hâlâ
+düşükse eşikler mi gevşetilir yoksa prompt mu iyileştirilir — dalga 2 kararı.
+
 ## Operasyonel
 - `account-profiles.ts` silme: Sprint 2, eval-parity sonrası (9 tüketici kaldı).
 - Neon connection pool: lokal dev + script'ler aynı anda çalışınca pool timeout
