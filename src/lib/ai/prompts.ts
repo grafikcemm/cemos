@@ -111,7 +111,7 @@ function getAnglesForAccount(handle: string): string[] {
 // Bu hesabın gerçek viral postlarından damıtılmış hedef stil. Modelin
 // soyut yorum yerine somut araç + sert sayı + döküm üretmesi için.
 
-const GOLD_EXAMPLES: Record<string, string[]> = {
+export const GOLD_EXAMPLES: Record<string, string[]> = {
   grafikcem: [
     // tool_spotlight — araç + iş sürecine kattığı + döküm
     "WhatsApp otomasyonu satan ajansların sırrı ifşa oldu. OpenWA çıktı — ücretsiz, açık kaynak, self-hosted WhatsApp API Gateway. Twilio'nun mesaj başına 4 sente kestiği faturayı sıfıra çekiyor.\n\n→ Multi-session desteği\n→ REST API + dashboard\n→ n8n entegrasyonu\n→ Tek Docker komutu\n\nAltyapı bedava. Pasif gelir motoru hazır.",
@@ -207,7 +207,45 @@ const ACCOUNT_WRITING_RULES: Record<string, string[]> = {
 
 // ─── Writer prompt (multi-angle) ─────────────────────────────────────────────
 
-export function buildDraftSystemPrompt(profile: AccountProfile) {
+/**
+ * Aktif VoiceProfile'ın prompt'a giren damıtılmış hali (FIRST-SPRINT item 16).
+ * JSON kolonları çağıran tarafta parse edilir; buraya düz yapı gelir.
+ * NOT: Bu blok SYSTEM prompt'ta yaşar (Anthropic cache breakpoint'inden
+ * faydalanır); grounding'in eski §1.7 SES PROFİLİ user-bloğu kaldırıldı —
+ * ses tek yerden enjekte edilir, tekrar/şişme yok.
+ */
+export type DraftVoice = {
+  personality?: string | null;
+  toneTags: string[];
+  vocabulary: string[];
+  avoid: string[];
+  rhythm?: string | null;
+  mission?: string | null;
+  pointOfView?: string | null;
+  audience?: string | null;
+};
+
+function buildVoiceBlock(voice: DraftVoice | undefined): string[] {
+  if (!voice) return [];
+  const lines: string[] = [];
+  if (voice.personality?.trim()) lines.push(`- Kişilik: ${voice.personality.trim()}`);
+  if (voice.mission?.trim()) lines.push(`- Misyon: ${voice.mission.trim()}`);
+  if (voice.pointOfView?.trim()) lines.push(`- Bakış açısı: ${voice.pointOfView.trim()}`);
+  if (voice.audience?.trim()) lines.push(`- Hedef kitle: ${voice.audience.trim()}`);
+  if (voice.toneTags.length > 0) lines.push(`- Ton etiketleri: ${voice.toneTags.join(", ")}`);
+  if (voice.vocabulary.length > 0)
+    lines.push(`- Sık kullandığı kelimeler/kalıplar: ${voice.vocabulary.join(", ")}`);
+  if (voice.rhythm?.trim()) lines.push(`- Ritim: ${voice.rhythm.trim()}`);
+  if (voice.avoid.length > 0) lines.push(`- Kaçındığı ifadeler: ${voice.avoid.join(", ")}`);
+  if (lines.length === 0) return [];
+  return [
+    "",
+    "SES PROFİLİ (yayınlanan gerçek tweetlerden damıtıldı — taslaklar bu sese uymalı):",
+    ...lines,
+  ];
+}
+
+export function buildDraftSystemPrompt(profile: AccountProfile, voice?: DraftVoice) {
   const competitorContext = getCompetitorPromptContext(profile.handle);
   const angles = getAnglesForAccount(profile.handle);
   const rules = ACCOUNT_WRITING_RULES[profile.handle] ?? [];
@@ -266,6 +304,7 @@ export function buildDraftSystemPrompt(profile: AccountProfile) {
     ...competitorContext.topAccounts.map(
       (a) => `- @${a.handle} (${a.category}): ${a.why}`,
     ),
+    ...buildVoiceBlock(voice),
     ...goldBlock,
     ...patternBlock,
     ...maskulenBlock,

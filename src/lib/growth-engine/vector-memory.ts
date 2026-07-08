@@ -208,6 +208,31 @@ export async function embedTrainingExamplesByAccount(
 }
 
 /**
+ * Sorgu-anı embedding cache'i (FIRST-SPRINT item 14). ViralPattern'ın kalıcı
+ * embedding kolonu yok (migration yasak) — pattern metni her aramada GERÇEK
+ * embedding ile vektörlenir; process-içi cache tekrar maliyetini sıfırlar.
+ * `createEmbedding` zaten hata durumunda local-hash'e düşer (yalnız fallback).
+ */
+const queryTimeEmbeddingCache = new Map<string, EmbeddingVector>();
+const QUERY_EMBED_CACHE_MAX = 500;
+
+async function getCachedEmbedding(cacheKey: string, text: string): Promise<EmbeddingVector> {
+  const cached = queryTimeEmbeddingCache.get(cacheKey);
+  if (cached) return cached;
+  const embedding = await createEmbedding(text);
+  // local_fallback sonuçlarını cache'leme: API bir sonraki aramada ayağa
+  // kalkmışsa gerçek embedding'e geçebilsin.
+  if (embedding.provider !== "local_fallback") {
+    if (queryTimeEmbeddingCache.size >= QUERY_EMBED_CACHE_MAX) {
+      const firstKey = queryTimeEmbeddingCache.keys().next().value;
+      if (firstKey !== undefined) queryTimeEmbeddingCache.delete(firstKey);
+    }
+    queryTimeEmbeddingCache.set(cacheKey, embedding);
+  }
+  return embedding;
+}
+
+/**
  * Helper to map DB label and reason to MemoryLabel
  */
 export function mapTrainingLabelToMemoryLabel(label: string, reason?: string): MemoryLabel {
@@ -266,13 +291,16 @@ export async function searchSimilarExamples(
       }
     }
 
-    // In-memory fallback embedding calculation (but do not persist back to database)
+    // Kalıcı embedding yoksa GERÇEK embedding ile sorgu-anı vektörleme
+    // (item 14): local-hash yalnız createEmbedding içindeki hata fallback'i.
+    // Eski davranış (her zaman 256-dim local-hash) gerçek 1536-dim sorgu
+    // vektörüyle boyut uyuşmazlığı yaratıp benzerliği kalıcı 0 yapıyordu.
     if (!vectorValues) {
       const textToEmbed = [ex.sourceContent, ex.outputContent]
         .filter((t) => typeof t === "string" && t.trim().length > 0)
         .join("\n") || ex.outputContent || "";
-      const fallback = createLocalFallbackEmbedding(textToEmbed);
-      vectorValues = fallback.values;
+      const embedding = await getCachedEmbedding(`ex:${ex.id}`, textToEmbed);
+      vectorValues = embedding.values;
     }
 
     const similarity = cosineSimilarity(queryEmbedding.values, vectorValues);
@@ -301,8 +329,15 @@ export async function searchSimilarExamples(
         .filter((t) => typeof t === "string" && t.trim().length > 0)
         .join("\n") || p.patternName;
 
-      const fallback = createLocalFallbackEmbedding(patternText);
-      const similarity = cosineSimilarity(queryEmbedding.values, fallback.values);
+      // Item 14 fix: pattern retrieval GERÇEK embedding kullanır (local-hash
+      // yalnız fallback). Önceki kod her zaman 256-dim local-hash üretiyor,
+      // gerçek 1536-dim sorguya karşı cosine 0 dönüyordu → pattern hafızası
+      // RAG'e sessizce hiç katkı vermiyordu.
+      const patternEmbedding = await getCachedEmbedding(
+        `vp:${p.id}:${p.updatedAt instanceof Date ? p.updatedAt.getTime() : ""}`,
+        patternText,
+      );
+      const similarity = cosineSimilarity(queryEmbedding.values, patternEmbedding.values);
 
       candidates.push({
         id: p.id,

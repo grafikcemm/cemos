@@ -22,6 +22,7 @@ loadEnvConfig(process.cwd());
 import { prisma } from "../src/lib/db/client";
 import { evalTestRepo } from "../src/lib/db/evalTestRepo";
 import { generateDrafts } from "../src/lib/growth-engine/draft-generator";
+import { scoreDraftFallback } from "../src/lib/growth-engine/scorer";
 import type { DraftScore } from "../src/lib/growth-engine/types";
 
 const RUN_ALL = process.argv.includes("--all");
@@ -49,6 +50,16 @@ function parsePassLine(expectedBehavior: string | null): string | null {
   if (!expectedBehavior) return null;
   const m = expectedBehavior.match(/PASS:\s*(.+)$/ms);
   return m ? m[1].trim() : null;
+}
+
+/**
+ * Golden set score_direct modu (FIRST-SPRINT item 19): "MODE: score_direct"
+ * işaretli testlerde sourceContent'in KENDİSİ deterministik scoreDraftFallback
+ * ile skorlanır — LLM çağrısı yok. Bilinen-kötü örneklerin düşük skorlaması
+ * bu yoldan CI kapısı olur.
+ */
+function isScoreDirect(expectedBehavior: string | null): boolean {
+  return /MODE:\s*score_direct/i.test(expectedBehavior ?? "");
 }
 
 /** Tek atomik kriteri ("clarity >= 75") critic skoruna karşı değerlendirir. */
@@ -112,24 +123,38 @@ async function main() {
     }
 
     try {
-      const result = await generateDrafts({
-        accountHandle: handle,
-        actionType: "tweet",
-        sourceContent: test.sourceContent ?? undefined,
-        count: 1,
-      });
-      const best = [...result.drafts].sort((a, b) => b.critic.publishScore - a.critic.publishScore)[0];
-      if (!best) {
-        await evalTestRepo.recordResult(test.id, {
-          generatedOutput: "",
-          score: 0,
-          failureReason: `draft üretilemedi: ${result.warnings.join("; ") || "bilinmeyen"}`,
+      let critic: DraftScore;
+      let generatedOutput: string;
+
+      if (isScoreDirect(test.expectedBehavior)) {
+        // Deterministik doğrudan skor — LLM yok, sourceContent skorlanır.
+        critic = scoreDraftFallback({
+          content: test.sourceContent ?? "",
+          accountHandle: handle,
         });
-        rows.push({ name: test.testName, verdict: "FAIL", score: 0, detail: "draft yok" });
-        continue;
+        generatedOutput = test.sourceContent ?? "";
+      } else {
+        const result = await generateDrafts({
+          accountHandle: handle,
+          actionType: "tweet",
+          sourceContent: test.sourceContent ?? undefined,
+          count: 1,
+        });
+        const best = [...result.drafts].sort((a, b) => b.critic.publishScore - a.critic.publishScore)[0];
+        if (!best) {
+          await evalTestRepo.recordResult(test.id, {
+            generatedOutput: "",
+            score: 0,
+            failureReason: `draft üretilemedi: ${result.warnings.join("; ") || "bilinmeyen"}`,
+          });
+          rows.push({ name: test.testName, verdict: "FAIL", score: 0, detail: "draft yok" });
+          continue;
+        }
+        critic = best.critic;
+        generatedOutput = best.draft.content;
       }
 
-      const criteria = evaluateCriteria(passLine, best.critic);
+      const criteria = evaluateCriteria(passLine, critic);
       const scored = criteria.filter((c) => c.status !== "skipped");
       const passed = scored.filter((c) => c.status === "pass");
       const score = scored.length === 0 ? 0 : Math.round((passed.length / scored.length) * 100);
@@ -142,7 +167,7 @@ async function main() {
       let recordNote = "";
       try {
         await evalTestRepo.recordResult(test.id, {
-          generatedOutput: best.draft.content,
+          generatedOutput,
           score,
           failureReason:
             failures.length > 0

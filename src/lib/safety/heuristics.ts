@@ -1,5 +1,5 @@
 import { blocklist, forbiddenTokens } from "./blocklist";
-import { BANNED_PHRASES, QUESTION_CTA_PATTERNS } from "./banned-phrases";
+import { BANNED_PHRASES, endsWithQuestionCta } from "./banned-phrases";
 
 export type LintSeverity = "blocker" | "warning";
 
@@ -245,15 +245,12 @@ export function runDeterministicHeuristics(
 
   // 10.6. Klişe soru-CTA lint'i: sona atılan jenerik soru kalıpları hesap
   //   kurallarında yasak ("Peki siz ne düşünüyorsunuz?" vb.).
-  for (const pattern of QUESTION_CTA_PATTERNS) {
-    if (pattern.test(trimmed)) {
-      issues.push({
-        code: "question_cta",
-        severity: "warning",
-        message: "Klişe soru-CTA ile bitiyor. Soru yerine net bir kapanış cümlesi kullan.",
-      });
-      break;
-    }
+  if (endsWithQuestionCta(trimmed)) {
+    issues.push({
+      code: "question_cta",
+      severity: "warning",
+      message: "Klişe soru-CTA ile bitiyor. Soru yerine net bir kapanış cümlesi kullan.",
+    });
   }
 
   // 11. Sales smell list from blocklist

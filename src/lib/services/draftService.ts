@@ -13,11 +13,44 @@ import { getBudgetStatus } from "@/lib/config/costGate";
 import { detectLeaks, conceptKeywordsFrom } from "@/lib/growth-engine/leak-detector";
 import { extractSubSignals, applyQualityGate } from "@/lib/services/scoreSignals";
 import { atomizeService } from "@/lib/services/atomizeService";
-import type { BenchmarkResult } from "@/lib/ai/prompts";
+import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
+import type { BenchmarkResult, DraftVoice } from "@/lib/ai/prompts";
 import type { QueueItem } from "@/generated/prisma/client";
 
 /** Winner viralPotential at/above which a strong signal is worth atomizing. */
 const ATOMIZE_VIRAL_THRESHOLD = 75;
+
+/**
+ * Aktif VoiceProfile'ı prompt'a giren DraftVoice yapısına çevirir (item 16).
+ * JSON kolonları toleranslı parse edilir; hata/yokluk → undefined (fail-soft).
+ */
+export async function loadDraftVoice(accountId: string): Promise<DraftVoice | undefined> {
+  try {
+    const voice = await voiceProfileRepo.getActiveVoice(accountId);
+    if (!voice) return undefined;
+    const parseArr = (json: string | null | undefined): string[] => {
+      if (!json) return [];
+      try {
+        const p = JSON.parse(json);
+        return Array.isArray(p) ? p.filter((x): x is string => typeof x === "string") : [];
+      } catch {
+        return [];
+      }
+    };
+    return {
+      personality: voice.personality,
+      toneTags: parseArr(voice.toneTagsJson),
+      vocabulary: parseArr(voice.vocabularyJson).slice(0, 12),
+      avoid: parseArr(voice.avoidJson),
+      rhythm: voice.rhythm,
+      mission: voice.mission,
+      pointOfView: voice.pointOfView,
+      audience: voice.audience,
+    };
+  } catch {
+    return undefined;
+  }
+}
 
 function fitToMaxChars(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -130,9 +163,12 @@ export const draftService = {
     let pipelineResult: BenchmarkResult;
     let pipelineError: string | undefined;
     try {
+      // Item 16: aktif VoiceProfile writer SYSTEM prompt'una girer (tek nokta).
+      const voice = await loadDraftVoice(account.id);
       pipelineResult = await runDraftPipeline(profile, groundedInput, {
         deadlineMs: input.deadlineMs,
         accountId: account.id,
+        voice,
       });
     } catch (err) {
       pipelineError = err instanceof Error ? err.message : String(err);

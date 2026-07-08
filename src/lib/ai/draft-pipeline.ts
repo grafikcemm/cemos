@@ -8,6 +8,7 @@ import {
   type BenchmarkResult,
   type DraftWithAngle,
   type DraftScore,
+  type DraftVoice,
   type RankedCandidate,
 } from "@/lib/ai/prompts";
 import { generateJsonGated } from "@/lib/ai/generateGated";
@@ -90,7 +91,7 @@ const JUDGE_RESPONSE_SCHEMA: JsonSchemaSpec = {
 export async function runDraftPipeline(
   profile: AccountProfile,
   sourceInput: string,
-  opts?: { deadlineMs?: number; accountId?: string }
+  opts?: { deadlineMs?: number; accountId?: string; voice?: DraftVoice }
 ): Promise<BenchmarkResult> {
   const totalStart = Date.now();
   if (!process.env.OPENROUTER_API_KEY) {
@@ -111,7 +112,7 @@ export async function runDraftPipeline(
   const callWriter = () =>
     generateJsonGated<DraftResponse>({
       preset: "cemos-writer",
-      system: buildDraftSystemPrompt(profile),
+      system: buildDraftSystemPrompt(profile, opts?.voice),
       user: buildDraftUserPrompt(profile, sourceInput),
       temperature: 0.9,
       deadlineMs: opts?.deadlineMs,

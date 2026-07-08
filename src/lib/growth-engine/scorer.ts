@@ -31,6 +31,16 @@ import {
 } from "@/lib/growth-engine/account-adapter";
 import type { AccountHandle } from "@/lib/accounts";
 import { extractPatternSyncFallback } from "@/lib/growth-engine/pattern-extractor";
+import { BANNED_PHRASES, endsWithQuestionCta } from "@/lib/safety/banned-phrases";
+
+// Marka-sesi yasak klişeleri (tek kaynak: safety/banned-phrases) — AI-slop
+// kalıpları deterministik skorlayıcıda da ceza alır (item 9 ruhu: klişe içerik
+// yayınlanabilir görünemez). Fold'lu eşleşme (İ/ı, ş/s).
+const FOLDED_BANNED_PHRASES: string[] = BANNED_PHRASES.map((p) => foldTurkish(p));
+
+function countBannedPhraseHits(text: string): number {
+  return countKeywordHits(foldTurkish(text), FOLDED_BANNED_PHRASES);
+}
 
 // ---------------------------------------------------------------------------
 // Keyword catalogs for heuristic scoring
@@ -529,6 +539,9 @@ function calculateClarityScore(text: string, profile: ScoringIdentity): number {
   const clicheHits = countKeywordHits(text, CLICHE_KEYWORDS);
   score -= clicheHits * 10;
 
+  // Yasak marka-sesi klişesi (AI-slop) cezası — banned-phrases tek kaynağından.
+  score -= countBannedPhraseHits(text) * 10;
+
   // Very short but has content → clear
   if (text.length < 200 && text.split(/[.!?]/).length <= 4) score += 10;
 
@@ -565,6 +578,9 @@ function calculateNoveltyScore(text: string): number {
   // Cliché penalty
   const clicheHits = countKeywordHits(text, CLICHE_KEYWORDS);
   score -= clicheHits * 15;
+
+  // Yasak marka-sesi klişesi (AI-slop) = sıfır özgünlük sinyali.
+  score -= countBannedPhraseHits(text) * 20;
 
   // Unique words count as proxy for novelty
   const words = text.toLowerCase().split(/\s+/);
@@ -769,7 +785,7 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
   const noveltyScore = calculateNoveltyScore(text);
   const riskScore = calculateDraftRiskScore(text, handle);
 
-  const publishScore = calculatePublishScore({
+  const compositePublish = calculatePublishScore({
     personaMatchScore,
     hookStrengthScore,
     clarityScore,
@@ -777,6 +793,14 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
     noveltyScore,
     riskScore,
   });
+
+  // Hesap yasak-kuralı ihlali → hard cap (item 8 ruhu, deterministik):
+  // forbidden terim VEYA klişe soru-CTA taşıyan içerik ("soru-CTA yasak" her
+  // iki hesabın canlı kuralı) hiçbir kompozitle yayınlanabilir görünemez.
+  const forbiddenHits = countKeywordHits(foldTurkish(text), getForbiddenTerms(handle));
+  const hasQuestionCta = endsWithQuestionCta(text);
+  const publishScore =
+    forbiddenHits > 0 || hasQuestionCta ? Math.min(compositePublish, 40) : compositePublish;
 
   const publishRecommendation = determinePublishRecommendation(publishScore, riskScore);
 

@@ -7,8 +7,9 @@ import { isCronAuthorized } from "@/lib/utils/cronAuth";
 // Dedicated morning generation cron. Split out of /api/cron/daily so the most
 // important output — the two accounts' drafts — runs FIRST in its own time
 // budget and can never be starved by the News / Instagram / Content-Intelligence
-// stages (DH-001). Scheduled earlier (04:00 UTC) so even Vercel Hobby's ±59min
-// cron drift still lands before the 09:00 Istanbul login (DH-003).
+// stages (DH-001). Scheduled earlier (03:00 UTC — FIRST-SPRINT item 20 / C11) so
+// even Vercel Hobby's ±59min cron drift still lands before the Istanbul morning
+// login (DH-003).
 export const maxDuration = 180;
 export const dynamic = "force-dynamic";
 
@@ -52,11 +53,14 @@ async function run(handleParam: string | null): Promise<RunOutcome> {
         // discover/mine skipped here — generation works from the existing backlog
         // so drafts land fast; discovery/mining stay in the daily cron. The
         // deadline bounds every downstream LLM call so we never overrun the budget.
+        // idempotent: `generate-morning:{date}:{account}` — aynı gün+hesap için
+        // ikinci çağrı LLM'e ulaşmadan erken döner (0 yeni QueueItem/UsageLog).
         results.push(
           await pipelineService.runDailyForAccount(handle, {
             discover: false,
             mine: false,
             deadlineMs,
+            idempotent: true,
           })
         );
       } catch (err) {

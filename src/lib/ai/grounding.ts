@@ -1,7 +1,6 @@
 import type { AccountProfile } from "@/lib/accounts";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
-import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
 
 /**
@@ -85,40 +84,10 @@ export async function buildGroundingContext(
     /* fail-soft */
   }
 
-  // 1.7) Ses profili (xpatla stil klonlama): hesabın kendi yayınlanmış sesinden
-  //      damıtılan aktif profil. voiceProfileService haftalık/manuel doldurur.
-  try {
-    const voice = await voiceProfileRepo.getActiveVoice(accountId);
-    if (voice) {
-      const parseArr = (json: string): string[] => {
-        try {
-          const p = JSON.parse(json);
-          return Array.isArray(p) ? p.filter((x) => typeof x === "string") : [];
-        } catch {
-          return [];
-        }
-      };
-      const dims: string[] = [];
-      if (voice.personality) dims.push(`Kişilik/ton: ${voice.personality}`);
-      const tones = parseArr(voice.toneTagsJson);
-      if (tones.length) dims.push(`Ton etiketleri: ${tones.join(", ")}`);
-      const vocab = parseArr(voice.vocabularyJson);
-      if (vocab.length) dims.push(`Kelime dağarcığı: ${vocab.slice(0, 12).join(", ")}`);
-      if (voice.rhythm) dims.push(`Ritim: ${voice.rhythm}`);
-      const avoid = parseArr(voice.avoidJson);
-      if (avoid.length) dims.push(`Kaçınılacaklar: ${avoid.join(", ")}`);
-      if (dims.length > 0) {
-        parts.push(
-          "=== SES PROFİLİ (@" +
-            profile.handle +
-            " kendi yayınlanmış tweetlerinden öğrenildi — bu sesle yaz) ===\n" +
-            dims.join("\n")
-        );
-      }
-    }
-  } catch {
-    /* fail-soft */
-  }
+  // 1.7) SES PROFİLİ bloğu buradan (user mesajı) SYSTEM prompt'a taşındı —
+  //      FIRST-SPRINT item 16: buildDraftSystemPrompt(profile, voice) tek
+  //      enjeksiyon noktası (tekrar/şişme yok + Anthropic cache breakpoint'i).
+  //      Voice verisini draftService yükler (loadDraftVoice) ve pipeline'a geçirir.
 
   // 2) Semantic memory (RAG over the populated corpus).
   try {

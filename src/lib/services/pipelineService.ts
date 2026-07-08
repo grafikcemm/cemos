@@ -28,7 +28,19 @@ export const pipelineService = {
    */
   async runDailyForAccount(
     handle: AccountHandle,
-    opts?: { discover?: boolean; mine?: boolean; dailyMax?: number; deadlineMs?: number }
+    opts?: {
+      discover?: boolean;
+      mine?: boolean;
+      dailyMax?: number;
+      deadlineMs?: number;
+      /**
+       * FIRST-SPRINT item 17 — idempotency: `generate-morning:{date}:{account}`.
+       * true iken, bugün bu hesap için EN AZ BİR QueueItem zaten üretilmişse
+       * discovery/mining/LLM'e HİÇ girmeden erken döner → ikinci çağrı sıfır
+       * yeni QueueItem + sıfır UsageLog + sıfır LLM harcaması.
+       */
+      idempotent?: boolean;
+    }
   ): Promise<DailyRunSummary> {
     const profile = accountProfiles[handle];
     if (!profile) throw new Error(`Profile not found: ${handle}`);
@@ -40,6 +52,30 @@ export const pipelineService = {
     if (!account) throw new Error(`Account not found: ${handle}`);
 
     const dailyMax = opts?.dailyMax ?? account.schedule?.dailyMaxPosts ?? profile.defaultDraftCount ?? 3;
+
+    // Idempotency erken-çıkışı LLM/discovery'den ÖNCE koşar (item 17).
+    if (opts?.idempotent) {
+      const { start: dayStart } = getLocalDayBounds("Europe/Istanbul", new Date());
+      const existingToday = await prisma.queueItem.count({
+        where: { accountId: account.id, createdAt: { gte: dayStart } },
+      });
+      if (existingToday > 0) {
+        const dateKey = new Date().toISOString().slice(0, 10);
+        return {
+          handle,
+          discovery: null,
+          mining: null,
+          dailyMax,
+          todayDrafts: existingToday,
+          target: 0,
+          attempts: 0,
+          created: 0,
+          blocked: 0,
+          errors: 0,
+          reason: `idempotent_skip:generate-morning:${dateKey}:${handle}`,
+        };
+      }
+    }
 
     // 1) Discover external content, 2) deliberate + mine viral patterns, 3) generate.
     const discovery =

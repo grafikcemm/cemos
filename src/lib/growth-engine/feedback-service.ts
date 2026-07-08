@@ -1,6 +1,5 @@
-import {
-  validateAccountHandle,
-} from "@/lib/growth-engine/account-profiles";
+import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engine/account-adapter";
+import { calculateLevenshteinSimilarity } from "@/lib/utils/textSimilarity";
 import {
   extractPattern,
   patternExtractionToViralPatternInput,
@@ -67,6 +66,68 @@ export function feedbackToTrainingLabel(feedbackType: FeedbackType): TrainingLab
 }
 
 /**
+ * FIRST-SPRINT item 13 — normalized Levenshtein edit-distance (0 = aynı,
+ * 1 = tamamen farklı). Yalnız her iki içerik de doluysa hesaplanır.
+ */
+export function computeNormalizedEditDistance(
+  original: string | undefined | null,
+  edited: string | undefined | null,
+): number | null {
+  const o = original?.trim();
+  const e = edited?.trim();
+  if (!o || !e) return null;
+  const similarity = calculateLevenshteinSimilarity(o, e);
+  return Math.round((1 - similarity) * 1000) / 1000;
+}
+
+/**
+ * Edit-distance'ı FeedbackEvent.reason alanına, MEVCUT kullanıcı nedenini
+ * EZMEDEN merge eder (yeni kolon yok — migration yasağı):
+ *   - reason zaten JSON obje ise → alanlar korunur, editDistance eklenir;
+ *   - düz string ise → {"text": <string>, "editDistance": <d>}.
+ */
+export function mergeReasonWithEditDistance(reason: string, editDistance: number): string {
+  const trimmed = (reason ?? "").trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return JSON.stringify({ ...parsed, editDistance });
+      }
+    } catch {
+      // düz string muamelesi görür
+    }
+  }
+  return JSON.stringify({ text: trimmed, editDistance });
+}
+
+/**
+ * reason alanının geriye-uyumlu okuyucusu: hem eski düz string hem yeni
+ * {"text","editDistance"} JSON formatını tolere eder.
+ */
+export function parseFeedbackReason(reason: string | null | undefined): {
+  text: string;
+  editDistance?: number;
+} {
+  const raw = (reason ?? "").trim();
+  if (raw.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return {
+          text: typeof parsed.text === "string" ? parsed.text : "",
+          editDistance:
+            typeof parsed.editDistance === "number" ? parsed.editDistance : undefined,
+        };
+      }
+    } catch {
+      // düz string muamelesi görür
+    }
+  }
+  return { text: raw };
+}
+
+/**
  * Determines whether we should create a training example for this feedback event.
  */
 export function shouldCreateTrainingExample(input: FeedbackApiInput): boolean {
@@ -102,6 +163,17 @@ export function buildFeedbackEventInput(input: FeedbackApiInput) {
     input.sourceContent?.trim() ||
     "";
 
+  // Item 13: her `edited` etiketli event'te normalized edit-distance hesaplanır
+  // ve reason'a merge edilir (kullanıcı nedeni korunur). Düzenleme büyüklüğü =
+  // öğrenme sinyali: 0.05 dokunuş vs 0.7 yeniden yazım farklı ders taşır.
+  let reason = input.reason ?? "";
+  if (feedbackToTrainingLabel(input.feedbackType) === "edited") {
+    const distance = computeNormalizedEditDistance(input.originalContent, input.editedContent);
+    if (distance !== null) {
+      reason = mergeReasonWithEditDistance(reason, distance);
+    }
+  }
+
   return {
     accountId: input.accountId,
     queueItemId: input.queueItemId,
@@ -109,7 +181,7 @@ export function buildFeedbackEventInput(input: FeedbackApiInput) {
     feedbackType: input.feedbackType,
     originalContent,
     editedContent: input.editedContent ?? "",
-    reason: input.reason ?? "",
+    reason,
   };
 }
 

@@ -56,6 +56,17 @@ export function foldTurkish(text: string): string {
  * canlı kurallar — burada yalnız "hangi kısa ifade bu kuralı ihlal eder"
  * eşlemesi tutulur (fold'lanmış).
  */
+// Kaynaksız kesin-ifade / uydurma-istatistik slop'u persona-bağımsızdır —
+// her iki hesabın "kaynaksız kesin ifade kullanma" çizgisinin karşılığı.
+const SHARED_CERTAINTY_TERMS = [
+  "kesinlikle",
+  "tartismasiz",
+  "kanitla", // kanıtladı / kanıtlandı / kanıtlanmış kökü (fold'lu)
+  "suphe yok",
+  "herkes biliyor",
+  "kesin olarak",
+];
+
 const FORBIDDEN_TERMS: Record<AccountHandle, string[]> = {
   grafikcem: [
     "bu ne anlama geliyor",
@@ -65,6 +76,7 @@ const FORBIDDEN_TERMS: Record<AccountHandle, string[]> = {
     "inanilmaz",
     "devrim niteliginde",
     "oyunun kurallarini degistir",
+    ...SHARED_CERTAINTY_TERMS,
   ].map(foldTurkish),
   maskulenkod: [
     "kadin dusmanligi",
@@ -72,14 +84,33 @@ const FORBIDDEN_TERMS: Record<AccountHandle, string[]> = {
     "surtuk",
     "magdur edebiyati",
     "kadinlar yuzunden",
+    // Değer-sıfırlama / mutlak genelleme kalıpları (safety/heuristics
+    // maskulenPatterns ile hizalı — canlı "kadın düşmanlığı yazma" kuralı).
+    "kadinin degeri",
+    "degeri sifir",
+    "biyoloji bu",
+    "kadin dogasi",
+    "tum kadinlar",
+    "her kadin",
+    "kadinlar hep",
+    "kadinlar zaten",
     "terapist dili",
     "kisisel gelisim klisesi",
     "herkesin durumu farkli",
+    // Terapist-dili / kişisel-gelişim klişesi marker'ları (canlı kuralın
+    // metin-içi eşlenebilir halleri).
+    "ic sesini dinle",
+    "kendine zaman ayir",
+    "kendini sev",
+    "sen ozelsin",
+    "kendine deger ver",
+    "pozitif dusun",
     "hustle",
     "sigma",
     "alfa erkek",
     "redpill",
     "beta erkek",
+    ...SHARED_CERTAINTY_TERMS,
   ].map(foldTurkish),
 };
 
