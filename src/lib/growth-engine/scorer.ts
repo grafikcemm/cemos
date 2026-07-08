@@ -953,14 +953,15 @@ async function scoreSourcePostWithAI(
   input: SourcePostScoringInput
 ): Promise<SourcePostScore | null> {
   try {
-    const { generateJson } = await import("@/lib/ai/openrouter");
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
     const { system, user } = buildSourcePostScoringPrompt(input);
 
-    const result = await generateJson<Record<string, unknown>>({
+    const result = await generateJsonGated<Record<string, unknown>>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.3,
+      purpose: "extract_source_score",
     });
 
     const normalized = normalizeSourcePostScore(result.data);
@@ -984,14 +985,15 @@ async function scoreDraftWithAI(
   input: DraftScoringInput
 ): Promise<DraftScore | null> {
   try {
-    const { generateJson } = await import("@/lib/ai/openrouter");
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
     const { system, user } = buildDraftScoringPrompt(input);
 
-    const result = await generateJson<Record<string, unknown>>({
+    const result = await generateJsonGated<Record<string, unknown>>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.2,
+      purpose: "judge_draft_score",
     });
 
     const normalized = normalizeDraftScore(result.data);

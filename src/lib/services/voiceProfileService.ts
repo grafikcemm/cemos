@@ -9,7 +9,7 @@
  */
 
 import { prisma } from "@/lib/db/client";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { accountRepo } from "@/lib/db/accountRepo";
 
@@ -70,12 +70,14 @@ async function syncForAccount(accountHandle: string): Promise<SyncResult> {
 
   let distilled: DistilledVoice;
   try {
-    const res = await generateJson<DistilledVoice>({
+    const res = await generateJsonGated<DistilledVoice>({
       role: "cheapWriter",
       system: buildSystemPrompt(),
       user: userPrompt,
       temperature: 0.4,
       maxTokens: 900,
+      purpose: "memory_voice_distill",
+      accountId: account.id,
     });
     distilled = res.data;
   } catch (err) {

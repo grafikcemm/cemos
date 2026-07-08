@@ -1,7 +1,7 @@
 import type { AccountHandle } from "@/lib/accounts";
 import { accountProfiles } from "@/lib/accounts";
 import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import type { NormalizedItem } from "@/lib/sources/types";
 
@@ -60,11 +60,12 @@ export async function preFilterBatch(
 
   const batch = items.slice(0, MAX_BATCH);
   try {
-    const run = await generateJson<PreFilterResponse>({
+    const run = await generateJsonGated<PreFilterResponse>({
       role: "cheapWriter",
       system: buildSystemPrompt(handle),
       user: buildUserPrompt(batch),
       temperature: 0.2,
+      purpose: "prefilter_source_batch",
     });
     const decisions = Array.isArray(run.data.results) ? run.data.results : [];
     if (decisions.length === 0) {

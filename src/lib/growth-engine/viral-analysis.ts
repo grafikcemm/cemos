@@ -1,6 +1,6 @@
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 
@@ -87,11 +87,12 @@ export async function analyzeViralItem(text: string, handle: AccountHandle): Pro
   if (!budget.allowed) return heuristicAnalysis(text, handle);
 
   try {
-    const run = await generateJson<RawAnalysis>({
+    const run = await generateJsonGated<RawAnalysis>({
       role: "cheapWriter",
       system: buildSystemPrompt(handle),
       user: `İçerik:\n${wrapUntrustedData(text.slice(0, 900))}`,
       temperature: 0.4,
+      purpose: "extract_viral_analysis",
     });
     const d = run.data;
     const sentiment: Sentiment =

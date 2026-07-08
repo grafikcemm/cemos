@@ -12,6 +12,8 @@ vi.mock("@/lib/services/usageService", () => ({
   usageService: {
     getMonthlySpendByPurpose: vi.fn(() => Promise.resolve(0)),
     recordOpenRouter: vi.fn(() => Promise.resolve()),
+    // Dalga 2: runStage gated'e geçti — bütçe kapısı bu mock'la açık kalır.
+    getMonthlyCost: vi.fn(() => Promise.resolve(0)),
   },
 }));
 vi.mock("@/lib/db/ytBriefRepo", () => ({

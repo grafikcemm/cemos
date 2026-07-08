@@ -1,5 +1,5 @@
 import { accountList, type AccountHandle } from "@/lib/accounts";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 
 /**
@@ -47,11 +47,12 @@ export async function routeItem(text: string): Promise<RouteResult> {
     return { best: null, fits: [], usedLlm: false };
   }
   try {
-    const run = await generateJson<{ fits?: AccountFit[] }>({
+    const run = await generateJsonGated<{ fits?: AccountFit[] }>({
       role: "cheapWriter",
       system: buildPrompt(),
       user: `İçerik:\n"""${text.slice(0, 500)}"""`,
       temperature: 0.2,
+      purpose: "extract_account_route",
     });
     const fits = Array.isArray(run.data.fits) ? run.data.fits : [];
     const picked = pickBest(fits);

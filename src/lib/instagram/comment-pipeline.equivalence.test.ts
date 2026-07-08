@@ -6,8 +6,13 @@ vi.mock("@/lib/ai/openrouter", () => ({ generateJson: vi.fn() }));
 vi.mock("@/lib/db/pipelineTraceRepo", () => ({
   pipelineTraceRepo: { create: vi.fn(() => Promise.resolve({ id: "pt" })) },
 }));
+// Dalga 2: çağrı gated sarmalayıcıdan geçer — getMonthlyCost mock'u bütçe
+// kapısını açık tutar; UsageLog yazımı gated içindeki recordOpenRouter'dır.
 vi.mock("@/lib/services/usageService", () => ({
-  usageService: { recordOpenRouter: vi.fn(() => Promise.resolve()) },
+  usageService: {
+    recordOpenRouter: vi.fn(() => Promise.resolve()),
+    getMonthlyCost: vi.fn(() => Promise.resolve(0)),
+  },
 }));
 
 import { generateJson } from "@/lib/ai/openrouter";

@@ -339,15 +339,16 @@ async function extractPatternWithAI(
   try {
     // Dynamic import to avoid coupling at module level
     // This ensures the module works even if AI infra has issues
-    const { generateJson } = await import("@/lib/ai/openrouter");
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
 
     const { system, user } = buildExtractionPrompt(input);
 
-    const result = await generateJson<Record<string, unknown>>({
+    const result = await generateJsonGated<Record<string, unknown>>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.4,
+      purpose: "extract_pattern",
     });
 
     const normalized = normalizePatternExtraction(result.data);

@@ -87,11 +87,11 @@ export async function generateDraftsWithAI(
   context: GenerationContext,
   options?: any
 ): Promise<DraftVariant[]> {
-  const { generateJson } = await import("@/lib/ai/openrouter");
-  
+  const { generateJsonGated } = await import("@/lib/ai/generateGated");
+
   const { system, user } = buildDraftGenerationPrompt(context);
 
-  const response = await generateJson<{
+  const response = await generateJsonGated<{
     drafts: Array<{
       content: string;
       angle: "safe" | "strong" | "provocative";
@@ -105,6 +105,8 @@ export async function generateDraftsWithAI(
     system,
     user,
     temperature: 0.7,
+    purpose: "writer_x_growth",
+    platform: "x",
   });
 
   if (!response?.data?.drafts || !Array.isArray(response.data.drafts)) {

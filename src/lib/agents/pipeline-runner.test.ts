@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/ai/openrouter", () => ({ generateJson: vi.fn() }));
+// Dalga 2 (Sprint 2): runStage artık budget-gated çağrı kullanır.
+vi.mock("@/lib/ai/generateGated", () => ({ generateJsonGated: vi.fn() }));
 vi.mock("@/lib/db/pipelineTraceRepo", () => ({
   pipelineTraceRepo: { create: vi.fn(() => Promise.resolve({ id: "pt-1" })) },
 }));
 
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { createPipelineTrace } from "@/lib/agents/pipeline-runner";
 
@@ -26,13 +27,21 @@ describe("createPipelineTrace.runStage", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("runs a stage 1:1, returns the result, and records an ok trace entry", async () => {
-    vi.mocked(generateJson).mockResolvedValue(okResult("m1", 0.02) as never);
+    vi.mocked(generateJsonGated).mockResolvedValue(okResult("m1", 0.02) as never);
     const trace = createPipelineTrace(META);
 
     const r = await trace.runStage({ stage: "analiz", role: "viralJudge", system: "S", user: "U", temperature: 0.4 });
 
     expect(r.model).toBe("m1");
-    expect(generateJson).toHaveBeenCalledWith({ role: "viralJudge", system: "S", user: "U", temperature: 0.4 });
+    expect(generateJsonGated).toHaveBeenCalledWith({
+      role: "viralJudge",
+      system: "S",
+      user: "U",
+      temperature: 0.4,
+      purpose: "yt_brief",
+      platform: "youtube",
+      meta: { stage: "analiz" },
+    });
     expect(trace.stages).toHaveLength(1);
     expect(trace.stages[0]).toMatchObject({
       stage: "analiz",
@@ -45,7 +54,7 @@ describe("createPipelineTrace.runStage", () => {
   });
 
   it("falls back to the next role and records ONE stage with failOpenUsed", async () => {
-    vi.mocked(generateJson)
+    vi.mocked(generateJsonGated)
       .mockRejectedValueOnce(new Error("premium down"))
       .mockResolvedValueOnce(okResult("m2", 0.03) as never);
     const trace = createPipelineTrace(META);
@@ -59,13 +68,13 @@ describe("createPipelineTrace.runStage", () => {
     });
 
     expect(r.model).toBe("m2");
-    expect(generateJson).toHaveBeenCalledTimes(2);
+    expect(generateJsonGated).toHaveBeenCalledTimes(2);
     expect(trace.stages).toHaveLength(1);
     expect(trace.stages[0]).toMatchObject({ role: "creativeWriter", model: "m2", ok: true, failOpenUsed: true });
   });
 
   it("records an ok:false stage and rethrows when every role fails", async () => {
-    vi.mocked(generateJson).mockRejectedValue(new Error("down"));
+    vi.mocked(generateJsonGated).mockRejectedValue(new Error("down"));
     const trace = createPipelineTrace(META);
 
     await expect(
@@ -76,7 +85,7 @@ describe("createPipelineTrace.runStage", () => {
   });
 
   it("flush writes the accumulated trace with meta + totalCost", async () => {
-    vi.mocked(generateJson).mockResolvedValue(okResult("m1", 0.05) as never);
+    vi.mocked(generateJsonGated).mockResolvedValue(okResult("m1", 0.05) as never);
     const trace = createPipelineTrace(META);
     await trace.runStage({ stage: "s1", role: "cheapWriter", system: "S", user: "U" });
 
@@ -96,7 +105,7 @@ describe("createPipelineTrace.runStage", () => {
   });
 
   it("flush swallows a trace-write failure (never blocks production)", async () => {
-    vi.mocked(generateJson).mockResolvedValue(okResult() as never);
+    vi.mocked(generateJsonGated).mockResolvedValue(okResult() as never);
     vi.mocked(pipelineTraceRepo.create).mockRejectedValue(new Error("db down"));
     const trace = createPipelineTrace(META);
     await trace.runStage({ stage: "s1", role: "cheapWriter", system: "S", user: "U" });

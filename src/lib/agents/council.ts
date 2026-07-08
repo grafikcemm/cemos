@@ -1,5 +1,5 @@
 import { type AccountHandle } from "@/lib/accounts";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { X_COUNCIL_SPEC } from "./council-config";
 
@@ -63,11 +63,13 @@ function lensInstruction(lens: Lens, handle: AccountHandle): string {
 
 async function scoreLens(lens: Lens, text: string, handle: AccountHandle): Promise<LensVerdict> {
   try {
-    const run = await generateJson<{ score?: number; argument?: string }>({
+    const run = await generateJsonGated<{ score?: number; argument?: string }>({
       role: "cheapWriter",
       system: `Sen tek mercekli bir içerik jürisisin. ${lensInstruction(lens, handle)} Çıktı SADECE JSON: {"score":<0-100>,"argument":"<tek cümle>"}`,
       user: `İçerik:\n"""${text.slice(0, 500)}"""`,
       temperature: 0.2,
+      purpose: "judge_council_lens",
+      meta: { lens },
     });
     const score = typeof run.data.score === "number" ? run.data.score : LENS_DEFAULT_SCORE[lens];
     return { lens, score: Math.max(0, Math.min(100, score)), argument: run.data.argument ?? "" };
