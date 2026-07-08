@@ -41,19 +41,22 @@ export default function YouTubeHighlights() {
   const [videos, setVideos] = useState<YtOpportunity[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const json = await fetchJson<VideosResponse>("/api/youtube/videos?limit=3");
       if (json.success) {
         setVideos(json.videos ?? []);
         setConfigured(json.configured ?? true);
       } else {
-        setVideos([]);
+        // HATA ≠ BOŞ (item 5): başarısız yanıt boş listeye ÇÖKMEZ.
+        setLoadFailed(true);
       }
     } catch {
-      setVideos([]);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -75,6 +78,43 @@ export default function YouTubeHighlights() {
       <div style={wrap}>
         {header}
         <div style={emptyCard}>⏳ YouTube yükleniyor...</div>
+      </div>
+    );
+  }
+
+  // HATA ≠ BOŞ (item 5): yükleme hatası boş-duruma çökmez, ayrı blok + retry.
+  if (loadFailed) {
+    return (
+      <div style={wrap}>
+        {header}
+        <div
+          style={{
+            ...emptyCard,
+            background: "color-mix(in srgb, var(--danger) 7%, var(--bg-surface))",
+            border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>YouTube fırsatları şu an yüklenemiyor.</span>
+          <button
+            onClick={() => void load()}
+            style={{
+              padding: "4px 10px",
+              background: "var(--bg-base)",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            Yeniden dene
+          </button>
+        </div>
       </div>
     );
   }

@@ -5,6 +5,7 @@ export { default as ChartContainer } from "./ChartContainer";
 export { default as DetailPanel } from "./DetailPanel";
 export { default as Drawer } from "./Drawer";
 export { default as EmptyState } from "./EmptyState";
+export { default as ErrorState } from "./ErrorState";
 export { default as EntityCard, AvatarTile } from "./EntityCard";
 export { default as FilterBar } from "./FilterBar";
 export { default as IconButton } from "./IconButton";

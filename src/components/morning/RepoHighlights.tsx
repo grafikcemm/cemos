@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { GitBranch, Star, Copy } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { copyToClipboard } from "@/lib/utils/clipboard";
-import { Card, EmptyState, SectionHeader, Skeleton, Badge, Button } from "@/components/ui";
+import { Card, EmptyState, ErrorState, SectionHeader, Skeleton, Badge, Button } from "@/components/ui";
 
 type RepoItem = {
   id: string;
@@ -29,21 +29,30 @@ type Props = {
 export default function RepoHighlights({ onToast }: Props) {
   const [items, setItems] = useState<RepoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
+    setLoadFailed(false);
     fetchJson<RepoResponse>("/api/repo-radar?limit=3")
       .then((data) => {
-        if (mounted && data.success && data.items) setItems(data.items.slice(0, 3));
+        if (!mounted) return;
+        if (data.success && data.items) setItems(data.items.slice(0, 3));
+        else setLoadFailed(true);
       })
-      .catch(() => {})
+      .catch(() => {
+        // HATA ≠ BOŞ (item 5): yutulmaz, ayrı error state gösterilir.
+        if (mounted) setLoadFailed(true);
+      })
       .finally(() => {
         if (mounted) setLoading(false);
       });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadNonce]);
 
   const handleCopy = async (hook: string) => {
     const ok = await copyToClipboard(hook);
@@ -62,6 +71,12 @@ export default function RepoHighlights({ onToast }: Props) {
             </Card>
           ))}
         </div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Repo sinyalleri yüklenemedi"
+          description="Repo radar listesi şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => setReloadNonce((n) => n + 1)}
+        />
       ) : items.length === 0 ? (
         <Card variant="feature" padded={false}>
           <EmptyState

@@ -3,6 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 
+/** Sprint 1 ayrışık alt-sinyaller — API scoresParsed'tan (tek sayı YOK). */
+export type MorningDraftScores = {
+  hookStrengthScore: number;
+  noveltyScore: number;
+  riskScore: number;
+  personaMatchScore: number;
+  clarityScore: number;
+  /** null = sinyal yok (judge koşmadı / eski kayıt) — UI uydurma göstermez. */
+  turkishNaturalness: number | null;
+  sourceFaithfulness: number | null;
+  judged: boolean;
+  leaks: { kind: string; severity: string; note: string }[];
+  leakCount: number;
+};
+
 export type MorningDraft = {
   id: string;
   accountId: string;
@@ -14,6 +29,10 @@ export type MorningDraft = {
   accountHandle: string;
   displayName: string;
   createdAt: string;
+  scoresParsed?: MorningDraftScores;
+  /** Kalite kapısı Türkçe notları buradan okunur (quality_gate issue'ları). */
+  lintReport?: string | null;
+  generatedImageUrl?: string | null;
 };
 
 type DailyQueueResponse = {

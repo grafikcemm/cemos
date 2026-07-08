@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Star, ExternalLink, X, Heart, Repeat2, Sparkles, Quote, Reply, Library } from "lucide-react";
 import { useXAgentStore, type QueueItem, type Channel } from "@/store/xagent";
-import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, Skeleton } from "@/components/ui";
+import { PageHeader, Card, MetricCard, EmptyState, ErrorState, Badge, Button, Skeleton } from "@/components/ui";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { safeExternalHref } from "@/lib/utils/url";
 
@@ -40,17 +40,21 @@ export default function ViralLibraryTab() {
 
   const [items, setItems] = useState<SavedTweetRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const migrated = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const data = await fetchJson<ListResponse>("/api/viral-library?limit=500");
       if (data.success && data.items) setItems(data.items);
+      else setLoadFailed(true);
     } catch {
-      // boş durum ekranı devralır
+      // HATA ≠ BOŞ (FIRST-SPRINT item 5): boş-durum devralmaz, ayrı error state.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -210,6 +214,12 @@ export default function ViralLibraryTab() {
             </Card>
           ))}
         </div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Kütüphane yüklenemedi"
+          description="Kaydedilen tweetler şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void load()}
+        />
       ) : filtered.length === 0 ? (
         <Card variant="quiet">
           <EmptyState

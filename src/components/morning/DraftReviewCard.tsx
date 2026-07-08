@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Copy, Image as ImageIcon, CheckCircle2, Download, Circle, Dot } from "lucide-react";
+import { CheckCircle2, Circle, Dot, ShieldAlert } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import type { MorningDraft } from "./useDailyQueueData";
 
@@ -10,11 +10,77 @@ type Props = {
   onSave: (id: string, content: string) => Promise<boolean>;
   onMarkPublished: (id: string) => Promise<boolean>;
   onToast: (text: string, type: "success" | "error") => void;
+  /** Kuyruktaki İLK bekleyen kart — belirgin NEXT UP çerçevesi alır. */
+  isNextUp?: boolean;
 };
 
 const norm = (s: string) => s.replace(/@@/g, "").trim();
 
-export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToast }: Props) {
+/** lintReport JSON'ından kalite kapısı Türkçe notlarını çıkarır (fail-soft). */
+function extractGateNotes(lintReport: string | null | undefined): string[] {
+  if (!lintReport) return [];
+  try {
+    const parsed = JSON.parse(lintReport) as {
+      issues?: { code?: string; message?: string }[];
+    };
+    return (parsed.issues ?? [])
+      .filter((i) => i.code === "quality_gate" && typeof i.message === "string")
+      .map((i) => i.message as string);
+  } catch {
+    return [];
+  }
+}
+
+/** Ayrışık sinyal çubukları — TEK viral sayı ASLA gösterilmez (item 7). */
+function SignalRow({ draft }: { draft: MorningDraft }) {
+  const s = draft.scoresParsed;
+  if (!s) return null;
+  if (!s.judged) {
+    return (
+      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+        Sinyaller skorlanmadı (hızlı yol) · leak {s.leakCount ?? 0}
+      </span>
+    );
+  }
+  const chip = (label: string, value: number | null, invert = false) => {
+    if (typeof value !== "number") return null;
+    const good = invert ? value <= 30 : value >= 70;
+    const bad = invert ? value >= 60 : value <= 45;
+    const color = bad ? "var(--danger)" : good ? "var(--green)" : "var(--accent-2-text)";
+    return (
+      <span
+        key={label}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)" }}
+      >
+        {label}{" "}
+        <strong className="tnum" style={{ color, fontWeight: 600 }}>
+          {Math.round(value)}
+        </strong>
+      </span>
+    );
+  };
+  const leakColor = (s.leakCount ?? 0) > 0 ? "var(--danger)" : "var(--green)";
+  return (
+    <div
+      aria-label="Ayrışık kalite sinyalleri"
+      style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "4px 2px" }}
+    >
+      {chip("kanca", s.hookStrengthScore)}
+      {chip("doğallık", s.turkishNaturalness)}
+      {chip("özgünlük", s.noveltyScore)}
+      {chip("persona", s.personaMatchScore)}
+      {chip("risk", s.riskScore, true)}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)" }}>
+        leak{" "}
+        <strong className="tnum" style={{ color: leakColor, fontWeight: 600 }}>
+          {s.leakCount ?? 0}
+        </strong>
+      </span>
+    </div>
+  );
+}
+
+export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToast, isNextUp = false }: Props) {
   const originalText = norm(draft.content || "");
   const [text, setText] = useState(norm(draft.editedContent || draft.content || ""));
   const [saving, setSaving] = useState(false);
@@ -27,6 +93,10 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
   const isPublished = draft.status === "manual_published" || draft.status === "published";
   // EDIT-GATE: publish stays disabled until the operator edits the AI output.
   const isEdited = norm(text) !== originalText && norm(text).length > 0;
+  // Kalite kapısı (item 8): yüksek-şiddet leak / düşük TR doğallık / yasak klişe
+  // → needs_edit. Kart GÖRÜNÜR ve düzenlenebilir; yayın/kopya akışında net uyarı.
+  const needsEdit = draft.status === "needs_edit";
+  const gateNotes = needsEdit ? extractGateNotes(draft.lintReport) : [];
 
   const handleSave = async () => {
     setSaving(true);
@@ -37,6 +107,11 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
 
   const handleCopy = async () => {
     const ok = await copyToClipboard(text);
+    if (ok && needsEdit && !isEdited) {
+      // Kopyalama engellenmez ama kalite kapısı uyarısı net verilir.
+      onToast("Kopyalandı — dikkat: bu taslak kalite kapısına takıldı, düzenlemeden paylaşma.", "error");
+      return;
+    }
     onToast(ok ? "Metin panoya kopyalandı." : "Kopyalama başarısız.", ok ? "success" : "error");
   };
 
@@ -83,10 +158,18 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
         background: isPublished
           ? "color-mix(in srgb, var(--green) 6%, var(--bg-surface))"
           : "var(--gradient-surface), var(--bg-surface)",
-        border: `1px solid ${isPublished ? "color-mix(in srgb, var(--green) 30%, transparent)" : "var(--border)"}`,
+        border: `1px solid ${
+          isPublished
+            ? "color-mix(in srgb, var(--green) 30%, transparent)"
+            : isNextUp
+              ? "var(--accent-border)"
+              : "var(--border)"
+        }`,
         borderRadius: "var(--radius-lg)",
         padding: "var(--space-3)",
-        boxShadow: "var(--shadow-sm), var(--highlight-top)",
+        boxShadow: isNextUp
+          ? "0 0 0 1px var(--accent-border), var(--shadow-sm), var(--highlight-top)"
+          : "var(--shadow-sm), var(--highlight-top)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--space-2)",
@@ -95,7 +178,22 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
     >
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {isNextUp && !isPublished && (
+            <span
+              className="eyebrow"
+              style={{
+                background: "var(--gradient-accent), var(--accent)",
+                color: "var(--bg-base)",
+                padding: "2px 8px",
+                borderRadius: "var(--radius-sm)",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+              }}
+            >
+              NEXT UP
+            </span>
+          )}
           <span className="eyebrow" style={{ color: "var(--accent-text)" }}>@{draft.accountHandle}</span>
           <span style={{ fontSize: "var(--text-2xs)", background: "color-mix(in srgb, var(--blue) 12%, transparent)", color: "var(--blue)", padding: "1px 6px", borderRadius: "var(--radius-sm)", fontWeight: 500 }}>
             {draft.draftType}
@@ -113,6 +211,11 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
               <Circle size={9} strokeWidth={2.5} /> AI çıktısı düzenlenmedi
             </span>
           )}
+          {needsEdit && !isPublished && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
+              <ShieldAlert size={11} strokeWidth={2.5} /> düzenleme gerekli
+            </span>
+          )}
         </div>
         {isPublished && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--green)" }}>
@@ -120,6 +223,33 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
           </span>
         )}
       </div>
+
+      {/* Ayrışık alt-sinyaller — tek "viral skor" sayısı YOK (item 7). */}
+      <SignalRow draft={draft} />
+
+      {/* Kalite kapısı Türkçe nedenleri (item 8): redirect, silme değil. */}
+      {needsEdit && !isPublished && gateNotes.length > 0 && (
+        <div
+          style={{
+            background: "color-mix(in srgb, var(--danger) 7%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
+            borderRadius: "var(--radius-md)",
+            padding: "8px 10px",
+            fontSize: "var(--text-2xs)",
+            color: "var(--text-secondary)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          <span style={{ fontWeight: 600, color: "var(--danger)" }}>
+            Kalite kapısı: bu taslak düzenlenmeden yayınlanamaz.
+          </span>
+          {gateNotes.map((note, i) => (
+            <span key={i}>• {note}</span>
+          ))}
+        </div>
+      )}
 
       {/* Editable textarea */}
       <textarea

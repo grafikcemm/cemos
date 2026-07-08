@@ -102,98 +102,44 @@ export default function OperatorReadinessGate() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) {
-    return (
-      <div style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        padding: "16px",
-        marginBottom: 16,
-        fontSize: 12,
-        color: "var(--text-muted)",
-        textAlign: "center"
-      }}>
-        🌀 Sistem hazırlık durumu kontrol ediliyor...
-      </div>
-    );
-  }
+  // Yüklenirken ve sağlıklıyken bu bileşen SESSİZDİR (FIRST-SPRINT item 2):
+  // tek "● sağlıklı" tiki sayaç satırında (MorningHeroStats) yaşar; sağlıklı
+  // durumda kesinti maliyeti sıfırdır. Yalnız SORUN varken genişler.
+  if (loading) return null;
 
   if (!readiness) return null;
 
   const isWarning = readiness.ready && readiness.readyWithWarning;
 
-  if (readiness.ready) {
-    return (
-      <div style={{
-        background: isWarning ? "color-mix(in srgb, var(--accent-2) 6%, transparent)" : "var(--accent-tint-08)",
-        border: isWarning ? "1px solid color-mix(in srgb, var(--accent-2) 25%, transparent)" : "1px solid var(--accent-tint-30)",
-        borderRadius: 8,
-        padding: "14px 16px",
-        marginBottom: 16,
-        fontSize: 13,
-        color: "var(--text-primary)"
-      }}>
-        <div style={{ color: isWarning ? "var(--status-warn)" : "var(--accent)", fontWeight: 500, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>{isWarning ? "⚠️ Taslaklar Hazır (Worker Uyarısı)" : "🚀 Operator Mode Hazır"}</span>
-        </div>
-        <div style={{ color: "var(--text-secondary)", fontSize: 12, marginBottom: 12 }}>
-          grafikcem ve maskulenkod için bugünün taslakları hazır (toplam <strong>{readiness.todayItemsCount}</strong>).{" "}
-          <strong>Manuel operasyon yapılabilir</strong> — incele, düzenle, kopyala, paylaş.
-          {isWarning && readiness.warnings.length > 0 && (
-            <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
-              {readiness.warnings.map((w, i) => (
-                <li key={i} style={{ color: "#fbbf24" }}>
-                  {w}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+  if (readiness.ready && !isWarning) return null;
 
-        {readiness.lastScanResult?.results && (
-          <div style={{
-            padding: "10px 12px",
-            background: "rgba(255, 255, 255, 0.02)",
-            border: "1px solid rgba(255, 255, 255, 0.04)",
-            borderRadius: 6,
-            fontSize: 11
-          }}>
-            <div style={{ fontWeight: 500, color: "var(--text-secondary)", marginBottom: 4, display: "flex", justifyContent: "space-between" }}>
-              <span>📊 Son Otomasyon Taraması ({new Date(readiness.lastScanResult.timestamp).toLocaleTimeString("tr-TR")}):</span>
-              <span>Profil: {readiness.modelProfile === "premium" ? "Premium" : readiness.modelProfile === "operator_quality" ? "Operator Quality" : "Dev (Free)"}</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {readiness.lastScanResult.results.map((r: any, idx: number) => {
-                let reasonText = "";
-                if (r.draftsCreated > 0) {
-                  const modeText = r.reason === "existing_source_posts_used" ? "DB backlog post kullanıldı" : "taramayla üretildi";
-                  reasonText = `✅ ${r.draftsCreated} taslak (${modeText})`;
-                } else {
-                  let mappedReason = r.reason || "limit doldu";
-                  if (mappedReason === "duplicate") mappedReason = "kopya (duplicate)";
-                  else if (mappedReason === "quality blocked" || mappedReason === "all_candidates_quality_blocked") mappedReason = "kalite blocker";
-                  else if (mappedReason === "API error" || mappedReason === "model_error") mappedReason = "model/API hatası";
-                  else if (mappedReason === "no_tweets_found") mappedReason = "kaynak bulunamadı";
-                  else if (mappedReason === "socialdata_budget_reached") mappedReason = "bütçe limiti";
-                  else if (mappedReason === "daily_limit_reached") mappedReason = "günlük limit doldu";
-                  else if (mappedReason === "no_enabled_sources") mappedReason = "kaynaklar kapalı";
-                  
-                  reasonText = `❌ skipped, neden: ${mappedReason}`;
-                }
-                return (
-                  <div key={idx} style={{ color: "var(--text-muted)", display: "flex", justifyContent: "space-between" }}>
-                    <span>@{r.account} (Scan: {r.tweetsFound ?? 0} tweet / Aday: {r.candidateSourcePostsFound ?? 0})</span>
-                    <span style={{ fontWeight: 500, color: r.draftsCreated > 0 ? "var(--accent)" : "var(--status-error)" }}>
-                      {reasonText}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+  if (readiness.ready && isWarning) {
+    // Uyarı: tek satır kompakt; detay isteğe bağlı açılır (genişleme = sorun).
+    return (
+      <details
+        style={{
+          background: "color-mix(in srgb, var(--yellow) 6%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--yellow) 25%, transparent)",
+          borderRadius: 8,
+          padding: "10px 14px",
+          marginBottom: 16,
+          fontSize: 12,
+          color: "var(--text-primary)",
+        }}
+      >
+        <summary style={{ cursor: "pointer", color: "var(--status-warn)", fontWeight: 500, listStyle: "none" }}>
+          ⚠️ Sistem uyarılı — taslak akışı çalışıyor, detay için tıkla
+        </summary>
+        {readiness.warnings.length > 0 && (
+          <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
+            {readiness.warnings.map((w, i) => (
+              <li key={i} style={{ color: "#fbbf24" }}>
+                {w}
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
+      </details>
     );
   }
 

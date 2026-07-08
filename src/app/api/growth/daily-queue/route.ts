@@ -111,6 +111,18 @@ export async function GET(req: NextRequest) {
           viralityScore,
           noveltyScore,
           riskScore,
+          // Sprint 1 ayrışık alt-sinyaller (Bugün kartı çubukları). null =
+          // sinyal yok (eski kayıt / judge koşmadı) — UI 75 uydurmasın diye
+          // default doldurulmaz.
+          turkishNaturalness:
+            typeof parsedScores.turkishNaturalness === "number"
+              ? parsedScores.turkishNaturalness
+              : null,
+          sourceFaithfulness:
+            typeof parsedScores.sourceFaithfulness === "number"
+              ? parsedScores.sourceFaithfulness
+              : null,
+          judged: parsedScores.telemetry?.judged === true,
           publishRecommendation: parsedScores.publishRecommendation || "publish",
           rewriteSuggestion: parsedScores.rewriteSuggestion || "",
           angle: parsedScores.angle || "safe",

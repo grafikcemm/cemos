@@ -1,27 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Inbox, Zap } from "lucide-react";
+import { CheckCircle2, Inbox, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import DraftReviewCard from "./DraftReviewCard";
-import { useDailyQueueData, type MorningDraft } from "./useDailyQueueData";
+import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 import EmptyState from "../ui/EmptyState";
+import ErrorState from "../ui/ErrorState";
 import Skeleton from "../ui/Skeleton";
 import Button from "../ui/Button";
 
 type Props = {
   onToast: (text: string, type: "success" | "error") => void;
+  /** Veri parent'ta (MorningDashboardTab) yüklenir — sayaç satırıyla paylaşılır. */
+  queue: ReturnType<typeof useDailyQueueData>;
 };
 
 const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"];
 
-export default function ReviewQueue({ onToast }: Props) {
-  const { drafts, loading, error, fetchDrafts, saveDraft, markPublished } = useDailyQueueData();
+const isDone = (d: MorningDraft) =>
+  d.status === "manual_published" || d.status === "published";
+
+export default function ReviewQueue({ onToast, queue }: Props) {
+  const { drafts, loading, error, fetchDrafts, saveDraft, markPublished } = queue;
   const [generating, setGenerating] = useState(false);
 
-  const reviewedCount = drafts.filter(
-    (d) => d.status === "manual_published" || d.status === "published"
-  ).length;
+  const reviewedCount = drafts.filter(isDone).length;
+  // NEXT UP: hesap sırasına göre İLK bekleyen taslak (fold üstü odak noktası).
+  const nextUpId =
+    ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h)).find(
+      (d) => !isDone(d),
+    )?.id ?? null;
+  const allDone = drafts.length > 0 && reviewedCount === drafts.length;
 
   // İki hesap HER ZAMAN görünür — 0-taslaklı hesap gizlenmez (boş-durum gösterir).
   const byAccount = ACCOUNT_ORDER.map((handle) => ({
@@ -95,33 +105,46 @@ export default function ReviewQueue({ onToast }: Props) {
           <Skeleton height={72} />
         </div>
       ) : error ? (
-        <div
-          style={{
-            background: "color-mix(in srgb, var(--danger) 7%, var(--bg-surface))",
-            border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)",
-            borderRadius: "var(--radius-lg)",
-          }}
-        >
-          <EmptyState
-            compact
-            icon={<AlertTriangle size={18} strokeWidth={2} />}
-            title="Taslaklar yüklenemedi"
-            description={error}
-            action={
-              <Button size="sm" variant="secondary" onClick={() => void fetchDrafts()}>
-                Yeniden dene
-              </Button>
-            }
-          />
-        </div>
+        // HATA ≠ BOŞ (item 5): boş kuyruk EmptyState alır, yükleme hatası bu
+        // ayrı danger bloğu + yeniden-dene alır. Ham teknik hata gösterilmez.
+        <ErrorState
+          title="Taslaklar yüklenemedi"
+          description="Taslaklar şu an yüklenemiyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void fetchDrafts()}
+        />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {allDone && (
+            // Terminal durum: kuyruk bitti — günün işi tamam (FIRST-SPRINT item 4).
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: "color-mix(in srgb, var(--green) 8%, var(--bg-surface))",
+                border: "1px solid color-mix(in srgb, var(--green) 30%, transparent)",
+                borderRadius: "var(--radius-lg)",
+                padding: "14px 16px",
+              }}
+            >
+              <CheckCircle2 size={20} strokeWidth={2} style={{ color: "var(--green)", flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
+                  Bugünlük bitti ✓
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+                  {reviewedCount}/{drafts.length} taslak incelendi. Yeni taslaklar yarın sabah (İstanbul ~06:00-07:00) hazır olur.
+                </div>
+              </div>
+            </div>
+          )}
           {byAccount.map((group) => (
             <AccountGroup
               key={group.handle}
               handle={group.handle}
               items={group.items}
               generating={generating}
+              nextUpId={nextUpId}
               onGenerate={handleGenerate}
               onSave={saveDraft}
               onMarkPublished={markPublished}
@@ -138,6 +161,7 @@ function AccountGroup({
   handle,
   items,
   generating,
+  nextUpId,
   onGenerate,
   onSave,
   onMarkPublished,
@@ -146,6 +170,7 @@ function AccountGroup({
   handle: string;
   items: MorningDraft[];
   generating: boolean;
+  nextUpId: string | null;
   onGenerate: () => void;
   onSave: (id: string, content: string) => Promise<boolean>;
   onMarkPublished: (id: string) => Promise<boolean>;
@@ -191,6 +216,7 @@ function AccountGroup({
             <DraftReviewCard
               key={d.id}
               draft={d}
+              isNextUp={d.id === nextUpId}
               onSave={onSave}
               onMarkPublished={onMarkPublished}
               onToast={onToast}

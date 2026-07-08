@@ -1,5 +1,5 @@
 "use client";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, ErrorState } from "@/components/ui";
 import {
   RefreshCw,
   Settings2,
@@ -147,6 +147,7 @@ const catLabel = (c: string) => CATEGORY_LABELS[c] ?? c;
 export default function NewsPoolTab() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
 
@@ -164,15 +165,17 @@ export default function NewsPoolTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const q = new URLSearchParams({ limit: "100", compact: "true", sort });
       if (status !== "all") q.set("status", status);
       if (category !== "all") q.set("category", category);
       const data = await fetchJson<NewsResponse>(`/api/news-pool?${q.toString()}`);
       if (data.success && data.items) setItems(data.items);
-      else showToast(data.error || "Haberler alınamadı.", "error");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      else setLoadFailed(true);
+    } catch {
+      // HATA ≠ BOŞ (item 5): geçici toast yerine kalıcı, ayrı error state.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -336,6 +339,12 @@ export default function NewsPoolTab() {
 
       {loading ? (
         <div style={archiveGrid}>{Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}</div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Haberler yüklenemedi"
+          description="Haber havuzu şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void load()}
+        />
       ) : filtered.length === 0 ? (
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
           <EmptyState

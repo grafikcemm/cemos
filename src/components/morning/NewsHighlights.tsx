@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Newspaper, Target, Loader2, CheckCircle2, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
-import { Card, EmptyState, SectionHeader, Skeleton, Badge } from "@/components/ui";
+import { Card, EmptyState, ErrorState, SectionHeader, Skeleton, Badge } from "@/components/ui";
 
 type NewsItem = {
   id: string;
@@ -32,15 +32,19 @@ const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
 export default function NewsHighlights({ onToast }: Props) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const data = await fetchJson<NewsResponse>("/api/news-pool?minScore=70&limit=5&compact=true");
       if (data.success && data.items) setItems(data.items.slice(0, 5));
+      else setLoadFailed(true);
     } catch {
-      // surfaced via empty state
+      // HATA ≠ BOŞ (item 5): yutulmaz, ayrı error state gösterilir.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -91,6 +95,12 @@ export default function NewsHighlights({ onToast }: Props) {
             ))}
           </div>
         </Card>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Haber sinyalleri yüklenemedi"
+          description="Viral haber listesi şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void load()}
+        />
       ) : items.length === 0 ? (
         <Card variant="feature" padded={false}>
           <EmptyState
