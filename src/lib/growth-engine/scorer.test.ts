@@ -10,7 +10,7 @@ import {
   calculateOpportunityScore,
   calculatePublishScore
 } from "./scorer";
-import { ACCOUNT_HANDLES } from "./account-profiles";
+import { ACCOUNT_HANDLES } from "./account-adapter";
 
 // ---------------------------------------------------------------------------
 // Mock AI module — all tests use fallback by default

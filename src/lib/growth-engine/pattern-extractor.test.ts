@@ -6,7 +6,7 @@ import {
   patternExtractionToViralPatternInput
 } from "./pattern-extractor";
 import type { PatternExtractionInput, PatternExtractionResult } from "./types";
-import { ACCOUNT_HANDLES } from "./account-profiles";
+import { ACCOUNT_HANDLES } from "./account-adapter";
 
 // ---------------------------------------------------------------------------
 // Mock AI module — all tests run with fallback by default
@@ -65,7 +65,8 @@ describe("extractPatternSyncFallback", () => {
 
     expect(result.hook).toBeTruthy();
     expect(result.emotionalTrigger).toBe("rahatsız edici gerçek");
-    expect(result.tone).toContain("doğrudan");
+    // Sprint 2: tone artık CANLI profil toneRules'undan gelir (ASCII yazım).
+    expect(result.tone.toLowerCase()).toContain("dogrudan");
     expect(result.suggestedAccounts).toContain("maskulenkod");
     // Should match maskulenkod-specific patterns
     const validPatterns = [
@@ -142,9 +143,9 @@ describe("extractPatternSyncFallback", () => {
       accountHandle: "grafikcem"
     });
 
-    // Should match grafikcem's description
-    expect(result.audience).toContain("AI");
-    expect(result.audience).toContain("tasarım");
+    // Sprint 2: audience artık CANLI profil concept'inden gelir (accounts.ts).
+    expect(result.audience).toContain("Türk yaratıcı");
+    expect(result.audience).toContain("araç testleri");
   });
 });
 

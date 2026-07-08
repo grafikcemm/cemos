@@ -1,4 +1,8 @@
-import { getAccountProfile, validateAccountHandle } from "./account-profiles";
+import {
+  getGenerationProfile,
+  getDefaultGenerationMode,
+  isKnownAccountHandle as validateAccountHandle,
+} from "./account-adapter";
 import { sourcePostRepo } from "../db/sourcePostRepo";
 import { viralPatternRepo } from "../db/viralPatternRepo";
 import { accountRepo } from "../db/accountRepo";
@@ -19,8 +23,8 @@ export async function buildGenerationContext(
     throw new Error(`Invalid account handle: ${accountHandle}`);
   }
 
-  const accountProfile = getAccountProfile(accountHandle);
-  const modeId = input.modeId || accountProfile.modes[0]?.id;
+  const accountProfile = getGenerationProfile(accountHandle);
+  const modeId = input.modeId || getDefaultGenerationMode(accountHandle).id;
   const selectedMode = accountProfile.modes.find((m) => m.id === modeId);
 
   // Resolve DB Account for patterns
@@ -173,7 +177,7 @@ export function buildGenerationContextFallback(
 
   try {
     if (validateAccountHandle(accountHandle)) {
-      accountProfile = getAccountProfile(accountHandle);
+      accountProfile = getGenerationProfile(accountHandle);
     }
   } catch {}
 

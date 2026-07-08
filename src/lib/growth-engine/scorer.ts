@@ -18,9 +18,9 @@ import {
   type SourceAction,
   type PublishRecommendation,
 } from "@/lib/growth-engine/types";
-// Tek hesap kimliği (FIRST-SPRINT item 6): scoring artık canlı `@/lib/accounts`
-// profiline adapter üzerinden bağlanır — growth-engine'in kendi account-profiles
-// kopyası draft yolundan çıkarıldı (dosya Sprint 2'ye kadar durur).
+// Tek hesap kimliği: scoring canlı `@/lib/accounts` profiline adapter
+// üzerinden bağlanır — growth-engine'in eski account-profiles kopyası
+// Sprint 2'de silindi.
 import {
   isKnownAccountHandle as validateAccountHandle,
   getScoringIdentity,

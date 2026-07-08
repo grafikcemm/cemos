@@ -17,13 +17,12 @@ import {
   type CreateViralPatternInput,
 } from "@/lib/growth-engine/types";
 import {
-  validateAccountHandle,
-  getAccountProfile,
-  getAllProfiles,
-  getDefaultMode,
-  type AccountHandle,
-  type AccountProfile,
-} from "@/lib/growth-engine/account-profiles";
+  isKnownAccountHandle as validateAccountHandle,
+  getScoringIdentity,
+  getDefaultGenerationMode,
+  type ScoringIdentity,
+} from "@/lib/growth-engine/account-adapter";
+import type { AccountHandle } from "@/lib/accounts";
 
 // ---------------------------------------------------------------------------
 // Account-specific pattern catalogs
@@ -202,15 +201,15 @@ function buildExtractionPrompt(input: PatternExtractionInput): { system: string;
 }
 
 function buildAccountContext(handle: AccountHandle): string {
-  const profile = getAccountProfile(handle);
-  const mode = getDefaultMode(handle);
+  const profile = getScoringIdentity(handle);
+  const mode = getDefaultGenerationMode(handle);
   return [
     `Hedef Hesap: @${handle}`,
     `Persona: ${profile.persona}`,
     `Ton: ${profile.tone}`,
     `Viral Mekanik: ${profile.viralMechanic}`,
     `Varsayılan Mod: ${mode.id} — ${mode.label}`,
-    `Konu Alanı: ${profile.description}`,
+    `Konu Alanı: ${profile.concept}`,
     "",
     "Hesaba özel olası pattern isimleri:",
     ...ACCOUNT_PATTERNS[handle].map((p) => `- ${p}`),
@@ -295,7 +294,7 @@ export function extractPatternSyncFallback(
   // Detect relevant accounts from text
   const detectedAccounts = handle ? [handle] : detectAccounts(text);
   const primaryHandle = detectedAccounts[0] ?? "grafikcem";
-  const profile: AccountProfile = getAccountProfile(primaryHandle);
+  const profile: ScoringIdentity = getScoringIdentity(primaryHandle);
 
   // Build heuristic result
   const hook = extractFirstSentence(text);
@@ -322,7 +321,7 @@ export function extractPatternSyncFallback(
     emotionalTrigger,
     structure: "hook -> claim -> context -> closing",
     tone: profile.tone,
-    audience: profile.description,
+    audience: profile.concept,
     viralityReason: "Metin hedef hesabın konusu ve tonu için pattern çıkarımına uygun.",
     suggestedAccounts: detectedAccounts.length > 0 ? detectedAccounts : [primaryHandle],
     suggestedPatterns,

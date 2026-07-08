@@ -1,18 +1,19 @@
 import {
   accountProfiles,
+  selectMode,
+  FORMAT_TIERS,
   type AccountHandle,
   type AccountProfile as LiveAccountProfile,
 } from "@/lib/accounts";
 
 /**
- * Tek hesap kimliği adapter'ı (FIRST-SPRINT item 6).
+ * Tek hesap kimliği adapter'ı (FIRST-SPRINT item 6 → Sprint 2 emeklilik).
  *
- * Growth-engine scoring bileşenleri (scorer, leak-detector çağıranları) hesap
- * kimliğini artık CANLI kaynaktan (`@/lib/accounts`) alır; growth-engine'in
- * kendi `account-profiles.ts` kopyası günlük draft yolundan çıkarılmıştır
- * (dosya Sprint 2 eval-parity'ye kadar SİLİNMEZ — diğer sprint-engine
- * tüketicileri için durur). Bu adapter iki profil evreni arasındaki alan
- * eşlemesini tek yerde tutar.
+ * Growth-engine bileşenleri hesap kimliğini CANLI kaynaktan (`@/lib/accounts`)
+ * alır. Growth-engine'in eski `account-profiles.ts` kopyası Sprint 2'de
+ * SİLİNDİ — tüm tüketiciler (scoring, pattern-extractor, context-builder,
+ * API rotaları) bu adapter üzerinden canlı profile bağlanır. İki profil
+ * evreni arasındaki alan eşlemesi tek yerde, burada yaşar.
  */
 
 export type ScoringIdentity = {
@@ -152,4 +153,126 @@ export function getAllScoringIdentities(): ScoringIdentity[] {
 /** Heuristik ceza eşleşmesi için kısa, fold'lanmış yasak terimler. */
 export function getForbiddenTermsFromLive(handle: string): string[] {
   return getScoringIdentity(handle).forbiddenTerms;
+}
+
+// ---------------------------------------------------------------------------
+// Üretim-yolu profil köprüsü (Sprint 2: account-profiles.ts emekliliği)
+// ---------------------------------------------------------------------------
+
+/** Bilinen hesap handle listesi — canlı kaynaktan türetilir. */
+export const ACCOUNT_HANDLES = Object.keys(accountProfiles) as AccountHandle[];
+
+const DISPLAY_NAMES: Record<AccountHandle, string> = {
+  grafikcem: "GrafikCem",
+  maskulenkod: "MaskulenKod",
+};
+
+/** UI görünen adı; bilinmeyen handle olduğu gibi döner (fail-soft). */
+export function getDisplayName(handle: string): string {
+  return isKnownAccountHandle(handle) ? DISPLAY_NAMES[handle] : handle;
+}
+
+export type GenerationMode = {
+  id: string;
+  label: string;
+  instruction: string;
+  /** Bu modda taslakla birlikte image-gen promptu üretilir. */
+  emitsImagePrompt?: boolean;
+  /** Uzun form (thread/thunder/mega): tek-tweet sınırını aşabilir. */
+  longForm?: boolean;
+};
+
+/**
+ * Growth-engine üretim yolunun (context-builder / draft-generator prompt'u)
+ * beklediği profil şekli — canlı `@/lib/accounts` profilinden türetilir.
+ * Eski account-profiles.ts alan adlarıyla uyumludur (davranış korunur).
+ */
+export type GenerationProfile = {
+  handle: AccountHandle;
+  displayName: string;
+  persona: string;
+  description: string;
+  language: "Turkish";
+  tone: string;
+  format: string;
+  viralMechanic: string;
+  forbidden: string[];
+  maxChars: number;
+  modes: GenerationMode[];
+  generationRules: {
+    requireHook: boolean;
+    singleTweet: boolean;
+    requireConcreteAnchor: boolean;
+    noHashtags: boolean;
+    allowEmoji?: boolean;
+    allowStructure?: boolean;
+  };
+};
+
+/**
+ * Eski account-profiles.ts generationRules değerleri — davranış birebir
+ * korunur (canlı profilde karşılığı olmayan üretim bayrakları burada yaşar).
+ */
+const GENERATION_RULES: Record<AccountHandle, GenerationProfile["generationRules"]> = {
+  grafikcem: {
+    requireHook: true,
+    singleTweet: false,
+    requireConcreteAnchor: true,
+    noHashtags: true,
+    allowStructure: true,
+  },
+  maskulenkod: {
+    requireHook: true,
+    singleTweet: true,
+    requireConcreteAnchor: false,
+    noHashtags: true,
+    allowStructure: true,
+  },
+};
+
+function toGenerationMode(mode: LiveAccountProfile["modes"][number]): GenerationMode {
+  const tier = FORMAT_TIERS[mode.format];
+  // thread (maxChars 0) ve premium dwell-time tier'ları uzun formdur.
+  const isLongForm = tier ? tier.maxChars === 0 || tier.maxChars > 600 : false;
+  return {
+    id: mode.id,
+    label: mode.label,
+    instruction: mode.instruction,
+    ...(mode.id === "visual_drop" ? { emitsImagePrompt: true } : {}),
+    ...(isLongForm ? { longForm: true } : {}),
+  };
+}
+
+export function getGenerationProfile(handle: string): GenerationProfile {
+  if (!isKnownAccountHandle(handle)) {
+    throw new Error(`Bilinmeyen hesap handle'ı: ${handle}`);
+  }
+  const live = accountProfiles[handle];
+  return {
+    handle: live.handle,
+    displayName: DISPLAY_NAMES[live.handle],
+    persona: live.persona,
+    description: live.concept,
+    language: "Turkish",
+    tone: live.toneRules.join(" "),
+    format: live.formatRules.join(" "),
+    viralMechanic: live.concept,
+    forbidden: live.forbiddenRules,
+    maxChars: live.maxChars,
+    modes: live.modes.map(toGenerationMode),
+    generationRules: GENERATION_RULES[live.handle],
+  };
+}
+
+/**
+ * Varsayılan üretim modu — canlı `selectMode` üzerinden (micro tuzağı ve
+ * premium dwell-time tier'ları varsayılan rotasyona GİRMEZ; eski
+ * account-profiles varsayılanlarıyla uyumlu: grafikcem→tool_spotlight,
+ * maskulenkod→sistem_analizi).
+ */
+export function getDefaultGenerationMode(handle: string): GenerationMode {
+  if (!isKnownAccountHandle(handle)) {
+    throw new Error(`Bilinmeyen hesap handle'ı: ${handle}`);
+  }
+  return toGenerationMode(selectMode(accountProfiles[handle], { seed: 0 }));
 }

@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateDrafts } from "@/lib/growth-engine/draft-generator";
-import { validateAccountHandle } from "@/lib/growth-engine/account-profiles";
+import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engine/account-adapter";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { BudgetExceededError } from "@/lib/config/costGate";

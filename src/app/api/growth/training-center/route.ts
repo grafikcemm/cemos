@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
+import { getDisplayName } from "@/lib/growth-engine/account-adapter";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
@@ -19,13 +19,7 @@ export async function GET(req: NextRequest) {
     const idToAccount = new Map<string, { id: string; handle: string; displayName: string }>();
     const handleToId = new Map<string, string>();
     for (const acc of accounts) {
-      let displayName = acc.handle;
-      try {
-        const profile = getAccountProfile(acc.handle);
-        if (profile) {
-          displayName = profile.displayName;
-        }
-      } catch {}
+      const displayName = getDisplayName(acc.handle);
       idToAccount.set(acc.id, { id: acc.id, handle: acc.handle, displayName });
       handleToId.set(acc.handle, acc.id);
     }
