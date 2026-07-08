@@ -18,13 +18,13 @@ describe("model-config resolution and overrides", () => {
   it("should resolve pinned deepseek default in dev profile (2026-07 map)", () => {
     process.env.MODEL_PROFILE = "dev";
     const model = resolveModel("cheapWriter");
-    expect(model).toBe("deepseek/deepseek-v4-flash-20260423");
+    expect(model).toBe("deepseek/deepseek-v4-flash");
   });
 
   it("should resolve paid gemini model in operator_quality profile", () => {
     process.env.MODEL_PROFILE = "operator_quality";
     const model = resolveModel("cheapWriter");
-    expect(model).toBe("google/gemini-3.1-flash-lite-20260507");
+    expect(model).toBe("google/gemini-3.1-flash-lite");
   });
 
   it("should respect free env overrides under dev profile", () => {
@@ -39,7 +39,7 @@ describe("model-config resolution and overrides", () => {
     process.env.OPENROUTER_CHEAP_MODEL = "deepseek/deepseek-chat:free";
     const model = resolveModel("cheapWriter");
     // Should ignore free and return the high-quality paid model
-    expect(model).toBe("google/gemini-3.1-flash-lite-20260507");
+    expect(model).toBe("google/gemini-3.1-flash-lite");
   });
 
   it("should respect free env overrides under operator_quality if ENABLE_FREE_MODELS is explicitly true", () => {
@@ -52,22 +52,22 @@ describe("model-config resolution and overrides", () => {
 
   it("should route the creative writer to pinned gemini-3.5-flash in operator_quality", () => {
     process.env.MODEL_PROFILE = "operator_quality";
-    expect(resolveModel("creativeWriter")).toBe("google/gemini-3.5-flash-20260519");
+    expect(resolveModel("creativeWriter")).toBe("google/gemini-3.5-flash");
   });
 
   it("should route the final editor to pinned claude-sonnet-5 in operator_quality for Turkish polish", () => {
     process.env.MODEL_PROFILE = "operator_quality";
-    expect(resolveModel("finalEditor")).toBe("anthropic/claude-sonnet-5-20260630");
+    expect(resolveModel("finalEditor")).toBe("anthropic/claude-sonnet-5");
   });
 
   it("should keep the viral judge on cheap pinned gemini-3.1-flash-lite in operator_quality", () => {
     process.env.MODEL_PROFILE = "operator_quality";
-    expect(resolveModel("viralJudge")).toBe("google/gemini-3.1-flash-lite-20260507");
+    expect(resolveModel("viralJudge")).toBe("google/gemini-3.1-flash-lite");
   });
 
   it("should keep the quality judge on pinned gemini-3.5-flash in operator_quality", () => {
     process.env.MODEL_PROFILE = "operator_quality";
-    expect(resolveModel("qualityJudge")).toBe("google/gemini-3.5-flash-20260519");
+    expect(resolveModel("qualityJudge")).toBe("google/gemini-3.5-flash");
   });
 
   it("operator_quality defaults never resolve to a floating or :free slug", () => {
@@ -78,9 +78,9 @@ describe("model-config resolution and overrides", () => {
     ] as const;
     for (const role of roles) {
       const slug = resolveModel(role);
-      expect(slug).not.toMatch(/:free|-latest/);
-      // Pinned dated slug (2026-07 map).
-      expect(slug).toMatch(/-\d{8}$/);
+      // Canlı katalog canonical slug'ları tarihsizdir (2026-07-09 kararı);
+      // floating/preview/:free marker yasak.
+      expect(slug).not.toMatch(/:free|-latest|-fast|preview|fable/);
     }
   });
 });

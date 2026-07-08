@@ -114,19 +114,19 @@ function getFallbackModels(baseModel: string): string[] {
   const list = [baseModel];
   // ── Pinned 2026-07 katalog zincirleri (FINAL-OPENROUTER-ROUTING §1-2) ──
   if (baseModel.includes("claude-sonnet-5")) {
-    list.push("openai/gpt-5.5-20260423", "google/gemini-pro-latest");
+    list.push("openai/gpt-5.5", "google/gemini-3.5-flash");
   } else if (baseModel.includes("gpt-5.5")) {
-    list.push("google/gemini-3.5-flash-20260519", "anthropic/claude-sonnet-5-20260630");
+    list.push("google/gemini-3.5-flash", "anthropic/claude-sonnet-5");
   } else if (baseModel.includes("gemini-3.5-flash")) {
-    list.push("deepseek/deepseek-v4-pro-20260423", "openai/gpt-5.5-20260423");
+    list.push("deepseek/deepseek-v4-pro", "openai/gpt-5.5");
   } else if (baseModel.includes("gemini-3.1-flash-lite")) {
-    list.push("deepseek/deepseek-v4-flash-20260423", "google/gemini-3.5-flash-20260519");
+    list.push("deepseek/deepseek-v4-flash", "google/gemini-3.5-flash");
   } else if (baseModel.includes("deepseek-v4-flash")) {
-    list.push("google/gemini-3.1-flash-lite-20260507", "google/gemini-3.5-flash-20260519");
+    list.push("google/gemini-3.1-flash-lite", "google/gemini-3.5-flash");
   } else if (baseModel.includes("deepseek-v4-pro")) {
-    list.push("google/gemini-3.5-flash-20260519");
-  } else if (baseModel.includes("gpt-mini-latest")) {
-    list.push("google/gemini-3.1-flash-lite-20260507", "deepseek/deepseek-v4-flash-20260423");
+    list.push("google/gemini-3.5-flash");
+  } else if (baseModel.includes("gpt-5.4-mini")) {
+    list.push("google/gemini-3.1-flash-lite", "deepseek/deepseek-v4-flash");
     // ── Legacy env-override zincirleri (eski slug pinleyen kurulumlar için) ──
   } else if (baseModel.includes("claude-sonnet-4-5") || baseModel.includes("claude-sonnet-4.5")) {
     list.push("google/gemini-2.5-pro", "google/gemini-2.5-flash");
@@ -141,7 +141,7 @@ function getFallbackModels(baseModel: string): string[] {
   } else if (baseModel.includes("deepseek-chat")) {
     list.push("google/gemini-2.5-flash", "google/gemini-2.5-pro");
   } else {
-    list.push("google/gemini-3.5-flash-20260519", "openai/gpt-5.5-20260423");
+    list.push("google/gemini-3.5-flash", "openai/gpt-5.5");
   }
   return Array.from(new Set(list));
 }

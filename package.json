@@ -21,7 +21,8 @@
     "operator:check": "npx tsx scripts/operator-readiness.ts",
     "operator:scan-now": "npx tsx scripts/operator-scan-now.ts",
     "ingest:research": "npx tsx scripts/ingest-research.ts",
-    "eval:run": "npx tsx scripts/run-eval-tests.ts"
+    "eval:run": "npx tsx scripts/run-eval-tests.ts",
+    "verify:catalog": "npx tsx scripts/verify-model-catalog.ts"
   },
   "dependencies": {
     "@next/env": "^16.2.6",

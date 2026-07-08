@@ -1,16 +1,24 @@
 import type { ModelRole } from "@/lib/ai/model-config";
 
 /**
- * CemOS model preset katmanı (FINAL-OPENROUTER-ROUTING §2, 2026-07-08 kataloğu).
+ * CemOS model preset katmanı (FINAL-OPENROUTER-ROUTING §2 — slug'lar canlı
+ * kataloğa uyarlandı, 2026-07-09).
+ *
+ * NOT — slug politikası: FINAL-OPENROUTER-ROUTING dated slug (`-\d{8}$`)
+ * varsayıyordu; gerçek OpenRouter kataloğu (`/api/v1/models`) TARİHSİZ
+ * canonical id kullanır (örn. `anthropic/claude-sonnet-5`). Karar (2026-07-09,
+ * Ali Cem onayı): canlı katalog slug'ları canonical'dır. Startup lint artık
+ * dated-regex yerine şunları zorlar:
+ *   1. primary canlı-katalog snapshot'ında MEVCUT (drift saklanmaz);
+ *   2. primary floating/preview/fast/fable/:free marker taşımaz;
+ *   3. writer ailesi ≠ judge ailesi (C3 self-preference savunması);
+ *   4. her preset farklı-sağlayıcı fallback zinciri taşır.
+ * Canlı doğrulama: `npm run verify:catalog` (scripts/verify-model-catalog.ts)
+ * — katalog erişilemez/slug yoksa AÇIK hata verir; sessiz mock fallback yasak.
  *
  * Bu katman mevcut rol registry'sinin (`model-config.ts`) ÜZERİNE oturur,
  * yeniden yazmaz: preset verilmeyen çağrılar eski `role` yolundan aynen çalışır
- * (additive rollback). Kurallar:
- *   - primary = pinned dated slug (regex `-\d{8}$`) ve katalog snapshot'ında mevcut;
- *   - floating (`-latest` / `-fast` / `fable` / `preview` / `:free`) YALNIZ fallback;
- *   - writer ailesi ≠ judge ailesi (self-preference savunması, C3);
- *   - her preset farklı-sağlayıcı fallback zinciri taşır.
- * `validatePresets()` bu kuralları startup'ta ve CI'da (vitest) zorlar.
+ * (additive rollback).
  */
 
 export type PresetName =
@@ -30,9 +38,9 @@ export type PresetConfig = {
   name: PresetName;
   /** Rol registry köprüsü — maliyet tahmini ve maxTokens tavanı buradan gelir. */
   role: ModelRole;
-  /** Pinned dated slug. Floating primary YASAK (startup lint kırar). */
+  /** Canlı katalogda doğrulanmış canonical slug. Floating YASAK (lint kırar). */
   primary: string;
-  /** Fallback zinciri — floating slug'lara yalnız burada izin var. */
+  /** Fallback zinciri — kural gereği en az bir farklı-sağlayıcı model. */
   fallbacks: string[];
   /** UsageLog.meta.purpose için varsayılan prefix (çağıran özel purpose verebilir). */
   purposePrefix: string;
@@ -55,36 +63,30 @@ export type PresetConfig = {
 };
 
 /**
- * Doğrulanmış katalog snapshot'ı — FINAL-OPENROUTER-ROUTING §1
- * (`https://openrouter.ai/api/v1/models`, 2026-07-08). Primary slug bu listede
- * yoksa build KIRILIR; sessiz fallback production primary drift'i saklamaz.
- * Canlı katalog her build başında ayrıca doğrulanmalı (V1: AiModelSnapshot).
+ * Canlı katalog snapshot'ı — `https://openrouter.ai/api/v1/models` çıktısına
+ * karşı 2026-07-09'da tek tek doğrulandı (curl kanıtı Sprint 1 raporunda).
+ * Primary bu listede yoksa lint THROW eder → build kırılır; sessiz fallback
+ * production primary drift'ini saklayamaz. Canlı yeniden-doğrulama:
+ * `npm run verify:catalog`.
  */
-export const CATALOG_SNAPSHOT_DATE = "2026-07-08";
+export const CATALOG_SNAPSHOT_DATE = "2026-07-09";
 export const KNOWN_CATALOG: ReadonlySet<string> = new Set([
-  "anthropic/claude-sonnet-5-20260630",
-  "anthropic/claude-4.8-opus-20260528",
-  "openai/gpt-5.5-20260423",
-  "openai/gpt-5.5-pro-20260423",
-  "google/gemini-3.5-flash-20260519",
-  "google/gemini-3.1-flash-lite-20260507",
-  "google/gemini-3-pro-image-20260528",
-  "deepseek/deepseek-v4-flash-20260423",
-  "deepseek/deepseek-v4-pro-20260423",
-  "openai/text-embedding-3-small",
-  // Floating — yalnız fallback olarak geçerli:
-  "anthropic/claude-sonnet-latest",
-  "openai/gpt-mini-latest",
-  "google/gemini-pro-latest",
-  "google/gemini-flash-latest",
+  "anthropic/claude-sonnet-5",
+  "anthropic/claude-opus-4.8",
+  "openai/gpt-5.5",
+  "openai/gpt-5.4-mini",
+  "google/gemini-3.5-flash",
+  "google/gemini-3.1-flash-lite",
+  "deepseek/deepseek-v4-flash",
+  "deepseek/deepseek-v4-pro",
 ]);
 
-const PINNED_SLUG_RE = /-\d{8}$/;
+/**
+ * Floating/preview marker'ları: bunları taşıyan slug primary OLAMAZ.
+ * (Katalogda gerçek örnekleri var: claude-opus-4.8-fast, claude-fable-5,
+ * gemini-3.1-flash-lite-preview, :free varyantları.)
+ */
 const FLOATING_MARKERS = ["-latest", "-fast", "fable", "preview", ":free"];
-
-export function isPinnedSlug(slug: string): boolean {
-  return PINNED_SLUG_RE.test(slug);
-}
 
 export function isFloatingSlug(slug: string): boolean {
   const lower = slug.toLowerCase();
@@ -100,8 +102,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-fast-extract": {
     name: "cemos-fast-extract",
     role: "cheapWriter",
-    primary: "google/gemini-3.1-flash-lite-20260507",
-    fallbacks: ["deepseek/deepseek-v4-flash-20260423", "google/gemini-3.5-flash-20260519"],
+    primary: "google/gemini-3.1-flash-lite",
+    fallbacks: ["deepseek/deepseek-v4-flash", "google/gemini-3.5-flash"],
     purposePrefix: "extract_",
     temperature: 0,
     structured: "json_schema",
@@ -115,8 +117,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-budget-batch": {
     name: "cemos-budget-batch",
     role: "cheapWriter",
-    primary: "deepseek/deepseek-v4-flash-20260423",
-    fallbacks: ["google/gemini-3.1-flash-lite-20260507"],
+    primary: "deepseek/deepseek-v4-flash",
+    fallbacks: ["google/gemini-3.1-flash-lite"],
     purposePrefix: "prefilter_",
     temperature: 0,
     structured: "json_schema",
@@ -130,8 +132,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-research": {
     name: "cemos-research",
     role: "qualityJudge",
-    primary: "google/gemini-3.5-flash-20260519",
-    fallbacks: ["deepseek/deepseek-v4-pro-20260423", "openai/gpt-5.5-20260423"],
+    primary: "google/gemini-3.5-flash",
+    fallbacks: ["deepseek/deepseek-v4-pro", "openai/gpt-5.5"],
     purposePrefix: "research_",
     temperature: 0.3,
     structured: "json_schema",
@@ -145,8 +147,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-multimodal-audit": {
     name: "cemos-multimodal-audit",
     role: "qualityJudge",
-    primary: "google/gemini-3.5-flash-20260519",
-    fallbacks: ["google/gemini-pro-latest", "openai/gpt-5.5-20260423"],
+    primary: "google/gemini-3.5-flash",
+    fallbacks: ["openai/gpt-5.5", "deepseek/deepseek-v4-pro"],
     purposePrefix: "audit_",
     temperature: 0.2,
     structured: "json_schema",
@@ -160,8 +162,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-memory": {
     name: "cemos-memory",
     role: "cheapWriter",
-    primary: "deepseek/deepseek-v4-pro-20260423",
-    fallbacks: ["google/gemini-3.5-flash-20260519"],
+    primary: "deepseek/deepseek-v4-pro",
+    fallbacks: ["google/gemini-3.5-flash"],
     purposePrefix: "memory_",
     temperature: 0.1,
     structured: "json_schema",
@@ -175,8 +177,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-writer": {
     name: "cemos-writer",
     role: "creativeWriter",
-    primary: "anthropic/claude-sonnet-5-20260630",
-    fallbacks: ["openai/gpt-5.5-20260423", "google/gemini-pro-latest"],
+    primary: "anthropic/claude-sonnet-5",
+    fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
     purposePrefix: "writer_",
     temperature: 0.9,
     // Routing tablosunda "none"; draft-pipeline JSON sözleşmesi için json_object.
@@ -191,8 +193,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-strategist": {
     name: "cemos-strategist",
     role: "qualityJudge",
-    primary: "anthropic/claude-sonnet-5-20260630",
-    fallbacks: ["openai/gpt-5.5-20260423", "google/gemini-3.5-flash-20260519"],
+    primary: "anthropic/claude-sonnet-5",
+    fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
     purposePrefix: "strategy_",
     temperature: 0.4,
     structured: "json_schema",
@@ -207,8 +209,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-final-judge",
     role: "viralJudge",
     // C3: writer'la KARŞI aile (Anthropic writer / OpenAI judge).
-    primary: "openai/gpt-5.5-20260423",
-    fallbacks: ["google/gemini-3.5-flash-20260519", "anthropic/claude-sonnet-5-20260630"],
+    primary: "openai/gpt-5.5",
+    fallbacks: ["google/gemini-3.5-flash", "anthropic/claude-sonnet-5"],
     purposePrefix: "judge_",
     temperature: 0.2,
     structured: "json_schema",
@@ -222,8 +224,8 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
   "cemos-image-concept": {
     name: "cemos-image-concept",
     role: "creativeWriter",
-    primary: "google/gemini-3.5-flash-20260519",
-    fallbacks: ["anthropic/claude-sonnet-5-20260630"],
+    primary: "google/gemini-3.5-flash",
+    fallbacks: ["anthropic/claude-sonnet-5"],
     purposePrefix: "image_",
     temperature: 0.7,
     structured: "json_schema",
@@ -246,18 +248,16 @@ export function resolvePreset(name: PresetName): PresetConfig {
 
 /**
  * Startup / CI lint'i. İhlalde throw → build kırılır:
- *  1. Her primary pinned dated slug olmalı (floating primary YASAK).
- *  2. Her primary katalog snapshot'ında mevcut olmalı (drift saklanmaz).
+ *  1. Her primary doğrulanmış katalog snapshot'ında mevcut (drift saklanmaz).
+ *  2. Hiçbir primary floating/preview marker taşımaz.
  *  3. Writer ailesi ≠ judge ailesi (C3 self-preference savunması).
- *  4. Her preset en az bir farklı-sağlayıcı fallback taşımalı.
+ *  4. Her preset en az bir farklı-sağlayıcı fallback taşır.
+ * Canlı katalog kontrolü: `npm run verify:catalog`.
  */
 export function validatePresets(): void {
   const errors: string[] = [];
 
   for (const preset of Object.values(PRESETS)) {
-    if (!isPinnedSlug(preset.primary)) {
-      errors.push(`${preset.name}: primary pinned değil (${preset.primary})`);
-    }
     if (isFloatingSlug(preset.primary)) {
       errors.push(`${preset.name}: floating slug primary olamaz (${preset.primary})`);
     }

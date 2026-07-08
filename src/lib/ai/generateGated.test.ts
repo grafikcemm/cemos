@@ -85,8 +85,8 @@ describe("generateJsonGated", () => {
     expect(generateJson).toHaveBeenCalledWith(
       expect.objectContaining({
         role: "creativeWriter",
-        model: "anthropic/claude-sonnet-5-20260630",
-        fallbacks: ["openai/gpt-5.5-20260423", "google/gemini-pro-latest"],
+        model: "anthropic/claude-sonnet-5",
+        fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
         structured: "json_object",
         cacheControl: true,
         providerOrder: ["anthropic"],

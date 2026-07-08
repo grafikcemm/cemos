@@ -3,7 +3,6 @@ import {
   PRESETS,
   resolvePreset,
   validatePresets,
-  isPinnedSlug,
   isFloatingSlug,
   familyOf,
   KNOWN_CATALOG,
@@ -14,12 +13,9 @@ describe("presets — startup lint (FIRST-SPRINT item 11)", () => {
     expect(() => validatePresets()).not.toThrow();
   });
 
-  it("her preset primary'si pinned dated slug (regex -\\d{8}$)", () => {
-    for (const preset of Object.values(PRESETS)) {
-      expect(isPinnedSlug(preset.primary), `${preset.name}: ${preset.primary}`).toBe(true);
-    }
-  });
-
+  // Slug politikası (2026-07-09 kararı): OpenRouter dated slug KULLANMAZ —
+  // canlı katalog canonical'dır. Lint: katalog üyeliği + floating yasağı +
+  // karşı-aile. Canlı doğrulama: `npm run verify:catalog`.
   it("hiçbir primary floating değil; floating yalnız fallback'te olabilir", () => {
     for (const preset of Object.values(PRESETS)) {
       expect(isFloatingSlug(preset.primary), `${preset.name}: ${preset.primary}`).toBe(false);
@@ -44,15 +40,17 @@ describe("presets — startup lint (FIRST-SPRINT item 11)", () => {
 
   it("floating slug tespiti: -latest / -fast / fable / preview / :free", () => {
     expect(isFloatingSlug("anthropic/claude-sonnet-latest")).toBe(true);
-    expect(isFloatingSlug("openai/gpt-mini-latest")).toBe(true);
+    expect(isFloatingSlug("anthropic/claude-opus-4.8-fast")).toBe(true);
     expect(isFloatingSlug("claude-fable-5")).toBe(true);
+    expect(isFloatingSlug("google/gemini-3.1-flash-lite-preview")).toBe(true);
     expect(isFloatingSlug("deepseek/deepseek-chat:free")).toBe(true);
-    expect(isFloatingSlug("anthropic/claude-sonnet-5-20260630")).toBe(false);
+    expect(isFloatingSlug("anthropic/claude-sonnet-5")).toBe(false);
+    expect(isFloatingSlug("openai/gpt-5.4-mini")).toBe(false);
   });
 
   it("resolvePreset bilinen preset'i döndürür", () => {
     const writer = resolvePreset("cemos-writer");
-    expect(writer.primary).toBe("anthropic/claude-sonnet-5-20260630");
+    expect(writer.primary).toBe("anthropic/claude-sonnet-5");
     expect(writer.purposePrefix).toBe("writer_");
   });
 });
