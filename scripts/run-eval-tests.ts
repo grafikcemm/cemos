@@ -1,7 +1,12 @@
 /**
- * Eval golden-case runner (Öğrenme Motoru v3). DB'deki EvalTest kayıtlarını
- * (scripts/ingest-research.ts ile seed'lenen) gerçek draft pipeline'ından
- * geçirir ve critic (DraftScore) skorlarını PASS kriterleriyle karşılaştırır.
+ * Eval golden-case runner (Öğrenme Motoru v3 → Sprint 2 eval-parity).
+ * DB'deki EvalTest kayıtlarını ÜRETİMLE AYNI motordan geçirir:
+ *
+ *   - Üretim modu: `runDraftPipeline` (tek X motoru — writer/judge preset'leri,
+ *     morning-draft ile birebir aynı yol). Eski growth-engine `generateDrafts`
+ *     standı kaldırıldı (Sprint 2 eval-parity).
+ *   - "MODE: score_direct": sourceContent'in kendisi deterministik
+ *     `scoreDraftFallback` ile skorlanır — LLM'siz CI kapısı (Sprint 1 item 19).
  *
  *   npx tsx scripts/run-eval-tests.ts          # yalnız skorlanmamış (score=null) testler
  *   npx tsx scripts/run-eval-tests.ts --all    # hepsini yeniden koş (regresyon kontrolü)
@@ -9,36 +14,65 @@
  * PASS kriterleri expectedBehavior'daki "PASS: ..." satırından okunur:
  *   "clarity >= 75, risk <= 25"            → hepsi geçmeli (AND)
  *   "clarity >= 75 OR novelty >= 55"       → virgül-grubu içinde OR: biri yeter
- * Kriter adları DraftScore alanlarına eşlenir; eşleşmeyen kriter "skipped"
+ * Kriter adları ortak metrik uzayına eşlenir; eşleşmeyen kriter "skipped"
  * sayılır (skoru etkilemez, raporda görünür).
  *
+ * Gerçek LLM yoksa (anahtar yok / 402 → pipeline mock'a düşer) üretim-modu test
+ * SKORLANMAZ: verdict MOCK raporlanır, DB'ye sonuç yazılmaz (score null kalır) —
+ * mock skorla sahte PASS/FAIL üretmek yasak (sessiz-mock politikası).
+ *
  * Sonuç: evalTestRepo.recordResult(id, { generatedOutput, score: geçen kriter
- * yüzdesi, failureReason: kalan kriterler }). LLM bütçesi generateDrafts içinde
- * zaten gate'li — ayrı guard yok. Test başına 1 draft (count:1).
+ * yüzdesi, failureReason: kalan kriterler }). LLM bütçesi generateJsonGated
+ * içinde zaten gate'li — ayrı guard yok.
  */
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
 import { prisma } from "../src/lib/db/client";
 import { evalTestRepo } from "../src/lib/db/evalTestRepo";
-import { generateDrafts } from "../src/lib/growth-engine/draft-generator";
+import { runDraftPipeline } from "../src/lib/ai/draft-pipeline";
+import { accountProfiles, type AccountHandle } from "../src/lib/accounts";
 import { scoreDraftFallback } from "../src/lib/growth-engine/scorer";
-import type { DraftScore } from "../src/lib/growth-engine/types";
+import type { DraftScore as PipelineDraftScore } from "../src/lib/ai/prompts";
+import type { DraftScore as HeuristicDraftScore } from "../src/lib/growth-engine/types";
 
 const RUN_ALL = process.argv.includes("--all");
 
-// passCriteria metrik adı → DraftScore alanı
-const METRIC_MAP: Record<string, keyof DraftScore> = {
-  clarity: "clarityScore",
-  hookstrength: "hookStrengthScore",
-  novelty: "noveltyScore",
-  noveltyscore: "noveltyScore",
-  risk: "riskScore",
-  virality: "viralityScore",
-  personamatch: "personaMatchScore",
-  audiencefit: "personaMatchScore", // en yakın mevcut boyut
-  publish: "publishScore",
-};
+/**
+ * Ortak metrik uzayı: PASS kriter adları (küçük harf) → 0-100 skor.
+ * İki kaynaktan doldurulur: pipeline judge skoru (üretim modu) veya
+ * deterministik heuristik skor (score_direct modu).
+ */
+type MetricRecord = Record<string, number>;
+
+function metricsFromPipeline(winner: PipelineDraftScore): MetricRecord {
+  return {
+    clarity: winner.clarity,
+    hookstrength: winner.hookStrength,
+    novelty: winner.novelty,
+    noveltyscore: winner.novelty,
+    risk: winner.risk,
+    virality: winner.viralPotential,
+    personamatch: winner.personaMatch,
+    audiencefit: winner.personaMatch,
+    turkishnaturalness: winner.turkishNaturalness,
+    sourcefaithfulness: winner.sourceFaithfulness,
+  };
+}
+
+function metricsFromHeuristic(score: HeuristicDraftScore): MetricRecord {
+  return {
+    clarity: score.clarityScore,
+    hookstrength: score.hookStrengthScore,
+    novelty: score.noveltyScore,
+    noveltyscore: score.noveltyScore,
+    risk: score.riskScore,
+    virality: score.viralityScore,
+    personamatch: score.personaMatchScore,
+    audiencefit: score.personaMatchScore,
+    publish: score.publishScore,
+  };
+}
 
 type CriterionResult = {
   raw: string;
@@ -62,23 +96,23 @@ function isScoreDirect(expectedBehavior: string | null): boolean {
   return /MODE:\s*score_direct/i.test(expectedBehavior ?? "");
 }
 
-/** Tek atomik kriteri ("clarity >= 75") critic skoruna karşı değerlendirir. */
-function evalAtom(atom: string, critic: DraftScore): CriterionResult {
+/** Tek atomik kriteri ("clarity >= 75") ortak metrik uzayına karşı değerlendirir. */
+function evalAtom(atom: string, metrics: MetricRecord): CriterionResult {
   const m = atom.trim().match(/^(\w+)\s*(>=|<=)\s*(\d+)$/);
   if (!m) return { raw: atom.trim(), status: "skipped" };
-  const field = METRIC_MAP[m[1].toLowerCase()];
-  if (!field) return { raw: atom.trim(), status: "skipped" };
-  const actual = critic[field];
-  if (typeof actual !== "number") return { raw: atom.trim(), status: "skipped" };
+  const actual = metrics[m[1].toLowerCase()];
+  if (typeof actual !== "number" || isNaN(actual)) {
+    return { raw: atom.trim(), status: "skipped" };
+  }
   const threshold = Number(m[3]);
   const pass = m[2] === ">=" ? actual >= threshold : actual <= threshold;
   return { raw: atom.trim(), status: pass ? "pass" : "fail", actual };
 }
 
 /** Virgülle ayrılmış kriter grupları; grup içinde " OR " varsa biri yeterli. */
-function evaluateCriteria(passLine: string, critic: DraftScore): CriterionResult[] {
+function evaluateCriteria(passLine: string, metrics: MetricRecord): CriterionResult[] {
   return passLine.split(",").map((group) => {
-    const atoms = group.split(/\s+OR\s+/i).map((a) => evalAtom(a, critic));
+    const atoms = group.split(/\s+OR\s+/i).map((a) => evalAtom(a, metrics));
     if (atoms.length === 1) return atoms[0];
     const anyPass = atoms.some((a) => a.status === "pass");
     const allSkipped = atoms.every((a) => a.status === "skipped");
@@ -123,38 +157,55 @@ async function main() {
     }
 
     try {
-      let critic: DraftScore;
+      let metrics: MetricRecord;
       let generatedOutput: string;
 
       if (isScoreDirect(test.expectedBehavior)) {
         // Deterministik doğrudan skor — LLM yok, sourceContent skorlanır.
-        critic = scoreDraftFallback({
-          content: test.sourceContent ?? "",
-          accountHandle: handle,
-        });
+        metrics = metricsFromHeuristic(
+          scoreDraftFallback({
+            content: test.sourceContent ?? "",
+            accountHandle: handle,
+          })
+        );
         generatedOutput = test.sourceContent ?? "";
       } else {
-        const result = await generateDrafts({
-          accountHandle: handle,
-          actionType: "tweet",
-          sourceContent: test.sourceContent ?? undefined,
-          count: 1,
+        // Üretim modu: TEK X MOTORU — morning-draft ile birebir aynı pipeline
+        // (cemos-writer/cemos-final-judge preset'leri, budget gate, UsageLog).
+        const profile = accountProfiles[handle as AccountHandle];
+        if (!profile) {
+          rows.push({ name: test.testName, verdict: "SKIP", score: 0, detail: "canlı profil yok" });
+          continue;
+        }
+        const result = await runDraftPipeline(profile, test.sourceContent ?? "", {
+          accountId: test.accountId,
         });
-        const best = [...result.drafts].sort((a, b) => b.critic.publishScore - a.critic.publishScore)[0];
-        if (!best) {
+
+        // Sessiz-mock politikası: gerçek LLM koşmadıysa (anahtar yok / tüm
+        // modeller hata → mock) skor ANLAMSIZ — kaydetme, MOCK raporla.
+        if (result.usedMock) {
+          rows.push({
+            name: test.testName,
+            verdict: "MOCK",
+            score: 0,
+            detail: "gerçek LLM koşmadı (anahtar yok / sağlayıcı hatası) — skor kaydedilmedi",
+          });
+          continue;
+        }
+        if (!result.winner?.content) {
           await evalTestRepo.recordResult(test.id, {
             generatedOutput: "",
             score: 0,
-            failureReason: `draft üretilemedi: ${result.warnings.join("; ") || "bilinmeyen"}`,
+            failureReason: "draft üretilemedi (pipeline boş döndü)",
           });
           rows.push({ name: test.testName, verdict: "FAIL", score: 0, detail: "draft yok" });
           continue;
         }
-        critic = best.critic;
-        generatedOutput = best.draft.content;
+        metrics = metricsFromPipeline(result.winner);
+        generatedOutput = result.winner.content;
       }
 
-      const criteria = evaluateCriteria(passLine, critic);
+      const criteria = evaluateCriteria(passLine, metrics);
       const scored = criteria.filter((c) => c.status !== "skipped");
       const passed = scored.filter((c) => c.status === "pass");
       const score = scored.length === 0 ? 0 : Math.round((passed.length / scored.length) * 100);
@@ -189,7 +240,15 @@ async function main() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      rows.push({ name: test.testName, verdict: "ERROR", score: 0, detail: msg });
+      // Sağlayıcı-erişilemez hataları (402 kredi bitik / anahtar reddi) test
+      // hatası DEĞİL — LLM yok demektir. MOCK sınıfına alınır, DB'ye yazılmaz.
+      const llmUnavailable = /402|Insufficient credits|401|invalid.*api key/i.test(msg);
+      rows.push({
+        name: test.testName,
+        verdict: llmUnavailable ? "MOCK" : "ERROR",
+        score: 0,
+        detail: llmUnavailable ? `LLM erişilemedi: ${msg.split("\n")[0].slice(0, 120)}` : msg,
+      });
     }
   }
 
@@ -200,7 +259,15 @@ async function main() {
   const pass = rows.filter((r) => r.verdict === "PASS").length;
   const partial = rows.filter((r) => r.verdict === "PARTIAL").length;
   const fail = rows.filter((r) => r.verdict === "FAIL" || r.verdict === "ERROR").length;
-  console.log(`\nÖzet: ${pass} PASS / ${partial} PARTIAL / ${fail} FAIL-ERROR (toplam ${rows.length})`);
+  const mock = rows.filter((r) => r.verdict === "MOCK").length;
+  console.log(
+    `\nÖzet: ${pass} PASS / ${partial} PARTIAL / ${fail} FAIL-ERROR / ${mock} MOCK (toplam ${rows.length})`
+  );
+  if (mock > 0) {
+    console.log(
+      "DOĞRULANAMADI: üretim-modu testler gerçek LLM olmadan skorlanmaz — OpenRouter kredisi/anahtarı ekleyip yeniden koş."
+    );
+  }
 }
 
 main()
