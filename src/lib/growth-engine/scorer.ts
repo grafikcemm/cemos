@@ -18,15 +18,18 @@ import {
   type SourceAction,
   type PublishRecommendation,
 } from "@/lib/growth-engine/types";
+// Tek hesap kimliği (FIRST-SPRINT item 6): scoring artık canlı `@/lib/accounts`
+// profiline adapter üzerinden bağlanır — growth-engine'in kendi account-profiles
+// kopyası draft yolundan çıkarıldı (dosya Sprint 2'ye kadar durur).
 import {
-  validateAccountHandle,
-  getAccountProfile,
-  getAllProfiles,
-  getDefaultMode,
-  getForbiddenTerms,
-  type AccountHandle,
-  type AccountProfile,
-} from "@/lib/growth-engine/account-profiles";
+  isKnownAccountHandle as validateAccountHandle,
+  getScoringIdentity,
+  getAllScoringIdentities,
+  getForbiddenTermsFromLive as getForbiddenTerms,
+  foldTurkish,
+  type ScoringIdentity,
+} from "@/lib/growth-engine/account-adapter";
+import type { AccountHandle } from "@/lib/accounts";
 import { extractPatternSyncFallback } from "@/lib/growth-engine/pattern-extractor";
 
 // ---------------------------------------------------------------------------
@@ -129,7 +132,8 @@ function calculateControversyScore(text: string, handle: AccountHandle): number 
 function calculateRiskScore(text: string, handle: AccountHandle): number {
   const riskHits = countKeywordHits(text, RISK_KEYWORDS);
   const forbidden = getForbiddenTerms(handle);
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Yasak terimler fold'lu tutulur; metin de fold'lanarak eşlenir (İ/ı, ş/s).
+  const forbiddenHits = countKeywordHits(foldTurkish(text), forbidden);
 
   const risk = riskHits * 20 + forbiddenHits * 10;
   return clampScore(risk, 10);
@@ -137,7 +141,7 @@ function calculateRiskScore(text: string, handle: AccountHandle): number {
 
 function calculateAudienceFitScore(text: string, handle: AccountHandle): number {
   const relevance = calculateRelevanceScore(text, handle);
-  const profile = getAccountProfile(handle);
+  const profile = getScoringIdentity(handle);
 
   // Check if text length is reasonable for the account
   const tooLong = text.length > profile.maxChars * 3;
@@ -456,18 +460,17 @@ export function scoreSourcePostFallback(
 // Draft scoring helpers
 // ---------------------------------------------------------------------------
 
-function calculatePersonaMatchScore(text: string, profile: AccountProfile): number {
+function calculatePersonaMatchScore(text: string, profile: ScoringIdentity): number {
   const toneWords = profile.tone.split(/[,\s]+/).filter((w) => w.length > 2);
-  const forbidden = profile.forbidden;
 
   let score = 60;
 
-  // Check forbidden terms — penalty
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Check forbidden terms — penalty (fold'lu eşleşme: canlı kurallar ASCII).
+  const forbiddenHits = countKeywordHits(foldTurkish(text), profile.forbiddenTerms);
   score -= forbiddenHits * 15;
 
   // Check for cross-account contamination
-  const allProfiles = getAllProfiles();
+  const allProfiles = getAllScoringIdentities();
   for (const otherProfile of allProfiles) {
     if (otherProfile.handle === profile.handle) continue;
     const otherKeywords = ACCOUNT_KEYWORDS[otherProfile.handle];
@@ -510,7 +513,7 @@ function calculateHookStrengthScore(text: string): number {
   return clampScore(score, 50);
 }
 
-function calculateClarityScore(text: string, profile: AccountProfile): number {
+function calculateClarityScore(text: string, profile: ScoringIdentity): number {
   let score = 70;
 
   // Too long → unclear
@@ -520,7 +523,7 @@ function calculateClarityScore(text: string, profile: AccountProfile): number {
   // Too many hashtags → noisy
   const hashtagCount = (text.match(/#/g) || []).length;
   if (hashtagCount > 3) score -= 15;
-  if (profile.generationRules.noHashtags && hashtagCount > 0) score -= 10;
+  if (profile.noHashtags && hashtagCount > 0) score -= 10;
 
   // Cliché penalty
   const clicheHits = countKeywordHits(text, CLICHE_KEYWORDS);
@@ -532,7 +535,7 @@ function calculateClarityScore(text: string, profile: AccountProfile): number {
   return clampScore(score, 50);
 }
 
-function calculateViralityScore(text: string, profile: AccountProfile): number {
+function calculateViralityScore(text: string, profile: ScoringIdentity): number {
   let score = 45;
 
   // Questions invite engagement
@@ -575,7 +578,8 @@ function calculateNoveltyScore(text: string): number {
 function calculateDraftRiskScore(text: string, handle: AccountHandle): number {
   const riskHits = countKeywordHits(text, RISK_KEYWORDS);
   const forbidden = getForbiddenTerms(handle);
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Yasak terimler fold'lu tutulur; metin de fold'lanarak eşlenir.
+  const forbiddenHits = countKeywordHits(foldTurkish(text), forbidden);
 
   const risk = riskHits * 25 + forbiddenHits * 12;
   return clampScore(risk, 8);
@@ -592,6 +596,12 @@ export function calculatePublishScore(parts: {
   viralityScore: number;
   noveltyScore: number;
   riskScore: number;
+  /**
+   * FIRST-SPRINT item 9: Türkçe doğallık publishScore'u CAPLAYAN alt-skordur —
+   * doğal olmayan Türkçe hiçbir kompozit skorla yayınlanabilir görünemez.
+   * Verilmezse (heuristik yol) cap uygulanmaz.
+   */
+  turkishNaturalness?: number;
 }): number {
   const {
     personaMatchScore,
@@ -600,6 +610,7 @@ export function calculatePublishScore(parts: {
     viralityScore,
     noveltyScore,
     riskScore,
+    turkishNaturalness,
   } = parts;
 
   const positiveBase =
@@ -610,8 +621,12 @@ export function calculatePublishScore(parts: {
     noveltyScore * 0.15;
 
   const riskPenalty = riskScore > 45 ? (riskScore - 45) * 1.0 : riskScore * 0.15;
+  const composite = clampScore(positiveBase - riskPenalty, 50);
 
-  return clampScore(positiveBase - riskPenalty, 50);
+  if (typeof turkishNaturalness === "number" && !isNaN(turkishNaturalness)) {
+    return Math.min(composite, clampScore(turkishNaturalness));
+  }
+  return composite;
 }
 
 // ---------------------------------------------------------------------------
@@ -745,7 +760,7 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
   }
 
   const handle = parsed.accountHandle as AccountHandle;
-  const profile = getAccountProfile(handle);
+  const profile = getScoringIdentity(handle);
 
   const personaMatchScore = calculatePersonaMatchScore(text, profile);
   const hookStrengthScore = calculateHookStrengthScore(text);
@@ -894,8 +909,7 @@ function buildDraftScoringPrompt(input: DraftScoringInput): {
 }
 
 function buildAccountScoringContext(handle: AccountHandle): string {
-  const profile = getAccountProfile(handle);
-  const mode = getDefaultMode(handle);
+  const profile = getScoringIdentity(handle);
   return [
     `Hedef Hesap: @${handle}`,
     `Persona: ${profile.persona}`,

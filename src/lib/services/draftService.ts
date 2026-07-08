@@ -11,6 +11,7 @@ import { createMockBenchmark } from "@/lib/ai/mock-benchmark";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { detectLeaks, conceptKeywordsFrom } from "@/lib/growth-engine/leak-detector";
+import { extractSubSignals, applyQualityGate } from "@/lib/services/scoreSignals";
 import { atomizeService } from "@/lib/services/atomizeService";
 import type { BenchmarkResult } from "@/lib/ai/prompts";
 import type { QueueItem } from "@/generated/prisma/client";
@@ -212,6 +213,25 @@ export const draftService = {
       requireConcreteAnchor: input.accountHandle === "grafikcem",
     });
 
+    // ── Sprint 1 ayrışık alt-sinyaller: 8 anahtar + leaks[] HER ZAMAN dolu. ──
+    const subSignals = extractSubSignals(pipelineResult.winner, leaks);
+
+    // ── Bloklayıcı kalite kapısı (item 8): yüksek-şiddet leak / cap-altı Türkçe
+    //    doğallık / yasak-klişe → `active` OLAMAZ; needs_edit + Türkçe neden.
+    //    Redirect, silme değil — taslak kuyrukta düzenlenmeyi bekler. ──
+    const qualityGate = applyQualityGate({
+      leaks,
+      judged,
+      turkishNaturalness: subSignals.turkishNaturalness,
+      lintIssues: lintReport.issues,
+    });
+    if (qualityGate.notes.length > 0) {
+      for (const note of qualityGate.notes) {
+        lintReport.warnings.push(note);
+        lintReport.issues.push({ code: "quality_gate", severity: "warning", message: note });
+      }
+    }
+
     const queueItem = await queueRepo.create({
       accountId: account.id,
       sourcePostId: sourcePostId,
@@ -220,17 +240,17 @@ export const draftService = {
       content: generated,
       draftType,
       mode: draftMode,
+      status: qualityGate.status === "needs_edit" ? "needs_edit" : undefined,
       estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
       usedMock: pipelineResult.usedMock ?? false,
       scores: JSON.stringify({
         ...pipelineResult.winner,
+        // Ayrışık alt-sinyal sözleşmesi: 8 anahtar + payoff + leaks garanti.
+        ...subSignals,
         modelUsed: pipelineResult.modelUsed,
         // Engagement learning loop re-weights exactly these patterns later.
         groundingPatternIds: groundingCtx.patternIds,
         groundingSourcePostIds: groundingCtx.sourcePostIds,
-        // Faz B: content-quality signals surfaced in the queue drawer.
-        payoff: payoff ?? "none",
-        leaks,
         // Phase 2 quality telemetry (DH-015): explains WHY a draft is the length
         // it is — surfaces the mode/tier/charCount so a too-short draft is visible.
         telemetry: {

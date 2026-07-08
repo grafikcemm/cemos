@@ -141,7 +141,9 @@ export async function GET(req: NextRequest) {
       if (statusFilter !== "all") {
         const itemStatus = item.status === "new" ? "draft" : item.status;
         if (statusFilter === "active") {
-          if (!["draft", "scheduled", "approved"].includes(itemStatus)) return false;
+          // needs_edit kuyrukta GÖRÜNÜR (operatör düzenlesin diye) ama edit-gate
+          // + rozet yayınlanmasını engeller — kalite kapısı redirect'tir, silme değil.
+          if (!["draft", "scheduled", "approved", "needs_edit"].includes(itemStatus)) return false;
         } else if (itemStatus !== statusFilter) {
           return false;
         }

@@ -5,23 +5,13 @@ import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
 
 /**
- * örn2 brand-voice discipline: phrases that read as generic AI/marketing tropes.
- * These are appended to every grounding block as a hard "never write" list.
+ * örn2 brand-voice discipline listesi artık tek kaynaktan gelir
+ * (`@/lib/safety/banned-phrases`) — hem bu grounding bloğu hem deterministik
+ * lint aynı listeyi kullanır (FIRST-SPRINT item 9). Re-export geriye dönük
+ * import'ları korur.
  */
-export const BANNED_PHRASES: string[] = [
-  "Stop doing",
-  "X is dead",
-  "öldü",
-  "DM me",
-  "game changer",
-  "oyunun kurallarını değiştir",
-  "çığır açan",
-  "devrim niteliğinde",
-  "bunu kaçırma",
-  "inanılmaz",
-  "şok edici",
-  "herkes konuşuyor",
-];
+export { BANNED_PHRASES } from "@/lib/safety/banned-phrases";
+import { BANNED_PHRASES } from "@/lib/safety/banned-phrases";
 
 export type GroundingContext = {
   block: string;

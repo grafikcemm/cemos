@@ -45,6 +45,8 @@ export type DraftScore = {
   turkishNaturalness: number;
   hookStrength: number;
   clarity: number;
+  /** Sprint 1 ayrışık alt-sinyal seti: novelty judge'dan (noveltyScore) gelir. */
+  novelty: number;
   viralPotential: number;
   risk: number;
   sourceFaithfulness: number;

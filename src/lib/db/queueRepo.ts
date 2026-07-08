@@ -7,6 +7,8 @@ export type CreateQueueItemInput = {
   content: string;
   draftType?: string;
   mode?: string;
+  /** Kalite kapısı: yüksek-şiddet leak / cap-altı TR doğallık → "needs_edit". */
+  status?: string;
   estimatedCostUsd?: number;
   usedMock?: boolean;
   scores?: string;
