@@ -17,14 +17,21 @@ type UsageLogRow = {
   meta: string | null;
 };
 
-function parsePurpose(meta: string | null): string | null {
-  if (!meta) return null;
+function parseMeta(meta: string | null): { purpose: string | null; preset: string | null } {
+  if (!meta) return { purpose: null, preset: null };
   try {
-    const parsed = JSON.parse(meta) as { purpose?: unknown };
-    return typeof parsed.purpose === "string" ? parsed.purpose : null;
+    const parsed = JSON.parse(meta) as { purpose?: unknown; preset?: unknown };
+    return {
+      purpose: typeof parsed.purpose === "string" ? parsed.purpose : null,
+      preset: typeof parsed.preset === "string" ? parsed.preset : null,
+    };
   } catch {
-    return null;
+    return { purpose: null, preset: null };
   }
+}
+
+function parsePurpose(meta: string | null): string | null {
+  return parseMeta(meta).purpose;
 }
 
 // A log row counts as SocialData spend if explicitly tagged, or if it is a scan row.
@@ -76,6 +83,9 @@ export async function GET(req: NextRequest) {
 
     const byPurposeMap = new Map<string, { purpose: string; costUsd: number; calls: number }>();
     const byModelMap = new Map<string, { model: string; costUsd: number; calls: number }>();
+    // Preset kırılımı (Sprint 2): UsageLog.meta.preset gated preset çağrılarında
+    // yazılır; preset'siz gated çağrılar (rol yolu) tek kalemde toplanır.
+    const byPresetMap = new Map<string, { preset: string; costUsd: number; calls: number }>();
     for (const row of orLogs) {
       const purpose = purposeOf(row);
       const pEntry = byPurposeMap.get(purpose) ?? { purpose, costUsd: 0, calls: 0 };
@@ -88,6 +98,12 @@ export async function GET(req: NextRequest) {
       mEntry.costUsd += row.estimatedCostUsd;
       mEntry.calls += 1;
       byModelMap.set(model, mEntry);
+
+      const preset = parseMeta(row.meta).preset ?? "(rol yolu)";
+      const prEntry = byPresetMap.get(preset) ?? { preset, costUsd: 0, calls: 0 };
+      prEntry.costUsd += row.estimatedCostUsd;
+      prEntry.calls += 1;
+      byPresetMap.set(preset, prEntry);
     }
 
     const round5 = (n: number) => Number(n.toFixed(5));
@@ -106,6 +122,7 @@ export async function GET(req: NextRequest) {
         costUsd: round5(orTotalUsd),
         byPurpose: sortByCost([...byPurposeMap.values()]),
         byModel: sortByCost([...byModelMap.values()]),
+        byPreset: sortByCost([...byPresetMap.values()]),
       },
     };
 

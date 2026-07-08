@@ -36,6 +36,7 @@ type CostLimits = {
 type OpenRouterBreakdown = {
   purpose?: string;
   model?: string;
+  preset?: string;
   costUsd: number;
   calls: number;
 };
@@ -47,6 +48,7 @@ type LineItems = {
     costUsd: number;
     byPurpose: OpenRouterBreakdown[];
     byModel: OpenRouterBreakdown[];
+    byPreset?: OpenRouterBreakdown[];
   };
 };
 
@@ -322,6 +324,20 @@ export default function CostsTab() {
                 <Td style={{ paddingLeft: "var(--space-8)" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "var(--text-secondary)" }}>
                     <CornerDownRight size={13} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} /> {p.purpose}
+                  </span>
+                </Td>
+                <Td style={{ textAlign: "right", color: "var(--text-muted)" }}><span className="tnum">{p.calls}</span> çağrı</Td>
+                <Td style={{ textAlign: "right" }}><span className="tnum" style={{ color: "var(--text-secondary)" }}>{fmt(p.costUsd)}</span></Td>
+              </tr>
+            ))}
+
+            {/* OpenRouter by preset (Sprint 2: preset katmanı harcama dökümü) */}
+            {(lineItems?.openRouter.byPreset ?? []).map((p) => (
+              <tr key={`preset-${p.preset}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                <Td style={{ paddingLeft: "var(--space-8)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <Badge variant="accent" size="xs">preset</Badge>
+                    <span style={{ color: "var(--text-secondary)" }}>{p.preset}</span>
                   </span>
                 </Td>
                 <Td style={{ textAlign: "right", color: "var(--text-muted)" }}><span className="tnum">{p.calls}</span> çağrı</Td>
