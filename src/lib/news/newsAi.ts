@@ -1,5 +1,4 @@
-import { generateJson } from "@/lib/ai/openrouter";
-import { usageService } from "@/lib/services/usageService";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { detectLanguage, isTooSimilar } from "@/lib/news/language";
 import {
   TRANSLATE_SYSTEM,
@@ -13,27 +12,13 @@ import {
 } from "@/lib/news/prompts";
 import type { ModelRole } from "@/lib/ai/model-config";
 
-// Thin adapters over the project's OpenRouter wrapper. Each adapter:
-//  1. calls generateJson with an appropriate model role,
-//  2. logs cost to usageService with provider:"openrouter" + a purpose meta,
-//  3. returns a discriminated success/failure result so the pipeline never
-//     throws on a model hiccup.
+// Thin adapters over the project's gated OpenRouter wrapper. Each adapter:
+//  1. calls generateJsonGated with a preset (dalga-1: news-extract yolları) —
+//     budget gate + UsageLog (purpose meta) tek yerde, çift loglama yok,
+//  2. returns a discriminated success/failure result so the pipeline never
+//     throws on a model hiccup (BudgetExceededError dahil — harcamadan önce).
 
 export type NewsPurpose = "news_translate" | "news_score" | "news_repo" | "digest";
-
-async function logUsage(
-  purpose: NewsPurpose,
-  estimatedCostUsd: number
-): Promise<void> {
-  try {
-    await usageService.recordOpenRouter({
-      estimatedCostUsd,
-      meta: { purpose },
-    });
-  } catch (err) {
-    console.warn(`[newsAi] usage log (${purpose}) başarısız:`, err);
-  }
-}
 
 // --- Translation ---------------------------------------------------------
 
@@ -96,13 +81,13 @@ export async function translateNews(
   originalSummary: string | null
 ): Promise<TranslationResult> {
   try {
-    const res = await generateJson<RawTranslation>({
-      role: "cheapWriter",
+    const res = await generateJsonGated<RawTranslation>({
+      preset: "cemos-fast-extract",
       system: TRANSLATE_SYSTEM,
       user: buildTranslateUser(originalTitle, originalSummary),
       temperature: 0.2,
+      purpose: "news_translate",
     });
-    await logUsage("news_translate", res.estimatedCostUsd);
 
     const error = validateTranslation(originalTitle, originalSummary, res.data);
     if (error) {
@@ -229,13 +214,13 @@ export async function scoreNews(
   });
 
   try {
-    const res = await generateJson<RawScoring>({
-      role: "viralJudge",
+    const res = await generateJsonGated<RawScoring>({
+      preset: "cemos-fast-extract",
       system: SCORING_SYSTEM,
       user: buildScoringUser(trTitle, trSummary),
       temperature: 0.3,
+      purpose: "news_score",
     });
-    await logUsage("news_score", res.estimatedCostUsd);
 
     const error = validateScoring(res.data);
     if (error) return fail(error, res.model);
@@ -290,13 +275,13 @@ export async function enrichRepo(repo: {
   topics: string[];
 }): Promise<RepoEnrichment> {
   try {
-    const res = await generateJson<RawRepo>({
-      role: "viralJudge",
+    const res = await generateJsonGated<RawRepo>({
+      preset: "cemos-fast-extract",
       system: REPO_SYSTEM,
       user: buildRepoUser(repo),
       temperature: 0.4,
+      purpose: "news_repo",
     });
-    await logUsage("news_repo", res.estimatedCostUsd);
 
     return {
       success: true,
@@ -343,13 +328,13 @@ export async function generateDigest(
   repos: { name: string; hook: string }[]
 ): Promise<DigestResult> {
   try {
-    const res = await generateJson<RawDigest>({
-      role: "qualityJudge",
+    const res = await generateJsonGated<RawDigest>({
+      preset: "cemos-research",
       system: DIGEST_SYSTEM,
       user: buildDigestUser(news, repos),
       temperature: 0.5,
+      purpose: "digest",
     });
-    await logUsage("digest", res.estimatedCostUsd);
 
     return {
       success: true,

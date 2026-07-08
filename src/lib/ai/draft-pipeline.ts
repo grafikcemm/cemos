@@ -10,7 +10,8 @@ import {
   type DraftScore,
   type RankedCandidate,
 } from "@/lib/ai/prompts";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
+import type { JsonSchemaSpec } from "@/lib/ai/openrouter";
 import { runDeterministicHeuristics } from "@/lib/safety/heuristics";
 import { getJudgeMode } from "@/lib/ai/model-config";
 
@@ -41,10 +42,54 @@ function rankedToScore(rc: RankedCandidate): DraftScore {
   };
 }
 
+/**
+ * Judge yanıtı için strict json_schema (cemos-final-judge preseti). 400/422'de
+ * openrouter degrade zinciri json_object'e düşer — davranış kaybı yok.
+ */
+const JUDGE_RESPONSE_SCHEMA: JsonSchemaSpec = {
+  name: "judge_response",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["rankedCandidates", "winnerIndex", "publishDecision"],
+    properties: {
+      winnerIndex: { type: "integer" },
+      publishDecision: { type: "string", enum: ["queue", "hold", "reject"] },
+      rankedCandidates: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "content", "mode", "angle", "hookStrength", "viralPotential",
+            "accountFit", "turkishNaturalness", "noveltyScore", "risk",
+            "sourceFaithfulness", "verdict", "reason", "payoff",
+          ],
+          properties: {
+            content: { type: "string" },
+            mode: { type: "string" },
+            angle: { type: "string" },
+            hookStrength: { type: "number" },
+            viralPotential: { type: "number" },
+            accountFit: { type: "number" },
+            turkishNaturalness: { type: "number" },
+            noveltyScore: { type: "number" },
+            risk: { type: "number" },
+            sourceFaithfulness: { type: "number" },
+            verdict: { type: "string", enum: ["approve", "hold", "reject"] },
+            reason: { type: "string" },
+            payoff: { type: ["string", "null"] },
+          },
+        },
+      },
+    },
+  },
+};
+
 export async function runDraftPipeline(
   profile: AccountProfile,
   sourceInput: string,
-  opts?: { deadlineMs?: number }
+  opts?: { deadlineMs?: number; accountId?: string }
 ): Promise<BenchmarkResult> {
   const totalStart = Date.now();
   if (!process.env.OPENROUTER_API_KEY) {
@@ -63,12 +108,15 @@ export async function runDraftPipeline(
   // ── Phase 1: Multi-angle writer (one repair retry before falling back to mock) ──
   const writerStart = Date.now();
   const callWriter = () =>
-    generateJson<DraftResponse>({
-      role: "creativeWriter",
+    generateJsonGated<DraftResponse>({
+      preset: "cemos-writer",
       system: buildDraftSystemPrompt(profile),
       user: buildDraftUserPrompt(profile, sourceInput),
       temperature: 0.9,
       deadlineMs: opts?.deadlineMs,
+      purpose: "writer_x_draft",
+      accountId: opts?.accountId,
+      platform: "x",
     });
 
   let draftRun = await callWriter();
@@ -201,12 +249,16 @@ export async function runDraftPipeline(
 
   // ── Phase 2: Viral judge ──────────────────────────────────────────────────
   const judgeStart = Date.now();
-  const judgeRun = await generateJson<JudgeResponse>({
-    role: "viralJudge",
+  const judgeRun = await generateJsonGated<JudgeResponse>({
+    preset: "cemos-final-judge",
     system: buildJudgeSystemPrompt(profile),
     user: buildJudgeUserPrompt(profile, sourceInput, draftsRaw),
     temperature: 0.2,
     deadlineMs: opts?.deadlineMs,
+    jsonSchema: JUDGE_RESPONSE_SCHEMA,
+    purpose: "judge_x_critique",
+    accountId: opts?.accountId,
+    platform: "x",
   });
   const judgeMs = Date.now() - judgeStart;
 
@@ -269,12 +321,15 @@ Lütfen bu metni cila kurallarına göre düzenle ve aşağıdaki JSON formatın
 }
 `;
 
-      const editorRun = await generateJson<{ content: string }>({
-        role: "finalEditor",
+      const editorRun = await generateJsonGated<{ content: string }>({
+        preset: "cemos-final-judge",
         system: buildFinalEditorSystemPrompt(profile),
         user: buildFinalEditorUserPrompt(winner.content),
         temperature: 0.3,
         deadlineMs: opts?.deadlineMs,
+        purpose: "judge_final_polish",
+        accountId: opts?.accountId,
+        platform: "x",
       });
 
       if (editorRun.data?.content) {

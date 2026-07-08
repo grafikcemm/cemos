@@ -129,7 +129,10 @@ export const draftService = {
     let pipelineResult: BenchmarkResult;
     let pipelineError: string | undefined;
     try {
-      pipelineResult = await runDraftPipeline(profile, groundedInput, { deadlineMs: input.deadlineMs });
+      pipelineResult = await runDraftPipeline(profile, groundedInput, {
+        deadlineMs: input.deadlineMs,
+        accountId: account.id,
+      });
     } catch (err) {
       pipelineError = err instanceof Error ? err.message : String(err);
       // Raw provider text stays in stderr only; the DB stores a category (DH-014).
@@ -254,9 +257,13 @@ export const draftService = {
       usedMock: pipelineResult.usedMock ?? false,
     });
 
+    // Dalga-1 migration sonrası writer/judge/editor çağrıları generateJsonGated
+    // içinden GERÇEK maliyetiyle birer UsageLog satırı yazar (purpose: writer_/judge_).
+    // Burada pipeline toplamını tekrar yazmak maliyeti ÇİFT sayardı; bu satır artık
+    // yalnız "üretim olayı" sayacıdır (0 maliyet). Mock yolunda da maliyet 0'dır.
     await usageService.recordGeneration({
       accountId: account.id,
-      estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
+      estimatedCostUsd: 0,
     });
 
     if (sourcePostId) {

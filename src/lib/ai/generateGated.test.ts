@@ -68,4 +68,65 @@ describe("generateJsonGated", () => {
       platform: "x",
     });
   });
+
+  it("preset → model/fallback/structured/cache/provider preset'ten forward edilir", async () => {
+    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+    vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
+
+    await generateJsonGated({
+      preset: "cemos-writer",
+      system: "s",
+      user: "u",
+      purpose: "writer_x_draft",
+      accountId: "acc-1",
+      platform: "x",
+    });
+
+    expect(generateJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "creativeWriter",
+        model: "anthropic/claude-sonnet-5-20260630",
+        fallbacks: ["openai/gpt-5.5-20260423", "google/gemini-pro-latest"],
+        structured: "json_object",
+        cacheControl: true,
+        providerOrder: ["anthropic"],
+        dataCollection: "deny",
+        reasoning: "medium",
+        temperature: 0.9,
+        timeoutMs: 45_000,
+      }),
+    );
+    expect(usageService.recordOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ purpose: "writer_x_draft", preset: "cemos-writer" }),
+      }),
+    );
+  });
+
+  it("preset + purpose yok → purposePrefix'ten default purpose yazılır", async () => {
+    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+    vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
+
+    await generateJsonGated({ preset: "cemos-final-judge", system: "s", user: "u" });
+
+    expect(usageService.recordOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta: expect.objectContaining({ purpose: "judge_unlabeled" }),
+      }),
+    );
+  });
+
+  it("ne preset ne role → hata (budget gate'e bile gitmez)", async () => {
+    await expect(generateJsonGated({ system: "s", user: "u", purpose: "p" })).rejects.toThrow(
+      /preset veya role/,
+    );
+    expect(generateJson).not.toHaveBeenCalled();
+  });
+
+  it("purpose'suz preset'siz çağrı → hata (UsageLog attribution zorunlu)", async () => {
+    await expect(generateJsonGated({ role: "cheapWriter", system: "s", user: "u" })).rejects.toThrow(
+      /purpose zorunlu/,
+    );
+    expect(generateJson).not.toHaveBeenCalled();
+  });
 });

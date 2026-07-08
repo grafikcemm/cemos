@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runDraftPipeline } from "./draft-pipeline";
-import { generateJson } from "./openrouter";
+import { generateJsonGated } from "./generateGated";
 import { accountProfiles } from "@/lib/accounts";
 
-// Mock the openrouter generation layer completely to prevent network requests
-vi.mock("./openrouter", () => ({
-  generateJson: vi.fn(),
+// Mock the gated generation layer completely to prevent network/DB requests
+// (dalga-1 migration: pipeline artık generateJsonGated + preset kullanır).
+vi.mock("./generateGated", () => ({
+  generateJsonGated: vi.fn(),
 }));
 
 describe("runDraftPipeline smoke test under operator_quality", () => {
@@ -78,7 +79,7 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     };
 
     // Make generateJson mock return custom values sequentially
-    const mockGenerateJson = generateJson as any;
+    const mockGenerateJson = generateJsonGated as any;
     mockGenerateJson
       .mockResolvedValueOnce(mockWriterResponse)  // writer call
       .mockResolvedValueOnce(mockJudgeResponse)   // judge call
@@ -135,7 +136,7 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
       modelFallbackUsed: false,
     };
 
-    const mockGenerateJson = generateJson as any;
+    const mockGenerateJson = generateJsonGated as any;
     mockGenerateJson
       .mockResolvedValueOnce(mockWriterResponse) // writer call
       .mockResolvedValueOnce(mockJudgeResponse);  // judge call

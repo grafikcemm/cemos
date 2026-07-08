@@ -1,8 +1,21 @@
 import { estimateCost, resolveModel, type ModelRole } from "@/lib/ai/model-config";
 
+type TextContentPart = {
+  type: "text";
+  text: string;
+  cache_control?: { type: "ephemeral" };
+};
+
 type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | TextContentPart[];
+};
+
+export type StructuredMode = "json_schema" | "json_object" | "none";
+
+export type JsonSchemaSpec = {
+  name: string;
+  schema: Record<string, unknown>;
 };
 
 type GenerateJsonOptions = {
@@ -17,6 +30,25 @@ type GenerateJsonOptions = {
   /** Absolute wall-clock deadline (epoch ms). Per-call abort timeout becomes
    *  clamp(5s, deadline-now, 60s) so a cron time budget bounds each LLM call. */
   deadlineMs?: number;
+  /** Preset katmanı: rol-registry yerine bu slug primary olur. */
+  model?: string;
+  /** Preset katmanı: verilirse getFallbackModels yerine bu zincir denenir. */
+  fallbacks?: string[];
+  /** Yapısal çıktı modu. Degrade zinciri: json_schema → json_object → none
+   *  (400/422'de bir seviye düşülür — mevcut strip-retry davranışının genellemesi). */
+  structured?: StructuredMode;
+  /** structured === "json_schema" iken zorunlu şema (strict:true gönderilir). */
+  jsonSchema?: JsonSchemaSpec;
+  /** Anthropic modellerinde system bloğuna cache_control breakpoint ekler. */
+  cacheControl?: boolean;
+  /** provider.order — örn. ["anthropic"]. */
+  providerOrder?: string[];
+  sort?: "price";
+  dataCollection?: "allow" | "deny";
+  /** OpenRouter reasoning.effort. Degrade retry'da response_format ile birlikte düşer. */
+  reasoning?: "low" | "medium" | "high";
+  /** Tek çağrı timeout tavanı (default 60s). Preset timeoutMs buradan geçer. */
+  timeoutMs?: number;
 };
 
 /** Per-role completion-token ceilings. Writer needs the most (multi-angle JSON
@@ -80,7 +112,23 @@ function getFallbackModels(baseModel: string): string[] {
   // Fallback'ler kaliteyi koruyacak sekilde sadece solid mid/frontier modeller icerir.
   // Zayif free-tier (gemma-2-9b:free, llama-3-8b:free) cikarildi: sessiz kalite dususune yol aciyordu.
   const list = [baseModel];
-  if (baseModel.includes("claude-sonnet-4-5") || baseModel.includes("claude-sonnet-4.5")) {
+  // ── Pinned 2026-07 katalog zincirleri (FINAL-OPENROUTER-ROUTING §1-2) ──
+  if (baseModel.includes("claude-sonnet-5")) {
+    list.push("openai/gpt-5.5-20260423", "google/gemini-pro-latest");
+  } else if (baseModel.includes("gpt-5.5")) {
+    list.push("google/gemini-3.5-flash-20260519", "anthropic/claude-sonnet-5-20260630");
+  } else if (baseModel.includes("gemini-3.5-flash")) {
+    list.push("deepseek/deepseek-v4-pro-20260423", "openai/gpt-5.5-20260423");
+  } else if (baseModel.includes("gemini-3.1-flash-lite")) {
+    list.push("deepseek/deepseek-v4-flash-20260423", "google/gemini-3.5-flash-20260519");
+  } else if (baseModel.includes("deepseek-v4-flash")) {
+    list.push("google/gemini-3.1-flash-lite-20260507", "google/gemini-3.5-flash-20260519");
+  } else if (baseModel.includes("deepseek-v4-pro")) {
+    list.push("google/gemini-3.5-flash-20260519");
+  } else if (baseModel.includes("gpt-mini-latest")) {
+    list.push("google/gemini-3.1-flash-lite-20260507", "deepseek/deepseek-v4-flash-20260423");
+    // ── Legacy env-override zincirleri (eski slug pinleyen kurulumlar için) ──
+  } else if (baseModel.includes("claude-sonnet-4-5") || baseModel.includes("claude-sonnet-4.5")) {
     list.push("google/gemini-2.5-pro", "google/gemini-2.5-flash");
   } else if (baseModel.includes("gemini-2.5-pro")) {
     list.push("anthropic/claude-sonnet-4-5", "google/gemini-2.5-flash");
@@ -93,9 +141,30 @@ function getFallbackModels(baseModel: string): string[] {
   } else if (baseModel.includes("deepseek-chat")) {
     list.push("google/gemini-2.5-flash", "google/gemini-2.5-pro");
   } else {
-    list.push("google/gemini-2.5-flash", "google/gemini-2.5-pro");
+    list.push("google/gemini-3.5-flash-20260519", "openai/gpt-5.5-20260423");
   }
   return Array.from(new Set(list));
+}
+
+/** Degrade sırası: istenen moddan aşağı doğru. 400/422'de bir seviye düşülür. */
+function structuredLevels(mode: StructuredMode, hasSchema: boolean): StructuredMode[] {
+  if (mode === "json_schema" && hasSchema) return ["json_schema", "json_object", "none"];
+  if (mode === "none") return ["none"];
+  return ["json_object", "none"];
+}
+
+function buildResponseFormat(
+  level: StructuredMode,
+  jsonSchema?: JsonSchemaSpec,
+): Record<string, unknown> | undefined {
+  if (level === "json_schema" && jsonSchema) {
+    return {
+      type: "json_schema",
+      json_schema: { name: jsonSchema.name, strict: true, schema: jsonSchema.schema },
+    };
+  }
+  if (level === "json_object") return { type: "json_object" };
+  return undefined;
 }
 
 export async function generateJson<T>({
@@ -105,6 +174,16 @@ export async function generateJson<T>({
   temperature = 0.7,
   maxTokens,
   deadlineMs,
+  model: modelOverride,
+  fallbacks,
+  structured = "json_object",
+  jsonSchema,
+  cacheControl,
+  providerOrder,
+  sort,
+  dataCollection,
+  reasoning,
+  timeoutMs: timeoutOverride,
 }: GenerateJsonOptions): Promise<GenerateJsonResult<T>> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
@@ -116,31 +195,58 @@ export async function generateJson<T>({
     throw new Error("LLM call skipped: deadline exceeded");
   }
 
-  const baseModel = resolveModel(role);
-  const modelsToTry = getFallbackModels(baseModel);
+  const baseModel = modelOverride ?? resolveModel(role);
+  const modelsToTry = fallbacks
+    ? Array.from(new Set([baseModel, ...fallbacks]))
+    : getFallbackModels(baseModel);
+  const levels = structuredLevels(structured, Boolean(jsonSchema));
+
+  const provider =
+    providerOrder || sort || dataCollection
+      ? {
+          ...(providerOrder ? { order: providerOrder, allow_fallbacks: true } : {}),
+          ...(sort ? { sort } : {}),
+          ...(dataCollection ? { data_collection: dataCollection } : {}),
+        }
+      : undefined;
 
   let lastError: Error | null = null;
 
   for (const model of modelsToTry) {
+    // Anthropic cache_control breakpoint: statik system bloğu 0.1× read maliyetine
+    // düşer. Yalnız anthropic slug'larında gönderilir (diğerleri content array'i
+    // desteklese de gereksiz shape değişiminden kaçınıyoruz).
+    const useCache = Boolean(cacheControl) && model.startsWith("anthropic/");
     const messages: ChatMessage[] = [
-      { role: "system", content: system },
+      useCache
+        ? {
+            role: "system",
+            content: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+          }
+        : { role: "system", content: system },
       { role: "user", content: user },
     ];
 
-    const requestBody = {
-      model,
-      messages,
-      temperature,
-      max_tokens: maxCompletionTokens,
-      response_format: { type: "json_object" },
-      // Ask OpenRouter to include the real request cost in the response payload.
-      usage: { include: true },
+    const buildBody = (level: StructuredMode, includeReasoning: boolean) => {
+      const responseFormat = buildResponseFormat(level, jsonSchema);
+      return {
+        model,
+        messages,
+        temperature,
+        max_tokens: maxCompletionTokens,
+        ...(responseFormat ? { response_format: responseFormat } : {}),
+        ...(includeReasoning && reasoning ? { reasoning: { effort: reasoning } } : {}),
+        ...(provider ? { provider } : {}),
+        // Ask OpenRouter to include the real request cost in the response payload.
+        usage: { include: true },
+      };
     };
 
     const maxRetries = 1;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const LLM_CALL_TIMEOUT_MS = 60_000;
+        const LLM_CALL_TIMEOUT_MS =
+          typeof timeoutOverride === "number" && timeoutOverride > 0 ? timeoutOverride : 60_000;
         // When a cron deadline is supplied, bound each call to the remaining wall
         // clock (min 5s) so generation can't overrun the invocation budget.
         const timeoutMs =
@@ -152,21 +258,8 @@ export async function generateJson<T>({
           setTimeout(() => ctrl.abort(), timeoutMs);
           return ctrl.signal;
         };
-
-        let response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost:3000",
-            "X-Title": process.env.OPENROUTER_APP_NAME || "CemOS",
-          },
-          body: JSON.stringify(requestBody),
-          signal: makeAbortSignal(),
-        });
-
-        if (response.status === 400 || response.status === 422) {
-          response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const doFetch = (body: Record<string, unknown>) =>
+          fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${apiKey}`,
@@ -174,15 +267,16 @@ export async function generateJson<T>({
               "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost:3000",
               "X-Title": process.env.OPENROUTER_APP_NAME || "CemOS",
             },
-            body: JSON.stringify({
-              model,
-              messages,
-              temperature,
-              max_tokens: maxCompletionTokens,
-              usage: { include: true },
-            }),
+            body: JSON.stringify(body),
             signal: makeAbortSignal(),
           });
+
+        // Degrade zinciri: istenen structured seviyesinden başla; 400/422'de bir
+        // seviye düş (json_schema → json_object → none). Son seviyede reasoning
+        // parametresi de düşer (bazı sağlayıcılar shape'i reddediyor).
+        let response = await doFetch(buildBody(levels[0], true));
+        for (let li = 1; li < levels.length && (response.status === 400 || response.status === 422); li++) {
+          response = await doFetch(buildBody(levels[li], li < levels.length - 1));
         }
 
         if (!response.ok) {

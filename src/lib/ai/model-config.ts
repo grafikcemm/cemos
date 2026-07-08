@@ -16,10 +16,10 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "cheapWriter",
     label: "Ucuz uretici",
     envKey: "OPENROUTER_CHEAP_MODEL",
-    defaultModel: "deepseek/deepseek-chat:free",
-    // operator_quality -> gemini-2.5-flash fiyatlandirmasi (per M token)
-    inputCostPerMillion: 0.3,
-    outputCostPerMillion: 2.5,
+    defaultModel: "deepseek/deepseek-v4-flash-20260423",
+    // operator_quality -> gemini-3.1-flash-lite fiyatlandirmasi (per M token)
+    inputCostPerMillion: 0.25,
+    outputCostPerMillion: 1.5,
     enabledByDefault: true,
     usageRule: "Hizli taslak uretimi ve ilk analiz.",
   },
@@ -27,10 +27,10 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "creativeWriter",
     label: "Yaratici yazar",
     envKey: "OPENROUTER_CREATIVE_MODEL",
-    defaultModel: "deepseek/deepseek-chat:free",
-    // operator_quality -> gemini-2.5-pro fiyatlandirmasi (per M token)
-    inputCostPerMillion: 1.25,
-    outputCostPerMillion: 10,
+    defaultModel: "deepseek/deepseek-v4-flash-20260423",
+    // operator_quality -> gemini-3.5-flash fiyatlandirmasi (per M token)
+    inputCostPerMillion: 1.5,
+    outputCostPerMillion: 9,
     enabledByDefault: true,
     usageRule: "Cok acili taslak uretimi; farkli hook tipleri ve yaklasimlar.",
   },
@@ -38,10 +38,10 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "viralJudge",
     label: "Viral derecelendirici",
     envKey: "OPENROUTER_JUDGE_MODEL",
-    defaultModel: "deepseek/deepseek-chat:free",
-    // operator_quality -> gemini-2.5-flash fiyatlandirmasi (per M token)
-    inputCostPerMillion: 0.3,
-    outputCostPerMillion: 2.5,
+    defaultModel: "deepseek/deepseek-v4-flash-20260423",
+    // operator_quality -> gemini-3.1-flash-lite fiyatlandirmasi (per M token)
+    inputCostPerMillion: 0.25,
+    outputCostPerMillion: 1.5,
     enabledByDefault: true,
     usageRule: "Tum taslaklar icin viral skor, hesap uyumu, hook gucu, Turkce dogallik ve risk puani.",
   },
@@ -49,10 +49,10 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "qualityJudge",
     label: "Kalite ve risk denetcisi",
     envKey: "OPENROUTER_JUDGE_MODEL",
-    defaultModel: "deepseek/deepseek-chat:free",
-    // operator_quality -> gemini-2.5-pro fiyatlandirmasi (per M token)
-    inputCostPerMillion: 1.25,
-    outputCostPerMillion: 10,
+    defaultModel: "deepseek/deepseek-v4-flash-20260423",
+    // operator_quality -> gemini-3.5-flash fiyatlandirmasi (per M token)
+    inputCostPerMillion: 1.5,
+    outputCostPerMillion: 9,
     enabledByDefault: true,
     usageRule: "Yayin oncesi son karar, riskli iddia kontrolu ve final secim.",
   },
@@ -60,10 +60,10 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "finalEditor",
     label: "Final editor",
     envKey: "OPENROUTER_EDITOR_MODEL",
-    defaultModel: "deepseek/deepseek-chat:free",
-    // operator_quality -> claude-sonnet-4-5 fiyatlandirmasi (per M token)
-    inputCostPerMillion: 3,
-    outputCostPerMillion: 15,
+    defaultModel: "deepseek/deepseek-v4-flash-20260423",
+    // operator_quality -> claude-sonnet-5 fiyatlandirmasi (per M token)
+    inputCostPerMillion: 2,
+    outputCostPerMillion: 10,
     enabledByDefault: false,
     usageRule: "En iyi adaylari Turkce yazim kurallariyla cilalar. ENABLE_FINAL_EDITOR=true ile aktif.",
   },
@@ -71,9 +71,9 @@ export const modelConfigs: Record<ModelRole, ModelConfig> = {
     role: "premiumCreative",
     label: "Premium yaratici yedek",
     envKey: "OPENROUTER_PREMIUM_MODEL",
-    defaultModel: "anthropic/claude-sonnet-4-5",
-    inputCostPerMillion: 3,
-    outputCostPerMillion: 15,
+    defaultModel: "anthropic/claude-sonnet-5-20260630",
+    inputCostPerMillion: 2,
+    outputCostPerMillion: 10,
     enabledByDefault: false,
     usageRule: "Sadece kalite dusukse veya kritik postlarda final rewrite.",
   },
@@ -94,30 +94,32 @@ export function resolveModel(role: ModelRole): string {
 
   if (profile === "premium") {
     if (role === "cheapWriter" || role === "creativeWriter" || role === "finalEditor") {
-      return "openai/gpt-4o-mini";
+      return "openai/gpt-mini-latest";
     }
     if (role === "premiumCreative") {
-      return "anthropic/claude-sonnet-4-5";
+      return "anthropic/claude-sonnet-5-20260630";
     }
-    return "openai/gpt-4o";
+    return "openai/gpt-5.5-20260423";
   }
 
   if (profile === "operator_quality") {
-    // Kalite kaldıracı: aday havuzunu yazar belirler -> pro. Türkçe cilayı editör yapar -> Claude.
+    // Pinned 2026-07 slug map (FINAL-OPENROUTER-ROUTING §1). Sıcak yollar
+    // (writer/judge/news-extract) preset katmanından geçer; burası preset'siz
+    // eski çağrıların rol-bazlı default'u.
     if (role === "creativeWriter") {
-      return "google/gemini-2.5-pro";
+      return "google/gemini-3.5-flash-20260519";
     }
     if (role === "finalEditor") {
-      return "anthropic/claude-sonnet-4-5";
+      return "anthropic/claude-sonnet-5-20260630";
     }
     if (role === "cheapWriter" || role === "viralJudge") {
-      return "google/gemini-2.5-flash";
+      return "google/gemini-3.1-flash-lite-20260507";
     }
     if (role === "qualityJudge") {
-      return "google/gemini-2.5-pro";
+      return "google/gemini-3.5-flash-20260519";
     }
     if (role === "premiumCreative") {
-      return "anthropic/claude-sonnet-4-5";
+      return "anthropic/claude-sonnet-5-20260630";
     }
   }
 
