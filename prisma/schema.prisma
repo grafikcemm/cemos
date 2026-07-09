@@ -1283,3 +1283,72 @@ model ContentEmbedding {
 
   @@index([contentItemId])
 }
+
+// ── Memory Foundation (Sprint 3, FINAL-MEMORY-SPEC §4) ── Tier-2 relational
+// truth. Additive-only; DELETE asla (supersede zinciri). Identity hafızası
+// yavaş + insan-onaylı; performance hafızası hızlı + decay'li.
+model MemoryFact {
+  id                String    @id @default(cuid())
+  accountHandle     String? // "grafikcem" | "maskulenkod"; null = global (nadir)
+  type              String // "preference" | "semantic" | "procedural"
+  statement         String // atomik tek cümle, Türkçe
+  embeddingJson     String? // Float[] JSON — recall için opsiyonel
+  embeddingModel    String? // §7: model+dims etiketi zorunlu (space karışmaz)
+  embeddingDims     Int?
+  confidence        Float     @default(0) // §4.1 formülü
+  evidenceCount     Int       @default(0)
+  sourceProvenance  String // "operator" | "own_metric" | "self_judge" | "external"
+  status            String    @default("proposed") // proposed | active | superseded | rejected
+  tValid            DateTime  @default(now())
+  tInvalid          DateTime? // supersede anında set; DELETE asla
+  supersedesId      String? // versiyon zinciri (rollback bunu takip eder)
+  createdBy         String // "operator" | "consolidation" | "feedback_pipeline"
+  approvedBy        String? // identity promotion'da zorunlu
+  decayHalfLifeDays Int? // perf-leaning fact'lerde; identity'de null (≈∞)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([accountHandle, status])
+  @@index([type, status])
+}
+
+// Per-account identity/procedural yazım DNA'sı (human-gated güncelleme).
+model CaptionDna {
+  id               String   @id @default(cuid())
+  accountHandle    String   @unique
+  openingHookTypes String   @default("[]") // string[] JSON
+  lengthRange      String   @default("{}") // {min,max,median} JSON
+  sentenceRhythm   String?
+  emojiPolicy      String   @default("none") // "none" | "sparse" | "free"
+  ctaStyle         String?
+  lineBreakPattern String?
+  signaturePhrases String   @default("[]") // string[] JSON
+  forbiddenPhrases String   @default("[]") // string[] JSON
+  toneVector       String? // number[] JSON
+  languageRegister String   @default("casual") // "formal" | "casual" | "argo_ok"
+  confidence       Float    @default(0)
+  evidenceCount    Int      @default(0)
+  provenance       String   @default("operator") // MemoryFact ile aynı enum
+  version          Int      @default(1)
+  updatedAt        DateTime @updatedAt
+}
+
+// Per-account (+ opsiyonel seri) hashtag DNA'sı — performance-leaning, decay'li.
+model HashtagDna {
+  id                String   @id @default(cuid())
+  accountHandle     String
+  seriesId          String? // → SeriesProfile (CONTENT-ENGINE spec'i, ileri sprint)
+  coreTags          String   @default("[]") // string[] JSON
+  rotatingTags      String   @default("[]") // string[] JSON
+  tagCountRange     String   @default("{}") // {min,max} JSON
+  placement         String   @default("end") // "inline" | "end" | "first_comment"
+  casing            String?
+  bannedTags        String   @default("[]") // string[] JSON
+  perTagPerformance String   @default("{}") // {tag:{avgEngagement,n}} JSON
+  confidence        Float    @default(0)
+  evidenceCount     Int      @default(0)
+  decayHalfLifeDays Int      @default(45)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([accountHandle, seriesId])
+}
