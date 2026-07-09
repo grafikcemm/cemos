@@ -249,9 +249,12 @@ model TrainingExample {
   metricsJson   String   @default("{}")
   embeddingJson String?
   platform      String   @default("x")
+  // Sprint 4 (CONTENT-ENGINE §5.1): seri-bazlı few-shot havuzu (additive).
+  seriesKey     String?
   createdAt     DateTime @default(now())
 
   @@index([platform])
+  @@index([seriesKey])
 }
 
 model FeedbackEvent {
@@ -1177,6 +1180,16 @@ model VoiceProfile {
   anchorStories     String   @default("")
   writingSamples    String   @default("")
   notes             String   @default("")
+  // Sprint 4 (CONTENT-ENGINE §5.2): mikro-stil kolonları (additive — VoiceProfile
+  // = Voice DNA; yeni ses tablosu YOK).
+  sentenceLength      String @default("")
+  formality           String @default("")
+  directness          String @default("")
+  hookType            String @default("")
+  ctaType             String @default("")
+  emojiPolicy         String @default("")
+  punctuationStyle    String @default("")
+  claimEvidencePolicy String @default("")
   mode              String   @default("personal") // personal | brand | client
   version           Int      @default(1)
   isActive          Boolean  @default(true)
@@ -1331,6 +1344,51 @@ model CaptionDna {
   provenance       String   @default("operator") // MemoryFact ile aynı enum
   version          Int      @default(1)
   updatedAt        DateTime @updatedAt
+}
+
+// ── Series DNA (Sprint 4, CONTENT-ENGINE §5.1 — report 09 §10.1 verbatim) ──
+// FK-free accountId + JSON-string dizileri (VoiceProfile/VisualStyleProfile
+// deseniyle birebir). İlk seri: Best AI Tools (D5).
+model SeriesProfile {
+  id                      String   @id @default(cuid())
+  accountId               String
+  seriesKey               String // "best_ai_tools" | "premium_colors" ...
+  name                    String   @default("") // "Best AI Tools"
+  platform                String   @default("instagram") // instagram | x
+  // WHY
+  purpose                 String   @default("")
+  audience                String   @default("")
+  objective               String   @default("") // save | follow | share | profile_visit
+  // STRUCTURE
+  format                  String   @default("carousel") // carousel | single | reel | thread
+  slideCountRange         String   @default("") // "6-8"
+  coverFormula            String   @default("") // the hook/cover template
+  slideArchetypesJson     String   @default("[]") // ["cover","tool+why","proof","CTA"]
+  hierarchyNotes          String   @default("")
+  variableElementsJson    String   @default("[]") // her postta DEĞİŞMESİ zorunlu öğeler
+  ctaFormula              String   @default("")
+  // VISUAL (link, don't duplicate)
+  visualStyleProfileId    String? // -> VisualStyleProfile
+  // CAPTION (link, don't duplicate)
+  voiceProfileId          String? // -> VoiceProfile
+  captionDnaJson          String   @default("{}") // seri-özel caption override'ları
+  hashtagDnaJson          String   @default("[]")
+  // ANTI-REPETITION / MEMORY
+  pastTopicsJson          String   @default("[]")
+  bannedRepetitionJson    String   @default("[]")
+  // QUALITY
+  productionChecklistJson String   @default("[]")
+  evaluationRubricJson    String   @default("[]")
+  learnedRulesJson        String   @default("[]") // PRELUDE-inferred, operator-onaylı
+  // GOVERNANCE
+  promptVersion           String   @default("v1")
+  isActive                Boolean  @default(true)
+  version                 Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([accountId, isActive])
+  @@index([seriesKey])
 }
 
 // ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
