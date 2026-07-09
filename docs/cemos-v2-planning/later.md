@@ -52,6 +52,18 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
 - `maskulenkod_reel_should_not_be_motivation_slop` (virality>=60)
 - `maskulenkod_youtube_longform_needs_model_not_rant` (clarity>=85, hookStrength>=75)
 
+## Memory Foundation (Sprint 3) — kalan/ertelenen
+- **[USER] `npx prisma db push`**: MemoryFact/CaptionDna/HashtagDna tabloları Neon'a
+  uygulanmalı (additive; kod fail-soft — tablo yokken Settings yüzeyi error-state
+  gösterir, üretim yolu anayasayla çalışmaya devam eder).
+- Embedding A/B (qwen3-embedding-8b vs text-embedding-3-small, MEMORY-SPEC §7):
+  OpenRouter kredisi + golden set gerektirir — kredi sonrası.
+- AC-5 (north-star edit-ratio A/B): gerçek kullanım verisi gerektirir — izlenecek.
+- CaptionDna/HashtagDna DOLDURMA servisi (PublishLog'dan damıtma + onay): tablolar
+  ve enjeksiyon hazır; ilk damıtma dalga-2 memory işi.
+- MemoryFact.embeddingJson recall'u (şu an yalnız kural enjeksiyonu; vektör recall
+  TrainingExample/pattern üzerinden sürüyor) — fact sayısı büyüyünce.
+
 ## Operasyonel
 - ~~`account-profiles.ts` silme~~ → **TAMAM (Sprint 2)**: dosya silindi, 9 tüketici
   canlı `accounts.ts` + `account-adapter` köprüsüne taşındı.
