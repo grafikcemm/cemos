@@ -1452,6 +1452,41 @@ model ReelDossier {
   @@index([finalReadiness])
 }
 
+// ── Aylık Reels Planı (Sprint 6, CONTENT-ENGINE §6) ── Deterministik assembler
+// çıktısı (LLM YOK). Slotlar dossier/seriye bağlanır; staleness kanıt
+// expiry'sinden okunur.
+model ReelPlan {
+  id        String   @id @default(cuid())
+  accountId String
+  month     String // "2026-08"
+  status    String   @default("draft") // draft | active | archived
+  mixJson   String   @default("{}") // {evergreen,seasonal,reactive} gerçekleşen oranlar
+  notesJson String   @default("[]") // assembler uyarıları (repetition histogram vb.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slots ReelPlanSlot[]
+
+  @@unique([accountId, month])
+}
+
+model ReelPlanSlot {
+  id           String    @id @default(cuid())
+  planId       String
+  plan         ReelPlan  @relation(fields: [planId], references: [id])
+  dayOfMonth   Int
+  pillar       String    @default("")
+  mixBucket    String    @default("evergreen") // evergreen | seasonal | reactive
+  seriesKey    String? // → SeriesProfile.seriesKey (format önceden tanımlı, bölüm değişir)
+  dossierId    String? // → ReelDossier
+  topicHint    String    @default("")
+  status       String    @default("planned") // planned | drafted | done | skipped
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([planId, dayOfMonth])
+}
+
 // ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
 // Deterministik, LLM'siz; dossier'ler verificationId ile bu satıra bağlanır.
 model WebsiteVerification {
