@@ -74,8 +74,9 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
   o güne dek signup/freeTier sinyalleri 'unknown'.
 - Seri DNA edit ekranı (Settings alt-sekmesi) + PRELUDE edit-diff → learnedRules
   döngüsü (series_ purpose): Reels dossier sprint'iyle birlikte.
-- Reels dossier (reelDossierFor + ReelDossier tablosu + evidence gate) +
-  Instagram alan ekranı (Rakip Radarı | Reels alt-sekmeleri) → sonraki sprint.
+- ~~Reels dossier (reelDossierFor + ReelDossier + evidence gate)~~ → **TAMAM
+  (Sprint 5)**; kalan: dossier liste UI + Instagram alan ekranı (Rakip Radarı |
+  Reels alt-sekmeleri) — UI dalgasında.
 - Bard→Gemini CANLI regresyonu (gerçek ağ): mocked testi var; canlı koşu
   operatör smoke'unda.
 
