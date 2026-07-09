@@ -80,6 +80,21 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
 - Bard→Gemini CANLI regresyonu (gerçek ağ): mocked testi var; canlı koşu
   operatör smoke'unda.
 
+## Sprint 6-7 (Planner + Eval V1) — kalan/ertelenen
+- Batched 14-skor judge çağrısının draft-pipeline entegrasyonu: motor hazır
+  (subscores14 + agregasyon); tek batched `cemos-final-judge` çağrısı + Zod +
+  repair, canlı LLM ile kalite doğrulaması gerektirir (402 sonrası,
+  EVAL14_ENABLED bayrağıyla kademeli).
+- κ kalibrasyon cron bağlaması: `calibration.ts` hazır; insan-etiketli örneklem
+  biriktikçe learn cron'una haftalık eklenecek.
+- KPI satırları (acceptance rate, median edit-distance, golden pass %) →
+  CostsTab: UI dalgasında.
+- lessonGate'in pattern-extraction akışına bağlanması (ViralPattern
+  status=candidate → iki-kapı → validated): gerçek PerformanceSnapshot verisi
+  gerektirir.
+- Ay grid UI (ReelPlan) + dossier listesi + Instagram alan ekranı + Seri DNA
+  editörü: nihai UI dalgası (sistem doğrulaması sonrası).
+
 ## Operasyonel
 - ~~`account-profiles.ts` silme~~ → **TAMAM (Sprint 2)**: dosya silindi, 9 tüketici
   canlı `accounts.ts` + `account-adapter` köprüsüne taşındı.
