@@ -350,6 +350,13 @@ export async function searchSimilarExamples(
         } catch {
           // bozuk kayıt → yeniden hesapla
         }
+        // BOYUT KORUMASI: sorgu embedding'i local_fallback'e (256-dim) düşmüşse
+        // (key yok / 402), kalıcı 1536-dim vektör cosine'da sessizce 0 verir.
+        // Boyut uyuşmuyorsa kalıcıyı KULLANMA → yeniden hesap aynı provider'a
+        // düşer, iki taraf tutarlı kalır (persist-öncesi davranış).
+        if (vectorValues && vectorValues.length !== queryEmbedding.values.length) {
+          vectorValues = null;
+        }
       }
 
       if (!vectorValues) {
@@ -359,13 +366,14 @@ export async function searchSimilarExamples(
         );
         vectorValues = patternEmbedding.values;
         // Yalnız GERÇEK embedding'i kalıcılaştır (local_fallback boyut uyumsuzluğu
-        // yaratır). Best-effort — persist HER TÜRLÜ hatada (senkron dahil)
-        // yutulur; retrieval asla bozulmaz.
+        // yaratır ve kalıcı gerçek vektörü EZMEMELİ). Best-effort — persist her
+        // türlü hatada (senkron dahil) yutulur; retrieval asla bozulmaz.
         if (patternEmbedding.provider !== "local_fallback") {
           try {
-            await prisma.viralPattern
-              .update({ where: { id: p.id }, data: { embeddingJson: JSON.stringify(vectorValues), embeddingHash: hash } })
-              .catch(() => {});
+            await prisma.viralPattern.update({
+              where: { id: p.id },
+              data: { embeddingJson: JSON.stringify(vectorValues), embeddingHash: hash },
+            });
           } catch {
             /* persist best-effort */
           }
