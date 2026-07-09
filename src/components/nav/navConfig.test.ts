@@ -72,7 +72,8 @@ describe("normalizeTabId", () => {
   });
 
   it("should_map_retired_tabs_to_live_screens", () => {
-    expect(normalizeTabId("instagram")).toBe("morning");
+    // Sprint 8: "instagram" alias'ı kalktı — canlı ekran (kendine geçer).
+    expect(normalizeTabId("instagram")).toBe("instagram");
     expect(normalizeTabId("training-center")).toBe("morning");
     expect(normalizeTabId("weekly-learning-report")).toBe("morning");
     expect(normalizeTabId("ai-rankings")).toBe("toolbox");
@@ -92,9 +93,15 @@ describe("seedTargetForTab", () => {
   });
 });
 
-describe("NAV_GROUPS config (IA v2)", () => {
-  it("should_have_four_platform_groups", () => {
-    expect(NAV_GROUPS.map((g) => g.id)).toEqual(["bugun", "twitter", "kutuphane", "youtube"]);
+describe("NAV_GROUPS config (IA v2 + Sprint 8 Instagram)", () => {
+  it("should_have_five_platform_groups", () => {
+    expect(NAV_GROUPS.map((g) => g.id)).toEqual([
+      "bugun",
+      "twitter",
+      "instagram",
+      "kutuphane",
+      "youtube",
+    ]);
   });
 
   it("should_have_no_hidden_groups", () => {
@@ -109,13 +116,13 @@ describe("NAV_GROUPS config (IA v2)", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("should_expose_11_grouped_and_direct_tabs", () => {
+  it("should_expose_12_grouped_and_direct_tabs", () => {
     // morning + (daily-queue, news-pool) + (flow-radar, discovery-engine,
-    // source-intelligence, viral-library) + (keyword-library, prompt-library,
-    // pattern-library) + (youtube). learn-dashboard env-koşullu → hariç.
+    // source-intelligence, viral-library) + (instagram) + (keyword-library,
+    // prompt-library, pattern-library) + (youtube). learn-dashboard env-koşullu.
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);
-    expect(visibleCount).toBe(11);
+    expect(visibleCount).toBe(12);
   });
 });

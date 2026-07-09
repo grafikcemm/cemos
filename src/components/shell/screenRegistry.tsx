@@ -16,6 +16,7 @@ import ViralLibraryTab from "@/components/tabs/ViralLibraryTab";
 import PromptKutuphanesiTab from "@/components/tabs/PromptKutuphanesiTab";
 import PatternLibraryTab from "@/components/tabs/PatternLibraryTab";
 import KeywordLibraryTab from "@/components/tabs/KeywordLibraryTab";
+import InstagramTab from "@/components/tabs/InstagramTab";
 
 /**
  * Maps a (possibly legacy-aliased) activeTab id to its screen component.
@@ -50,6 +51,8 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <PromptKutuphanesiTab />;
     case "pattern-library":
       return <PatternLibraryTab />;
+    case "instagram":
+      return <InstagramTab />;
     case "youtube":
       return <YouTubeTab />;
     case "learn-dashboard":

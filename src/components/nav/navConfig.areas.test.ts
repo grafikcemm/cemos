@@ -38,9 +38,15 @@ describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu (IA v2)", () => {
     }
   });
 
-  it("4 ana alan tanımlı, id'leri benzersiz", () => {
-    expect(PRIMARY_AREAS).toHaveLength(4);
-    expect(PRIMARY_AREAS.map((a) => a.id)).toEqual(["bugun", "twitter", "kutuphane", "youtube"]);
+  it("5 ana alan tanımlı, id'leri benzersiz", () => {
+    expect(PRIMARY_AREAS).toHaveLength(5);
+    expect(PRIMARY_AREAS.map((a) => a.id)).toEqual([
+      "bugun",
+      "twitter",
+      "instagram",
+      "kutuphane",
+      "youtube",
+    ]);
   });
 
   it("3 utility sekmesi tanımlı (Toolbox/Maliyetler/Ayarlar)", () => {
@@ -65,7 +71,7 @@ describe("resolveAreaForTab", () => {
     expect(resolveAreaForTab("queue")).toBe("bugun"); // → daily-queue
     expect(resolveAreaForTab("patterns")).toBe("kutuphane"); // → pattern-library
     expect(resolveAreaForTab("library")).toBe("twitter"); // → viral-library
-    expect(resolveAreaForTab("instagram")).toBe("bugun"); // → morning
+    expect(resolveAreaForTab("instagram")).toBe("instagram"); // Sprint 8: canlı ekran (alias kalktı)
     expect(resolveAreaForTab("content-intel")).toBe("twitter"); // → discovery-engine
   });
 

@@ -10,7 +10,7 @@
 
 export type NavTab = { readonly id: string; readonly label: string };
 
-export type NavGroupId = "bugun" | "twitter" | "kutuphane" | "youtube";
+export type NavGroupId = "bugun" | "twitter" | "instagram" | "kutuphane" | "youtube";
 
 export type NavGroup = {
   readonly id: NavGroupId;
@@ -41,6 +41,13 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { id: "source-intelligence", label: "X Hesabı Kaynakları" },
       { id: "viral-library", label: "Viral Kütüphane" },
     ],
+  },
+  {
+    // Sprint 8 (C6): TEK Instagram alan ekranı — Rakip Radarı | Reels
+    // alt-sekmeleri ekran içinde yaşar; yeni top-level sekme çoğalmaz.
+    id: "instagram",
+    label: "Instagram",
+    tabs: [{ id: "instagram", label: "Instagram" }],
   },
   {
     id: "kutuphane",
@@ -81,7 +88,9 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   "ai-rankings": "toolbox",
   "weekly-learning-report": "morning",
   "training-center": "morning",
-  instagram: "morning",
+  // NOT: "instagram" alias'ı kaldırıldı — Sprint 8'de canlı ekran oldu
+  // (persist edilmiş legacy activeTab="instagram" artık doğrudan yeni
+  // Instagram alanına iner; alias anahtarı canlı id ile çakışamaz kuralı).
 };
 
 /** Folded/legacy sekme id → host + alt-görünüm (deep-link seeding için). */
@@ -137,6 +146,12 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
     label: "Twitter",
     icon: "AtSign",
     tabIds: ["flow-radar", "discovery-engine", "source-intelligence", "viral-library"],
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    icon: "Camera",
+    tabIds: ["instagram"],
   },
   {
     id: "kutuphane",

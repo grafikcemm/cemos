@@ -17,6 +17,7 @@ import {
   BrainCircuit,
   Video,
   MonitorPlay,
+  Camera,
   Users,
   Star,
   Type,
@@ -37,6 +38,7 @@ const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 const ICONS: Record<string, LucideIcon> = {
   Sunrise,
   AtSign,
+  Camera,
   Library,
   MonitorPlay,
   Wrench,
@@ -58,6 +60,7 @@ const TAB_ICONS: Record<string, LucideIcon> = {
   "pattern-library": Puzzle,
   youtube: Video,
   "learn-dashboard": BrainCircuit,
+  instagram: Camera,
 };
 
 const ACTIVE_PILL = "linear-gradient(135deg, var(--accent), var(--accent-hover))";
