@@ -2,6 +2,7 @@ import type { AccountProfile } from "@/lib/accounts";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
+import { buildIdentityMemoryBlock, rerankMemoryContext } from "@/lib/memory/retrieval";
 
 /**
  * örn2 brand-voice discipline listesi artık tek kaynaktan gelir
@@ -38,6 +39,16 @@ export async function buildGroundingContext(
   const parts: string[] = [];
   const patternIds: string[] = [];
   const sourcePostIds: string[] = [];
+
+  // 0) Identity hafızası (Sprint 3 — MEMORY-SPEC §5.4): ses anayasası (Tier 1)
+  //    + operatör-onaylı aktif MemoryFact kuralları + DNA özeti. Her zaman EN
+  //    BAŞTA — kimlik çapası recall örneklerinden önce gelir. Fail-soft.
+  try {
+    const identityBlock = await buildIdentityMemoryBlock(profile.handle);
+    if (identityBlock.trim()) parts.push(identityBlock.trim());
+  } catch {
+    /* fail-soft */
+  }
 
   // 1) Mined viral patterns (the externally-learned "training").
   try {
@@ -89,10 +100,12 @@ export async function buildGroundingContext(
   //      enjeksiyon noktası (tekrar/şişme yok + Anthropic cache breakpoint'i).
   //      Voice verisini draftService yükler (loadDraftVoice) ve pipeline'a geçirir.
 
-  // 2) Semantic memory (RAG over the populated corpus).
+  // 2) Semantic memory (RAG over the populated corpus). §5.2: aday sayısı
+  //    eşiği aşarsa judge-preset rerank ile top-8'e indirilir (fail-open).
   try {
     const ctx = await buildMemoryContext({ accountHandle: profile.handle, sourceContent: sourceText });
-    const block = buildMemoryPromptBlock(ctx);
+    const reranked = await rerankMemoryContext(ctx, sourceText, accountId);
+    const block = buildMemoryPromptBlock(reranked);
     if (block.trim()) parts.push(block.trim());
   } catch {
     /* fail-soft */
