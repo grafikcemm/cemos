@@ -145,6 +145,30 @@ describe("engagementLearningService.syncForAccount", () => {
     );
   });
 
+  it("records a snapshot even for a mid-range matched tweet that earns NO verdict", async () => {
+    // score 5 sits between lowMax(2) and highMin(15) → no HIGH/LOW verdict, but
+    // its real performance must still reach the lessonGate population.
+    vi.mocked(prisma.queueItem.findMany).mockResolvedValue([makeItem()] as never);
+    vi.mocked(performanceRepo.findByDraftQueueItemIds).mockResolvedValue(
+      new Map([["qi-1", { id: "pp-1" }]]) as never
+    );
+    vi.mocked(fetchUserTweets).mockResolvedValue({
+      tweets: [makeTweet({ likeCount: 5, retweetCount: 0, replyCount: 0 })],
+      twitterUserId: "123",
+      lookupPerformed: false,
+      retweetsFiltered: 0,
+    } as never);
+
+    const summary = await engagementLearningService.syncForAccount("grafikcem");
+
+    expect(summary.matched).toBe(1);
+    expect(summary.highs).toBe(0);
+    expect(summary.lows).toBe(0);
+    expect(summary.snapshots).toBe(1); // measured despite no verdict
+    expect(performanceRepo.upsertSnapshot).toHaveBeenCalled();
+    expect(feedbackEventRepo.create).not.toHaveBeenCalled();
+  });
+
   it("records engagement_low with -2 pattern delta for matured flops", async () => {
     vi.mocked(prisma.queueItem.findMany).mockResolvedValue([makeItem()] as never);
     vi.mocked(fetchUserTweets).mockResolvedValue({

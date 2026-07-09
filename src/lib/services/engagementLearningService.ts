@@ -183,14 +183,6 @@ export const engagementLearningService = {
         const score = engagementScore(tweet);
         const tweetAgeMs = Date.now() - new Date(tweet.createdAt).getTime();
 
-        let verdict: "engagement_high" | "engagement_low" | null = null;
-        if (score >= highMin) {
-          verdict = "engagement_high";
-        } else if (score <= lowMax && tweetAgeMs >= LOW_VERDICT_MATURITY_MS) {
-          verdict = "engagement_low";
-        }
-        if (!verdict) continue; // still maturing — re-checked on a later sync
-
         const metrics = {
           tweetId: tweet.id,
           likes: tweet.likeCount,
@@ -200,11 +192,15 @@ export const engagementLearningService = {
           engagement: score,
         };
 
-        // Performance ledger: if this draft was published (PublishedPost exists),
-        // record a maturity-windowed snapshot of its REAL engagement. Rank-based
-        // lessonGate consumes normalizedScore, so the raw engagement score is a
-        // valid ordinal — no self-baseline normalization needed here. Idempotent
-        // per (post, window). Best-effort; never breaks the engagement verdict.
+        // Performance ledger — BEFORE the verdict gate ON PURPOSE: EVERY matched
+        // published draft gets a maturity-windowed snapshot of its REAL
+        // engagement, including the mid-range majority (score between lowMax and
+        // highMin) that never earns a HIGH/LOW verdict. If we only snapshotted
+        // extreme outcomes, the lessonGate population would be biased to the tails
+        // and a pattern with real publishing history could sit forever below
+        // MIN_SUPPORT. Rank-based Mann-Whitney consumes normalizedScore, so the
+        // raw engagement score is a valid ordinal. Idempotent per (post, window),
+        // best-effort — never breaks the engagement verdict below.
         const published = publishedByItem.get(item.id);
         if (published) {
           const win = ageToWindow(tweetAgeMs);
@@ -219,6 +215,14 @@ export const engagementLearningService = {
             .catch(() => false);
           if (ok) summary.snapshots++;
         }
+
+        let verdict: "engagement_high" | "engagement_low" | null = null;
+        if (score >= highMin) {
+          verdict = "engagement_high";
+        } else if (score <= lowMax && tweetAgeMs >= LOW_VERDICT_MATURITY_MS) {
+          verdict = "engagement_low";
+        }
+        if (!verdict) continue; // still maturing — re-checked on a later sync
 
         await feedbackEventRepo.create({
           accountId: account.id,

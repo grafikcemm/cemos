@@ -86,9 +86,16 @@ export async function promoteValidatedPatterns(
   // Measured performance (latest snapshot) per published draft.
   const perfByItem = await performanceRepo.latestScoreByDraftItem(accountId, { platform, since: cutoff });
 
+  // A draft only counts toward the reject-rate brand signal once the operator
+  // has actually acted on it. Still-queued drafts ("new" / "needs_edit") are
+  // undecided and must NOT dilute the denominator — otherwise a pattern whose
+  // reviewed drafts were all rejected can slip past the veto just because it
+  // also has many unreviewed drafts.
+  const UNDECIDED_STATUSES = new Set(["new", "needs_edit"]);
   const enriched = items.map((it) => ({
     id: it.id,
     rejected: it.status === "rejected",
+    decided: !UNDECIDED_STATUSES.has(it.status),
     editDistance: computeNormalizedEditDistance(it.content, it.editedContent),
     patternIds: groundingPatternIds(it.scores),
   }));
@@ -106,8 +113,10 @@ export async function promoteValidatedPatterns(
     const editWith = carrying.map((e) => e.editDistance).filter((v): v is number => v !== null);
     const editWithout = notCarrying.map((e) => e.editDistance).filter((v): v is number => v !== null);
 
-    const rejectRate = (group: typeof enriched) =>
-      group.length === 0 ? 0 : group.filter((e) => e.rejected).length / group.length;
+    const rejectRate = (group: typeof enriched) => {
+      const decided = group.filter((e) => e.decided);
+      return decided.length === 0 ? 0 : decided.filter((e) => e.rejected).length / decided.length;
+    };
 
     const lesson: CandidateLesson = {
       lessonKey: candidate.id,

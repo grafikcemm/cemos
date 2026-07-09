@@ -91,6 +91,35 @@ describe("patternPromotionService.promoteValidatedPatterns", () => {
     expect(viralPatternRepo.markValidated).not.toHaveBeenCalled();
   });
 
+  it("does NOT promote when the performance difference is not statistically significant", async () => {
+    const carrying = ["a1", "a2", "a3"].map((id) => makeItem({ id, patternIds: ["vpA"] }));
+    const control = ["b1", "b2", "b3"].map((id) => makeItem({ id, patternIds: ["vpZ"] }));
+    setup([...carrying, ...control], { a1: 5, a2: 6, a3: 7, b1: 5, b2: 6, b3: 7 }); // identical dists
+
+    const res = await promoteValidatedPatterns("acc-1");
+
+    expect(res.promoted).toBe(0);
+    expect(res.verdicts[0]).toMatchObject({ promoted: false, reason: "not_significant" });
+  });
+
+  it("applies the reject-rate brand veto counting only operator-decided drafts (undecided drafts do not dilute)", async () => {
+    // vpA: 4 published winners + 1 rejected + 20 still-unreviewed ("new").
+    // Decided reject rate = 1/5 = 0.20 → veto. If "new" drafts wrongly counted,
+    // it would be 1/25 = 0.04 and the veto would (incorrectly) NOT fire.
+    const won = ["a1", "a2", "a3", "a4"].map((id) => makeItem({ id, patternIds: ["vpA"], status: "manual_published" }));
+    const rejected = [makeItem({ id: "ar1", patternIds: ["vpA"], status: "rejected" })];
+    const unreviewed = Array.from({ length: 20 }, (_, i) => makeItem({ id: `an${i}`, patternIds: ["vpA"], status: "new" }));
+    const control = ["b1", "b2", "b3", "b4"].map((id) => makeItem({ id, patternIds: ["vpZ"], status: "manual_published" }));
+    setup([...won, ...rejected, ...unreviewed, ...control], {
+      a1: 10, a2: 11, a3: 12, a4: 13, b1: 1, b2: 2, b3: 3, b4: 4,
+    });
+
+    const res = await promoteValidatedPatterns("acc-1");
+
+    expect(res.promoted).toBe(0);
+    expect(res.verdicts[0]).toMatchObject({ promoted: false, reason: "brand_veto_reject_rate" });
+  });
+
   it("short-circuits when there are no candidate patterns", async () => {
     setup([], {}, []);
     const res = await promoteValidatedPatterns("acc-1");
