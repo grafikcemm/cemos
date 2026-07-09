@@ -33,19 +33,32 @@ yüzeyleri) ve Sprint 9'a (kalan-iş kapatma) uzadı. Eşleme:
   local-fallback sorguda kalıcı vektör kullanılmaz — sessiz-0 önlendi).
 - Test: 1147 → 1162 (hepsi yeşil); typecheck/lint/build temiz.
 
-## 3. Kalan — neden bekliyor
+## 3. Kalan — neden bekliyor (2026-07-09 canlı doğrulama sonrası GÜNCEL)
 
-| İş | Kapı |
+Spend onayıyla koşulan canlı doğrulamalar iki **external blocker** saptadı:
+
+- **BLOCKER-1 — OpenRouter 402 (Insufficient credits).** `eval:run --all` canlı
+  koşuldu: **42 PASS / 0 FAIL** (tüm deterministik golden vakalar), 19 gen-testi
+  MOCK — generation çağrıları 402 döndü. `verify:catalog` geçiyor çünkü /models
+  ücretsiz endpoint; **generation kredisi yok**. [USER] kredi ekleyene dek tüm
+  canlı-LLM doğrulamaları bloke.
+- **BLOCKER-2 — Meta izin (#10).** META_ACCESS_TOKEN env'de mevcut; canlı
+  `business_discovery` smoke koşuldu → `(#10) Application does not have
+  permission`. Token var, **instagram_basic + business_discovery scope'u yok**.
+  [USER] Meta app izinleri gerekli. Kod fail-open doğru çalışıyor.
+
+| İş | Durum / Kapı |
 |---|---|
-| Batched 14-skor judge entegrasyonu (EVAL14_ENABLED) | Canlı LLM doğrulaması (harcama onayı) + kaynak-metadata threading |
-| Legacy emeklilik (draft-generator/critic, scorer/leak absorbe, council→judge) | Modüller CANLI route'lara bağlı (FlowRadar generate-drafts, DailyQueue rescore); önce route repoint + **eval parity canlı koşusu** |
-| eval:run --all (4 legacy vaka kararı) | Gerçek OpenRouter harcaması (onay) |
-| Embedding A/B (qwen3 vs 3-small) | Kredi koşusu + golden set |
+| Batched 14-skor judge entegrasyonu (EVAL14_ENABLED) | **KOD TAMAM (Sprint 9)**: batchedJudge.ts + draftService bağlama + 5 unit test; bayrak default KAPALI. Canlı smoke → BLOCKER-1 |
+| eval:run --all (4 legacy vaka kararı) | **KOŞULDU**: deterministik 42/42 PASS; 4 legacy gen-vaka kararı → BLOCKER-1 |
+| Legacy emeklilik (draft-generator/critic, scorer/leak absorbe, council→judge) | Modüller CANLI route'lara bağlı (FlowRadar generate-drafts, DailyQueue rescore); route repoint + eval-parity canlı koşusu → BLOCKER-1. Parity kanıtı olmadan silme YOK |
+| Meta business_discovery canlı doğrulama | **KOŞULDU** → BLOCKER-2 (izin). Watchlist de boş (0 hesap) — izin sonrası hesap ekle |
+| Embedding A/B (qwen3 vs 3-small) | BLOCKER-1 |
 | κ kalibrasyon cron | İnsan-etiketli judge/human çifti birikimi (veri-kapılı) |
-| CaptionDna/HashtagDna damıtma servisi | PublishLog birikimi; kod dalga-2 memory işi |
+| CaptionDna/HashtagDna damıtma servisi | PublishLog birikimi; dalga-2 memory işi |
 | Verifier Tier-2 (Playwright render) | Ayrı go/no-go spike (C10) |
-| UI dalgası: Sistem gözlem ekranı, Cmd-K + A/E/J/K, ay grid, IG alan cilası, Bugün ~3-öğe | Kullanıcı kararı: **en son** |
-| [USER] Meta token canlı smoke; Vercel Deployment Protection + secrets | Operasyonel |
+| UI dalgası | Sprint 9 sonunda başladı (bkz. DESIGN.md) |
+| [USER] Vercel Deployment Protection + secrets | Operasyonel |
 
 ## 4. Notlar
 
