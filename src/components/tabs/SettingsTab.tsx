@@ -22,6 +22,7 @@ import { fetchJson } from "@/lib/utils/safeFetch";
 import LearningStatusCard from "@/components/LearningStatusCard";
 import { PageHeader, Card, MetricCard, SectionHeader, EmptyState, Button, Toggle, Select, Badge } from "@/components/ui";
 import MemoryProposalsSection from "@/components/settings/MemoryProposalsSection";
+import SeriesDnaSection from "@/components/settings/SeriesDnaSection";
 
 const SCHEDULE_OPTIONS: { value: "daily" | "monday"; label: string }[] = [
   { value: "daily", label: "Her gün" },
@@ -555,6 +556,9 @@ export default function SettingsTab() {
 
       {/* Hafıza onay kuyruğu (Sprint 3 — C9: Settings içinde, yeni ekran yok) */}
       <MemoryProposalsSection />
+
+      {/* Seri DNA editörü (Sprint 8 — C9: Settings alt-bölümü) */}
+      <SeriesDnaSection />
     </div>
   );
 }

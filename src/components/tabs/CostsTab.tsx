@@ -62,8 +62,18 @@ type CostStats = {
 
 const fmt = (n: number) => `$${(n ?? 0).toFixed(4)}`;
 
+type QualityKpis = {
+  acceptanceRate: number | null;
+  decidedCount: number;
+  medianEditDistance: number | null;
+  editSampleCount: number;
+  goldenPassPct: number | null;
+  goldenScored: number;
+};
+
 export default function CostsTab() {
   const [costs, setCosts] = useState<CostStats | null>(null);
+  const [kpis, setKpis] = useState<QualityKpis | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCosts = async () => {
@@ -71,6 +81,16 @@ export default function CostsTab() {
       const res = await fetch("/api/costs");
       const data = await res.json();
       setCosts(data);
+      // Kalite KPI'ları fail-soft: hata maliyet panelini bozmaz.
+      try {
+        const kRes = await fetch("/api/eval/kpis");
+        if (kRes.ok) {
+          const k = await kRes.json();
+          if (k.success) setKpis(k as QualityKpis);
+        }
+      } catch {
+        /* fail-soft */
+      }
     } catch (err) {
       console.error("Maliyetler yüklenirken hata:", err);
     } finally {
@@ -234,6 +254,40 @@ export default function CostsTab() {
           }
           delta="tweet"
           icon={<Target size={16} strokeWidth={1.8} />}
+        />
+      </div>
+
+      {/* Kalite KPI şeridi (Sprint 8 — EVALUATION-SPEC §7; veri yoksa 'veri yok') */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-6)",
+        }}
+      >
+        <MetricCard
+          label="Kabul oranı (30g)"
+          value={
+            kpis?.acceptanceRate !== null && kpis !== null
+              ? `%${Math.round(kpis.acceptanceRate * 100)}`
+              : "veri yok"
+          }
+          delta={kpis ? `${kpis.decidedCount} karar` : undefined}
+        />
+        <MetricCard
+          label="Medyan edit-distance (kuzey yıldızı)"
+          value={
+            kpis?.medianEditDistance !== null && kpis !== null
+              ? kpis.medianEditDistance.toFixed(2)
+              : "veri yok"
+          }
+          delta={kpis ? `${kpis.editSampleCount} edit` : undefined}
+        />
+        <MetricCard
+          label="Golden set geçiş"
+          value={kpis?.goldenPassPct !== null && kpis !== null ? `%${kpis.goldenPassPct}` : "veri yok"}
+          delta={kpis ? `${kpis.goldenScored} vaka` : undefined}
         />
       </div>
 

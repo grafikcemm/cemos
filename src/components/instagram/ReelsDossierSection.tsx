@@ -113,7 +113,6 @@ export default function ReelsDossierSection() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createDossier = async () => {
