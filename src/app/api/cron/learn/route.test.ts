@@ -43,6 +43,13 @@ vi.mock("@/lib/news/pipeline", () => ({
   runPipelineTick: vi.fn(() => Promise.resolve({ processed: 0 }))
 }));
 
+// Memory consolidation (Pazartesi bloğu) — mock: LLM/DB yok.
+vi.mock("@/lib/memory/consolidation", () => ({
+  runMemoryConsolidation: vi.fn(() =>
+    Promise.resolve({ ran: true, extraction: [], decayRecomputed: 0, staleRejected: 0, contradictions: [] })
+  )
+}));
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     sourcePost: { deleteMany: vi.fn(() => Promise.resolve({ count: 2 })) },

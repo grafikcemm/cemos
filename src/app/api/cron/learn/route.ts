@@ -14,6 +14,7 @@ import { voiceProfileService } from "@/lib/services/voiceProfileService";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
+import { runMemoryConsolidation } from "@/lib/memory/consolidation";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
 // continuously learn without anyone clicking a button —
@@ -196,6 +197,21 @@ async function runLearn(handleParam: string | null) {
     voiceProfiles = out;
   }
 
+  // Memory consolidation (Sprint 3 — FINAL-MEMORY-SPEC §6.6): haftalık,
+  // Pazartesi, aynı slot (yeni cron YOK). Extraction bütçe-kapılı fail-closed;
+  // decay/staleness/contradiction sweep LLM'siz. Fail-open, cron'u bozmaz.
+  let memoryConsolidation: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      memoryConsolidation = await runMemoryConsolidation({
+        handles,
+        deadlineMs: Math.min(60_000, timeBudgetMs - (Date.now() - t0)),
+      });
+    } catch (err) {
+      memoryConsolidation = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -219,10 +235,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.
