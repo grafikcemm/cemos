@@ -236,6 +236,12 @@ model ViralPattern {
   // geçince yazılır (patternPromotionService). null = hâlâ aday.
   validatedAt          DateTime?
   validatedSupport     Int      @default(0) // promosyon anındaki destek sayısı
+  // Kalıcı retrieval embedding'i (Sprint 9): sorgu-anı yeniden vektörleme
+  // maliyetini süreçler arası sıfırlar. embeddingHash = pattern metninin hash'i;
+  // metin değişince (updatedAt) hash tutmaz → embedding bayat sayılır, yeniden
+  // hesaplanır. null = henüz kalıcılaşmamış (sorgu-anı cache'e düşer).
+  embeddingJson        String?
+  embeddingHash        String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -273,6 +279,10 @@ model FeedbackEvent {
   originalContent String?
   editedContent   String   @default("")
   reason          String   @default("")
+  // Kuzey-yıldızı metriği (Sprint 9): normalize edit-distance artık reason JSON'a
+  // gömülü değil, sorgulanabilir kolonda. Eski satırlar reason'dan okunmaya devam
+  // eder (KPI okuyucusu kolon-önce, JSON-fallback). null = edit sinyali yok.
+  editDistance    Float?
   platform        String   @default("x")
   createdAt       DateTime @default(now())
 }

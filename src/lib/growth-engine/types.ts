@@ -74,6 +74,8 @@ export const CreateFeedbackEventSchema = z.object({
   originalContent: z.string().optional(),
   editedContent: z.string().optional(),
   reason: z.string().optional(),
+  // Normalize edit-distance (0..1) — queryable column; null/undefined = yok.
+  editDistance: z.number().nullable().optional(),
   platform: z.string().optional()
 });
 

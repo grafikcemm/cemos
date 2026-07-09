@@ -163,13 +163,16 @@ export function buildFeedbackEventInput(input: FeedbackApiInput) {
     input.sourceContent?.trim() ||
     "";
 
-  // Item 13: her `edited` etiketli event'te normalized edit-distance hesaplanır
-  // ve reason'a merge edilir (kullanıcı nedeni korunur). Düzenleme büyüklüğü =
-  // öğrenme sinyali: 0.05 dokunuş vs 0.7 yeniden yazım farklı ders taşır.
+  // Item 13: her `edited` etiketli event'te normalized edit-distance hesaplanır.
+  // Sprint 9: artık hem sorgulanabilir `editDistance` kolonuna yazılır HEM DE
+  // geriye-uyum için reason JSON'a merge edilir (eski KPI okuyucusu için).
+  // Düzenleme büyüklüğü = öğrenme sinyali: 0.05 dokunuş vs 0.7 yeniden yazım.
   let reason = input.reason ?? "";
+  let editDistance: number | null = null;
   if (feedbackToTrainingLabel(input.feedbackType) === "edited") {
     const distance = computeNormalizedEditDistance(input.originalContent, input.editedContent);
     if (distance !== null) {
+      editDistance = distance;
       reason = mergeReasonWithEditDistance(reason, distance);
     }
   }
@@ -182,6 +185,7 @@ export function buildFeedbackEventInput(input: FeedbackApiInput) {
     originalContent,
     editedContent: input.editedContent ?? "",
     reason,
+    editDistance,
   };
 }
 

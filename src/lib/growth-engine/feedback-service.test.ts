@@ -209,6 +209,37 @@ describe("Feedback Service Helpers", () => {
       const result = buildFeedbackEventInput(input);
       expect(result.originalContent).toBe("Edited Only");
     });
+
+    it("populates the queryable editDistance field for edited feedback (and mirrors it into reason)", () => {
+      const input: FeedbackApiInput = {
+        accountId: "acc-123",
+        accountHandle: "grafikcem",
+        feedbackType: "edited",
+        originalContent: "Bugün Midjourney v8 çıktı.",
+        editedContent: "Bugün Midjourney v8 çıktı — 4 saatlik işi 12 dakikaya indirdim.",
+        saveTrainingExample: true,
+        saveAsPattern: false,
+      };
+
+      const result = buildFeedbackEventInput(input);
+      expect(typeof result.editDistance).toBe("number");
+      expect(result.editDistance).toBeGreaterThan(0);
+      // Geriye uyum: reason JSON'a da yansır.
+      expect(JSON.parse(result.reason).editDistance).toBe(result.editDistance);
+    });
+
+    it("leaves editDistance null for non-edit feedback", () => {
+      const result = buildFeedbackEventInput({
+        accountId: "acc-123",
+        accountHandle: "grafikcem",
+        feedbackType: "approved",
+        originalContent: "x",
+        editedContent: "x",
+        saveTrainingExample: true,
+        saveAsPattern: false,
+      });
+      expect(result.editDistance).toBeNull();
+    });
   });
 
   describe("buildTrainingExampleFromFeedback", () => {

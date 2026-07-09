@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       prisma.feedbackEvent.count({ where: { feedbackType: "rejected", createdAt: { gte: since } } }),
       prisma.feedbackEvent.findMany({
         where: { feedbackType: "edited", createdAt: { gte: since } },
-        select: { reason: true },
+        select: { reason: true, editDistance: true },
         take: 500,
       }),
       prisma.evalTest.findMany({
@@ -50,8 +50,10 @@ export async function GET(req: NextRequest) {
     const decided = approved + rejected;
     const acceptanceRate = decided > 0 ? Number((approved / decided).toFixed(3)) : null;
 
+    // Kolon-önce, reason-JSON-fallback: yeni satırlar editDistance kolonundan,
+    // eski satırlar reason JSON'undan okunur (geriye uyumlu).
     const distances = editedEvents
-      .map((e) => parseEditDistance(e.reason))
+      .map((e) => (typeof e.editDistance === "number" ? e.editDistance : parseEditDistance(e.reason)))
       .filter((d): d is number => d !== null);
     const medianEditDistance =
       distances.length > 0 ? Number(median(distances)!.toFixed(3)) : null;

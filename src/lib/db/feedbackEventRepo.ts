@@ -17,6 +17,7 @@ export const feedbackEventRepo = {
         originalContent: input.originalContent,
         editedContent: input.editedContent ?? "",
         reason: input.reason ?? "",
+        editDistance: input.editDistance ?? null,
         // undefined → DB default "x"
         platform: input.platform,
       },

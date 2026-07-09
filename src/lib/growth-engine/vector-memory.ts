@@ -216,6 +216,13 @@ export async function embedTrainingExamplesByAccount(
 const queryTimeEmbeddingCache = new Map<string, EmbeddingVector>();
 const QUERY_EMBED_CACHE_MAX = 500;
 
+/** Kararlı, ucuz metin hash'i (djb2) — kalıcı pattern embedding tazelik kontrolü. */
+function textHash(text: string): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 async function getCachedEmbedding(cacheKey: string, text: string): Promise<EmbeddingVector> {
   const cached = queryTimeEmbeddingCache.get(cacheKey);
   if (cached) return cached;
@@ -330,14 +337,42 @@ export async function searchSimilarExamples(
         .join("\n") || p.patternName;
 
       // Item 14 fix: pattern retrieval GERÇEK embedding kullanır (local-hash
-      // yalnız fallback). Önceki kod her zaman 256-dim local-hash üretiyor,
-      // gerçek 1536-dim sorguya karşı cosine 0 dönüyordu → pattern hafızası
-      // RAG'e sessizce hiç katkı vermiyordu.
-      const patternEmbedding = await getCachedEmbedding(
-        `vp:${p.id}:${p.updatedAt instanceof Date ? p.updatedAt.getTime() : ""}`,
-        patternText,
-      );
-      const similarity = cosineSimilarity(queryEmbedding.values, patternEmbedding.values);
+      // yalnız fallback). Sprint 9: kalıcı embeddingJson kolonu — metin
+      // değişmediyse (hash tutuyorsa) tekrar embed ETMEZ, süreçler arası maliyeti
+      // sıfırlar. Bozuk/bayat/eksik → yeniden hesaplar ve (gerçekse) kalıcılaştırır.
+      const hash = textHash(patternText);
+      let vectorValues: number[] | null = null;
+      if (p.embeddingJson && p.embeddingHash === hash) {
+        try {
+          const parsed = JSON.parse(p.embeddingJson);
+          if (Array.isArray(parsed)) vectorValues = parsed;
+          else if (parsed && Array.isArray(parsed.values)) vectorValues = parsed.values;
+        } catch {
+          // bozuk kayıt → yeniden hesapla
+        }
+      }
+
+      if (!vectorValues) {
+        const patternEmbedding = await getCachedEmbedding(
+          `vp:${p.id}:${p.updatedAt instanceof Date ? p.updatedAt.getTime() : ""}`,
+          patternText,
+        );
+        vectorValues = patternEmbedding.values;
+        // Yalnız GERÇEK embedding'i kalıcılaştır (local_fallback boyut uyumsuzluğu
+        // yaratır). Best-effort — persist HER TÜRLÜ hatada (senkron dahil)
+        // yutulur; retrieval asla bozulmaz.
+        if (patternEmbedding.provider !== "local_fallback") {
+          try {
+            await prisma.viralPattern
+              .update({ where: { id: p.id }, data: { embeddingJson: JSON.stringify(vectorValues), embeddingHash: hash } })
+              .catch(() => {});
+          } catch {
+            /* persist best-effort */
+          }
+        }
+      }
+
+      const similarity = cosineSimilarity(queryEmbedding.values, vectorValues);
 
       candidates.push({
         id: p.id,
