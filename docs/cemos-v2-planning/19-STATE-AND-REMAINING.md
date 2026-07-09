@@ -57,7 +57,7 @@ Spend onayıyla koşulan canlı doğrulamalar iki **external blocker** saptadı:
 | κ kalibrasyon cron | İnsan-etiketli judge/human çifti birikimi (veri-kapılı) |
 | CaptionDna/HashtagDna damıtma servisi | PublishLog birikimi; dalga-2 memory işi |
 | Verifier Tier-2 (Playwright render) | Ayrı go/no-go spike (C10) |
-| UI dalgası | Sprint 9 sonunda başladı (bkz. DESIGN.md) |
+| UI dalgası | **TAMAMLANDI (Sprint 9)**: DESIGN.md + Sistem paneli (Araçlar>Sistem, canlı veri doğrulandı) + Cmd/Ctrl-K komut paleti (canlı doğrulandı) + off-token hex temizliği + Bugün ~3-öğe + 390px taşma fix. Kalan mikro-iş: Bugün kartlarında A/E/J/K kısayolları (DraftReviewCard aksiyon bağlama) |
 | [USER] Vercel Deployment Protection + secrets | Operasyonel |
 
 ## 4. Notlar

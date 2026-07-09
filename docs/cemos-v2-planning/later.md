@@ -35,12 +35,14 @@
   görünüm işi) — UsageLog.meta.preset alanı Wave 1'den beri yazılıyor, UI bekliyor.
 
 ## Bugün yüzeyi (V1 UX)
-- Klavye kısayolları A/E/J/K + Cmd/Ctrl-K komut çubuğu (FINAL-UX-SPEC, V1).
+- ~~Cmd/Ctrl-K komut çubuğu~~ → **TAMAM (Sprint 9)**: CommandPalette (shell'e
+  mount, canlı doğrulandı). A/E/J/K kart kısayolları KALAN (DraftReviewCard
+  aksiyon bağlama — ayrı mikro-iş).
 - `/api/settings/operator-readiness` lokalde yavaş (Neon pool baskısı altında timeout
   → sayaç "durum alınamadı" gösteriyor). Endpoint'in sorgu sayısı azaltılabilir /
   cache'lenebilir.
-- "Tepki vermeye değer" içindeki üç highlight bileşeninin iç limitleri (5/3/3) spec'in
-  "~3 öğe" hedefine indirilebilir; şimdilik bölüm varsayılan katlanmış.
+- ~~Highlight iç limitleri (5/3/3) → ~3 öğe~~ → **TAMAM (Sprint 9)**:
+  NewsHighlights 5→3; Repo/YouTube zaten 3'tü.
 
 ## Eval — legacy vaka takibi (Sprint 2'de davranış netleşti)
 Sprint 2 eval-parity sonrası: üretim-modu testler (10 legacy research-ingest +
