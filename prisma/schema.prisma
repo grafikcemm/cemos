@@ -1391,6 +1391,23 @@ model SeriesProfile {
   @@index([seriesKey])
 }
 
+// ── IG Rakip Watchlist (Sprint 4, CONTENT-ENGINE §3) ── Creator'a ince join.
+// Policy: yalnız Meta business_discovery (sanctioned); scraping ASLA; PII yok.
+model IgWatchAccount {
+  id            String    @id @default(cuid())
+  creatorId     String?   @unique // → Creator (platform "instagram"); probe başarısızsa null
+  username      String    @unique
+  isInspiration Boolean   @default(false)
+  isCompetitor  Boolean   @default(true)
+  notes         String    @default("")
+  probeStatus   String    @default("pending") // pending | ok | unavailable
+  probeError    String    @default("") // Türkçe operatör mesajı
+  lastSyncAt    DateTime?
+  addedAt       DateTime  @default(now())
+
+  @@index([probeStatus])
+}
+
 // ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
 // Deterministik, LLM'siz; dossier'ler verificationId ile bu satıra bağlanır.
 model WebsiteVerification {

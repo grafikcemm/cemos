@@ -9,6 +9,7 @@ import { syncRepoRadar } from "@/lib/news/repoRadar";
 import { generateOpportunities } from "@/lib/news/opportunities";
 import { buildDailyDigest } from "@/lib/news/digest";
 import { syncToCanonical } from "@/lib/content/syncBridge";
+import { syncIgCompetitors } from "@/lib/instagram/competitor/igCompetitorService";
 
 // With Fluid Compute (Vercel default for new projects) Hobby functions may run
 // up to 300s. If a deploy ever rejects this literal, drop it to 60 — the time
@@ -119,6 +120,19 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
+  // IG rakip watchlist sync (Sprint 4, CONTENT-ENGINE §3) — business_discovery
+  // TEK onaylı okuma, LLM'SİZ (~$0), ≤20 hesap/gün. Fail-open; token yoksa boş.
+  let igCompetitorSync: unknown = null;
+  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
+    try {
+      igCompetitorSync = await syncIgCompetitors({
+        deadlineMs: Math.min(45_000, timeBudgetMs - (Date.now() - t0)),
+      });
+    } catch (err) {
+      igCompetitorSync = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   const results: unknown[] = [];
   let errors = 0;
   let partial = false;
@@ -139,7 +153,11 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
 
   const ok = errors < handles.length;
   if (cronRunId) {
-    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, contentSync, results } });
+    await cronRunRepo.finish(cronRunId, {
+      ok,
+      partial,
+      result: { news, contentSync, igCompetitorSync, results },
+    });
   }
   return { ok, partial, news, results };
 }

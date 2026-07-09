@@ -372,6 +372,66 @@ export async function getAccountInsights(): Promise<IgFetch<unknown>> {
   return r.ok ? { ok: true, data: r.data } : { ok: false, error: r.error };
 }
 
+// ── Sprint 4: business_discovery (rakip watchlist — TEK onaylı otomatik okuma) ──
+
+export type BusinessDiscoveryMedia = {
+  id: string;
+  caption?: string;
+  media_type?: string;
+  media_product_type?: string;
+  permalink?: string;
+  timestamp?: string;
+  like_count?: number;
+  comments_count?: number;
+};
+
+export type BusinessDiscoveryResult = {
+  username: string;
+  name?: string;
+  followers_count?: number;
+  media_count?: number;
+  media: BusinessDiscoveryMedia[];
+};
+
+/**
+ * GET /{ig-user-id}?fields=business_discovery.username(HANDLE){...} — public
+ * professional hesabın son medyası. Personal/private/age-gated hesaplar Meta
+ * hatası döner → fail-open { ok:false } (çağıran Türkçe "manuel ekle" işler).
+ */
+export async function getBusinessDiscovery(
+  username: string,
+  mediaLimit = 25
+): Promise<IgFetch<BusinessDiscoveryResult>> {
+  const { token } = await getEffectiveToken();
+  const igUserId = getIgUserId();
+  if (!token || !igUserId) return { ok: false, error: "not_configured" };
+  const clean = username.replace(/^@/, "").trim();
+  if (!/^[a-zA-Z0-9._]{1,30}$/.test(clean)) return { ok: false, error: "invalid_username" };
+  const fields =
+    `business_discovery.username(${clean})` +
+    `{username,name,followers_count,media_count,` +
+    `media.limit(${mediaLimit}){id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count}}`;
+  const url = `${GRAPH_BASE}/${igUserId}?fields=${ENC(fields)}&access_token=${ENC(token)}`;
+  const r = await safeGet<{
+    business_discovery?: Omit<BusinessDiscoveryResult, "media"> & {
+      media?: { data?: BusinessDiscoveryMedia[] };
+    };
+  }>(url);
+  if (!r.ok) return { ok: false, error: r.error };
+  const bd = r.data?.business_discovery;
+  if (!bd?.username) return { ok: false, error: "business_discovery_empty" };
+  return {
+    ok: true,
+    data: {
+      username: bd.username,
+      name: bd.name,
+      followers_count: bd.followers_count,
+      media_count: bd.media_count,
+      media: bd.media?.data ?? [],
+    },
+  };
+}
+
 /** GET /{ig-user-id}?fields=followers_count — anlık takipçi. */
 export async function getFollowerCount(): Promise<IgFetch<number>> {
   const { token } = await getEffectiveToken();

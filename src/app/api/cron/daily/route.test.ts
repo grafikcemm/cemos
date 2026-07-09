@@ -35,6 +35,12 @@ vi.mock("@/lib/news/hackernews", () => ({ syncHackerNews: vi.fn(() => Promise.re
 vi.mock("@/lib/news/repoRadar", () => ({ syncRepoRadar: vi.fn(() => Promise.resolve({ processed: 0 })) }));
 vi.mock("@/lib/news/opportunities", () => ({ generateOpportunities: vi.fn(() => Promise.resolve({ created: 0 })) }));
 vi.mock("@/lib/news/digest", () => ({ buildDailyDigest: vi.fn(() => Promise.resolve({ ok: true })) }));
+// IG rakip sync (Sprint 4) — cron'a katlandı; testte LLM'siz/DB'siz mock.
+vi.mock("@/lib/instagram/competitor/igCompetitorService", () => ({
+  syncIgCompetitors: vi.fn(() =>
+    Promise.resolve({ accounts: 0, synced: 0, itemsUpserted: 0, outliersScored: 0, errors: [] })
+  ),
+}));
 
 function makeReq(method: "GET" | "POST", query = "", authHeader?: string) {
   return new NextRequest(`http://localhost:3000/api/cron/daily${query}`, {
