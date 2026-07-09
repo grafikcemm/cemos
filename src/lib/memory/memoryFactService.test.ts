@@ -58,9 +58,8 @@ function fact(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCreate.mockImplementation((args: never) =>
-    Promise.resolve(fact({ id: "new-fact", ...(args as { data: object }).data }))
-  );
+  mockCreate.mockImplementation(((args: { data: object }) =>
+    Promise.resolve(fact({ id: "new-fact", ...args.data }))) as never);
   mockUpdate.mockResolvedValue(fact());
 });
 
