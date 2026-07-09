@@ -135,14 +135,11 @@ export async function advanceJob(
     subjectType: "learn_pack",
     subjectId: state.packId ?? sourceId,
   });
+  // Dalga 2 (Sprint 2): runStage artık gated — UsageLog'u (purpose=pipelineId,
+  // platform=learn) KENDİSİ yazar. Burada tekrar recordOpenRouter çağırmak
+  // çift-log olurdu; yalnız pack maliyet sayacı toplanır.
   const spend: SpendFn = async (r) => {
     advanceCost += r.actualCostUsd;
-    await usageService.recordOpenRouter({
-      estimatedCostUsd: r.actualCostUsd,
-      model: r.model,
-      meta: { purpose: LEARN_PURPOSE, sourceId },
-      platform: "learn",
-    });
   };
 
   const persistState = () =>
