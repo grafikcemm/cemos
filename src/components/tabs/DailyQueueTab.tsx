@@ -867,7 +867,7 @@ export default function DailyQueueTab() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 500, color: "var(--accent)" }}>@{item.accountHandle}</span>
-                    <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#3b82f6", padding: "1px 5px", borderRadius: 4, fontWeight: 500 }}>
+                    <span style={{ fontSize: 9, background: "color-mix(in srgb, var(--status-info) 12%, transparent)", color: "var(--status-info)", padding: "1px 5px", borderRadius: 4, fontWeight: 500 }}>
                       {item.draftType}
                     </span>
                     <span style={{
@@ -997,7 +997,7 @@ export default function DailyQueueTab() {
           width: "100%",
           maxWidth: 500,
           height: "100%",
-          background: "#0c0c0c",
+          background: "var(--bg-sunken)",
           borderLeft: "1px solid var(--border)",
           boxShadow: "-10px 0 40px rgba(0,0,0,0.6)",
           zIndex: 200,
@@ -1016,7 +1016,7 @@ export default function DailyQueueTab() {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>@{selectedItem.accountHandle}</span>
-                <span style={{ fontSize: 9, background: "rgba(59,130,246,0.1)", color: "#3b82f6", padding: "1px 4px", borderRadius: 3 }}>{selectedItem.draftType}</span>
+                <span style={{ fontSize: 9, background: "color-mix(in srgb, var(--status-info) 12%, transparent)", color: "var(--status-info)", padding: "1px 4px", borderRadius: 3 }}>{selectedItem.draftType}</span>
                 <span style={{ fontSize: 9, background: getStatusBadgeStyles(selectedItem.status).bg, color: getStatusBadgeStyles(selectedItem.status).text, padding: "1px 4px", borderRadius: 3 }}>
                   {selectedItem.status}
                 </span>
@@ -1099,7 +1099,7 @@ export default function DailyQueueTab() {
                       padding: "6px 12px",
                       background: "rgba(59,130,246,0.1)",
                       border: "1px solid rgba(59,130,246,0.3)",
-                      color: "#3b82f6",
+                      color: "var(--status-info)",
                       borderRadius: 6,
                       fontSize: 11,
                       cursor: "pointer"
@@ -1376,7 +1376,7 @@ export default function DailyQueueTab() {
                         style={{
                           padding: "4px 10px",
                           background: "var(--accent)",
-                          color: "#000",
+                          color: "var(--accent-fg)",
                           border: "none",
                           borderRadius: 5,
                           fontSize: 11,
@@ -1488,7 +1488,7 @@ export default function DailyQueueTab() {
                   padding: "10px 16px",
                   background: "rgba(29, 155, 240, 0.15)",
                   border: "1px solid rgba(29, 155, 240, 0.4)",
-                  color: "#1d9bf0",
+                  color: "var(--status-info)",
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,
@@ -1530,7 +1530,7 @@ export default function DailyQueueTab() {
                   padding: "10px 16px",
                   background: "rgba(168,85,247,0.15)",
                   border: "1px solid rgba(168,85,247,0.4)",
-                  color: "#c084fc",
+                  color: "var(--accent-text)",
                   borderRadius: 6,
                   fontSize: 12,
                   fontWeight: 500,

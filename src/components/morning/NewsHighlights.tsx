@@ -39,8 +39,8 @@ export default function NewsHighlights({ onToast }: Props) {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const data = await fetchJson<NewsResponse>("/api/news-pool?minScore=70&limit=5&compact=true");
-      if (data.success && data.items) setItems(data.items.slice(0, 5));
+      const data = await fetchJson<NewsResponse>("/api/news-pool?minScore=70&limit=3&compact=true");
+      if (data.success && data.items) setItems(data.items.slice(0, 3));
       else setLoadFailed(true);
     } catch {
       // HATA ≠ BOŞ (item 5): yutulmaz, ayrı error state gösterilir.

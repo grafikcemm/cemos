@@ -17,6 +17,7 @@ import PromptKutuphanesiTab from "@/components/tabs/PromptKutuphanesiTab";
 import PatternLibraryTab from "@/components/tabs/PatternLibraryTab";
 import KeywordLibraryTab from "@/components/tabs/KeywordLibraryTab";
 import InstagramTab from "@/components/tabs/InstagramTab";
+import SystemTab from "@/components/tabs/SystemTab";
 
 /**
  * Maps a (possibly legacy-aliased) activeTab id to its screen component.
@@ -61,6 +62,8 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <ToolboxTab />;
     case "costs":
       return <CostsTab />;
+    case "system":
+      return <SystemTab />;
     case "settings":
       return <SettingsTab />;
     default:

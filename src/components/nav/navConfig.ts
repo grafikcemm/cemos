@@ -188,6 +188,8 @@ export type UtilityTab = {
 export const UTILITY_TABS: readonly UtilityTab[] = [
   { id: "toolbox", label: "Toolbox", icon: "Wrench" },
   { id: "costs", label: "Maliyetler", icon: "DollarSign" },
+  // Sprint 9: dağınık sağlık sinyalleri tek panede (worker/cron/pipeline/KPI).
+  { id: "system", label: "Sistem", icon: "Activity" },
   { id: "settings", label: "Ayarlar", icon: "Settings" },
 ];
 
@@ -209,6 +211,24 @@ const TAB_LABELS: Readonly<Record<string, string>> = (() => {
   map["learn-dashboard"] = "Youtube Öğrenme Kütüphanesi";
   return map;
 })();
+
+/**
+ * Komut paleti (Cmd/Ctrl-K) için gezilebilir tüm sekmeler — alan etiketiyle.
+ * Tek kaynak: PRIMARY_AREAS + UTILITY_TABS (+ koşullu learn-dashboard zaten
+ * PRIMARY_AREAS projeksiyonunda).
+ */
+export function allNavigableTabs(): { id: string; label: string; group: string }[] {
+  const out: { id: string; label: string; group: string }[] = [];
+  for (const area of PRIMARY_AREAS) {
+    for (const id of area.tabIds) {
+      out.push({ id, label: TAB_LABELS[id] ?? id, group: area.label });
+    }
+  }
+  for (const tab of UTILITY_TABS) {
+    out.push({ id: tab.id, label: tab.label, group: "Araçlar" });
+  }
+  return out;
+}
 
 /** Sekmenin ait olduğu birincil alan; bilinmeyen/eşleşmeyen id → null. */
 export function resolveAreaForTab(tabId: string): PrimaryAreaId | null {

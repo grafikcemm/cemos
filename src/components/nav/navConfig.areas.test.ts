@@ -49,9 +49,9 @@ describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu (IA v2)", () => {
     ]);
   });
 
-  it("3 utility sekmesi tanımlı (Toolbox/Maliyetler/Ayarlar)", () => {
-    expect(UTILITY_TABS).toHaveLength(3);
-    expect(UTILITY_TABS.map((t) => t.id)).toEqual(["toolbox", "costs", "settings"]);
+  it("4 utility sekmesi tanımlı (Toolbox/Maliyetler/Sistem/Ayarlar)", () => {
+    expect(UTILITY_TABS).toHaveLength(4);
+    expect(UTILITY_TABS.map((t) => t.id)).toEqual(["toolbox", "costs", "system", "settings"]);
   });
 });
 

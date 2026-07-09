@@ -30,7 +30,7 @@ export default function PatternsTab() {
         <span style={{ fontSize: 14, fontWeight: 500 }}>Viral Paternler</span>
         <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>({patterns.length})</span>
         <button onClick={() => setShowForm(!showForm)} style={{
-          marginLeft: "auto", background: "var(--accent)", color: "#000", border: "none",
+          marginLeft: "auto", background: "var(--accent)", color: "var(--accent-fg)", border: "none",
           borderRadius: 6, padding: "6px 14px", fontSize: 11, fontWeight: 500, cursor: "pointer",
         }}>+ Pattern Kaydet</button>
       </div>
@@ -59,7 +59,7 @@ export default function PatternsTab() {
               padding: "5px 14px", fontSize: 11, color: "var(--text-muted)", cursor: "pointer",
             }}>İptal</button>
             <button onClick={handleSave} style={{
-              background: "var(--accent)", color: "#000", border: "none", borderRadius: 6,
+              background: "var(--accent)", color: "var(--accent-fg)", border: "none", borderRadius: 6,
               padding: "5px 14px", fontSize: 11, fontWeight: 500, cursor: "pointer",
             }}>Kaydet</button>
           </div>
@@ -79,11 +79,11 @@ export default function PatternsTab() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{
-                background: "#1a1a1a", color: "var(--text-muted)", fontSize: 9,
+                background: "var(--bg-elevated)", color: "var(--text-muted)", fontSize: 9,
                 borderRadius: 4, padding: "2px 6px", border: "1px solid var(--border)",
               }}>{p.type}</span>
               <button style={{
-                marginLeft: "auto", background: "var(--accent)", color: "#000", border: "none",
+                marginLeft: "auto", background: "var(--accent)", color: "var(--accent-fg)", border: "none",
                 borderRadius: 5, padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer",
               }}>Kullan</button>
               <button onClick={() => removePattern(p.id)} style={{

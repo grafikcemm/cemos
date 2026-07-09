@@ -766,7 +766,7 @@ export default function PatternLibraryTab() {
           width: "100%",
           maxWidth: 420,
           height: "100vh",
-          background: "#0c0c0c",
+          background: "var(--bg-sunken)",
           borderLeft: "1px solid var(--border)",
           boxShadow: "-8px 0 24px rgba(0,0,0,0.7)",
           zIndex: 200,
@@ -991,7 +991,7 @@ export default function PatternLibraryTab() {
                 disabled={actionLoading === "save-edit"}
                 style={{
                   background: "var(--accent)",
-                  color: "#000",
+                  color: "var(--accent-fg)",
                   border: "none",
                   borderRadius: 6,
                   padding: "6px 14px",

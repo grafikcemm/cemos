@@ -16,6 +16,7 @@ import {
 } from "@/components/nav/navConfig";
 import Sidebar from "./Sidebar";
 import TopStrip from "./TopStrip";
+import CommandPalette from "./CommandPalette";
 import { renderScreen } from "./screenRegistry";
 
 const COLLAPSE_KEY = "cemos-ui-collapsed";
@@ -93,6 +94,9 @@ export default function AppShell({ initialTab }: AppShellProps) {
       {/* Full-width top bar (worker/cron uyarısı) — flex-row'un DIŞINDA, yoksa
           flex item olarak yatay yer kaplayıp sidebar'ı sağa iter. */}
       <AutomationManager />
+
+      {/* Cmd/Ctrl-K komut paleti (Sprint 9 — FINAL-UX V1): klavye-öncelikli ekran atlama. */}
+      <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
       {/* Desktop sidebar */}
