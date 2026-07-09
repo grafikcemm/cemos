@@ -35,7 +35,7 @@ type WorkerHealth = {
   mode?: "worker" | "cron" | "unknown";
   inferredStatus?: "unknown" | "recent_tick" | "stale";
   recommendation?: string;
-  lastCronRun?: { job?: string; ok?: boolean; startedAt?: string; error?: string | null } | null;
+  lastTickAt?: string | null;
 };
 
 type HealthResponse = {
@@ -54,26 +54,25 @@ type HealthResponse = {
 
 type CostsResponse = {
   today?: { totalUsd?: number };
-  month?: { totalUsd?: number; byPreset?: Array<{ preset: string; costUsd: number; calls: number }> };
-  byPreset?: Array<{ preset: string; costUsd: number; calls: number }>;
+  // Gerçek yol: lineItems.openRouter.byPreset (bkz. /api/costs route).
+  lineItems?: { openRouter?: { byPreset?: Array<{ preset: string; costUsd: number; calls: number }> } };
 };
 
+// ok() zarfı payload'ı SPREAD eder — alanlar top-level, `data` sarmalayıcısı YOK.
 type KpisResponse = {
   success?: boolean;
-  data?: {
-    acceptanceRate: number | null;
-    decidedCount: number;
-    medianEditDistance: number | null;
-    editSampleCount: number;
-    goldenPassPct: number | null;
-    goldenScored: number;
-  };
+  acceptanceRate?: number | null;
+  decidedCount?: number;
+  medianEditDistance?: number | null;
+  editSampleCount?: number;
+  goldenPassPct?: number | null;
+  goldenScored?: number;
 };
 
 type LoadState =
   | { phase: "loading" }
   | { phase: "error"; message: string }
-  | { phase: "ready"; health: HealthResponse | null; costs: CostsResponse | null; kpis: KpisResponse["data"] | null };
+  | { phase: "ready"; health: HealthResponse | null; costs: CostsResponse | null; kpis: KpisResponse | null };
 
 const WORKER_LABEL: Record<string, { label: string; tone: "ok" | "warn" | "muted" }> = {
   recent_tick: { label: "Çalışıyor", tone: "ok" },
@@ -116,8 +115,10 @@ export default function SystemTab() {
     setState({ phase: "loading" });
     try {
       // Her uç best-effort: biri düşse pane ölmez, ilgili blok "veri yok" der.
+      // NOT: deep=true KULLANMA — canlı OpenRouter/SocialData probe'u yapar,
+      // safeFetch timeout'una takılıp paneli "Bilinmiyor"a düşürür.
       const [health, costs, kpis] = await Promise.all([
-        fetchJson<HealthResponse>("/api/health?deep=true").catch(() => null),
+        fetchJson<HealthResponse>("/api/health").catch(() => null),
         fetchJson<CostsResponse>("/api/costs").catch(() => null),
         fetchJson<KpisResponse>("/api/eval/kpis").catch(() => null),
       ]);
@@ -125,7 +126,7 @@ export default function SystemTab() {
         setState({ phase: "error", message: "Sistem uçlarına ulaşılamadı. Sunucu çalışıyor mu?" });
         return;
       }
-      setState({ phase: "ready", health, costs, kpis: kpis?.data ?? null });
+      setState({ phase: "ready", health, costs, kpis: kpis?.success ? kpis : null });
     } catch (err) {
       setState({ phase: "error", message: err instanceof Error ? err.message : "Sistem durumu alınamadı" });
     }
@@ -182,7 +183,7 @@ export default function SystemTab() {
   const workerInfo = WORKER_LABEL[worker?.inferredStatus ?? "unknown"] ?? WORKER_LABEL.unknown;
   const cronAuth = health?.cronAuth;
   const news = health?.newsPipeline;
-  const byPreset = (costs?.month?.byPreset ?? costs?.byPreset ?? []).slice(0, 6);
+  const byPreset = (costs?.lineItems?.openRouter?.byPreset ?? []).slice(0, 6);
 
   return (
     <div style={{ width: "100%" }}>
@@ -229,10 +230,9 @@ export default function SystemTab() {
             <Badge variant={workerInfo.tone === "ok" ? "accent" : "muted"} size="xs">
               {workerInfo.label}
             </Badge>
-            {worker?.lastCronRun?.startedAt && (
+            {worker?.lastTickAt && (
               <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                son: {worker.lastCronRun.job ?? "cron"} · {new Date(worker.lastCronRun.startedAt).toLocaleString("tr-TR")}
-                {worker.lastCronRun.ok === false ? " · HATA" : ""}
+                son tick: {new Date(worker.lastTickAt).toLocaleString("tr-TR")}
               </span>
             )}
           </div>
@@ -261,9 +261,9 @@ export default function SystemTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <Newspaper size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              <StatusDot tone={news.status === "ok" ? "ok" : news.status === "warning" ? "warn" : news.status ? "error" : "muted"} />
+              <StatusDot tone={news.status === "green" ? "ok" : news.status === "yellow" ? "warn" : news.status ? "error" : "muted"} />
               <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>
-                {news.status === "ok" ? "Sağlıklı" : news.status ?? "Bilinmiyor"}
+                {news.status === "green" ? "Sağlıklı" : news.status === "yellow" ? "Uyarı" : news.status === "red" ? "Sorunlu" : "Bilinmiyor"}
               </span>
             </div>
             <div className="tnum" style={{ display: "flex", gap: "var(--space-5)", fontSize: "var(--text-xs)", color: "var(--text-muted)", flexWrap: "wrap" }}>

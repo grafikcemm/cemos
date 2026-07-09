@@ -515,7 +515,8 @@ export default function DailyQueueTab() {
         {/* Account Selector (Prominent Tabs) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%" }}>
           <label className="eyebrow" style={{ color: "var(--text-muted)", marginBottom: 4 }}>Hesap Seçimi</label>
-          <div style={{ display: "flex", gap: 8 }}>
+          {/* flexWrap: 390px'de üçüncü buton taşmasın (mobil yatay taşma yasağı) */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { id: "all", label: "Tüm Hesaplar" },
               { id: "grafikcem", label: "@grafikcem" },

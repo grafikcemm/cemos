@@ -3,6 +3,7 @@
 import {
   Sunrise,
   Compass,
+  Activity,
   DollarSign,
   Settings,
   PanelLeftClose,
@@ -43,6 +44,7 @@ const ICONS: Record<string, LucideIcon> = {
   MonitorPlay,
   Wrench,
   DollarSign,
+  Activity,
   Settings,
 };
 
