@@ -12,6 +12,7 @@ import { qualityLintService } from "@/lib/services/qualityLintService";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { detectLeaks, conceptKeywordsFrom } from "@/lib/growth-engine/leak-detector";
 import { extractSubSignals, applyQualityGate } from "@/lib/services/scoreSignals";
+import { isEval14Enabled, runBatchedJudge14, type Judge14Result } from "@/lib/eval/batchedJudge";
 import { atomizeService } from "@/lib/services/atomizeService";
 import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
 import type { BenchmarkResult, DraftVoice } from "@/lib/ai/prompts";
@@ -268,6 +269,34 @@ export const draftService = {
       }
     }
 
+    // ── Sprint 9: batched 14-skor judge (EVAL14_ENABLED, kademeli). Kapalıyken
+    //    sıfır çağrı/sıfır maliyet — davranış birebir eski. Açıkken tek batched
+    //    cemos-final-judge çağrısı [J] skorlarını üretir, [D] skorlar koddan;
+    //    fail-open: hata taslak üretimini asla bozmaz, alan boş kalır. ──
+    let eval14: Judge14Result | null = null;
+    if (isEval14Enabled() && !pipelineResult.usedMock) {
+      try {
+        eval14 = await runBatchedJudge14({
+          profile,
+          sourceText,
+          draftContent: generated,
+          accountId: account.id,
+          deterministic: {
+            sourceTier: input.newsItemId ? "known" : "unknown",
+            corroborations: 0,
+            sourcePublishedAtMs: null, // kaynak yayın zamanı threading'i: dalga-2
+            charCount: generated.length,
+            maxChars: tierMaxChars,
+            usedMock: pipelineResult.usedMock ?? false,
+            highLeakCount: leaks.filter((l) => l.severity === "high").length,
+            lintErrorCount: lintReport.blockers.length,
+          },
+        });
+      } catch (err) {
+        console.warn("[draftService] eval14 batched judge atlandı (fail-open):", err instanceof Error ? err.message : err);
+      }
+    }
+
     const queueItem = await queueRepo.create({
       accountId: account.id,
       sourcePostId: sourcePostId,
@@ -277,7 +306,7 @@ export const draftService = {
       draftType,
       mode: draftMode,
       status: qualityGate.status === "needs_edit" ? "needs_edit" : undefined,
-      estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
+      estimatedCostUsd: (pipelineResult.estimatedCostUsd ?? 0) + (eval14?.costUsd ?? 0),
       usedMock: pipelineResult.usedMock ?? false,
       scores: JSON.stringify({
         ...pipelineResult.winner,
@@ -287,6 +316,17 @@ export const draftService = {
         // Engagement learning loop re-weights exactly these patterns later.
         groundingPatternIds: groundingCtx.patternIds,
         groundingSourcePostIds: groundingCtx.sourcePostIds,
+        // Sprint 9 — 14 alt-skor (EVAL14_ENABLED açıkken dolu; UI sözleşmesi:
+        // alan yoksa eski 8-sinyal görünümü aynen sürer).
+        ...(eval14
+          ? {
+              subscores14: eval14.subscores,
+              composite14: eval14.composite.composite,
+              vetoed14: eval14.composite.vetoed,
+              judge14Model: eval14.judgeModel,
+              judge14Evidence: eval14.evidence,
+            }
+          : {}),
         // Phase 2 quality telemetry (DH-015): explains WHY a draft is the length
         // it is — surfaces the mode/tier/charCount so a too-short draft is visible.
         telemetry: {
