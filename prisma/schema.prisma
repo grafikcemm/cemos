@@ -1408,6 +1408,50 @@ model IgWatchAccount {
   @@index([probeStatus])
 }
 
+// ── Reels Dossier (Sprint 5, CONTENT-ENGINE §4.2) ── Üretime-hazır Reels planı.
+// Evidence gate: araç adlıysa verificationId ZORUNLU; readiness KOD hesaplar
+// (LLM asla flip edemez). Kanıt expiry'si dossier expiry'sini izler.
+model ReelDossier {
+  id                       String    @id @default(cuid())
+  accountId                String
+  title                    String    @default("")
+  pillar                   String    @default("")
+  format                   String    @default("reel") // reel | carousel | reel+carousel
+  painPoint                String    @default("")
+  objective                String    @default("") // reach | saves | sends | profile-visit
+  whyNow                   String    @default("")
+  // Tool + VERIFICATION (otoriter, LLM'siz)
+  primaryToolJson          String    @default("{}") // {name,url}
+  verificationId           String? // → WebsiteVerification
+  verificationEvidenceJson String    @default("{}")
+  alternativesJson         String    @default("[]") // [{name,url,verificationId}]
+  // Creative
+  hook                     String    @default("")
+  script                   String    @default("")
+  timelineJson             String    @default("[]")
+  scenePlanJson            String    @default("[]")
+  screenRecordingPlanJson  String    @default("[]")
+  voiceover                String    @default("")
+  onScreenCopyJson         String    @default("[]")
+  cover                    String    @default("")
+  cta                      String    @default("")
+  caption                  String    @default("")
+  hashtagGroupJson         String    @default("[]")
+  slidesJson               String    @default("[]") // carousel: {n,copy,visual}[]
+  // Production ops
+  assetChecklistJson       String    @default("[]")
+  productionEstimate       String    @default("")
+  expiry                   DateTime?
+  risk                     String    @default("")
+  finalReadiness           String    @default("not_ready") // ready | needs_verify | not_ready
+  costUsd                  Float     @default(0)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([accountId, createdAt])
+  @@index([finalReadiness])
+}
+
 // ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
 // Deterministik, LLM'siz; dossier'ler verificationId ile bu satıra bağlanır.
 model WebsiteVerification {
