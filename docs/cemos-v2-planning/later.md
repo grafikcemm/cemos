@@ -16,11 +16,14 @@
   growth draft-generator → `cemos-writer`. Terfi = model değişimi, ayrı karar + eval.
 
 ## Veri/şema (migration gerektirir — Sprint 1'de yasaktı)
-- ViralPattern'a kalıcı `embeddingJson` kolonu: şu an pattern embedding'i sorgu-anında
-  üretilip process-içi cache'leniyor (item 14 fix'i). Kalıcı kolon embed maliyetini
-  tamamen sıfırlar.
-- FeedbackEvent'e ayrı `editDistance` kolonu: şu an `reason` JSON merge'ünde yaşıyor
-  (geriye uyumlu ama sorgulanabilir kolon daha temiz).
+- ~~ViralPattern'a kalıcı `embeddingJson` kolonu~~ → **TAMAM (Sprint 9)**:
+  `embeddingJson` + `embeddingHash` (djb2 tazelik) + boyut koruması (sorgu
+  local-fallback'e düşünce kalıcı 1536-dim vektör kullanılmaz — sessiz-0 önlendi).
+- ~~FeedbackEvent'e ayrı `editDistance` kolonu~~ → **TAMAM (Sprint 9)**: kolon +
+  reason JSON aynası (geriye uyum); KPI okuyucu kolon-önce.
+- Sprint 9 inceleme notu (MEDIUM, kabul edilen): eşzamanlı searchSimilarExamples
+  çağrıları aynı pattern'i yarışarak persist edebilir (idempotent, hata yutulur;
+  yalnız gereksiz embed maliyeti). Gerekirse persist'i kuyruğa alma / dedup.
 
 ## Kalite motoru
 - Off-persona tespiti deterministik fallback'te ilkesel olarak zayıf (keyword'süz
@@ -53,9 +56,8 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
 - `maskulenkod_youtube_longform_needs_model_not_rant` (clarity>=85, hookStrength>=75)
 
 ## Memory Foundation (Sprint 3) — kalan/ertelenen
-- **[USER] `npx prisma db push`**: MemoryFact/CaptionDna/HashtagDna tabloları Neon'a
-  uygulanmalı (additive; kod fail-soft — tablo yokken Settings yüzeyi error-state
-  gösterir, üretim yolu anayasayla çalışmaya devam eder).
+- ~~**[USER] `npx prisma db push`**: MemoryFact/CaptionDna/HashtagDna~~ →
+  **TAMAM (Sprint 9)**: additive push Neon'a uygulandı, `migrate diff` boş.
 - Embedding A/B (qwen3-embedding-8b vs text-embedding-3-small, MEMORY-SPEC §7):
   OpenRouter kredisi + golden set gerektirir — kredi sonrası.
 - AC-5 (north-star edit-ratio A/B): gerçek kullanım verisi gerektirir — izlenecek.
@@ -65,9 +67,8 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
   TrainingExample/pattern üzerinden sürüyor) — fact sayısı büyüyünce.
 
 ## Sprint 4 (Series + IG + Verifier) — kalan/ertelenen
-- **[USER] `npx prisma db push`**: SeriesProfile / IgWatchAccount /
-  WebsiteVerification + TrainingExample.seriesKey + VoiceProfile mikro-stil
-  kolonları (Sprint 3 tablolarıyla birlikte tek push yeter).
+- ~~**[USER] `npx prisma db push`**: SeriesProfile / IgWatchAccount /
+  WebsiteVerification + kolonlar~~ → **TAMAM (Sprint 9)**: aynı push'ta uygulandı.
 - **[USER] Meta token**: business_discovery canlı doğrulaması token/izin ister
   (instagram_basic + business_discovery). Kod fail-open; token yokken sync boş.
 - Verifier Tier-2 (Playwright render escalation): ayrı go/no-go spike (C10);
@@ -87,11 +88,14 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
   EVAL14_ENABLED bayrağıyla kademeli).
 - κ kalibrasyon cron bağlaması: `calibration.ts` hazır; insan-etiketli örneklem
   biriktikçe learn cron'una haftalık eklenecek.
-- KPI satırları (acceptance rate, median edit-distance, golden pass %) →
-  CostsTab: UI dalgasında.
-- lessonGate'in pattern-extraction akışına bağlanması (ViralPattern
-  status=candidate → iki-kapı → validated): gerçek PerformanceSnapshot verisi
-  gerektirir.
+- ~~KPI satırları → CostsTab~~ → **TAMAM (Sprint 8)**: /api/eval/kpis + CostsTab
+  kalite şeridi.
+- ~~lessonGate'in bağlanması~~ → **TAMAM (Sprint 9)**: publish→PublishedPost→
+  PerformanceSnapshot (engagement sync'te, verdict-öncesi her eşleşen yayında)
+  → patternPromotionService (iki-kapı + marka vetosu; reject-rate yalnız karar
+  verilmiş taslaklar; learn cron Pazartesi). ViralPattern.validatedAt/
+  validatedSupport kolonları. Gerçek promosyon yine gerçek veri birikimi ister
+  (kod hazır, seyrek veride no-op).
 - Ay grid UI (ReelPlan) + dossier listesi + Instagram alan ekranı + Seri DNA
   editörü: nihai UI dalgası (sistem doğrulaması sonrası).
 
@@ -100,4 +104,8 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
   canlı `accounts.ts` + `account-adapter` köprüsüne taşındı.
 - Neon connection pool: lokal dev + script'ler aynı anda çalışınca pool timeout
   görülüyor; script'lere tek-bağlantı datasource/pgbouncer düşünülebilir.
-- CI pipeline yok — `typecheck`/`test`/`eval:run` gate'leri şimdilik lokal disiplin.
+- ~~CI pipeline yok~~ → **TAMAM (Sprint 9)**: .github/workflows/ci.yml
+  (lint/typecheck/test/build; eval:run bilinçli CI-dışı — canlı LLM+DB ister).
+- Windows gotcha (Sprint 9): `next dev` Prisma engine DLL'ini kilitler →
+  `prisma generate` EPERM. Dev server'ı durdur ya da `next build --webpack`
+  (client günceldeyse). Linux/Vercel etkilenmez.
