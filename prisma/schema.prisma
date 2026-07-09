@@ -1333,6 +1333,23 @@ model CaptionDna {
   updatedAt        DateTime @updatedAt
 }
 
+// ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
+// Deterministik, LLM'siz; dossier'ler verificationId ile bu satıra bağlanır.
+model WebsiteVerification {
+  id            String   @id @default(cuid())
+  url           String
+  finalUrl      String   @default("")
+  opens         Boolean  @default(false)
+  redirectChain String   @default("[]") // string[] JSON
+  evidenceJson  String   @default("{}") // VerificationEvidence JSON
+  checkedAt     DateTime @default(now())
+  expiry        DateTime // +30g; geçmişse "yeniden doğrula" rozeti
+  createdAt     DateTime @default(now())
+
+  @@index([url, checkedAt])
+  @@index([expiry])
+}
+
 // Per-account (+ opsiyonel seri) hashtag DNA'sı — performance-leaning, decay'li.
 model HashtagDna {
   id                String   @id @default(cuid())
