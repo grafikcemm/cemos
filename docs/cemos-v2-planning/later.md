@@ -64,6 +64,21 @@ prompt mu iyileşir (dalga 3 kararı). İzlenecek adaylar:
 - MemoryFact.embeddingJson recall'u (şu an yalnız kural enjeksiyonu; vektör recall
   TrainingExample/pattern üzerinden sürüyor) — fact sayısı büyüyünce.
 
+## Sprint 4 (Series + IG + Verifier) — kalan/ertelenen
+- **[USER] `npx prisma db push`**: SeriesProfile / IgWatchAccount /
+  WebsiteVerification + TrainingExample.seriesKey + VoiceProfile mikro-stil
+  kolonları (Sprint 3 tablolarıyla birlikte tek push yeter).
+- **[USER] Meta token**: business_discovery canlı doğrulaması token/izin ister
+  (instagram_basic + business_discovery). Kod fail-open; token yokken sync boş.
+- Verifier Tier-2 (Playwright render escalation): ayrı go/no-go spike (C10);
+  o güne dek signup/freeTier sinyalleri 'unknown'.
+- Seri DNA edit ekranı (Settings alt-sekmesi) + PRELUDE edit-diff → learnedRules
+  döngüsü (series_ purpose): Reels dossier sprint'iyle birlikte.
+- Reels dossier (reelDossierFor + ReelDossier tablosu + evidence gate) +
+  Instagram alan ekranı (Rakip Radarı | Reels alt-sekmeleri) → sonraki sprint.
+- Bard→Gemini CANLI regresyonu (gerçek ağ): mocked testi var; canlı koşu
+  operatör smoke'unda.
+
 ## Operasyonel
 - ~~`account-profiles.ts` silme~~ → **TAMAM (Sprint 2)**: dosya silindi, 9 tüketici
   canlı `accounts.ts` + `account-adapter` köprüsüne taşındı.
