@@ -15,6 +15,7 @@ import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
 import { runMemoryConsolidation } from "@/lib/memory/consolidation";
+import { promoteValidatedPatterns } from "@/lib/services/patternPromotionService";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
 // continuously learn without anyone clicking a button —
@@ -212,6 +213,25 @@ async function runLearn(handleParam: string | null) {
     }
   }
 
+  // Pattern promotion (Sprint 9 — EVALUATION-SPEC §4): weekly (Monday) two-gate
+  // lessonGate over PublishedPost → PerformanceSnapshot. Promotes candidate viral
+  // patterns to VALIDATED only when the evidence clears repetition + significance
+  // + brand veto. LLM-free + cheap; fail-open, cron'u bozmaz. Sparse data → no-op.
+  let patternPromotion: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    const out: unknown[] = [];
+    for (const handle of handles) {
+      if (Date.now() - t0 > timeBudgetMs) break;
+      try {
+        const account = await prisma.account.findUnique({ where: { handle }, select: { id: true } });
+        if (account) out.push(await promoteValidatedPatterns(account.id));
+      } catch (err) {
+        out.push({ handle, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    patternPromotion = out;
+  }
+
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -235,10 +255,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, patternPromotion },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, patternPromotion };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

@@ -130,6 +130,24 @@ export const viralPatternRepo = {
     }
   },
 
+  /**
+   * lessonGate promotion (Sprint 9): mark a candidate pattern as VALIDATED once
+   * it cleared the two-gate (repetition + significance) + brand veto. Idempotent
+   * and no-throw — a re-run on an already-validated pattern just refreshes
+   * validatedSupport. Only patternPromotionService should call this.
+   */
+  async markValidated(id: string, support: number): Promise<ViralPattern | null> {
+    try {
+      return await prisma.viralPattern.update({
+        where: { id },
+        data: { validatedAt: new Date(), validatedSupport: support },
+      });
+    } catch (err) {
+      console.error("ViralPattern validatedAt yazılırken hata oluştu:", err);
+      return null;
+    }
+  },
+
   deactivate(id: string): Promise<ViralPattern> {
     return prisma.viralPattern.update({ where: { id }, data: { isActive: false } });
   },

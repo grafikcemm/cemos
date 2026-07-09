@@ -4,6 +4,7 @@ import { qualityLintService } from "@/lib/services/qualityLintService";
 import { isNearDuplicate } from "@/lib/utils/textSimilarity";
 import { imageService } from "@/lib/services/imageService";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
+import { performanceRepo } from "@/lib/db/performanceRepo";
 
 function getDayBounds(date: Date) {
   const start = new Date(date);
@@ -130,6 +131,21 @@ export const publishService = {
         date: new Date().toISOString().slice(0, 10),
       },
     });
+
+    // Record the publication event in the performance ledger (PublishedPost) so
+    // the learn cron can later attach real engagement snapshots and feed the
+    // lessonGate promotion. draftQueueItemId is the provenance join back to the
+    // pattern this draft was grounded on. Best-effort — a ledger hiccup must
+    // never undo a successful publish. (Previously nothing populated this table,
+    // orphaning PerformanceSnapshot + lessonGate.)
+    await performanceRepo
+      .createPublished({
+        accountId: item.accountId,
+        platform: "x",
+        content: text,
+        draftQueueItemId: queueItemId,
+      })
+      .catch(() => {});
 
     // Manual publish is the strongest learning signal: the edit-gate above
     // guarantees the operator rewrote the AI draft in their own voice, so log

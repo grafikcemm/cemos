@@ -231,10 +231,16 @@ model ViralPattern {
   sourcePostId         String? // provenance: which external item this was mined from
   sourceType           String? // x | reddit | youtube | rss
   platform             String   @default("x") // owning platform (Faz F): x | instagram | youtube
+  // lessonGate iki-kapı promosyonu (Sprint 9): aday → doğrulanmış. Tek şanslı
+  // post kural olamaz; validatedAt yalnız repetition+significance+marka-vetosu
+  // geçince yazılır (patternPromotionService). null = hâlâ aday.
+  validatedAt          DateTime?
+  validatedSupport     Int      @default(0) // promosyon anındaki destek sayısı
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   @@index([platform])
+  @@index([validatedAt])
 }
 
 model TrainingExample {

@@ -66,4 +66,43 @@ export const performanceRepo = {
       include: { snapshots: true },
     });
   },
+
+  /** draftQueueItemId → PublishedPost (batch, provenance join for snapshot ingestion). */
+  async findByDraftQueueItemIds(itemIds: string[]): Promise<Map<string, PublishedPost>> {
+    const map = new Map<string, PublishedPost>();
+    if (itemIds.length === 0) return map;
+    const rows = await prisma.publishedPost.findMany({
+      where: { draftQueueItemId: { in: itemIds } },
+    });
+    for (const row of rows) {
+      if (row.draftQueueItemId) map.set(row.draftQueueItemId, row);
+    }
+    return map;
+  },
+
+  /**
+   * Published posts in a window with their single most-mature snapshot score,
+   * keyed by draftQueueItemId. Feeds patternPromotionService's lessonGate arrays
+   * — only posts that HAVE a snapshot (i.e. real measured performance) appear.
+   */
+  async latestScoreByDraftItem(
+    accountId: string,
+    opts: { platform?: string; since: Date } = { since: new Date(0) }
+  ): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    const rows = await prisma.publishedPost.findMany({
+      where: {
+        accountId,
+        platform: opts.platform ?? "x",
+        publishedAt: { gte: opts.since },
+        draftQueueItemId: { not: null },
+      },
+      include: { snapshots: { orderBy: { capturedAt: "desc" }, take: 1 } },
+    });
+    for (const row of rows) {
+      const snap = row.snapshots[0];
+      if (row.draftQueueItemId && snap) map.set(row.draftQueueItemId, snap.normalizedScore);
+    }
+    return map;
+  },
 };

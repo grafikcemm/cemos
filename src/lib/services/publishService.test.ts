@@ -26,6 +26,20 @@ vi.mock("@/lib/services/qualityLintService", () => ({
   },
 }));
 
+vi.mock("@/lib/db/performanceRepo", () => ({
+  performanceRepo: { createPublished: vi.fn(() => Promise.resolve({ id: "pp-1" })) },
+}));
+
+vi.mock("@/lib/growth-engine/feedback-service", () => ({
+  processFeedback: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("@/lib/services/imageService", () => ({
+  imageService: { generateForQueueItem: vi.fn(() => Promise.resolve(null)) },
+}));
+
+import { performanceRepo } from "@/lib/db/performanceRepo";
+
 describe("publishService", () => {
   const mockQueueItem = {
     id: "qi_1",
@@ -95,5 +109,40 @@ describe("publishService", () => {
     } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
 
     await expect(publishService.validatePublishable("qi_1")).rejects.toThrow("empty_content");
+  });
+
+  describe("markManualPublished", () => {
+    const publishableItem = {
+      ...mockQueueItem,
+      status: "scheduled",
+      editedContent: "Clean content tweet — kendi sesimle yeniden yazdım.", // differs → edit-gate passes
+      mode: "default",
+      account: { id: "acc_1", handle: "grafikcem", maxChars: 280 },
+    };
+
+    it("enforces the edit-gate: raw AI output cannot be marked published", async () => {
+      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
+        ...publishableItem,
+        editedContent: null, // no edit → blocked
+      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
+
+      await expect(publishService.markManualPublished("qi_1")).rejects.toThrow("edit_required");
+      expect(performanceRepo.createPublished).not.toHaveBeenCalled();
+    });
+
+    it("records the publication in the performance ledger (PublishedPost) with draft provenance", async () => {
+      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(
+        publishableItem as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>
+      );
+      vi.mocked(prisma.publishLog.create).mockResolvedValue({ id: "log_1" } as never);
+      vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_1", generatedImageUrl: null } as never);
+      vi.mocked(prisma.usageLog.create).mockResolvedValue({} as never);
+
+      await publishService.markManualPublished("qi_1");
+
+      expect(performanceRepo.createPublished).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: "acc_1", platform: "x", draftQueueItemId: "qi_1" })
+      );
+    });
   });
 });

@@ -29,6 +29,15 @@ vi.mock("@/lib/db/viralPatternRepo", () => ({
   viralPatternRepo: { adjustSuccessScore: vi.fn(() => Promise.resolve({ id: "vp-1" })) },
 }));
 
+vi.mock("@/lib/db/performanceRepo", () => ({
+  performanceRepo: {
+    // Default: no draft has a PublishedPost → snapshot path is a no-op, so the
+    // pre-existing engagement cases are unaffected.
+    findByDraftQueueItemIds: vi.fn(() => Promise.resolve(new Map())),
+    upsertSnapshot: vi.fn(() => Promise.resolve({ id: "ps-1" })),
+  },
+}));
+
 vi.mock("@/lib/services/usageService", () => ({
   usageService: { recordScan: vi.fn(() => Promise.resolve()) },
 }));
@@ -42,6 +51,7 @@ import { fetchUserTweets } from "@/lib/socialdata";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
+import { performanceRepo } from "@/lib/db/performanceRepo";
 import { usageService } from "@/lib/services/usageService";
 import { embedTrainingExample } from "@/lib/growth-engine/vector-memory";
 import { engagementLearningService } from "./engagementLearningService";
@@ -117,6 +127,22 @@ describe("engagementLearningService.syncForAccount", () => {
     );
     expect(embedTrainingExample).toHaveBeenCalledWith("te-1");
     expect(usageService.recordScan).toHaveBeenCalled();
+  });
+
+  it("records a windowed PerformanceSnapshot for a matched draft that was published", async () => {
+    vi.mocked(prisma.queueItem.findMany).mockResolvedValue([makeItem()] as never);
+    // This draft WAS recorded in the publication ledger (manual publish).
+    vi.mocked(performanceRepo.findByDraftQueueItemIds).mockResolvedValue(
+      new Map([["qi-1", { id: "pp-1" }]]) as never
+    );
+
+    const summary = await engagementLearningService.syncForAccount("grafikcem");
+
+    expect(summary.snapshots).toBe(1);
+    // 72h-old tweet → "3d" maturity window; normalizedScore = raw engagement.
+    expect(performanceRepo.upsertSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ publishedPostId: "pp-1", window: "3d" })
+    );
   });
 
   it("records engagement_low with -2 pattern delta for matured flops", async () => {

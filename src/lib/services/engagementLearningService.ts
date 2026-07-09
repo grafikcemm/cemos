@@ -4,6 +4,7 @@ import { isNearDuplicate } from "@/lib/utils/textSimilarity";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
+import { performanceRepo } from "@/lib/db/performanceRepo";
 import { usageService } from "@/lib/services/usageService";
 import { embedTrainingExample } from "@/lib/growth-engine/vector-memory";
 import { safeJsonParse } from "@/lib/growth-engine/types";
@@ -30,6 +31,17 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Tweet yaşını PerformanceSnapshot pencere kovasına eşler (idempotent key). */
+function ageToWindow(ageMs: number): string {
+  const h = ageMs / 3_600_000;
+  if (h < 3) return "1h";
+  if (h < 12) return "6h";
+  if (h < 48) return "24h";
+  if (h < 24 * 5) return "3d";
+  if (h < 24 * 14) return "7d";
+  return "30d";
+}
+
 export type EngagementSyncSummary = {
   handle: string;
   candidates: number;
@@ -38,6 +50,7 @@ export type EngagementSyncSummary = {
   highs: number;
   lows: number;
   patternsAdjusted: number;
+  snapshots: number;
   skippedExisting: number;
   errors: number;
   reason?: string;
@@ -80,6 +93,7 @@ export const engagementLearningService = {
       highs: 0,
       lows: 0,
       patternsAdjusted: 0,
+      snapshots: 0,
       skippedExisting: 0,
       errors: 0,
     };
@@ -152,6 +166,13 @@ export const engagementLearningService = {
     const highMin = envInt(`ENGAGEMENT_HIGH_MIN_${handleKey}`, envInt("ENGAGEMENT_HIGH_MIN", 15));
     const lowMax = envInt(`ENGAGEMENT_LOW_MAX_${handleKey}`, envInt("ENGAGEMENT_LOW_MAX", 2));
 
+    // Provenance join for performance snapshots: which of these drafts were
+    // actually recorded as PublishedPost (manual-publish ledger). Loaded once so
+    // the match loop can attach real engagement without an extra query per item.
+    const publishedByItem = await performanceRepo
+      .findByDraftQueueItemIds(pending.map((i) => i.id))
+      .catch(() => new Map());
+
     for (const item of pending) {
       try {
         const itemText = item.editedContent || item.content;
@@ -178,6 +199,26 @@ export const engagementLearningService = {
           views: tweet.viewCount,
           engagement: score,
         };
+
+        // Performance ledger: if this draft was published (PublishedPost exists),
+        // record a maturity-windowed snapshot of its REAL engagement. Rank-based
+        // lessonGate consumes normalizedScore, so the raw engagement score is a
+        // valid ordinal — no self-baseline normalization needed here. Idempotent
+        // per (post, window). Best-effort; never breaks the engagement verdict.
+        const published = publishedByItem.get(item.id);
+        if (published) {
+          const win = ageToWindow(tweetAgeMs);
+          const ok = await performanceRepo
+            .upsertSnapshot({
+              publishedPostId: published.id,
+              window: win,
+              metrics,
+              normalizedScore: score,
+            })
+            .then(() => true)
+            .catch(() => false);
+          if (ok) summary.snapshots++;
+        }
 
         await feedbackEventRepo.create({
           accountId: account.id,
