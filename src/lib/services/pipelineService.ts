@@ -3,6 +3,8 @@ import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { draftService } from "@/lib/services/draftService";
 import { discoveryService, type DiscoverySummary } from "@/lib/services/discoveryService";
 import { miningService, type MiningSummary } from "@/lib/services/miningService";
+import { composeNewsGrounding } from "@/lib/news/draftBridge";
+import { routeItem } from "@/lib/agents/router";
 import { getLocalDayBounds } from "@/lib/utils/date";
 
 export type DailyRunSummary = {
@@ -16,6 +18,8 @@ export type DailyRunSummary = {
   created: number;
   blocked: number;
   errors: number;
+  /** Haber havuzundan (NewsItem) üretilen taslak sayısı — created'a dahildir. */
+  newsCreated: number;
   reason: string;
 };
 
@@ -72,6 +76,7 @@ export const pipelineService = {
           created: 0,
           blocked: 0,
           errors: 0,
+          newsCreated: 0,
           reason: `idempotent_skip:generate-morning:${dateKey}:${handle}`,
         };
       }
@@ -100,6 +105,7 @@ export const pipelineService = {
       created: 0,
       blocked: 0,
       errors: 0,
+      newsCreated: 0,
       reason: "",
     };
 
@@ -153,6 +159,61 @@ export const pipelineService = {
       } catch {
         summary.errors++;
         await prisma.sourcePost.update({ where: { id: post.id }, data: { status: "error" } });
+      }
+    }
+
+    // VISION #8 köprüsü — kota SourcePost adaylarıyla dolmadıysa günlük haber
+    // havuzundan tamamla: analiz edilmiş + kullanılmamış NewsItem'lar buzz/viral
+    // sırasıyla taslağa döner (manuel "Üret →" butonuyla aynı grounding).
+    if (summary.created < target && summary.reason !== "budget_exhausted") {
+      const newsCandidates = await prisma.newsItem.findMany({
+        where: {
+          processingStatus: "analyzed",
+          isUsed: false,
+          queueItems: { none: { accountId: account.id } },
+        },
+        orderBy: [{ buzzScore: "desc" }, { viralScore: "desc" }],
+        take: 10,
+      });
+
+      for (const news of newsCandidates) {
+        if (summary.created >= target) break;
+        if (summary.attempts >= target + 10) break;
+        if (opts?.deadlineMs && Date.now() > opts.deadlineMs) {
+          summary.reason = summary.reason || "deadline";
+          break;
+        }
+        const grounding = composeNewsGrounding(news);
+        // Account Router: haber başka hesaba net uyuyorsa bu hesap atlar
+        // (fail-open — anahtar/bütçe yoksa best=null döner ve engellemez).
+        const route = await routeItem(grounding);
+        if (route.best && route.best !== handle) continue;
+        summary.attempts++;
+        try {
+          const result = await draftService.generateDraft({
+            accountHandle: handle,
+            sourceTweet: grounding,
+            sourceHandle: news.newsSourceId ?? "news",
+            draftType: "TWEET",
+            mode: news.suggestedFormat || undefined,
+            newsItemId: news.id,
+            imageUrl: news.imageUrl ?? undefined,
+            deadlineMs: opts?.deadlineMs,
+          });
+          if (result.blocked) {
+            summary.blocked++;
+            if (result.reason === "budget") {
+              summary.reason = "budget_exhausted";
+              break;
+            }
+          } else {
+            summary.created++;
+            summary.newsCreated++;
+            await prisma.newsItem.update({ where: { id: news.id }, data: { isUsed: true } });
+          }
+        } catch {
+          summary.errors++;
+        }
       }
     }
 

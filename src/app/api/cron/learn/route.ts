@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { accountList, accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { miningService } from "@/lib/services/miningService";
 import { engagementLearningService } from "@/lib/services/engagementLearningService";
@@ -15,6 +15,7 @@ import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
 import { runMemoryConsolidation } from "@/lib/memory/consolidation";
+import { runDnaDistillation } from "@/lib/memory/dnaDistillService";
 import { promoteValidatedPatterns } from "@/lib/services/patternPromotionService";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
@@ -213,6 +214,18 @@ async function runLearn(handleParam: string | null) {
     }
   }
 
+  // DNA distillation (FINAL-MEMORY-SPEC §4, dalga-2): haftalık Pazartesi,
+  // deterministik + LLM'siz — CaptionDna/HashtagDna yapısal istatistiklerini
+  // onaylı/yayınlanmış korpustan damıtır. Fail-open, cron'u bozmaz.
+  let dnaDistillation: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      dnaDistillation = await runDnaDistillation({ handles });
+    } catch (err) {
+      dnaDistillation = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // Pattern promotion (Sprint 9 — EVALUATION-SPEC §4): weekly (Monday) two-gate
   // lessonGate over PublishedPost → PerformanceSnapshot. Promotes candidate viral
   // patterns to VALIDATED only when the evidence clears repetition + significance
@@ -255,10 +268,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, patternPromotion },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, dnaDistillation, patternPromotion },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, patternPromotion };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, dnaDistillation, patternPromotion };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

@@ -5,6 +5,7 @@ import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { BudgetExceededError } from "@/lib/config/costGate";
+import { composeNewsGrounding } from "@/lib/news/draftBridge";
 
 const bodySchema = z.object({
   account: z.enum(["grafikcem", "maskulenkod"]),
@@ -42,15 +43,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     // Compose grounding text from the translated/scored news fields.
-    const grounding = [
-      news.trTitle || news.originalTitle,
-      news.trSummary || news.originalSummary || "",
-      news.whyPeopleCare ? `Neden önemli: ${news.whyPeopleCare}` : "",
-      news.tweetAngle ? `Açı: ${news.tweetAngle}` : "",
-      news.url,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const grounding = composeNewsGrounding(news);
 
     const result = await draftService.generateDraft({
       accountHandle: parsed.data.account,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Brain, Check, X, Undo2, RefreshCw } from "lucide-react";
+import { Brain, Check, X, Undo2, RefreshCw, Plus } from "lucide-react";
 import { Card, SectionHeader, EmptyState, Badge, Button } from "@/components/ui";
 import ErrorState from "@/components/ui/ErrorState";
 
@@ -36,6 +36,11 @@ export default function MemoryProposalsSection() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [newStatement, setNewStatement] = useState("");
+  const [newAccount, setNewAccount] = useState("grafikcem");
+  const [newType, setNewType] = useState("preference");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +61,36 @@ export default function MemoryProposalsSection() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const addFact = async () => {
+    const statement = newStatement.trim();
+    if (statement.length < 5) {
+      setAddError("Kural en az 5 karakter olmalı.");
+      return;
+    }
+    setAdding(true);
+    setAddError(null);
+    try {
+      const res = await fetch("/api/memory/proposals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add",
+          accountHandle: newAccount,
+          type: newType,
+          statement,
+        }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) throw new Error(json.error || String(res.status));
+      setNewStatement("");
+      await load();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Kural eklenemedi.");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const act = async (action: "approve" | "reject" | "rollback", factId: string) => {
     setBusyId(factId);
@@ -96,6 +131,69 @@ export default function MemoryProposalsSection() {
           </button>
         }
       />
+
+      {/* Operatör bootstrap ("beni tanısın"): kendi kuralını doğrudan yaz —
+          yazan = onaylayan, kural anında aktifleşir. */}
+      <div
+        style={{
+          display: "flex", flexWrap: "wrap", gap: "var(--space-2)",
+          alignItems: "center", marginBottom: "var(--space-4)",
+          padding: "var(--space-3)", border: "1px dashed var(--border)",
+          borderRadius: "var(--radius-md)", background: "var(--bg-base)",
+        }}
+      >
+        <select
+          aria-label="Kural hesabı"
+          value={newAccount}
+          onChange={(e) => setNewAccount(e.target.value)}
+          style={{
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", padding: "6px 8px",
+            color: "var(--text-primary)", fontSize: "var(--text-xs)", fontFamily: "inherit",
+          }}
+        >
+          <option value="grafikcem">@grafikcem</option>
+          <option value="maskulenkod">@maskulenkod</option>
+        </select>
+        <select
+          aria-label="Kural tipi"
+          value={newType}
+          onChange={(e) => setNewType(e.target.value)}
+          style={{
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", padding: "6px 8px",
+            color: "var(--text-primary)", fontSize: "var(--text-xs)", fontFamily: "inherit",
+          }}
+        >
+          <option value="preference">tercih</option>
+          <option value="semantic">öğrenilmiş</option>
+          <option value="procedural">yazım kuralı</option>
+        </select>
+        <input
+          aria-label="Yeni hafıza kuralı"
+          value={newStatement}
+          onChange={(e) => setNewStatement(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addFact();
+          }}
+          placeholder='Kuralını yaz (örn. "Emoji kullanma, kısa vurucu cümleler")'
+          maxLength={300}
+          style={{
+            flex: "1 1 240px", minWidth: 0,
+            background: "var(--bg-surface)", border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)", padding: "6px 10px",
+            color: "var(--text-primary)", fontSize: "var(--text-xs)", fontFamily: "inherit",
+          }}
+        />
+        <Button size="sm" onClick={addFact} disabled={adding}>
+          <Plus size={14} strokeWidth={2} /> {adding ? "Ekleniyor…" : "Kural Ekle"}
+        </Button>
+        {addError && (
+          <span role="alert" style={{ flexBasis: "100%", color: "var(--danger, #e5484d)", fontSize: "var(--text-2xs)" }}>
+            {addError}
+          </span>
+        )}
+      </div>
 
       {loading ? (
         <EmptyState
