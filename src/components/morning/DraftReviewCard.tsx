@@ -1,7 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle2, Circle, Dot, ShieldAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  Circle,
+  Copy,
+  Dot,
+  ExternalLink,
+  ImageIcon,
+  Save,
+  ShieldAlert,
+} from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import type { MorningDraft } from "./useDailyQueueData";
 
@@ -12,6 +22,8 @@ type Props = {
   onToast: (text: string, type: "success" | "error") => void;
   /** Kuyruktaki İLK bekleyen kart — belirgin NEXT UP çerçevesi alır. */
   isNextUp?: boolean;
+  /** J kısayolu: bu taslağı şimdilik atla (sonraki NEXT UP olur). */
+  onSkip?: () => void;
 };
 
 const norm = (s: string) => s.replace(/@@/g, "").trim();
@@ -80,7 +92,14 @@ function SignalRow({ draft }: { draft: MorningDraft }) {
   );
 }
 
-export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToast, isNextUp = false }: Props) {
+export default function DraftReviewCard({
+  draft,
+  onSave,
+  onMarkPublished,
+  onToast,
+  isNextUp = false,
+  onSkip,
+}: Props) {
   const originalText = norm(draft.content || "");
   const [text, setText] = useState(norm(draft.editedContent || draft.content || ""));
   const [saving, setSaving] = useState(false);
@@ -89,6 +108,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
   const [imageUrl, setImageUrl] = useState<string | null>(
     (draft as { generatedImageUrl?: string | null }).generatedImageUrl ?? null
   );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isPublished = draft.status === "manual_published" || draft.status === "published";
   // EDIT-GATE: publish stays disabled until the operator edits the AI output.
@@ -152,6 +172,44 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
     onToast(ok ? "Manuel paylaşıldı olarak işaretlendi." : "İşaretleme başarısız.", ok ? "success" : "error");
   };
 
+  // A/E/J/K kısayolları — yalnız NEXT UP kartında, yazarken ASLA tetiklenmez.
+  // A=Kaydet · E=düzenleme alanına odaklan · J=atla · K=Manuel Paylaşıldı.
+  const keyActions = useRef({ save: handleSave, publish: handlePublish, skip: onSkip });
+  keyActions.current = { save: handleSave, publish: handlePublish, skip: onSkip };
+
+  useEffect(() => {
+    if (!isNextUp || isPublished) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k === "a") {
+        e.preventDefault();
+        void keyActions.current.save();
+      } else if (k === "e") {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      } else if (k === "j") {
+        e.preventDefault();
+        keyActions.current.skip?.();
+      } else if (k === "k") {
+        e.preventDefault();
+        void keyActions.current.publish();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isNextUp, isPublished]);
+
   return (
     <div
       style={{
@@ -183,11 +241,11 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
             <span
               className="eyebrow"
               style={{
-                background: "var(--gradient-accent), var(--accent)",
-                color: "var(--bg-base)",
+                background: "var(--accent)",
+                color: "var(--accent-fg)",
                 padding: "2px 8px",
                 borderRadius: "var(--radius-sm)",
-                fontWeight: 700,
+                fontWeight: 600,
                 letterSpacing: "0.06em",
               }}
             >
@@ -253,6 +311,7 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
 
       {/* Editable textarea */}
       <textarea
+        ref={textareaRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={5}
@@ -301,52 +360,79 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
 
       {!isPublished && (
         <>
-          {/* Action row */}
+          {/* Action row — Lucide ikonlar + token renkler (emoji yasak). */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button
               onClick={handleSave}
               disabled={saving}
-              style={btnStyle("var(--accent-tint-12)", "var(--accent-border)", "var(--accent)")}
+              style={btnStyle("var(--accent-tint-12)", "var(--accent-border)", "var(--accent-text)")}
             >
-              💾 {saving ? "..." : "Kaydet"}
+              <Save size={13} strokeWidth={2} /> {saving ? "..." : "Kaydet"}
             </button>
             <button onClick={handleCopy} style={btnStyle("var(--bg-elevated)", "var(--border)", "var(--text-secondary)")}>
-              📄 Kopyala
+              <Copy size={13} strokeWidth={2} /> Kopyala
             </button>
             <button
               onClick={handleOpenX}
-              style={btnStyle("rgba(29,155,240,0.12)", "rgba(29,155,240,0.35)", "#1d9bf0")}
+              style={btnStyle(
+                "color-mix(in srgb, var(--status-info) 12%, transparent)",
+                "color-mix(in srgb, var(--status-info) 35%, transparent)",
+                "var(--status-info)"
+              )}
             >
-              𝕏 X'te Aç
+              <ExternalLink size={13} strokeWidth={2} /> X&apos;te Aç
             </button>
             <button
               onClick={handleGenerateImage}
               disabled={imgLoading}
               title="fal.ai (Nano Banana Pro) ile bu tweet'e görsel üret"
-              style={btnStyle("rgba(236,72,153,0.12)", "rgba(236,72,153,0.35)", "#ec4899")}
+              style={btnStyle("var(--accent-2-dark)", "var(--accent-2-border)", "var(--accent-2-text)")}
             >
-              🎨 {imgLoading ? "..." : imageUrl ? "Yeniden üret" : "Görsel üret"}
+              <ImageIcon size={13} strokeWidth={2} />{" "}
+              {imgLoading ? "..." : imageUrl ? "Yeniden üret" : "Görsel üret"}
             </button>
             <button
               onClick={handlePublish}
               disabled={!isEdited || publishing}
               title={!isEdited ? "Önce AI çıktısını düzenleyin" : "Manuel paylaşıldı işaretle"}
               style={{
-                ...btnStyle("rgba(168,85,247,0.15)", "rgba(168,85,247,0.4)", "#c084fc"),
+                ...btnStyle(
+                  isEdited ? "var(--accent-2)" : "var(--accent-2-dark)",
+                  "var(--accent-2-border)",
+                  isEdited ? "var(--accent-2-fg)" : "var(--accent-2-text)"
+                ),
                 flex: 1,
                 minWidth: 150,
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: isEdited && !publishing ? "pointer" : "not-allowed",
                 opacity: isEdited ? 1 : 0.45,
               }}
             >
-              ✓ {publishing ? "..." : "Manuel Paylaşıldı"}
+              <Check size={13} strokeWidth={2.5} /> {publishing ? "..." : "Manuel Paylaşıldı"}
             </button>
           </div>
 
           {!isEdited && (
             <div style={{ fontSize: 10, color: "var(--yellow)", lineHeight: 1.4 }}>
               AI çıktısını kendi sesinle düzenlemeden yayınlayamazsın.
+            </div>
+          )}
+
+          {isNextUp && (
+            <div
+              aria-label="Klavye kısayolları"
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                fontSize: "var(--text-2xs)",
+                color: "var(--text-muted)",
+              }}
+            >
+              <span><Kbd>A</Kbd> kaydet</span>
+              <span><Kbd>E</Kbd> düzenle</span>
+              <span><Kbd>J</Kbd> atla</span>
+              <span><Kbd>K</Kbd> paylaşıldı</span>
             </div>
           )}
         </>
@@ -357,17 +443,37 @@ export default function DraftReviewCard({ draft, onSave, onMarkPublished, onToas
 
 function btnStyle(bg: string, border: string, color: string): React.CSSProperties {
   return {
-    padding: "7px 12px",
+    minHeight: "var(--control-h-sm)",
+    padding: "0 12px",
     background: bg,
     border: `1px solid ${border}`,
     color,
-    borderRadius: 6,
+    borderRadius: "var(--radius-sm)",
     fontSize: 11,
     fontWeight: 500,
+    fontFamily: "inherit",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
   };
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd
+      style={{
+        fontFamily: "var(--font-mono)",
+        fontSize: "var(--text-2xs)",
+        border: "1px solid var(--border)",
+        borderRadius: 4,
+        padding: "0 4px",
+        color: "var(--text-secondary)",
+        background: "var(--bg-elevated)",
+      }}
+    >
+      {children}
+    </kbd>
+  );
 }

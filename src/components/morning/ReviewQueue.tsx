@@ -24,14 +24,25 @@ const isDone = (d: MorningDraft) =>
 export default function ReviewQueue({ onToast, queue }: Props) {
   const { drafts, loading, error, fetchDrafts, saveDraft, markPublished } = queue;
   const [generating, setGenerating] = useState(false);
+  // J kısayolu: geçici atlananlar — NEXT UP sıradakine kayar. Hepsi atlanırsa sıfırlanır.
+  const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
 
   const reviewedCount = drafts.filter(isDone).length;
   // NEXT UP: hesap sırasına göre İLK bekleyen taslak (fold üstü odak noktası).
+  const ordered = ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h));
+  const pending = ordered.filter((d) => !isDone(d));
   const nextUpId =
-    ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h)).find(
-      (d) => !isDone(d),
-    )?.id ?? null;
+    pending.find((d) => !skippedIds.has(d.id))?.id ?? pending[0]?.id ?? null;
   const allDone = drafts.length > 0 && reviewedCount === drafts.length;
+
+  const handleSkip = (id: string) => {
+    setSkippedIds((prev) => {
+      const next = new Set(prev).add(id);
+      // Tüm bekleyenler atlandıysa döngüyü sıfırla (baştan dolaş).
+      if (pending.every((d) => next.has(d.id))) return new Set<string>();
+      return next;
+    });
+  };
 
   // İki hesap HER ZAMAN görünür — 0-taslaklı hesap gizlenmez (boş-durum gösterir).
   const byAccount = ACCOUNT_ORDER.map((handle) => ({
@@ -91,7 +102,7 @@ export default function ReviewQueue({ onToast, queue }: Props) {
             style={{
               height: "100%",
               width: `${(reviewedCount / drafts.length) * 100}%`,
-              background: "var(--gradient-accent), var(--accent)",
+              background: "var(--accent-2)",
               borderRadius: "var(--radius-sm)",
               transition: "width var(--duration-normal, 0.3s) var(--ease-out)",
             }}
@@ -149,6 +160,7 @@ export default function ReviewQueue({ onToast, queue }: Props) {
               onSave={saveDraft}
               onMarkPublished={markPublished}
               onToast={onToast}
+              onSkip={handleSkip}
             />
           ))}
         </div>
@@ -166,6 +178,7 @@ function AccountGroup({
   onSave,
   onMarkPublished,
   onToast,
+  onSkip,
 }: {
   handle: string;
   items: MorningDraft[];
@@ -175,6 +188,7 @@ function AccountGroup({
   onSave: (id: string, content: string) => Promise<boolean>;
   onMarkPublished: (id: string) => Promise<boolean>;
   onToast: (text: string, type: "success" | "error") => void;
+  onSkip: (id: string) => void;
 }) {
   return (
     <div>
@@ -220,6 +234,7 @@ function AccountGroup({
               onSave={onSave}
               onMarkPublished={onMarkPublished}
               onToast={onToast}
+              onSkip={() => onSkip(d.id)}
             />
           ))}
         </div>
