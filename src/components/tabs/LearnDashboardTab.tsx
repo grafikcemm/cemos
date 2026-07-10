@@ -57,15 +57,21 @@ export default function LearnDashboardTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/learn/sources");
-    if (res.status === 404) {
-      setDisabled(true);
+    try {
+      const res = await fetch("/api/learn/sources");
+      if (res.status === 404) {
+        setDisabled(true);
+        setLoading(false);
+        return;
+      }
+      // 500/boş gövde JSON parse'ı patlatmasın — hata durumu null data'ya iner.
+      const json = await res.json().catch(() => null);
+      setData(json?.success ? json : null);
+    } catch {
+      setData(null);
+    } finally {
       setLoading(false);
-      return;
     }
-    const json = await res.json();
-    setData(json.success ? json : null);
-    setLoading(false);
   }, []);
 
   useEffect(() => {

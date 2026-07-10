@@ -175,7 +175,9 @@ export default function DraftReviewCard({
   // A/E/J/K kısayolları — yalnız NEXT UP kartında, yazarken ASLA tetiklenmez.
   // A=Kaydet · E=düzenleme alanına odaklan · J=atla · K=Manuel Paylaşıldı.
   const keyActions = useRef({ save: handleSave, publish: handlePublish, skip: onSkip });
-  keyActions.current = { save: handleSave, publish: handlePublish, skip: onSkip };
+  useEffect(() => {
+    keyActions.current = { save: handleSave, publish: handlePublish, skip: onSkip };
+  });
 
   useEffect(() => {
     if (!isNextUp || isPublished) return;
