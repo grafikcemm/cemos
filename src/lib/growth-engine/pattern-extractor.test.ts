@@ -69,8 +69,9 @@ describe("extractPatternSyncFallback", () => {
 
     expect(result.hook).toBeTruthy();
     expect(result.emotionalTrigger).toBe("rahatsız edici gerçek");
-    // Sprint 2: tone artık CANLI profil toneRules'undan gelir (ASCII yazım).
-    expect(result.tone.toLowerCase()).toContain("dogrudan");
+    // Sprint 2: tone artık CANLI profil toneRules'undan gelir. Sprint 9:
+    // toneRules düzgün Türkçe yazıma çevrildi (mock/örnek ASCII temizliği).
+    expect(result.tone.toLowerCase()).toContain("doğrudan");
     expect(result.suggestedAccounts).toContain("maskulenkod");
     // Should match maskulenkod-specific patterns
     const validPatterns = [

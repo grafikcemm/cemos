@@ -6,7 +6,7 @@ const mockTweets: Record<string, DraftScore[]> = {
   grafikcem: [
     {
       content:
-        "OpenAI'in yeni gorsel modelini bir gun test ettim. Asil fark cikti suymus: artik tek promptta stil referansini kilitleyip sadece sahneyi degistirebiliyorsun.\n\nAjans is akisinda 3 revizyon turunu 1'e dusuruyor. Pahali stok aboneligine gerek kalmadi.",
+        "OpenAI'ın yeni görsel modelini bir gün test ettim. Asıl fark çıktı şuymuş: artık tek promptta stil referansını kilitleyip sadece sahneyi değiştirebiliyorsun.\n\nAjans iş akışında 3 revizyon turunu 1'e düşürüyor. Pahalı stok aboneliğine gerek kalmadı.",
       mode: "tool_spotlight",
       personaMatch: 91,
       turkishNaturalness: 88,
@@ -17,13 +17,13 @@ const mockTweets: Record<string, DraftScore[]> = {
       risk: 14,
       sourceFaithfulness: 90,
       verdict: "approve",
-      reason: "Somut cikti, arac + is surecine kattigi net, soru-CTA yok.",
+      reason: "Somut çıktı, araç + iş sürecine kattığı net, soru-CTA yok.",
     },
   ],
   maskulenkod: [
     {
       content:
-        "Sunu fark ettim: birinin seni secmesini bekliyorsan,\nkendi hayatinda zaten ikinci plana dusmussundur.\n\nMesele kadin degil, kendi yonunu kurmamis olman.",
+        "Şunu fark ettim: birinin seni seçmesini bekliyorsan,\nkendi hayatında zaten ikinci plana düşmüşsündür.\n\nMesele kadın değil, kendi yönünü kurmamış olman.",
       mode: "sosyal_gozlem",
       personaMatch: 89,
       turkishNaturalness: 86,
@@ -34,11 +34,11 @@ const mockTweets: Record<string, DraftScore[]> = {
       risk: 28,
       sourceFaithfulness: 82,
       verdict: "approve",
-      reason: "Guc dinamigi gozlemi; sert ama dengeli, kisiyi hedef almiyor.",
+      reason: "Güç dinamiği gözlemi; sert ama dengeli, kişiyi hedef almıyor.",
     },
     {
       content:
-        "Cogu erkek guclu olamiyor cunku disiplini bir hisse bagliyor, sisteme degil.\n\nHis biter, sistem kalir. Once sistemi kur.",
+        "Çoğu erkek güçlü olamıyor çünkü disiplini bir hisse bağlıyor, sisteme değil.\n\nHis biter, sistem kalır. Önce sistemi kur.",
       mode: "sistem_analizi",
       personaMatch: 92,
       turkishNaturalness: 88,
@@ -49,7 +49,7 @@ const mockTweets: Record<string, DraftScore[]> = {
       risk: 22,
       sourceFaithfulness: 80,
       verdict: "approve",
-      reason: "Sistem teshisi; davranisi mekanige bagliyor, net.",
+      reason: "Sistem teşhisi; davranışı mekaniğe bağlıyor, net.",
     },
   ],
 

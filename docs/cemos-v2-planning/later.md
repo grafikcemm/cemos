@@ -2,6 +2,20 @@
 
 > FIRST-SPRINT §4 gereği: yeni fikir kodlanmaz, buraya not düşülür.
 
+## Sprint 9 tur 2 — bütçe sertleştirme (2026-07-10)
+- **TAMAM:** aylık pacing, background `%30` dilimi, `$1` core rezervi, canlı eval
+  opt-in (`AI_EVAL_SPEND_ENABLED`), çağrı-öncesi model/token maliyet tavanı.
+- **TAMAM:** OpenRouter key-limit/usage doğrulaması (`/api/v1/key`, cache + güvenlik
+  payı), `provider.max_price`, ücretli invalid-JSON retry muhasebesi.
+- **TAMAM:** writer Sonnet 5 korunurken final judge GPT-5.4-mini'ye alındı;
+  final editor default kapalı. Canlı tek-hesap smoke: gerçek writer+judge,
+  `usedMock:false`, fallback yok, toplam yanıt maliyeti `$0.0370`.
+- **TAMAM:** batched 14-skor judge canlı smoke: GPT-5.4-mini, 14 sinyal,
+  composite 65, veto yok, `$0.001572`.
+- **[USER]:** OpenRouter hesabına kredi eklenmiş olsa da kullanılan API key'in
+  aylık limiti hâlâ `$5` (`limit_reset:monthly`). CemOS hedefiyle eşlemek için key
+  limitini `$10` yap.
+
 ## Dalga 2+ model migration
 - ~~raw `generateJson` çağrıları~~ → **TAMAM (Sprint 2, dalga 2)**: src'de raw çağrı
   kalmadı (yalnız `openrouter.ts` tanımı + `generateGated` sarmalayıcısı). İstisna:
@@ -26,6 +40,10 @@
   yalnız gereksiz embed maliyeti). Gerekirse persist'i kuyruğa alma / dedup.
 
 ## Kalite motoru
+- Deterministik ASCII-Türkçe kapısı fikri (Sprint 9 tur 2): Türkçe taslakta hiç
+  ğ/ş/ç/ü/ö/ı yoksa lint uyarısı — mock/degrade çıktının sessizce kuyruğa
+  düşmesini yakalar. (Kök neden mock+örnek metinlerdi, düzeltildi; bu kapı
+  ekstra emniyet — false-positive riski değerlendirilerek.)
 - Off-persona tespiti deterministik fallback'te ilkesel olarak zayıf (keyword'süz
   off-persona yakalanamıyor) — batched karşı-aile judge (V1) çözer; golden set
   bad-direct setinden bu arketip çıkarıldı, generation testlerindeki
