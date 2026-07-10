@@ -8,6 +8,8 @@ type Column<T> = {
   render: (row: T) => ReactNode;
   align?: "left" | "right" | "center";
   width?: number | string;
+  /** Sayısal kolon: tabular-nums + sağa hizalama (align verilmezse). */
+  numeric?: boolean;
 };
 
 type TableProps<T> = {
@@ -31,7 +33,7 @@ export default function Table<T>({ columns, rows, getRowKey, compact, onRowClick
               <th
                 key={c.key}
                 style={{
-                  textAlign: c.align ?? "left",
+                  textAlign: c.align ?? (c.numeric ? "right" : "left"),
                   padding: cellPad,
                   width: c.width,
                   fontSize: "var(--text-2xs)",
@@ -65,8 +67,9 @@ export default function Table<T>({ columns, rows, getRowKey, compact, onRowClick
               {columns.map((c) => (
                 <td
                   key={c.key}
+                  className={c.numeric ? "tnum" : undefined}
                   style={{
-                    textAlign: c.align ?? "left",
+                    textAlign: c.align ?? (c.numeric ? "right" : "left"),
                     padding: cellPad,
                     color: "var(--text-primary)",
                     borderBottom: "1px solid var(--border-faint)",

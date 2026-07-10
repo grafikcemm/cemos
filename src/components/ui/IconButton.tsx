@@ -14,7 +14,7 @@ type IconButtonProps = {
   active?: boolean;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "aria-label">;
 
-const DIM: Record<Size, number> = { sm: 26, md: 32 };
+const DIM: Record<Size, number> = { sm: 26, md: 32 }; // md = --control-h-sm
 
 export default function IconButton({
   icon,
@@ -57,7 +57,7 @@ export default function IconButton({
             : active
               ? "1px solid var(--accent-border)"
               : "1px solid transparent",
-        borderRadius: "var(--radius-md)",
+        borderRadius: "var(--radius-sm)",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         transition: "background 0.15s, color 0.15s, border-color 0.15s",

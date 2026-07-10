@@ -55,7 +55,7 @@ export default function Drawer({ open, onClose, title, width = 520, children }: 
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(0,0,0,0.55)",
+          background: "var(--scrim)",
           animation: "drawer-fade 0.18s ease",
         }}
       />

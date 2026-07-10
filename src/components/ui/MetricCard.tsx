@@ -30,15 +30,23 @@ const TONE_COLOR: Record<Tone, string> = {
 };
 
 const TONE_BG: Record<Tone, string> = {
-  up: "rgba(110, 141, 122,0.13)",
-  down: "rgba(190, 18, 60,0.13)",
+  up: "color-mix(in srgb, var(--status-ok) 13%, transparent)",
+  down: "color-mix(in srgb, var(--status-error) 13%, transparent)",
   neutral: "var(--bg-hover)",
 };
 
 const TILE: Record<TileTone, { bg: string; border: string; fg: string }> = {
   accent: { bg: "var(--accent-dark)", border: "var(--accent-border)", fg: "var(--accent-text)" },
-  blue: { bg: "rgba(91,149,255,0.13)", border: "rgba(91,149,255,0.28)", fg: "var(--blue)" },
-  green: { bg: "rgba(110, 141, 122,0.13)", border: "rgba(110, 141, 122,0.28)", fg: "var(--green)" },
+  blue: {
+    bg: "color-mix(in srgb, var(--status-info) 13%, transparent)",
+    border: "color-mix(in srgb, var(--status-info) 28%, transparent)",
+    fg: "var(--blue)",
+  },
+  green: {
+    bg: "color-mix(in srgb, var(--status-ok) 13%, transparent)",
+    border: "color-mix(in srgb, var(--status-ok) 28%, transparent)",
+    fg: "var(--green)",
+  },
   lime: { bg: "var(--accent-2-dark)", border: "var(--accent-2-border)", fg: "var(--accent-2-text)" },
   neutral: { bg: "var(--bg-hover)", border: "var(--border)", fg: "var(--text-secondary)" },
 };

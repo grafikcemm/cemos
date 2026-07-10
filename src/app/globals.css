@@ -82,10 +82,10 @@
   --space-16: 64px;
 
   /* ── Editöryal ritim — daha ferah ───────────────────────────────────────── */
-  --space-section: 80px; /* was 64 */
-  --space-section-sm: 56px; /* was 40 */
-  --space-page-x: 56px; /* shell yatay gutter */
-  --space-page-top: 40px; /* shell üst boşluk */
+  --space-section: 56px; /* operasyonel yoğunluk */
+  --space-section-sm: 36px;
+  --space-page-x: 32px; /* shell yatay gutter (dashboard: kompakt) */
+  --space-page-top: 24px; /* shell üst boşluk */
   --card-pad: 24px; /* varsayılan kart iç padding (was 20) */
   --card-pad-lg: 32px; /* hero/feature kart iç */
   --stack: 20px; /* kartlar arası varsayılan dikey gap */

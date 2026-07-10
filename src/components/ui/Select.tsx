@@ -16,8 +16,9 @@ export default function Select({ options, style, ...rest }: SelectProps) {
       style={{
         background: "var(--bg-sunken)",
         border: "1px solid var(--border-strong)",
-        borderRadius: "var(--radius-md)",
+        borderRadius: "var(--radius-sm)",
         color: "var(--text-primary)",
+        minHeight: "var(--control-h)",
         padding: "7px 10px",
         fontSize: "var(--text-sm)",
         fontFamily: "inherit",

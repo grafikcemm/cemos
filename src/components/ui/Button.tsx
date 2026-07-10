@@ -21,11 +21,12 @@ type ButtonProps = {
 type SurfaceSpec = { bg: string; color: string; border: string; hover: string };
 
 const SURFACE: Record<Variant, SurfaceSpec> = {
+  // Birincil aksiyon = TURUNCU dolgu (dashboard semantiği: turuncu = aksiyon/üret).
   primary: {
-    bg: "var(--accent)",
-    color: "var(--accent-fg)",
-    border: "var(--accent)",
-    hover: "var(--accent-hover)",
+    bg: "var(--accent-2)",
+    color: "var(--accent-2-fg)",
+    border: "var(--accent-2)",
+    hover: "var(--accent-2-hover)",
   },
   secondary: {
     bg: "var(--bg-elevated)",
@@ -42,12 +43,12 @@ const SURFACE: Record<Variant, SurfaceSpec> = {
   danger: {
     bg: "transparent",
     color: "var(--danger)",
-    border: "rgba(190,18,60,0.4)",
-    hover: "rgba(190,18,60,0.12)",
+    border: "color-mix(in srgb, var(--danger) 40%, transparent)",
+    hover: "color-mix(in srgb, var(--danger) 12%, transparent)",
   },
 };
 
-// Coral "üret" affordance'ı (AI/Claude) — varianttan bağımsız override (Eden).
+// Turuncu "üret" affordance'ı (AI) — primary'nin tintli/sessiz hâli.
 const GENERATE: SurfaceSpec = {
   bg: "var(--accent-2-dark)",
   color: "var(--accent-2-text)",
@@ -85,8 +86,9 @@ export default function Button({
         background: s.bg,
         color: s.color,
         border: `1px solid ${s.border}`,
-        borderRadius: isPrimary || intent === "generate" ? "var(--radius-pill)" : "var(--radius-md)",
-        padding: size === "sm" ? "6px 14px" : "10px 20px",
+        borderRadius: "var(--radius-sm)",
+        minHeight: size === "sm" ? "var(--control-h-sm)" : "var(--control-h)",
+        padding: size === "sm" ? "0 14px" : "0 20px",
         fontSize: size === "sm" ? "var(--text-xs)" : "var(--text-sm)",
         fontWeight: 500,
         fontFamily: "inherit",

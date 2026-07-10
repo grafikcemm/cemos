@@ -153,7 +153,7 @@ export default function AppShell({ initialTab }: AppShellProps) {
             style={{
               width: "100%",
               margin: 0,
-              padding: "var(--space-page-top) var(--space-page-x) 96px",
+              padding: "var(--space-page-top) var(--space-page-x) 48px",
               minWidth: 0,
             }}
           >

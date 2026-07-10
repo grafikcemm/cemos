@@ -21,7 +21,7 @@ export default function Textarea({ invalid = false, charCount, style, ...rest }:
           resize: "vertical",
           background: "var(--bg-sunken)",
           border: `1px solid ${invalid || over ? "var(--danger)" : "var(--border-strong)"}`,
-          borderRadius: "var(--radius-md)",
+          borderRadius: "var(--radius-sm)",
           color: "var(--text-primary)",
           padding: "9px 11px",
           fontSize: "var(--text-sm)",
