@@ -49,5 +49,5 @@ test("toolbox is reachable from the Sistem cluster and 5 areas are visible", asy
   await selectUtility(page, "toolbox");
 
   await expect(page.getByRole("heading", { name: "Toolbox" })).toBeVisible();
-  await expect(page.getByText("Araç bulunamadı.")).toBeVisible();
+  await expect(page.getByText("Bu grupta araç yok")).toBeVisible();
 });

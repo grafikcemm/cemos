@@ -69,9 +69,9 @@ test("settings tab renders health cards and the learning status card", async ({ 
   await selectUtility(page, "settings");
   // The settings load runs live health checks (OpenRouter/Buffer) — generous
   // timeout for cold dev servers.
-  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 40_000 });
   await expect(page.getByText("ÖĞRENME DURUMU", { exact: false })).toBeVisible({
-    timeout: 30_000,
+    timeout: 40_000,
   });
 });
 
