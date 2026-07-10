@@ -424,6 +424,21 @@ b {
   }
 }
 
+/* Workspace paneli — ana içerik frame'den koyu, yuvarlak köşeli panel içinde
+   yaşar (dark dashboard referansı). overflow:clip scroll container OLUŞTURMAZ,
+   sticky TopStrip çalışmaya devam eder. */
+.app-workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-workspace);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  margin: 10px 10px 10px 0;
+  overflow: clip;
+}
+
 /* Mobil responsive (FE-01): 320px'de yatay taşmayı giderir. Shell zaten
    off-canvas drawer + hamburger wiring'ine sahip (AppShell/TopStrip); burada
    yalnız görünürlük + gutter breakpoint'i tanımlanır. */
@@ -440,5 +455,10 @@ b {
   }
   .app-mobile-nav-toggle {
     display: inline-flex; /* hamburger görünür (inline display yok → class ezer) */
+  }
+  .app-workspace {
+    margin: 0; /* mobilde panel çerçevesi yok — tam genişlik */
+    border: none;
+    border-radius: 0;
   }
 }

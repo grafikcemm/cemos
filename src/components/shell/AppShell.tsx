@@ -133,13 +133,12 @@ export default function AppShell({ initialTab }: AppShellProps) {
       )}
 
       <div
-        className="app-main"
+        className="app-main app-workspace"
         style={{
           flex: 1,
           minWidth: 0,
           display: "flex",
           flexDirection: "column",
-          background: "var(--bg-base)",
         }}
       >
         <TopStrip
@@ -171,6 +170,6 @@ const MOBILE_OVERLAY: React.CSSProperties = {
   position: "fixed",
   inset: 0,
   zIndex: 200,
-  background: "rgba(0,0,0,0.55)",
+  background: "var(--scrim)",
   display: "flex",
 };
