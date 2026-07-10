@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Inbox, Zap } from "lucide-react";
+import { CheckCircle2, Circle, Inbox, ShieldAlert, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import DraftReviewCard from "./DraftReviewCard";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
@@ -21,34 +21,33 @@ const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"];
 const isDone = (d: MorningDraft) =>
   d.status === "manual_published" || d.status === "published";
 
+/**
+ * Tek-odak inceleme yüzeyi: YALNIZ aktif (NEXT UP) taslak tam çalışma kartı
+ * olarak açılır; kalanlar kompakt kuyruk satırlarıdır. Satıra tıklamak odağı
+ * o taslağa taşır. J kısayolu sıradaki bekleyene atlar.
+ */
 export default function ReviewQueue({ onToast, queue }: Props) {
   const { drafts, loading, error, fetchDrafts, saveDraft, markPublished } = queue;
   const [generating, setGenerating] = useState(false);
-  // J kısayolu: geçici atlananlar — NEXT UP sıradakine kayar. Hepsi atlanırsa sıfırlanır.
-  const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
+  const [focusId, setFocusId] = useState<string | null>(null);
 
-  const reviewedCount = drafts.filter(isDone).length;
-  // NEXT UP: hesap sırasına göre İLK bekleyen taslak (fold üstü odak noktası).
   const ordered = ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h));
   const pending = ordered.filter((d) => !isDone(d));
-  const nextUpId =
-    pending.find((d) => !skippedIds.has(d.id))?.id ?? pending[0]?.id ?? null;
-  const allDone = drafts.length > 0 && reviewedCount === drafts.length;
+  const reviewedCount = drafts.length - pending.length;
+  const allDone = drafts.length > 0 && pending.length === 0;
 
-  const handleSkip = (id: string) => {
-    setSkippedIds((prev) => {
-      const next = new Set(prev).add(id);
-      // Tüm bekleyenler atlandıysa döngüyü sıfırla (baştan dolaş).
-      if (pending.every((d) => next.has(d.id))) return new Set<string>();
-      return next;
-    });
+  // Aktif taslak: kullanıcı seçimi (hâlâ listedeyse) yoksa ilk bekleyen.
+  const focused =
+    (focusId && ordered.find((d) => d.id === focusId)) || pending[0] || ordered[0] || null;
+
+  const handleSkip = () => {
+    if (!focused) return;
+    const rest = pending.filter((d) => d.id !== focused.id);
+    if (rest.length === 0) return;
+    const idx = pending.findIndex((d) => d.id === focused.id);
+    const next = pending[(idx + 1) % pending.length];
+    setFocusId(next.id === focused.id ? rest[0].id : next.id);
   };
-
-  // İki hesap HER ZAMAN görünür — 0-taslaklı hesap gizlenmez (boş-durum gösterir).
-  const byAccount = ACCOUNT_ORDER.map((handle) => ({
-    handle,
-    items: drafts.filter((d) => d.accountHandle === handle),
-  }));
 
   const handleGenerate = async () => {
     const confirmed = confirm(
@@ -74,171 +73,236 @@ export default function ReviewQueue({ onToast, queue }: Props) {
     }
   };
 
-  return (
-    <section style={{ marginBottom: "var(--space-8)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "var(--space-3)", flexWrap: "wrap", gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: 6 }}>
-            İNCELE &amp; PAYLAŞ
-          </div>
-          <h2
-            className="font-display"
-            style={{ fontSize: "var(--text-xl)", fontWeight: 500, margin: 0, color: "var(--text-primary)", letterSpacing: "-0.02em" }}
-          >
-            İnceleme Kuyruğu
-          </h2>
-        </div>
-        {drafts.length > 0 && (
-          <span className="tnum" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>
-            {reviewedCount}/{drafts.length}{" "}
-            <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>incelendi</span>
-          </span>
-        )}
-      </div>
+  if (loading) {
+    return (
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <Skeleton height={220} />
+        <Skeleton height={44} />
+        <Skeleton height={44} />
+      </section>
+    );
+  }
 
-      {drafts.length > 0 && (
-        <div style={{ height: 5, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden", marginBottom: "var(--space-4)" }}>
+  if (error) {
+    return (
+      <ErrorState
+        title="Taslaklar yüklenemedi"
+        description="Taslaklar şu an yüklenemiyor. Sorun sürerse Sistem durumuna bakın."
+        onRetry={() => void fetchDrafts()}
+      />
+    );
+  }
+
+  if (drafts.length === 0) {
+    return (
+      <div
+        style={{
+          background: "var(--bg-surface)",
+          border: "1px dashed var(--border-strong)",
+          borderRadius: "var(--radius-lg)",
+        }}
+      >
+        <EmptyState
+          icon={<Inbox size={20} strokeWidth={2} />}
+          title="Bugün için taslak yok"
+          description="Henüz taslak üretilmedi. Hemen üret veya sabah cron'unu bekle."
+          action={
+            <Button
+              variant="primary"
+              onClick={handleGenerate}
+              loading={generating}
+              iconLeft={generating ? undefined : <Zap size={15} strokeWidth={2} />}
+            >
+              {generating ? "Üretiliyor…" : "Üret"}
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      {/* Terminal durum */}
+      {allDone && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "color-mix(in srgb, var(--green) 8%, var(--bg-surface))",
+            border: "1px solid color-mix(in srgb, var(--green) 30%, transparent)",
+            borderRadius: "var(--radius-sm)",
+            padding: "12px 14px",
+          }}
+        >
+          <CheckCircle2 size={18} strokeWidth={2} style={{ color: "var(--green)", flexShrink: 0 }} />
+          <div style={{ minWidth: 0, fontSize: "var(--text-sm)" }}>
+            <strong style={{ color: "var(--text-primary)" }}>Bugünlük bitti ✓</strong>{" "}
+            <span style={{ color: "var(--text-secondary)" }}>
+              {reviewedCount}/{drafts.length} taslak incelendi. Yeni taslaklar yarın sabah hazır olur.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ANA ÇALIŞMA YÜZEYİ — tek aktif taslak */}
+      {focused && (
+        <DraftReviewCard
+          key={focused.id}
+          draft={focused}
+          isNextUp={!isDone(focused)}
+          onSave={saveDraft}
+          onMarkPublished={markPublished}
+          onToast={onToast}
+          onSkip={handleSkip}
+        />
+      )}
+
+      {/* KUYRUK — kalanlar kompakt satır */}
+      {ordered.length > 1 && (
+        <div>
           <div
             style={{
-              height: "100%",
-              width: `${(reviewedCount / drafts.length) * 100}%`,
-              background: "var(--accent-2)",
-              borderRadius: "var(--radius-sm)",
-              transition: "width var(--duration-normal, 0.3s) var(--ease-out)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
             }}
-          />
+          >
+            <span className="eyebrow" style={{ color: "var(--text-muted)" }}>
+              Kuyruk
+            </span>
+            <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+              {reviewedCount}/{drafts.length} incelendi
+            </span>
+          </div>
+          <div
+            style={{
+              border: "1px solid var(--border-faint)",
+              borderRadius: "var(--radius-sm)",
+              overflow: "hidden",
+            }}
+          >
+            {ordered
+              .filter((d) => d.id !== focused?.id)
+              .map((d, i, arr) => (
+                <QueueRow
+                  key={d.id}
+                  draft={d}
+                  last={i === arr.length - 1}
+                  onClick={() => setFocusId(d.id)}
+                />
+              ))}
+          </div>
         </div>
       )}
 
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <Skeleton height={72} />
-          <Skeleton height={72} />
+      {/* Eksik hesap için üret satırı */}
+      {ACCOUNT_ORDER.filter((h) => !drafts.some((d) => d.accountHandle === h)).map((h) => (
+        <div
+          key={h}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "10px 12px",
+            border: "1px dashed var(--border)",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "var(--text-sm)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <span>
+            @{h} için bugün taslak yok.
+          </span>
+          <Button size="sm" variant="primary" onClick={handleGenerate} loading={generating}>
+            {generating ? "Üretiliyor…" : "Üret"}
+          </Button>
         </div>
-      ) : error ? (
-        // HATA ≠ BOŞ (item 5): boş kuyruk EmptyState alır, yükleme hatası bu
-        // ayrı danger bloğu + yeniden-dene alır. Ham teknik hata gösterilmez.
-        <ErrorState
-          title="Taslaklar yüklenemedi"
-          description="Taslaklar şu an yüklenemiyor. Sorun sürerse Ayarlar → Sistem durumu."
-          onRetry={() => void fetchDrafts()}
-        />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {allDone && (
-            // Terminal durum: kuyruk bitti — günün işi tamam (FIRST-SPRINT item 4).
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                background: "color-mix(in srgb, var(--green) 8%, var(--bg-surface))",
-                border: "1px solid color-mix(in srgb, var(--green) 30%, transparent)",
-                borderRadius: "var(--radius-lg)",
-                padding: "14px 16px",
-              }}
-            >
-              <CheckCircle2 size={20} strokeWidth={2} style={{ color: "var(--green)", flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
-                  Bugünlük bitti ✓
-                </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
-                  {reviewedCount}/{drafts.length} taslak incelendi. Yeni taslaklar yarın sabah (İstanbul ~06:00-07:00) hazır olur.
-                </div>
-              </div>
-            </div>
-          )}
-          {byAccount.map((group) => (
-            <AccountGroup
-              key={group.handle}
-              handle={group.handle}
-              items={group.items}
-              generating={generating}
-              nextUpId={nextUpId}
-              onGenerate={handleGenerate}
-              onSave={saveDraft}
-              onMarkPublished={markPublished}
-              onToast={onToast}
-              onSkip={handleSkip}
-            />
-          ))}
-        </div>
-      )}
+      ))}
     </section>
   );
 }
 
-function AccountGroup({
-  handle,
-  items,
-  generating,
-  nextUpId,
-  onGenerate,
-  onSave,
-  onMarkPublished,
-  onToast,
-  onSkip,
+/** Kompakt kuyruk satırı — hesap, metin kesiti, durum. */
+function QueueRow({
+  draft,
+  last,
+  onClick,
 }: {
-  handle: string;
-  items: MorningDraft[];
-  generating: boolean;
-  nextUpId: string | null;
-  onGenerate: () => void;
-  onSave: (id: string, content: string) => Promise<boolean>;
-  onMarkPublished: (id: string) => Promise<boolean>;
-  onToast: (text: string, type: "success" | "error") => void;
-  onSkip: (id: string) => void;
+  draft: MorningDraft;
+  last: boolean;
+  onClick: () => void;
 }) {
+  const done = isDone(draft);
+  const needsEdit = draft.status === "needs_edit";
+  const snippet = (draft.editedContent || draft.content || "").replace(/\s+/g, " ").trim();
+
   return (
-    <div>
-      <div className="eyebrow" style={{ color: "var(--accent-text)", marginBottom: "var(--space-2)", display: "flex", alignItems: "center", gap: 8 }}>
-        <span>@{handle}</span>
-        <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
-          · <span className="tnum">{items.length}</span> taslak
-        </span>
-      </div>
-      {items.length === 0 ? (
-        <div
-          style={{
-            background: "var(--gradient-surface), var(--bg-surface)",
-            border: "1px dashed var(--border-strong)",
-            borderRadius: "var(--radius-xl)",
-          }}
-        >
-          <EmptyState
-            compact
-            icon={<Inbox size={18} strokeWidth={2} />}
-            title={`Henüz @${handle} taslağı yok`}
-            description="Bugün için bu hesaba ait taslak üretilmedi. Hemen bir tane oluştur."
-            action={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={onGenerate}
-                loading={generating}
-                iconLeft={generating ? undefined : <Zap size={15} strokeWidth={2} />}
-              >
-                {generating ? "Üretiliyor…" : "Üret"}
-              </Button>
-            }
-          />
-        </div>
+    <button
+      onClick={onClick}
+      data-testid={`queue-row-${draft.id}`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        width: "100%",
+        minHeight: 44,
+        padding: "0 12px",
+        background: "transparent",
+        border: "none",
+        borderBottom: last ? "none" : "1px solid var(--border-faint)",
+        cursor: "pointer",
+        textAlign: "left",
+        fontFamily: "inherit",
+        opacity: done ? 0.55 : 1,
+        transition: "background 0.12s",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "var(--bg-hover)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {done ? (
+        <CheckCircle2 size={14} strokeWidth={2} style={{ color: "var(--green)", flexShrink: 0 }} />
+      ) : needsEdit ? (
+        <ShieldAlert size={14} strokeWidth={2} style={{ color: "var(--danger)", flexShrink: 0 }} />
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          {items.map((d) => (
-            <DraftReviewCard
-              key={d.id}
-              draft={d}
-              isNextUp={d.id === nextUpId}
-              onSave={onSave}
-              onMarkPublished={onMarkPublished}
-              onToast={onToast}
-              onSkip={() => onSkip(d.id)}
-            />
-          ))}
-        </div>
+        <Circle size={13} strokeWidth={2} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
       )}
-    </div>
+      <span
+        style={{
+          fontSize: "var(--text-xs)",
+          color: "var(--accent-text)",
+          fontWeight: 500,
+          flexShrink: 0,
+          width: 96,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        @{draft.accountHandle}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: "var(--text-sm)",
+          color: done ? "var(--text-muted)" : "var(--text-secondary)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {snippet || "(boş taslak)"}
+      </span>
+      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", flexShrink: 0 }}>
+        {done ? "paylaşıldı" : needsEdit ? "düzenleme gerekli" : draft.draftType}
+      </span>
+    </button>
   );
 }

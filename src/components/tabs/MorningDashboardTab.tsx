@@ -10,7 +10,6 @@ import NewsHighlights from "../morning/NewsHighlights";
 import RepoHighlights from "../morning/RepoHighlights";
 import YouTubeHighlights from "../morning/YouTubeHighlights";
 import { useDailyQueueData } from "../morning/useDailyQueueData";
-import PageHeader from "../ui/PageHeader";
 import { useToast } from "../ui/Toast";
 
 /**
@@ -36,14 +35,8 @@ export default function MorningDashboardTab() {
   );
 
   return (
-    <div style={{ width: "100%", paddingBottom: 60 }}>
-      <PageHeader
-        eyebrow="GÜNLÜK OPERASYON"
-        title="Bugün"
-        subtitle="Sıralı inceleme akışı — incele, düzenle, kopyala, paylaş. Yaklaşık 5 dakika."
-        surface
-      />
-
+    <div style={{ width: "100%" }}>
+      {/* Başlık YOK — breadcrumb yeter; aktif taslak ilk viewport'ta başlar. */}
       <MorningHeroStats queue={queue} />
 
       <OperatorReadinessGate />
