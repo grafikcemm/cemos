@@ -77,7 +77,8 @@ const ROW_BTN: CSSProperties = {
   whiteSpace: "nowrap",
 };
 
-/** Satır içi meta çipi (kategori / hook / duygu). */
+/** Satır içi meta çipi (kategori / hook / duygu). Uzun metin sağdaki
+ *  rozetlerin altına taşmasın: chip kısalır, tam metin ellipsis'e iner. */
 const ROW_CHIP: CSSProperties = {
   fontSize: "var(--text-2xs)",
   background: "var(--bg-hover)",
@@ -86,7 +87,11 @@ const ROW_CHIP: CSSProperties = {
   padding: "2px 6px",
   borderRadius: "var(--radius-sm)",
   whiteSpace: "nowrap",
-  flexShrink: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  maxWidth: 220,
+  flexShrink: 1,
+  minWidth: 0,
 };
 
 export default function PatternLibraryTab() {
