@@ -165,8 +165,14 @@ export default function ReelsDossierSection() {
           accountId,
           month: currentMonth(),
           postDays: [2, 5, 8, 11, 14, 17, 20, 23, 26, 29],
-          pillars: ["arac_testi", "gorsel_uretim", "is_akisi"],
-          series: [{ seriesKey: "best_ai_tools", pillar: "arac_testi", episodesPerMonth: 2 }],
+          // 150K büyüme stratejisi (2026-07 Insights analizi): Reels sütunları
+          // kazanan carousel serilerinin video versiyonlarıdır — A-kademesi
+          // (prompt reveal, site turu, araç demo) + B (palet reveal).
+          pillars: ["ai_prompt_reveal", "site_turu", "arac_demo", "palet_reveal"],
+          series: [
+            { seriesKey: "best_ai_prompts", pillar: "ai_prompt_reveal", episodesPerMonth: 3 },
+            { seriesKey: "best_ai_tools", pillar: "arac_demo", episodesPerMonth: 2 },
+          ],
         }),
       });
       const json = await res.json();

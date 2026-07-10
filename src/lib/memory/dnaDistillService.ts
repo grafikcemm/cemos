@@ -90,7 +90,7 @@ export function extractHashtagFrequency(texts: string[]): Map<string, number> {
 export type DnaDistillEntry = {
   handle: string;
   corpus: number;
-  captionDna: "written" | "skipped_low_evidence";
+  captionDna: "written" | "skipped_low_evidence" | "skipped_operator_owned";
   hashtagDna: "written" | "skipped_no_tags";
   seriesHashtagDna: number;
   error?: string;
@@ -120,8 +120,17 @@ async function corpusForAccount(accountId: string): Promise<string[]> {
   return texts.slice(0, CORPUS_LIMIT);
 }
 
-async function distillCaptionDna(handle: string, texts: string[]): Promise<"written" | "skipped_low_evidence"> {
+async function distillCaptionDna(
+  handle: string,
+  texts: string[]
+): Promise<"written" | "skipped_low_evidence" | "skipped_operator_owned"> {
   if (texts.length < MIN_EVIDENCE) return "skipped_low_evidence";
+
+  // Write discipline: operatör-tohumlu CaptionDna insan-sahiplidir — otomatik
+  // istatistik onu EZEMEZ (identity > own_metric). Operatör satırı silmedikçe
+  // damıtma yalnız gözlem olarak kalır.
+  const owned = await prisma.captionDna.findUnique({ where: { accountHandle: handle } });
+  if (owned?.provenance === "operator") return "skipped_operator_owned";
 
   const data = {
     openingHookTypes: JSON.stringify(rankOpeningHooks(texts)),
@@ -133,11 +142,10 @@ async function distillCaptionDna(handle: string, texts: string[]): Promise<"writ
     provenance: "own_metric",
   };
 
-  const existing = await prisma.captionDna.findUnique({ where: { accountHandle: handle } });
-  if (existing) {
+  if (owned) {
     await prisma.captionDna.update({
       where: { accountHandle: handle },
-      data: { ...data, version: existing.version + 1 },
+      data: { ...data, version: owned.version + 1 },
     });
   } else {
     await prisma.captionDna.create({ data: { accountHandle: handle, ...data } });

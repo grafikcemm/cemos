@@ -105,6 +105,25 @@ describe("runDnaDistillation — yazma disiplini", () => {
     expect(JSON.parse(arg.openingHookTypes).length).toBeGreaterThan(0);
   });
 
+  it("operatör-tohumlu CaptionDna ASLA ezilmez (identity > own_metric)", async () => {
+    const rows = Array.from({ length: MIN_EVIDENCE }, (_, i) => ({
+      content: `Metin ${i} yeterince uzun bir taslak örneği.`,
+      editedContent: null,
+    }));
+    vi.mocked(prisma.queueItem.findMany).mockResolvedValue(rows as never);
+    vi.mocked(prisma.trainingExample.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.captionDna.findUnique).mockResolvedValue({
+      version: 1,
+      provenance: "operator",
+    } as never);
+
+    const out = await runDnaDistillation({ handles: ["grafikcem"] });
+
+    expect(out[0].captionDna).toBe("skipped_operator_owned");
+    expect(prisma.captionDna.update).not.toHaveBeenCalled();
+    expect(prisma.captionDna.create).not.toHaveBeenCalled();
+  });
+
   it("mevcut CaptionDna güncellenirken version artar", async () => {
     const rows = Array.from({ length: MIN_EVIDENCE }, (_, i) => ({
       content: `Metin ${i} yeterince uzun bir taslak örneği.`,
