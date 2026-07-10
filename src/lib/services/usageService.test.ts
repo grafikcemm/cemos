@@ -7,12 +7,17 @@ vi.mock("@/lib/db/usageLogRepo", () => ({
     sumCostByDate: vi.fn().mockResolvedValue(0),
     sumCostByMonth: vi.fn().mockResolvedValue(0),
     sumCostByProviderMonth: vi.fn().mockResolvedValue(0),
+    sumOpenRouterCostByMonth: vi.fn().mockResolvedValue(0),
     sumTweetsByDate: vi.fn().mockResolvedValue(0),
   },
 }));
 
 vi.mock("@/lib/config/costLimits", () => ({
   getCostLimits: () => ({ dailyTweetBudget: 100 }),
+}));
+
+vi.mock("@/lib/ai/openrouter-key-status", () => ({
+  noteOpenRouterSpend: vi.fn(),
 }));
 
 import { usageService } from "./usageService";
@@ -56,6 +61,26 @@ describe("usageService.getMonthlySpendByPurpose", () => {
   it("should_return_zero_when_no_rows_in_month", async () => {
     mockedRepo.findMonthRowsWithPurpose.mockResolvedValue([]);
     expect(await usageService.getMonthlySpendByPurpose("ig_")).toBe(0);
+  });
+});
+
+describe("usageService budget classes", () => {
+  it("sums only matching budgetClass rows", async () => {
+    mockedRepo.findMonthRowsWithPurpose.mockResolvedValue([
+      { estimatedCostUsd: 0.2, meta: JSON.stringify({ purpose: "news_translate", budgetClass: "background" }) },
+      { estimatedCostUsd: 0.4, meta: JSON.stringify({ purpose: "writer_x_draft", budgetClass: "essential" }) },
+      { estimatedCostUsd: 0.1, meta: JSON.stringify({ purpose: "eval_case", budgetClass: "evaluation" }) },
+    ]);
+
+    await expect(usageService.getMonthlySpendByBudgetClass("background")).resolves.toBeCloseTo(0.2);
+  });
+
+  it("reads the OpenRouter-only aggregate for the LLM budget", async () => {
+    mockedRepo.sumOpenRouterCostByMonth.mockResolvedValue(1.25);
+    await expect(usageService.getMonthlyOpenRouterCost()).resolves.toBe(1.25);
+    expect(mockedRepo.sumOpenRouterCostByMonth).toHaveBeenCalledWith(
+      expect.stringMatching(/^\d{4}-\d{2}$/),
+    );
   });
 });
 

@@ -1,4 +1,8 @@
-import { estimateCost, resolveModel, type ModelRole } from "@/lib/ai/model-config";
+import {
+  estimateModelCost,
+  resolveModel,
+  type ModelRole,
+} from "@/lib/ai/model-config";
 
 type TextContentPart = {
   type: "text";
@@ -18,7 +22,7 @@ export type JsonSchemaSpec = {
   schema: Record<string, unknown>;
 };
 
-type GenerateJsonOptions = {
+export type GenerateJsonOptions = {
   role: ModelRole;
   system: string;
   user: string;
@@ -44,6 +48,8 @@ type GenerateJsonOptions = {
   /** provider.order — örn. ["anthropic"]. */
   providerOrder?: string[];
   sort?: "price";
+  /** Provider price ceiling, USD per million tokens. */
+  maxPrice?: { prompt: number; completion: number };
   dataCollection?: "allow" | "deny";
   /** OpenRouter reasoning.effort. Degrade retry'da response_format ile birlikte düşer. */
   reasoning?: "low" | "medium" | "high";
@@ -59,9 +65,28 @@ const DEFAULT_MAX_TOKENS_BY_ROLE: Partial<Record<ModelRole, number>> = {
   finalEditor: 1500,
 };
 
-function resolveMaxTokens(role: ModelRole, override?: number): number {
+export function resolveMaxTokens(role: ModelRole, override?: number): number {
   if (typeof override === "number" && override > 0) return override;
   return DEFAULT_MAX_TOKENS_BY_ROLE[role] ?? 2000;
+}
+
+export function estimateGenerateJsonCeiling(opts: {
+  role: ModelRole;
+  system: string;
+  user: string;
+  maxTokens?: number;
+  model?: string;
+  fallbacks?: string[];
+}): number {
+  const baseModel = opts.model ?? resolveModel(opts.role);
+  const models = opts.fallbacks
+    ? Array.from(new Set([baseModel, ...opts.fallbacks]))
+    : getFallbackModels(baseModel);
+  const inputTokens = Math.ceil((opts.system.length + opts.user.length) / 4);
+  const outputTokens = resolveMaxTokens(opts.role, opts.maxTokens);
+  return Math.max(
+    ...models.map((model) => estimateModelCost(inputTokens, outputTokens, model, opts.role)),
+  );
 }
 
 /** Map a raw provider error to a non-sensitive category so it can be stored /
@@ -92,6 +117,19 @@ export type GenerateJsonResult<T> = {
   modelFallbackReason?: string;
 };
 
+export class OpenRouterGenerationError extends Error {
+  constructor(
+    message: string,
+    public readonly actualCostUsd: number,
+    public readonly model: string,
+    public readonly inputTokens: number,
+    public readonly outputTokens: number,
+  ) {
+    super(message);
+    this.name = "OpenRouterGenerationError";
+  }
+}
+
 function extractJson(text: string) {
   const trimmed = text.trim();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
@@ -114,17 +152,17 @@ function getFallbackModels(baseModel: string): string[] {
   const list = [baseModel];
   // ── Pinned 2026-07 katalog zincirleri (FINAL-OPENROUTER-ROUTING §1-2) ──
   if (baseModel.includes("claude-sonnet-5")) {
-    list.push("openai/gpt-5.5", "google/gemini-3.5-flash");
+    list.push("openai/gpt-5.4-mini", "google/gemini-3.5-flash");
   } else if (baseModel.includes("gpt-5.5")) {
-    list.push("google/gemini-3.5-flash", "anthropic/claude-sonnet-5");
+    list.push("openai/gpt-5.4-mini", "google/gemini-3.5-flash");
   } else if (baseModel.includes("gemini-3.5-flash")) {
-    list.push("deepseek/deepseek-v4-pro", "openai/gpt-5.5");
+    list.push("deepseek/deepseek-v4-pro", "google/gemini-3.1-flash-lite");
   } else if (baseModel.includes("gemini-3.1-flash-lite")) {
-    list.push("deepseek/deepseek-v4-flash", "google/gemini-3.5-flash");
+    list.push("deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro");
   } else if (baseModel.includes("deepseek-v4-flash")) {
-    list.push("google/gemini-3.1-flash-lite", "google/gemini-3.5-flash");
+    list.push("google/gemini-3.1-flash-lite");
   } else if (baseModel.includes("deepseek-v4-pro")) {
-    list.push("google/gemini-3.5-flash");
+    list.push("deepseek/deepseek-v4-flash", "google/gemini-3.1-flash-lite");
   } else if (baseModel.includes("gpt-5.4-mini")) {
     list.push("google/gemini-3.1-flash-lite", "deepseek/deepseek-v4-flash");
     // ── Legacy env-override zincirleri (eski slug pinleyen kurulumlar için) ──
@@ -141,7 +179,7 @@ function getFallbackModels(baseModel: string): string[] {
   } else if (baseModel.includes("deepseek-chat")) {
     list.push("google/gemini-2.5-flash", "google/gemini-2.5-pro");
   } else {
-    list.push("google/gemini-3.5-flash", "openai/gpt-5.5");
+    list.push("deepseek/deepseek-v4-pro", "google/gemini-3.1-flash-lite");
   }
   return Array.from(new Set(list));
 }
@@ -181,6 +219,7 @@ export async function generateJson<T>({
   cacheControl,
   providerOrder,
   sort,
+  maxPrice,
   dataCollection,
   reasoning,
   timeoutMs: timeoutOverride,
@@ -202,15 +241,21 @@ export async function generateJson<T>({
   const levels = structuredLevels(structured, Boolean(jsonSchema));
 
   const provider =
-    providerOrder || sort || dataCollection
+    providerOrder || sort || dataCollection || maxPrice
       ? {
           ...(providerOrder ? { order: providerOrder, allow_fallbacks: true } : {}),
           ...(sort ? { sort } : {}),
+          ...(maxPrice ? { max_price: maxPrice } : {}),
           ...(dataCollection ? { data_collection: dataCollection } : {}),
         }
       : undefined;
 
   let lastError: Error | null = null;
+  let billedCostUsd = 0;
+  let billedEstimatedCostUsd = 0;
+  let billedInputTokens = 0;
+  let billedOutputTokens = 0;
+  let lastBilledModel = baseModel;
 
   for (const model of modelsToTry) {
     // Anthropic cache_control breakpoint: statik system bloğu 0.1× read maliyetine
@@ -237,8 +282,6 @@ export async function generateJson<T>({
         ...(responseFormat ? { response_format: responseFormat } : {}),
         ...(includeReasoning && reasoning ? { reasoning: { effort: reasoning } } : {}),
         ...(provider ? { provider } : {}),
-        // Ask OpenRouter to include the real request cost in the response payload.
-        usage: { include: true },
       };
     };
 
@@ -286,21 +329,34 @@ export async function generateJson<T>({
 
         const payload = await response.json();
         const content = payload.choices?.[0]?.message?.content;
+        const inputTokens =
+          payload.usage?.prompt_tokens ?? Math.ceil((system.length + user.length) / 4);
+        const outputTokens =
+          payload.usage?.completion_tokens ??
+          (typeof content === "string" ? Math.ceil(content.length / 4) : 0);
+        const estimatedAttemptCostUsd = estimateModelCost(
+          inputTokens,
+          outputTokens,
+          model,
+          role,
+        );
+        // Usage is returned automatically for non-streaming responses. Account
+        // for a successful-but-invalid JSON response before retrying it.
+        const rawCost = payload.usage?.cost;
+        const actualAttemptCostUsd =
+          typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0
+            ? rawCost
+            : estimatedAttemptCostUsd;
+        billedCostUsd += actualAttemptCostUsd;
+        billedEstimatedCostUsd += estimatedAttemptCostUsd;
+        billedInputTokens += inputTokens;
+        billedOutputTokens += outputTokens;
+        lastBilledModel = model;
+
         if (!content || typeof content !== "string") {
           throw new Error("OpenRouter response did not include text content.");
         }
-
-        const inputTokens = payload.usage?.prompt_tokens ?? Math.ceil((system.length + user.length) / 4);
-        const outputTokens = payload.usage?.completion_tokens ?? Math.ceil(content.length / 4);
-
-        const estimatedCostUsd = estimateCost(inputTokens, outputTokens, role);
-        // OpenRouter returns the real spend in `usage.cost` (USD) when requested.
-        // Fall back to the token estimate when it is absent or unparseable.
-        const rawCost = payload.usage?.cost;
-        const actualCostUsd =
-          typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0
-            ? rawCost
-            : estimatedCostUsd;
+        const parsedData = JSON.parse(extractJson(content)) as T;
 
         const modelFallbackUsed = model !== baseModel;
         // Store only a non-sensitive category (DH-014); the raw provider body is
@@ -310,12 +366,12 @@ export async function generateJson<T>({
           : undefined;
 
         return {
-          data: JSON.parse(extractJson(content)) as T,
+          data: parsedData,
           model,
-          inputTokens,
-          outputTokens,
-          estimatedCostUsd,
-          actualCostUsd,
+          inputTokens: billedInputTokens,
+          outputTokens: billedOutputTokens,
+          estimatedCostUsd: billedEstimatedCostUsd,
+          actualCostUsd: billedCostUsd,
           modelFallbackUsed,
           modelFallbackReason,
         };
@@ -326,5 +382,14 @@ export async function generateJson<T>({
     }
   }
 
+  if (billedCostUsd > 0) {
+    throw new OpenRouterGenerationError(
+      lastError?.message ?? "OpenRouter returned no parseable JSON.",
+      billedCostUsd,
+      lastBilledModel,
+      billedInputTokens,
+      billedOutputTokens,
+    );
+  }
   throw lastError || new Error("Failed to generate JSON after trying all model fallbacks.");
 }

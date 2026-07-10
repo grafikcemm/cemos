@@ -15,6 +15,7 @@ import { generateJsonGated } from "@/lib/ai/generateGated";
 import type { JsonSchemaSpec } from "@/lib/ai/openrouter";
 import { runDeterministicHeuristics } from "@/lib/safety/heuristics";
 import { getJudgeMode } from "@/lib/ai/model-config";
+import type { AiBudgetClass } from "@/lib/config/costGate";
 
 type DraftResponse = {
   drafts: DraftWithAngle[];
@@ -91,7 +92,12 @@ const JUDGE_RESPONSE_SCHEMA: JsonSchemaSpec = {
 export async function runDraftPipeline(
   profile: AccountProfile,
   sourceInput: string,
-  opts?: { deadlineMs?: number; accountId?: string; voice?: DraftVoice }
+  opts?: {
+    deadlineMs?: number;
+    accountId?: string;
+    voice?: DraftVoice;
+    budgetClass?: AiBudgetClass;
+  }
 ): Promise<BenchmarkResult> {
   const totalStart = Date.now();
   if (!process.env.OPENROUTER_API_KEY) {
@@ -119,6 +125,7 @@ export async function runDraftPipeline(
       purpose: "writer_x_draft",
       accountId: opts?.accountId,
       platform: "x",
+      budgetClass: opts?.budgetClass,
     });
 
   let draftRun = await callWriter();
@@ -261,6 +268,7 @@ export async function runDraftPipeline(
     purpose: "judge_x_critique",
     accountId: opts?.accountId,
     platform: "x",
+    budgetClass: opts?.budgetClass,
   });
   const judgeMs = Date.now() - judgeStart;
 
@@ -283,8 +291,9 @@ export async function runDraftPipeline(
   const allDraftScores = effectiveCandidates.map(rankedToScore);
 
   // ── Phase 3: Final Editor (Optional cila step on the winner) ──────────────────
-  const activeProfile = process.env.MODEL_PROFILE || "operator_quality";
-  const enableFinalEditor = process.env.ENABLE_FINAL_EDITOR === "true" || (activeProfile === "operator_quality" && process.env.ENABLE_FINAL_EDITOR !== "false");
+  // A third premium call is opt-in. The writer + cross-family judge already
+  // provide the production quality gate; leaving this implicit burned budget.
+  const enableFinalEditor = process.env.ENABLE_FINAL_EDITOR === "true";
   let finalEditorMs = 0;
   let finalEditorCost = 0;
   let finalEditorModelUsed = "none";
@@ -332,6 +341,7 @@ Lütfen bu metni cila kurallarına göre düzenle ve aşağıdaki JSON formatın
         purpose: "judge_final_polish",
         accountId: opts?.accountId,
         platform: "x",
+        budgetClass: opts?.budgetClass,
       });
 
       if (editorRun.data?.content) {

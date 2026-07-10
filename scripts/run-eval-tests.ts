@@ -179,6 +179,7 @@ async function main() {
         }
         const result = await runDraftPipeline(profile, test.sourceContent ?? "", {
           accountId: test.accountId,
+          budgetClass: "evaluation",
         });
 
         // Sessiz-mock politikası: gerçek LLM koşmadıysa (anahtar yok / tüm

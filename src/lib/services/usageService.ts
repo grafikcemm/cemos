@@ -1,5 +1,6 @@
 import { usageLogRepo } from "@/lib/db/usageLogRepo";
 import { getCostLimits } from "@/lib/config/costLimits";
+import { noteOpenRouterSpend } from "@/lib/ai/openrouter-key-status";
 
 
 function todayDate(): string {
@@ -60,6 +61,7 @@ export const usageService = {
       meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
       platform: opts.platform,
     });
+    noteOpenRouterSpend(opts.estimatedCostUsd);
   },
 
   async getRemainingDailyTweets(): Promise<number> {
@@ -75,6 +77,12 @@ export const usageService = {
   async getMonthlyCost(): Promise<number> {
     const yearMonth = new Date().toISOString().slice(0, 7);
     return usageLogRepo.sumCostByMonth(yearMonth);
+  },
+
+  /** LLM-only spend. SocialData and fal.ai must not consume this budget. */
+  async getMonthlyOpenRouterCost(): Promise<number> {
+    const yearMonth = new Date().toISOString().slice(0, 7);
+    return usageLogRepo.sumOpenRouterCostByMonth(yearMonth);
   },
 
   /**
@@ -123,6 +131,24 @@ export const usageService = {
         }
       } catch {
         // bozuk meta satırı atlanır — bütçe hesabı fail-open kalır
+      }
+    }
+    return total;
+  },
+
+  async getMonthlySpendByBudgetClass(
+    budgetClass: "essential" | "background" | "evaluation",
+  ): Promise<number> {
+    const yearMonth = new Date().toISOString().slice(0, 7);
+    const rows = await usageLogRepo.findMonthRowsWithPurpose(yearMonth);
+    let total = 0;
+    for (const row of rows) {
+      try {
+        const meta = JSON.parse(row.meta) as { budgetClass?: unknown };
+        if (meta.budgetClass === budgetClass) total += row.estimatedCostUsd;
+      } catch {
+        // Invalid legacy metadata is excluded from the class slice but remains
+        // part of the global OpenRouter total.
       }
     }
     return total;

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock database/external dependencies
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn(),
+  estimateGenerateJsonCeiling: vi.fn(() => 0.01),
 }));
 
 vi.mock("@/lib/db/accountRepo", () => ({
@@ -23,6 +24,8 @@ vi.mock("@/lib/services/usageService", () => ({
     recordGeneration: vi.fn(),
     recordOpenRouter: vi.fn(),
     getMonthlyCost: vi.fn().mockResolvedValue(0),
+    getMonthlyOpenRouterCost: vi.fn().mockResolvedValue(0),
+    getMonthlySpendByBudgetClass: vi.fn().mockResolvedValue(0),
     getTodayCost: vi.fn().mockResolvedValue(0),
   },
 }));
@@ -33,7 +36,16 @@ vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
     "@/lib/config/costGate",
   );
-  return { ...actual, assertGenerationAllowed: vi.fn() };
+  return {
+    ...actual,
+    assertGenerationAllowed: vi.fn(),
+    getBudgetStatus: vi.fn(async () => ({
+      allowed: true,
+      spentUsd: 0,
+      limitUsd: 10,
+      remainingUsd: 10,
+    })),
+  };
 });
 
 vi.mock("@/lib/ai/draft-pipeline", () => ({

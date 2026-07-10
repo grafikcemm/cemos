@@ -27,9 +27,9 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     process.env = { ...originalEnv };
   });
 
-  it("should default activeProfile to operator_quality and trigger final editor when MODEL_PROFILE is unset", async () => {
+  it("runs the final editor only when explicitly enabled", async () => {
     delete process.env.MODEL_PROFILE;
-    delete process.env.ENABLE_FINAL_EDITOR;
+    process.env.ENABLE_FINAL_EDITOR = "true";
 
     const mockWriterResponse = {
       model: "google/gemini-2.5-flash",
@@ -97,9 +97,9 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     expect(mockGenerateJson).toHaveBeenCalledTimes(3);
   });
 
-  it("should NOT trigger final editor if ENABLE_FINAL_EDITOR is set to false", async () => {
+  it("does not spend on the final editor by default", async () => {
     delete process.env.MODEL_PROFILE;
-    process.env.ENABLE_FINAL_EDITOR = "false";
+    delete process.env.ENABLE_FINAL_EDITOR;
 
     const mockWriterResponse = {
       model: "google/gemini-2.5-flash",

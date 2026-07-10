@@ -1,21 +1,26 @@
+import { getOpenRouterKeyStatus } from "@/lib/ai/openrouter-key-status";
 import { getCostLimits } from "@/lib/config/costLimits";
 import { usageService } from "@/lib/services/usageService";
 
-/**
- * Hard budget gate for all LLM-backed work (scout, pre-filter, router, council,
- * mining, generation). The in-memory `cost-guard.ts` only counted SocialData
- * tweets and reset on restart; this gate is DB-backed via UsageLog so it
- * survives restarts and covers the whole AI spend for the month.
- */
+export type AiBudgetClass = "essential" | "background" | "evaluation";
+
+export type BudgetBlockReason =
+  | "monthly_limit"
+  | "monthly_pacing"
+  | "class_limit"
+  | "evaluation_disabled"
+  | "provider_key_limit";
 
 export class BudgetExceededError extends Error {
   readonly code = "budget";
+
   constructor(
     public readonly spentUsd: number,
-    public readonly limitUsd: number
+    public readonly limitUsd: number,
+    public readonly reason: BudgetBlockReason = "monthly_limit",
   ) {
     super(
-      `Aylık AI bütçesi aşıldı: $${spentUsd.toFixed(4)} / $${limitUsd.toFixed(2)}`
+      `Aylik AI butcesi cagriyi durdurdu: $${spentUsd.toFixed(4)} / $${limitUsd.toFixed(2)} (${reason})`,
     );
     this.name = "BudgetExceededError";
   }
@@ -26,37 +31,141 @@ export type BudgetStatus = {
   spentUsd: number;
   limitUsd: number;
   remainingUsd: number;
+  budgetClass?: AiBudgetClass;
+  classSpentUsd?: number;
+  classLimitUsd?: number;
+  pacedLimitUsd?: number;
+  requestedCeilingUsd?: number;
+  providerUsageMonthlyUsd?: number | null;
+  providerRemainingUsd?: number | null;
+  providerLimitUsd?: number | null;
+  providerLimitReset?: string | null;
+  reason?: BudgetBlockReason;
 };
 
-export async function getBudgetStatus(): Promise<BudgetStatus> {
-  const limitUsd = getCostLimits().monthlyBudgetUsd;
-  const spentUsd = await usageService.getMonthlyCost();
-  // A non-positive limit means "no AI spend allowed" → always blocked.
-  const allowed = limitUsd > 0 && spentUsd < limitUsd;
+export type BudgetCheckOptions = {
+  budgetClass?: AiBudgetClass;
+  estimatedCostUsd?: number;
+  now?: Date;
+};
+
+const ESSENTIAL_PURPOSES = [
+  "writer_",
+  "judge_x_critique",
+  "judge_final_polish",
+  "ig_dm_draft",
+  "ig_reply",
+];
+
+export function inferAiBudgetClass(purpose: string): AiBudgetClass {
+  if (purpose.startsWith("eval_")) return "evaluation";
+  if (ESSENTIAL_PURPOSES.some((prefix) => purpose.startsWith(prefix))) return "essential";
+  return "background";
+}
+
+function monthProgressUtc(now: Date): number {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return now.getUTCDate() / daysInMonth;
+}
+
+function nonNegative(value: number | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+export async function getBudgetStatus(
+  options: BudgetCheckOptions = {},
+): Promise<BudgetStatus> {
+  const limits = getCostLimits();
+  const limitUsd = limits.monthlyBudgetUsd;
+  const budgetClass = options.budgetClass ?? "essential";
+  const requestedCeilingUsd = nonNegative(options.estimatedCostUsd);
+  const now = options.now ?? new Date();
+
+  const [localSpendUsd, classSpentUsd, provider] = await Promise.all([
+    usageService.getMonthlyOpenRouterCost(),
+    budgetClass === "essential"
+      ? Promise.resolve(0)
+      : usageService.getMonthlySpendByBudgetClass(budgetClass),
+    getOpenRouterKeyStatus(),
+  ]);
+
+  // Provider usage is authoritative when older calls were not written locally.
+  // Local usage stays authoritative when multiple keys/environments share a DB.
+  const providerUsageMonthlyUsd = provider?.usageMonthlyUsd ?? null;
+  const spentUsd = Math.max(localSpendUsd, providerUsageMonthlyUsd ?? 0);
+  const remainingUsd = Math.max(0, limitUsd - spentUsd);
+  const progress = limits.pacingEnabled ? monthProgressUtc(now) : 1;
+  const pacedLimitUsd = limitUsd * progress;
+  const operatingBudgetUsd = Math.max(0, limitUsd - limits.monthlyReserveUsd);
+
+  let classLimitUsd = pacedLimitUsd;
+  if (budgetClass === "background") {
+    classLimitUsd = operatingBudgetUsd * limits.backgroundBudgetRatio * progress;
+  } else if (budgetClass === "evaluation") {
+    classLimitUsd = limits.evalSpendEnabled ? limits.evalMonthlyBudgetUsd : 0;
+  }
+
+  let reason: BudgetBlockReason | undefined;
+  if (
+    limitUsd <= 0 ||
+    spentUsd >= limitUsd ||
+    spentUsd + requestedCeilingUsd > limitUsd
+  ) {
+    reason = "monthly_limit";
+  } else if (
+    provider?.limitRemainingUsd != null &&
+    (provider.limitRemainingUsd <= 0 || requestedCeilingUsd > provider.limitRemainingUsd)
+  ) {
+    reason = "provider_key_limit";
+  } else if (budgetClass === "evaluation" && !limits.evalSpendEnabled) {
+    reason = "evaluation_disabled";
+  } else if (
+    budgetClass !== "evaluation" &&
+    (spentUsd >= pacedLimitUsd || spentUsd + requestedCeilingUsd > pacedLimitUsd)
+  ) {
+    reason = "monthly_pacing";
+  } else if (
+    budgetClass !== "essential" &&
+    (classSpentUsd >= classLimitUsd || classSpentUsd + requestedCeilingUsd > classLimitUsd)
+  ) {
+    reason = "class_limit";
+  }
+
   return {
-    allowed,
+    allowed: reason == null,
     spentUsd,
     limitUsd,
-    remainingUsd: Math.max(0, limitUsd - spentUsd),
+    remainingUsd,
+    budgetClass,
+    classSpentUsd,
+    classLimitUsd,
+    pacedLimitUsd,
+    requestedCeilingUsd,
+    providerUsageMonthlyUsd,
+    providerRemainingUsd: provider?.limitRemainingUsd ?? null,
+    providerLimitUsd: provider?.limitUsd ?? null,
+    providerLimitReset: provider?.limitReset ?? null,
+    reason,
   };
 }
 
-/**
- * Throws BudgetExceededError if the monthly AI budget is spent. Call at the top
- * of every service that is about to make one or more LLM calls.
- */
-export async function assertGenerationAllowed(): Promise<void> {
-  const status = await getBudgetStatus();
+/** Throws before a request whose estimated ceiling does not fit its budget. */
+export async function assertGenerationAllowed(
+  options: BudgetCheckOptions = {},
+): Promise<void> {
+  const status = await getBudgetStatus(options);
   if (!status.allowed) {
-    throw new BudgetExceededError(status.spentUsd, status.limitUsd);
+    throw new BudgetExceededError(
+      status.spentUsd,
+      status.limitUsd,
+      status.reason ?? "monthly_limit",
+    );
   }
 }
 
-/**
- * Separate budget gate for fal.ai image generation. Image spend is tracked on
- * its own line (provider:"fal") so a $10 image budget can't be drained by — or
- * drain — the LLM budget. Call before every fal image request.
- */
+/** Separate budget gate for fal.ai image generation. */
 export async function getFalBudgetStatus(): Promise<BudgetStatus> {
   const limitUsd = getCostLimits().falMonthlyBudgetUsd;
   const spentUsd = await usageService.getMonthlyFalCost();

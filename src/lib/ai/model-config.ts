@@ -11,6 +11,22 @@ export type ModelConfig = {
   usageRule: string;
 };
 
+export type ModelPricing = {
+  inputCostPerMillion: number;
+  outputCostPerMillion: number;
+};
+
+/** Live OpenRouter catalog prices verified on 2026-07-10. */
+export const MODEL_PRICING: Readonly<Record<string, ModelPricing>> = {
+  "anthropic/claude-sonnet-5": { inputCostPerMillion: 2, outputCostPerMillion: 10 },
+  "openai/gpt-5.5": { inputCostPerMillion: 5, outputCostPerMillion: 30 },
+  "openai/gpt-5.4-mini": { inputCostPerMillion: 0.75, outputCostPerMillion: 4.5 },
+  "google/gemini-3.5-flash": { inputCostPerMillion: 1.5, outputCostPerMillion: 9 },
+  "google/gemini-3.1-flash-lite": { inputCostPerMillion: 0.25, outputCostPerMillion: 1.5 },
+  "deepseek/deepseek-v4-flash": { inputCostPerMillion: 0.09, outputCostPerMillion: 0.18 },
+  "deepseek/deepseek-v4-pro": { inputCostPerMillion: 0.435, outputCostPerMillion: 0.87 },
+};
+
 export const modelConfigs: Record<ModelRole, ModelConfig> = {
   cheapWriter: {
     role: "cheapWriter",
@@ -134,6 +150,19 @@ export function estimateCost(inputTokens: number, outputTokens: number, role: Mo
   return (
     (inputTokens / 1_000_000) * config.inputCostPerMillion +
     (outputTokens / 1_000_000) * config.outputCostPerMillion
+  );
+}
+
+export function estimateModelCost(
+  inputTokens: number,
+  outputTokens: number,
+  model: string,
+  fallbackRole: ModelRole,
+): number {
+  const pricing = MODEL_PRICING[model] ?? modelConfigs[fallbackRole];
+  return (
+    (inputTokens / 1_000_000) * pricing.inputCostPerMillion +
+    (outputTokens / 1_000_000) * pricing.outputCostPerMillion
   );
 }
 

@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Proves the runner instrumentation kept generateReplyVariants byte-identical:
 // generateJson is still called with the SAME payload, and a trace is emitted.
-vi.mock("@/lib/ai/openrouter", () => ({ generateJson: vi.fn() }));
+vi.mock("@/lib/ai/openrouter", () => ({
+  generateJson: vi.fn(),
+  estimateGenerateJsonCeiling: vi.fn(() => 0.01),
+}));
+vi.mock("@/lib/ai/openrouter-key-status", () => ({
+  getOpenRouterKeyStatus: vi.fn(() => Promise.resolve(null)),
+}));
 vi.mock("@/lib/db/pipelineTraceRepo", () => ({
   pipelineTraceRepo: { create: vi.fn(() => Promise.resolve({ id: "pt" })) },
 }));
@@ -12,6 +18,8 @@ vi.mock("@/lib/services/usageService", () => ({
   usageService: {
     recordOpenRouter: vi.fn(() => Promise.resolve()),
     getMonthlyCost: vi.fn(() => Promise.resolve(0)),
+    getMonthlyOpenRouterCost: vi.fn(() => Promise.resolve(0)),
+    getMonthlySpendByBudgetClass: vi.fn(() => Promise.resolve(0)),
   },
 }));
 

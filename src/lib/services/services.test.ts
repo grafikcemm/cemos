@@ -33,9 +33,25 @@ vi.mock("@/lib/services/usageService", () => ({
     recordScan: vi.fn(),
     recordGeneration: vi.fn(),
     getMonthlyCost: vi.fn().mockResolvedValue(0),
+    getMonthlyOpenRouterCost: vi.fn().mockResolvedValue(0),
+    getMonthlySpendByBudgetClass: vi.fn().mockResolvedValue(0),
     getTodayCost: vi.fn().mockResolvedValue(0),
   },
 }));
+vi.mock("@/lib/config/costGate", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
+    "@/lib/config/costGate",
+  );
+  return {
+    ...actual,
+    getBudgetStatus: vi.fn(async () => ({
+      allowed: true,
+      spentUsd: 0,
+      limitUsd: 10,
+      remainingUsd: 10,
+    })),
+  };
+});
 vi.mock("@/lib/socialdata", () => ({
   fetchUserTweets: vi.fn(),
   meetsThreshold: vi.fn(),

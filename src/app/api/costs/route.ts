@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { getCostLimits } from "@/lib/config/costLimits";
+import { getBudgetStatus } from "@/lib/config/costGate";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 // SocialData per-tweet unit price (mirrors calculateCost in socialdata.ts).
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
 
     const limits = getCostLimits();
     const budgetUsd = limits.monthlyBudgetUsd;
+    const budgetStatus = await getBudgetStatus({ budgetClass: "essential" });
 
     // ── PROVIDER LINE ITEMS (month-to-date) ───────────────────────────────────
     // SocialData: tweets fetched × unit price.
@@ -165,6 +167,7 @@ export async function GET(req: NextRequest) {
         openRouterUsd: lineItems.openRouter.costUsd,
       },
       lineItems,
+      budgetStatus,
       dailySeries,
       limits: {
         dailyTweetBudget: limits.dailyTweetBudget,

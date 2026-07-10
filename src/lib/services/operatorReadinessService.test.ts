@@ -23,6 +23,16 @@ vi.mock("@/lib/services/healthService", () => ({
   }
 }));
 
+vi.mock("@/lib/config/costGate", () => ({
+  getBudgetStatus: vi.fn(async () => ({
+    allowed: true,
+    spentUsd: 0,
+    limitUsd: 10,
+    remainingUsd: 10,
+    providerLimitUsd: null,
+  })),
+}));
+
 describe("operatorReadinessService", () => {
   beforeEach(() => {
     vi.clearAllMocks();

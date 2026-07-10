@@ -58,6 +58,8 @@ export type PresetConfig = {
   /** provider.order — örn. ["anthropic"]. Boş = fiyat bazlı. */
   providerOrder?: string[];
   sort?: "price";
+  /** OpenRouter provider.max_price, in USD per million tokens. */
+  maxPrice: { prompt: number; completion: number };
   timeoutMs: number;
   retries: number;
 };
@@ -111,6 +113,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "allow",
     reasoning: "none",
     sort: "price",
+    maxPrice: { prompt: 0.3, completion: 1.75 },
     timeoutMs: 15_000,
     retries: 1,
   },
@@ -126,6 +129,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "allow",
     reasoning: "none",
     sort: "price",
+    maxPrice: { prompt: 0.12, completion: 0.25 },
     timeoutMs: 12_000,
     retries: 1,
   },
@@ -133,7 +137,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-research",
     role: "qualityJudge",
     primary: "google/gemini-3.5-flash",
-    fallbacks: ["deepseek/deepseek-v4-pro", "openai/gpt-5.5"],
+    fallbacks: ["deepseek/deepseek-v4-pro", "google/gemini-3.1-flash-lite"],
     purposePrefix: "research_",
     temperature: 0.3,
     structured: "json_schema",
@@ -141,6 +145,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "allow",
     reasoning: "low",
     sort: "price",
+    maxPrice: { prompt: 1.75, completion: 10 },
     timeoutMs: 40_000,
     retries: 1,
   },
@@ -148,7 +153,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-multimodal-audit",
     role: "qualityJudge",
     primary: "google/gemini-3.5-flash",
-    fallbacks: ["openai/gpt-5.5", "deepseek/deepseek-v4-pro"],
+    fallbacks: ["deepseek/deepseek-v4-pro", "google/gemini-3.1-flash-lite"],
     purposePrefix: "audit_",
     temperature: 0.2,
     structured: "json_schema",
@@ -156,6 +161,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "allow",
     reasoning: "low",
     sort: "price",
+    maxPrice: { prompt: 1.75, completion: 10 },
     timeoutMs: 45_000,
     retries: 1,
   },
@@ -171,6 +177,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "deny",
     reasoning: "none",
     sort: "price",
+    maxPrice: { prompt: 0.5, completion: 1 },
     timeoutMs: 30_000,
     retries: 1,
   },
@@ -178,7 +185,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-writer",
     role: "creativeWriter",
     primary: "anthropic/claude-sonnet-5",
-    fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
+    fallbacks: ["deepseek/deepseek-v4-pro", "google/gemini-3.5-flash"],
     purposePrefix: "writer_",
     temperature: 0.9,
     // Routing tablosunda "none"; draft-pipeline JSON sözleşmesi için json_object.
@@ -187,6 +194,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "deny",
     reasoning: "medium",
     providerOrder: ["anthropic"],
+    maxPrice: { prompt: 2.25, completion: 11 },
     timeoutMs: 45_000,
     retries: 1,
   },
@@ -194,7 +202,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-strategist",
     role: "qualityJudge",
     primary: "anthropic/claude-sonnet-5",
-    fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
+    fallbacks: ["openai/gpt-5.4-mini", "google/gemini-3.5-flash"],
     purposePrefix: "strategy_",
     temperature: 0.4,
     structured: "json_schema",
@@ -202,6 +210,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "deny",
     reasoning: "high",
     providerOrder: ["anthropic"],
+    maxPrice: { prompt: 2.25, completion: 11 },
     timeoutMs: 60_000,
     retries: 1,
   },
@@ -209,8 +218,9 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-final-judge",
     role: "viralJudge",
     // C3: writer'la KARŞI aile (Anthropic writer / OpenAI judge).
-    primary: "openai/gpt-5.5",
-    fallbacks: ["google/gemini-3.5-flash", "anthropic/claude-sonnet-5"],
+    // GPT-5.4 mini keeps the writer/judge family split at a fraction of GPT-5.5 cost.
+    primary: "openai/gpt-5.4-mini",
+    fallbacks: ["deepseek/deepseek-v4-pro", "google/gemini-3.1-flash-lite"],
     purposePrefix: "judge_",
     temperature: 0.2,
     structured: "json_schema",
@@ -218,6 +228,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "deny",
     reasoning: "low",
     providerOrder: ["openai"],
+    maxPrice: { prompt: 0.9, completion: 5 },
     timeoutMs: 30_000,
     retries: 1,
   },
@@ -225,7 +236,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     name: "cemos-image-concept",
     role: "creativeWriter",
     primary: "google/gemini-3.5-flash",
-    fallbacks: ["anthropic/claude-sonnet-5"],
+    fallbacks: ["deepseek/deepseek-v4-pro"],
     purposePrefix: "image_",
     temperature: 0.7,
     structured: "json_schema",
@@ -233,6 +244,7 @@ export const PRESETS: Record<PresetName, PresetConfig> = {
     dataCollection: "deny",
     reasoning: "low",
     sort: "price",
+    maxPrice: { prompt: 1.75, completion: 10 },
     timeoutMs: 30_000,
     retries: 1,
   },
@@ -269,6 +281,12 @@ export function validatePresets(): void {
     const primaryFamily = familyOf(preset.primary);
     if (!preset.fallbacks.some((f) => familyOf(f) !== primaryFamily)) {
       errors.push(`${preset.name}: farklı-sağlayıcı fallback yok`);
+    }
+  }
+
+  for (const preset of Object.values(PRESETS)) {
+    if (preset.maxPrice.prompt <= 0 || preset.maxPrice.completion <= 0) {
+      errors.push(`${preset.name}: provider max_price pozitif olmali`);
     }
   }
 

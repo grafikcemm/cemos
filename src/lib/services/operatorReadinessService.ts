@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { healthService } from "@/lib/services/healthService";
+import { getBudgetStatus } from "@/lib/config/costGate";
 
 /**
  * Operator hazırlık değerlendirmesi (W1 yumuşatma).
@@ -168,20 +169,24 @@ export const operatorReadinessService = {
     }
 
     // 5. Maliyet kontrolü → uyarı (bloklamaz).
-    const thisMonthStr = new Date().toISOString().slice(0, 7);
-    const logs = await prisma.usageLog.findMany({
-      where: { date: { startsWith: thisMonthStr } },
-    });
-    const totalMonthCost = logs.reduce((sum, l) => sum + l.estimatedCostUsd, 0);
-
-    const monthlyBudgetUSD = Number(process.env.MONTHLY_AI_BUDGET_USD || "7");
-    const budgetExceeded = totalMonthCost >= monthlyBudgetUSD;
+    const budget = await getBudgetStatus({ budgetClass: "essential" });
+    const totalMonthCost = budget.spentUsd;
+    const monthlyBudgetUSD = budget.limitUsd;
+    const budgetExceeded = !budget.allowed;
     checks.costUnderBudget = !budgetExceeded;
     if (budgetExceeded) {
-      warnings.push(`Aylık bütçe sınırı aşıldı (${totalMonthCost.toFixed(2)} / ${monthlyBudgetUSD} USD) — yeni üretimi beklatmayı düşünün.`);
+      warnings.push(
+        `AI bütçe kapısı aktif (${totalMonthCost.toFixed(2)} / ${monthlyBudgetUSD} USD; ${budget.reason ?? "limit"}).`,
+      );
     }
 
     // 6. Model profil kalitesi → uyarı (bloklamaz).
+    if (budget.providerLimitUsd != null && budget.providerLimitUsd < monthlyBudgetUSD) {
+      warnings.push(
+        `OpenRouter anahtar limiti ${budget.providerLimitUsd.toFixed(2)} USD; CemOS aylık hedefi ${monthlyBudgetUSD.toFixed(2)} USD. OpenRouter key limitini eşitleyin.`,
+      );
+    }
+
     const { resolveModel } = await import("@/lib/ai/model-config");
     const activeProfile = process.env.MODEL_PROFILE || "operator_quality";
     const hasFreeModel =

@@ -1,5 +1,15 @@
 # CemOS V2 — Final OpenRouter Routing
 
+> **Bütçe revizyonu (2026-07-10):** `$10/ay` hedefi artık yalnız ay-sonu hard cap
+> değildir. `generateJsonGated` her çağrının model/max-token maliyet tavanını
+> harcamadan önce hesaplar; toplam harcama ayın günlerine kümülatif yayılır,
+> background işler operasyon bütçesinin en fazla `%30`unu kullanır, `$1` core
+> üretime ayrılır ve canlı eval varsayılan kapalıdır. OpenRouter `/api/v1/key`
+> aylık kullanım/anahtar limitini doğrular; DB veya provider toplamından büyük olan
+> kazanır. Preset'ler `provider.max_price` taşır. Sıcak yol: writer
+> `claude-sonnet-5`, karşı-aile judge `gpt-5.4-mini`; `gpt-5.5` normal sıcak yoldan
+> çıkarılmıştır. Final editor yalnız `ENABLE_FINAL_EDITOR=true` ile çalışır.
+
 > **Bağlayıcı girdiler:** [RESEARCH-SYNTHESIS.md](./RESEARCH-SYNTHESIS.md) D6 + C1/C2/C3/C8 kararları + [research/06-openrouter-routing.md](./research/06-openrouter-routing.md).
 >
 > **⚠️ REVİZYON (2026-07-09, Sprint 1 canlı doğrulaması):** Bu dokümanın önceki

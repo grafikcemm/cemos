@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn(),
+  estimateGenerateJsonCeiling: vi.fn(() => 0.05),
 }));
 vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
@@ -64,7 +65,7 @@ describe("generateJsonGated", () => {
       accountId: "acc-1",
       estimatedCostUsd: 0.002, // actualCostUsd
       model: "test/model",
-      meta: { purpose: "test", contentItemId: "ci-1" },
+      meta: { purpose: "test", budgetClass: "background", contentItemId: "ci-1" },
       platform: "x",
     });
   });
@@ -86,10 +87,11 @@ describe("generateJsonGated", () => {
       expect.objectContaining({
         role: "creativeWriter",
         model: "anthropic/claude-sonnet-5",
-        fallbacks: ["openai/gpt-5.5", "google/gemini-3.5-flash"],
+        fallbacks: ["deepseek/deepseek-v4-pro", "google/gemini-3.5-flash"],
         structured: "json_object",
         cacheControl: true,
         providerOrder: ["anthropic"],
+        maxPrice: { prompt: 2.25, completion: 11 },
         dataCollection: "deny",
         reasoning: "medium",
         temperature: 0.9,
@@ -98,7 +100,11 @@ describe("generateJsonGated", () => {
     );
     expect(usageService.recordOpenRouter).toHaveBeenCalledWith(
       expect.objectContaining({
-        meta: expect.objectContaining({ purpose: "writer_x_draft", preset: "cemos-writer" }),
+        meta: expect.objectContaining({
+          purpose: "writer_x_draft",
+          preset: "cemos-writer",
+          budgetClass: "essential",
+        }),
       }),
     );
   });
@@ -128,5 +134,32 @@ describe("generateJsonGated", () => {
       /purpose zorunlu/,
     );
     expect(generateJson).not.toHaveBeenCalled();
+  });
+});
+
+describe("generateJsonGated billed failures", () => {
+  it("logs a billed invalid response before rethrowing", async () => {
+    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+    const failure = Object.assign(new Error("invalid JSON"), {
+      actualCostUsd: 0.03,
+      model: "test/model",
+    });
+    vi.mocked(generateJson).mockRejectedValueOnce(failure);
+
+    await expect(
+      generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" }),
+    ).rejects.toBe(failure);
+
+    expect(usageService.recordOpenRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        estimatedCostUsd: 0.03,
+        model: "test/model",
+        meta: expect.objectContaining({
+          purpose: "test",
+          budgetClass: "background",
+          failed: true,
+        }),
+      }),
+    );
   });
 });
