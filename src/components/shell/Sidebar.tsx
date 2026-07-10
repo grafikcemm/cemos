@@ -3,108 +3,75 @@
 import {
   Sunrise,
   Compass,
-  Activity,
-  DollarSign,
-  Settings,
+  Settings2,
   PanelLeftClose,
   PanelLeftOpen,
-  ListChecks,
-  Wrench,
   Library,
-  Sparkles,
-  TrendingUp,
-  Newspaper,
-  BrainCircuit,
-  Video,
-  Camera,
-  Users,
-  Star,
-  Type,
-  Puzzle,
   Send,
   Radar,
   type LucideIcon,
 } from "lucide-react";
-import {
-  PRIMARY_AREAS,
-  UTILITY_TABS,
-  subTabsOfArea,
-  type PrimaryAreaId,
-} from "@/components/nav/navConfig";
+import { useXAgentStore, type Channel } from "@/store/xagent";
+import { PRIMARY_AREAS, type PrimaryAreaId } from "@/components/nav/navConfig";
+
+const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
 const ICONS: Record<string, LucideIcon> = {
   Sunrise,
   Send,
   Radar,
   Library,
-  Wrench,
-  DollarSign,
-  Activity,
-  Settings,
 };
 
-/** Alt-sekme ikonları — düz metin listesini gerçek uygulama navigasyonuna çevirir. */
-const TAB_ICONS: Record<string, LucideIcon> = {
-  morning: Sunrise,
-  "daily-queue": ListChecks,
-  "news-pool": Newspaper,
-  "flow-radar": TrendingUp,
-  "discovery-engine": Sparkles,
-  "source-intelligence": Users,
-  "viral-library": Star,
-  "keyword-library": Type,
-  "prompt-library": Library,
-  "pattern-library": Puzzle,
-  youtube: Video,
-  "learn-dashboard": BrainCircuit,
-  instagram: Camera,
-};
-
-/* Aktif nav: solid pill DEĞİL — mor tint zemin + mor metin (dashboard sessiz aktiflik). */
+/* Aktif nav: sessiz mor tint + 2px sol gösterge (dashboard sessiz aktiflik). */
 const ACTIVE_BG = "var(--accent-dark)";
-const ACTIVE_BORDER = "1px solid var(--accent-border)";
 
 type SidebarProps = {
   activeArea: PrimaryAreaId | null;
   onSelectArea: (areaId: PrimaryAreaId) => void;
-  activeTab: string;
-  onSelectTab: (tabId: string) => void;
+  /** Sistem kümesi (utility) aktif mi — sentetik 5. alan olarak gösterilir. */
   activeUtility: string | null;
   onSelectUtility: (tabId: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  /** Mobile off-canvas: closes the drawer after navigation. */
+  /** Mobile: navigasyon sonrası sheet/drawer kapatma. */
   onNavigate?: () => void;
 };
 
-/** Düz, dergi-stili nav: tüm sekme başlıkları yayılı (accordion yok). */
+/**
+ * Dashboard sidebar — YALNIZ 5 üst-düzey alan (Bugün/Üretim/Keşif/Hafıza/Sistem).
+ * Alt sayfalar workspace içindeki contextual sub-nav'da yaşar (AppShell).
+ * Dipte: hesap (kanal) seçici + daralt.
+ */
 export default function Sidebar({
   activeArea,
   onSelectArea,
-  activeTab,
-  onSelectTab,
   activeUtility,
   onSelectUtility,
   collapsed,
   onToggleCollapse,
   onNavigate,
 }: SidebarProps) {
+  const activeChannel = useXAgentStore((s) => s.activeChannel);
+  const setActiveChannel = useXAgentStore((s) => s.setActiveChannel);
+
   const go = (fn: () => void) => {
     fn();
     onNavigate?.();
   };
 
+  const systemActive = activeUtility != null;
+
   return (
     <aside
       className="app-sidebar"
       style={{
-        width: collapsed ? 60 : 248,
+        width: collapsed ? 64 : 216,
         flexShrink: 0,
         height: "100vh",
         position: "sticky",
         top: 0,
         background: "var(--bg-rail)",
-        borderRight: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
         transition: "width 0.18s ease",
@@ -117,7 +84,7 @@ export default function Sidebar({
           display: "flex",
           alignItems: "center",
           gap: 10,
-          padding: collapsed ? "16px 0" : "16px 16px",
+          padding: collapsed ? "18px 0" : "18px 18px",
           justifyContent: collapsed ? "center" : "flex-start",
           height: 64,
           flexShrink: 0,
@@ -125,176 +92,131 @@ export default function Sidebar({
       >
         <div
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: "var(--radius-md)",
-            background: "var(--accent-dark)",
-            border: "1px solid var(--accent-border)",
+            width: 30,
+            height: 30,
+            borderRadius: "var(--radius-sm)",
+            background: "var(--accent)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
             <path
               d="M7 7L12 12M12 12L17 7M12 12L7 17M12 12L17 17"
-              stroke="var(--accent-text)"
-              strokeWidth="2.2"
+              stroke="var(--accent-fg)"
+              strokeWidth="2.4"
               strokeLinecap="round"
             />
           </svg>
         </div>
         {!collapsed && (
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-            <span
-              className="font-display"
-              style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--text-primary)" }}
-            >
-              CemOS
-            </span>
-            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", letterSpacing: "0.06em" }}>
-              ÜRETİM MOTORU
-            </span>
-          </div>
+          <span
+            className="font-display"
+            style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+          >
+            CemOS
+          </span>
         )}
       </div>
 
-      {/* Nav */}
-      {collapsed ? (
-        <IconRail
-          activeArea={activeArea}
-          activeUtility={activeUtility}
-          onSelectArea={(id) => go(() => onSelectArea(id))}
-          onSelectUtility={(id) => go(() => onSelectUtility(id))}
+      {/* Nav — yalnız 5 alan */}
+      <nav
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          padding: collapsed ? "10px 12px" : "10px 12px",
+          flex: 1,
+          alignItems: collapsed ? "center" : "stretch",
+        }}
+      >
+        {PRIMARY_AREAS.map((area) => {
+          const Icon = ICONS[area.icon] ?? Compass;
+          const isActive = !systemActive && area.id === activeArea;
+          return (
+            <AreaButton
+              key={area.id}
+              testid={`sidebar-area-${area.id}`}
+              label={area.label}
+              icon={<Icon size={17} strokeWidth={2} />}
+              active={isActive}
+              collapsed={collapsed}
+              onClick={() => go(() => onSelectArea(area.id))}
+            />
+          );
+        })}
+
+        {/* Sistem — sentetik 5. alan (utility kümesi) */}
+        <AreaButton
+          testid="sidebar-area-sistem"
+          label="Sistem"
+          icon={<Settings2 size={17} strokeWidth={2} />}
+          active={systemActive}
+          collapsed={collapsed}
+          onClick={() => go(() => onSelectUtility("system"))}
         />
-      ) : (
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 1,
-            padding: "6px 10px 14px",
-            flex: 1,
-            overflowY: "auto",
-          }}
-        >
-          {PRIMARY_AREAS.map((area) => {
-            const subs = subTabsOfArea(area.id);
-            const Icon = ICONS[area.icon] ?? Compass;
+      </nav>
 
-            // Tek-sekmeli alan (Bugün) → öne çıkan tek nav öğesi.
-            if (subs.length <= 1) {
-              const isActive = area.id === activeArea;
-              return (
-                <button
-                  key={area.id}
-                  data-testid={`sidebar-area-${area.id}`}
-                  onClick={() => go(() => onSelectArea(area.id))}
-                  aria-current={isActive ? "page" : undefined}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 11,
-                    width: "100%",
-                    padding: "10px 12px",
-                    marginBottom: 4,
-                    borderRadius: "var(--radius-sm)",
-                    border: isActive ? ACTIVE_BORDER : "1px solid transparent",
-                    background: isActive ? ACTIVE_BG : "transparent",
-                    color: isActive ? "var(--accent-text)" : "var(--text-secondary)",
-                    fontSize: "var(--text-sm)",
-                    fontWeight: 500,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.15s, color 0.15s, box-shadow 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = "var(--bg-hover)";
-                      e.currentTarget.style.color = "var(--text-primary)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "var(--text-secondary)";
-                    }
-                  }}
-                >
-                  <Icon size={17} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  <span>{area.label}</span>
-                </button>
-              );
-            }
-
-            const isAreaActive = area.id === activeArea;
-            return (
-              <div key={area.id} style={{ marginTop: 12 }}>
-                <button
-                  data-testid={`sidebar-area-${area.id}`}
-                  onClick={() => go(() => onSelectArea(area.id))}
-                  className="eyebrow"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    width: "100%",
-                    padding: "4px 8px 7px",
-                    background: "transparent",
-                    border: "none",
-                    color: isAreaActive ? "var(--accent-text)" : "var(--text-muted)",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "color 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isAreaActive) e.currentTarget.style.color = "var(--text-secondary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isAreaActive) e.currentTarget.style.color = "var(--text-muted)";
-                  }}
-                >
-                  <Icon size={13} strokeWidth={2.2} style={{ flexShrink: 0 }} />
-                  {area.label}
-                </button>
-                {subs.map((sub) => (
-                  <TabButton
-                    key={sub.id}
-                    id={sub.id}
-                    label={sub.label}
-                    active={sub.id === activeTab}
-                    icon={TAB_ICONS[sub.id]}
-                    onClick={() => go(() => onSelectTab(sub.id))}
-                  />
-                ))}
-              </div>
-            );
-          })}
-
-          {/* Sistem kümesi — sağlık/maliyet/araç/ayar yüzeyleri */}
-          <div style={{ marginTop: 12 }}>
-            <div className="eyebrow" style={{ padding: "4px 8px 7px", color: "var(--text-muted)" }}>
-              Sistem
-            </div>
-            {UTILITY_TABS.map((tab) => (
-              <TabButton
-                key={tab.id}
-                id={tab.id}
-                testid={`sidebar-utility-${tab.id}`}
-                label={tab.label}
-                active={tab.id === activeUtility}
-                icon={ICONS[tab.icon]}
-                onClick={() => go(() => onSelectUtility(tab.id))}
-              />
-            ))}
+      {/* Dip: hesap + daralt (sabit) */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          padding: 12,
+          borderTop: "1px solid var(--border-faint)",
+          flexShrink: 0,
+          alignItems: collapsed ? "center" : "stretch",
+        }}
+      >
+        {collapsed ? (
+          <div
+            title={`@${activeChannel}`}
+            aria-label={`Aktif kanal @${activeChannel}`}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "var(--accent-dark)",
+              border: "1px solid var(--accent-border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "var(--text-xs)",
+              fontWeight: 600,
+              color: "var(--accent-text)",
+            }}
+          >
+            {activeChannel.charAt(0).toUpperCase()}
           </div>
-        </nav>
-      )}
+        ) : (
+          <select
+            value={activeChannel}
+            onChange={(e) => setActiveChannel(e.target.value as Channel)}
+            aria-label="Aktif kanal"
+            style={{
+              height: "var(--control-h-sm)",
+              background: "var(--bg-sunken)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-secondary)",
+              padding: "0 8px",
+              fontSize: "var(--text-xs)",
+              fontFamily: "inherit",
+              cursor: "pointer",
+              outline: "none",
+            }}
+          >
+            {CHANNELS.map((ch) => (
+              <option key={ch} value={ch}>
+                @{ch}
+              </option>
+            ))}
+          </select>
+        )}
 
-      {/* Footer: collapse (durum + kanal artık TopStrip'te yaşar) */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, borderTop: "1px solid var(--border-faint)", flexShrink: 0 }}>
         <button
           onClick={onToggleCollapse}
           aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}
@@ -303,10 +225,11 @@ export default function Sidebar({
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            padding: "8px 9px",
+            height: "var(--control-h-sm)",
+            width: collapsed ? 32 : "100%",
             background: "transparent",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-faint)",
+            borderRadius: "var(--radius-sm)",
             color: "var(--text-muted)",
             cursor: "pointer",
             fontSize: "var(--text-xs)",
@@ -321,44 +244,46 @@ export default function Sidebar({
   );
 }
 
-/** Düz nav sekme düğmesi — aktifte sol accent kuralı + accent-dark zemin. */
-function TabButton({
-  id,
-  label,
-  active,
-  onClick,
+function AreaButton({
   testid,
-  icon: Icon,
+  label,
+  icon,
+  active,
+  collapsed,
+  onClick,
 }: {
-  id: string;
+  testid: string;
   label: string;
+  icon: React.ReactNode;
   active: boolean;
+  collapsed: boolean;
   onClick: () => void;
-  testid?: string;
-  icon?: LucideIcon;
 }) {
   return (
     <button
-      data-testid={testid ?? `sidebar-tab-${id}`}
+      data-testid={testid}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      title={collapsed ? label : undefined}
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
-        gap: 9,
-        width: "100%",
-        padding: "7px 10px 7px 12px",
-        borderRadius: "var(--radius-md)",
+        justifyContent: collapsed ? "center" : "flex-start",
+        gap: 11,
+        width: collapsed ? 40 : "100%",
+        height: 40,
+        padding: collapsed ? 0 : "0 12px",
+        borderRadius: "var(--radius-sm)",
         border: "none",
-        borderLeft: `2px solid ${active ? "var(--accent)" : "transparent"}`,
-        background: active ? "var(--accent-dark)" : "transparent",
-        color: active ? "var(--accent-text)" : "var(--text-secondary)",
+        background: active ? ACTIVE_BG : "transparent",
+        color: active ? "var(--accent-text)" : "var(--text-muted)",
         fontSize: "var(--text-sm)",
-        fontWeight: active ? 500 : 500,
+        fontWeight: 500,
         fontFamily: "inherit",
         cursor: "pointer",
         textAlign: "left",
-        transition: "background 0.15s, color 0.15s, border-color 0.15s",
+        transition: "background 0.15s, color 0.15s",
       }}
       onMouseEnter={(e) => {
         if (!active) {
@@ -369,113 +294,27 @@ function TabButton({
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = "var(--text-secondary)";
+          e.currentTarget.style.color = "var(--text-muted)";
         }
       }}
     >
-      {Icon && <Icon size={14} strokeWidth={2} style={{ flexShrink: 0, opacity: 0.85 }} />}
-      <span style={{ flex: 1 }}>{label}</span>
+      {/* Küçük aktif göstergesi — sol kenar çizgisi */}
+      {active && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: collapsed ? -12 : -12,
+            top: 10,
+            bottom: 10,
+            width: 2,
+            borderRadius: 2,
+            background: "var(--accent)",
+          }}
+        />
+      )}
+      <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span>
+      {!collapsed && <span>{label}</span>}
     </button>
-  );
-}
-
-/** Daraltılmış sidebar — alan + araç ikon rayı. */
-function IconRail({
-  activeArea,
-  activeUtility,
-  onSelectArea,
-  onSelectUtility,
-}: {
-  activeArea: PrimaryAreaId | null;
-  activeUtility: string | null;
-  onSelectArea: (id: PrimaryAreaId) => void;
-  onSelectUtility: (id: string) => void;
-}) {
-  return (
-    <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 8px", flex: 1, overflowY: "auto", alignItems: "center" }}>
-      {PRIMARY_AREAS.map((area) => {
-        const Icon = ICONS[area.icon] ?? Compass;
-        const isActive = area.id === activeArea;
-        return (
-          <button
-            key={area.id}
-            data-testid={`sidebar-area-${area.id}`}
-            onClick={() => onSelectArea(area.id)}
-            aria-current={isActive ? "page" : undefined}
-            title={area.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: "var(--radius-sm)",
-              border: isActive ? ACTIVE_BORDER : "1px solid transparent",
-              background: isActive ? ACTIVE_BG : "transparent",
-              color: isActive ? "var(--accent-text)" : "var(--text-secondary)",
-              cursor: "pointer",
-              transition: "background 0.15s, color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.background = "var(--bg-hover)";
-                e.currentTarget.style.color = "var(--text-primary)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-secondary)";
-              }
-            }}
-          >
-            <Icon size={17} strokeWidth={2} />
-          </button>
-        );
-      })}
-
-      <div style={{ width: 24, height: 1, background: "var(--border)", margin: "6px 0" }} />
-
-      {UTILITY_TABS.map((tab) => {
-        const Icon = ICONS[tab.icon] ?? Settings;
-        const isActive = tab.id === activeUtility;
-        return (
-          <button
-            key={tab.id}
-            data-testid={`sidebar-utility-${tab.id}`}
-            onClick={() => onSelectUtility(tab.id)}
-            aria-current={isActive ? "page" : undefined}
-            title={tab.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: "var(--radius-sm)",
-              border: isActive ? ACTIVE_BORDER : "1px solid transparent",
-              background: isActive ? ACTIVE_BG : "transparent",
-              color: isActive ? "var(--accent-text)" : "var(--text-muted)",
-              cursor: "pointer",
-              transition: "background 0.15s, color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.background = "var(--bg-hover)";
-                e.currentTarget.style.color = "var(--text-primary)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-muted)";
-              }
-            }}
-          >
-            <Icon size={16} strokeWidth={2} />
-          </button>
-        );
-      })}
-    </nav>
   );
 }

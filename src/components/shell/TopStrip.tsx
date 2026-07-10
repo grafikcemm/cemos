@@ -1,29 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Activity } from "lucide-react";
-import { useXAgentStore, type Channel } from "@/store/xagent";
+import { Activity } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
 import Drawer from "@/components/ui/Drawer";
 import { useSystemStatus } from "./useSystemStatus";
 
-const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
-
 type TopStripProps = {
   areaLabel: string;
   subTabLabel?: string;
-  onOpenMobileNav: () => void;
 };
 
 /**
- * Kompakt top bar: breadcrumb + arama (Cmd-K) + sistem durum butonu +
- * kanal seçici + mobile hamburger. Dashboard referansı: başlık solda,
- * yardımcı kontroller sağda.
+ * Kompakt top bar: breadcrumb + arama (Cmd-K) + sistem durum butonu.
+ * Mobil navigasyon bottom bar'da yaşar (hamburger yok).
  */
-export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: TopStripProps) {
+export default function TopStrip({ areaLabel, subTabLabel }: TopStripProps) {
   const hasSub = Boolean(subTabLabel && subTabLabel !== areaLabel);
-  const activeChannel = useXAgentStore((s) => s.activeChannel);
-  const setActiveChannel = useXAgentStore((s) => s.setActiveChannel);
 
   return (
     <header
@@ -44,29 +37,6 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
         flexShrink: 0,
       }}
     >
-      <button
-        className="app-mobile-nav-toggle"
-        onClick={onOpenMobileNav}
-        aria-label="Menüyü aç"
-        style={{
-          // Görünürlük CSS sınıfı ile kontrol edilir (globals.css):
-          // varsayılan gizli, ≤640px'de flex. Inline display KULLANMA — class
-          // media-query'sini ezerdi.
-          alignItems: "center",
-          justifyContent: "center",
-          width: 32,
-          height: 32,
-          background: "transparent",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-sm)",
-          color: "var(--text-secondary)",
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
-        <Menu size={17} />
-      </button>
-
       <nav
         aria-label="Breadcrumb"
         style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}
@@ -100,7 +70,7 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
         )}
       </nav>
 
-      {/* Sağ küme: arama + durum + kanal */}
+      {/* Sağ küme: arama + durum */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <SearchInput
           className="app-desktop-only"
@@ -110,30 +80,6 @@ export default function TopStrip({ areaLabel, subTabLabel, onOpenMobileNav }: To
           onClick={() => window.dispatchEvent(new CustomEvent("cemos:open-palette"))}
         />
         <SystemStatusButton />
-        <select
-          value={activeChannel}
-          onChange={(e) => setActiveChannel(e.target.value as Channel)}
-          aria-label="Aktif kanal"
-          style={{
-            height: "var(--control-h-sm)",
-            background: "var(--bg-sunken)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-sm)",
-            color: "var(--text-secondary)",
-            padding: "0 8px",
-            fontSize: "var(--text-xs)",
-            fontFamily: "inherit",
-            cursor: "pointer",
-            outline: "none",
-            maxWidth: 130,
-          }}
-        >
-          {CHANNELS.map((ch) => (
-            <option key={ch} value={ch}>
-              @{ch}
-            </option>
-          ))}
-        </select>
       </div>
     </header>
   );

@@ -442,14 +442,21 @@ b {
 /* Mobil responsive (FE-01): 320px'de yatay taşmayı giderir. Shell zaten
    off-canvas drawer + hamburger wiring'ine sahip (AppShell/TopStrip); burada
    yalnız görünürlük + gutter breakpoint'i tanımlanır. */
-.app-mobile-nav-toggle {
-  display: none; /* varsayılan: masaüstünde gizli; ≤640px'de açılır */
+/* Mobil bottom nav — varsayılan gizli; ≤640px'de görünür. */
+.app-bottomnav {
+  display: none;
 }
 
-/* Yalnız masaüstü öğeleri (topbar arama, durum etiketi) — ≤640px'de gizlenir. */
+/* Yalnız masaüstü öğeleri (topbar arama, workspace sub-nav) — ≤640px'de gizlenir. */
 @media (max-width: 640px) {
   .app-desktop-only {
     display: none !important;
+  }
+  .app-bottomnav {
+    display: flex;
+  }
+  .app-content {
+    padding-bottom: 84px !important; /* bottom nav'a yer aç */
   }
 }
 
@@ -458,10 +465,7 @@ b {
     --space-page-x: 16px; /* dar ekranda gutter daralt */
   }
   .app-sidebar-desktop {
-    display: none; /* sabit-genişlik sidebar yerine drawer kullanılır */
-  }
-  .app-mobile-nav-toggle {
-    display: inline-flex; /* hamburger görünür (inline display yok → class ezer) */
+    display: none; /* mobilde sidebar yerine bottom nav kullanılır */
   }
   .app-workspace {
     margin: 0; /* mobilde panel çerçevesi yok — tam genişlik */

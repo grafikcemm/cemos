@@ -20,8 +20,9 @@ export type NavGroup = {
   readonly hidden?: boolean;
 };
 
-/** Grup dışında, doğrudan barda duran sekmeler. */
-export const DIRECT_TABS: readonly NavTab[] = [{ id: "morning", label: "Bugün" }];
+/** Grup dışında, doğrudan barda duran sekmeler. (Etiket "Genel Bakış":
+ *  Bugün alan adıyla çift görünmesin — id SABİT kalır.) */
+export const DIRECT_TABS: readonly NavTab[] = [{ id: "morning", label: "Genel Bakış" }];
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {

@@ -17,6 +17,8 @@ import {
 import Sidebar from "./Sidebar";
 import TopStrip from "./TopStrip";
 import CommandPalette from "./CommandPalette";
+import WorkspaceSubNav from "./WorkspaceSubNav";
+import MobileNav from "./MobileNav";
 import { renderScreen } from "./screenRegistry";
 
 const COLLAPSE_KEY = "cemos-ui-collapsed";
@@ -32,8 +34,8 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const setRadarView = useXAgentStore((s) => s.setRadarView);
 
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const lastTabByArea = useRef<Partial<Record<PrimaryAreaId, string>>>({});
+  const lastUtility = useRef<string>("system");
   const seeded = useRef(false);
 
   // Restore collapse preference (separate key — never touches "xagent-store").
@@ -61,23 +63,33 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const normalizedTab = normalizeTabId(activeTab);
   const utilityActive = isUtilityTab(activeTab);
   const area: PrimaryAreaId | null = utilityActive ? null : resolveAreaForTab(activeTab) ?? "bugun";
-  const subTabs = area ? subTabsOfArea(area) : [];
   const areaMeta = area ? PRIMARY_AREAS.find((a) => a.id === area) : null;
   const utilityMeta = utilityActive ? UTILITY_TABS.find((u) => u.id === normalizedTab) : null;
-  const activeSubLabel = subTabs.find((t) => t.id === normalizedTab)?.label;
   const activeUtility = utilityActive ? normalizedTab : null;
 
-  // Remember the last sub-tab visited per area (utility hariç) for nicer area switching.
+  // Contextual sub-nav: aktif alanın alt sayfaları / Sistem kümesi.
+  const subItems = utilityActive
+    ? UTILITY_TABS.map((t) => ({ id: t.id, label: t.label }))
+    : area
+      ? subTabsOfArea(area)
+      : [];
+  const activeSubLabel = subItems.find((t) => t.id === normalizedTab)?.label;
+
+  // Remember the last sub-tab visited per area / utility for nicer switching.
   useEffect(() => {
     if (area) lastTabByArea.current[area] = normalizedTab;
-  }, [area, normalizedTab]);
+    if (utilityActive) lastUtility.current = normalizedTab;
+  }, [area, normalizedTab, utilityActive]);
 
   const handleSelectArea = (areaId: PrimaryAreaId) => {
     const target = lastTabByArea.current[areaId] ?? firstTabOfArea(areaId);
     setActiveTab(target);
   };
 
-  const handleSelectUtility = (tabId: string) => setActiveTab(tabId);
+  const handleSelectUtility = (tabId: string) => {
+    // Sidebar "Sistem" alanı → son ziyaret edilen utility sayfası.
+    setActiveTab(tabId === "system" && lastUtility.current ? lastUtility.current : tabId);
+  };
 
   const toggleCollapse = () => {
     setCollapsed((prev) => {
@@ -91,85 +103,64 @@ export default function AppShell({ initialTab }: AppShellProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
-      {/* Full-width top bar (worker/cron uyarısı) — flex-row'un DIŞINDA, yoksa
-          flex item olarak yatay yer kaplayıp sidebar'ı sağa iter. */}
+      {/* Full-width kritik uyarı bandı — flex-row'un DIŞINDA. */}
       <AutomationManager />
 
-      {/* Cmd/Ctrl-K komut paleti (Sprint 9 — FINAL-UX V1): klavye-öncelikli ekran atlama. */}
+      {/* Cmd/Ctrl-K komut paleti: klavye-öncelikli ekran atlama. */}
       <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
-      {/* Desktop sidebar */}
-      <div className="app-sidebar-desktop">
-        <Sidebar
-          activeArea={area}
-          onSelectArea={handleSelectArea}
-          activeTab={normalizedTab}
-          onSelectTab={setActiveTab}
-          activeUtility={activeUtility}
-          onSelectUtility={handleSelectUtility}
-          collapsed={collapsed}
-          onToggleCollapse={toggleCollapse}
-        />
-      </div>
-
-      {/* Mobile off-canvas sidebar */}
-      {mobileOpen && (
-        <div className="app-mobile-overlay" onClick={() => setMobileOpen(false)} style={MOBILE_OVERLAY}>
-          <div onClick={(e) => e.stopPropagation()}>
-            <Sidebar
-              activeArea={area}
-              onSelectArea={handleSelectArea}
-              activeTab={normalizedTab}
-              onSelectTab={setActiveTab}
-              activeUtility={activeUtility}
-              onSelectUtility={handleSelectUtility}
-              collapsed={false}
-              onToggleCollapse={toggleCollapse}
-              onNavigate={() => setMobileOpen(false)}
-            />
-          </div>
+        {/* Desktop sidebar — yalnız 5 alan */}
+        <div className="app-sidebar-desktop">
+          <Sidebar
+            activeArea={area}
+            onSelectArea={handleSelectArea}
+            activeUtility={activeUtility}
+            onSelectUtility={handleSelectUtility}
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapse}
+          />
         </div>
-      )}
 
-      <div
-        className="app-main app-workspace"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <TopStrip
-          areaLabel={utilityMeta?.label ?? areaMeta?.label ?? "Bugün"}
-          subTabLabel={activeSubLabel}
-          onOpenMobileNav={() => setMobileOpen(true)}
-        />
-        <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
-          {/* Tam genişlik (masaüstü): sağda ölü boşluk yok — içerik gutter'lar dışında
-              tüm genişliği doldurur; feed grid'leri satır başına daha çok kart açar. */}
-          <div
-            style={{
-              width: "100%",
-              margin: 0,
-              padding: "var(--space-page-top) var(--space-page-x) 48px",
-              minWidth: 0,
-            }}
-          >
-            {renderScreen(activeTab)}
-          </div>
-        </main>
+        <div
+          className="app-main app-workspace"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <TopStrip
+            areaLabel={utilityMeta ? "Sistem" : areaMeta?.label ?? "Bugün"}
+            subTabLabel={activeSubLabel}
+          />
+          <WorkspaceSubNav items={subItems} activeId={normalizedTab} onSelect={setActiveTab} />
+          <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
+            <div
+              className="app-content"
+              style={{
+                width: "100%",
+                margin: 0,
+                padding: "var(--space-page-top) var(--space-page-x) 48px",
+                minWidth: 0,
+              }}
+            >
+              {renderScreen(activeTab)}
+            </div>
+          </main>
+        </div>
       </div>
-      </div>
+
+      {/* Mobil: 5 alanlı bottom nav + alt-sayfa sheet (drawer YOK) */}
+      <MobileNav
+        activeArea={area}
+        activeUtility={activeUtility}
+        activeTab={normalizedTab}
+        onSelectArea={handleSelectArea}
+        onSelectTab={setActiveTab}
+        onSelectUtility={setActiveTab}
+      />
     </div>
   );
 }
-
-const MOBILE_OVERLAY: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 200,
-  background: "var(--scrim)",
-  display: "flex",
-};
