@@ -1,7 +1,8 @@
 "use client";
-import { PageHeader, Card, MetricCard, EmptyState, Badge, Button, Skeleton } from "@/components/ui";
+import { PageHeader, Card, EmptyState, ErrorState, Skeleton, useToast } from "@/components/ui";
 
 import { useState, useEffect } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -14,10 +15,8 @@ import {
   Plus,
   ArrowUp,
   ArrowDown,
-  X,
   Gem,
   Flame,
-  Quote,
 } from "lucide-react";
 
 type RecentPattern = {
@@ -49,6 +48,47 @@ type Summary = {
   totalUsageCount: number;
 };
 
+/** Kompakt filtre kontrolü — tek satır toolbar dili. */
+const FILTER_CONTROL: CSSProperties = {
+  height: "var(--control-h-sm)",
+  background: "var(--bg-base)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text-primary)",
+  padding: "0 8px",
+  fontSize: "var(--text-xs)",
+  fontFamily: "inherit",
+  outline: "none",
+};
+
+/** Yoğun satırdaki küçük aksiyon butonu tabanı. */
+const ROW_BTN: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
+  background: "transparent",
+  color: "var(--text-secondary)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  padding: "4px 8px",
+  fontSize: "var(--text-2xs)",
+  fontFamily: "inherit",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
+/** Satır içi meta çipi (kategori / hook / duygu). */
+const ROW_CHIP: CSSProperties = {
+  fontSize: "var(--text-2xs)",
+  background: "var(--bg-hover)",
+  border: "1px solid var(--border)",
+  color: "var(--text-secondary)",
+  padding: "2px 6px",
+  borderRadius: "var(--radius-sm)",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
+
 export default function PatternLibraryTab() {
   const [summary, setSummary] = useState<Summary>({
     totalPatterns: 0,
@@ -60,6 +100,8 @@ export default function PatternLibraryTab() {
   });
   const [patterns, setPatterns] = useState<RecentPattern[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const toast = useToast();
 
   // Form / Drawer state
   const [activeDetail, setActiveDetail] = useState<RecentPattern | null>(null);
@@ -76,7 +118,6 @@ export default function PatternLibraryTab() {
   });
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   // Filters
   const [accountHandle, setAccountHandle] = useState("all");
@@ -88,6 +129,7 @@ export default function PatternLibraryTab() {
 
   const fetchData = async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const q = new URLSearchParams({
         accountHandle,
@@ -102,9 +144,12 @@ export default function PatternLibraryTab() {
       if (data.success) {
         setSummary(data.summary);
         setPatterns(data.patterns);
+      } else {
+        setLoadFailed(true);
       }
     } catch (err) {
       console.error("Failed to fetch pattern library data:", err);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -117,7 +162,6 @@ export default function PatternLibraryTab() {
   // Adjust score action
   const handleAdjustScore = async (pat: RecentPattern, delta: number) => {
     setActionLoading(`${pat.id}-score`);
-    setActionMessage(null);
     try {
       const res = await fetch(`/api/growth/pattern-library/${pat.id}/adjust-score`, {
         method: "POST",
@@ -126,13 +170,13 @@ export default function PatternLibraryTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setActionMessage({ text: "Başarı skoru güncellendi!", type: "success" });
+        toast.success("Başarı skoru güncellendi!");
         fetchData();
       } else {
-        setActionMessage({ text: data.error || "Aksiyon başarısız.", type: "error" });
+        toast.error(data.error || "Aksiyon başarısız.");
       }
-    } catch (err) {
-      setActionMessage({ text: "Ağ bağlantı hatası.", type: "error" });
+    } catch {
+      toast.error("Ağ bağlantı hatası.");
     } finally {
       setActionLoading(null);
     }
@@ -141,7 +185,6 @@ export default function PatternLibraryTab() {
   // Toggle active / deactivate status
   const handleToggleActive = async (pat: RecentPattern) => {
     setActionLoading(`${pat.id}-active`);
-    setActionMessage(null);
     try {
       const res = await fetch(`/api/growth/pattern-library/${pat.id}`, {
         method: "PATCH",
@@ -150,16 +193,13 @@ export default function PatternLibraryTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setActionMessage({
-          text: pat.isActive ? "Pattern pasifleştirildi." : "Pattern aktifleştirildi!",
-          type: "success"
-        });
+        toast.success(pat.isActive ? "Pattern pasifleştirildi." : "Pattern aktifleştirildi!");
         fetchData();
       } else {
-        setActionMessage({ text: data.error || "Aksiyon başarısız.", type: "error" });
+        toast.error(data.error || "Aksiyon başarısız.");
       }
-    } catch (err) {
-      setActionMessage({ text: "Ağ bağlantı hatası.", type: "error" });
+    } catch {
+      toast.error("Ağ bağlantı hatası.");
     } finally {
       setActionLoading(null);
     }
@@ -168,20 +208,19 @@ export default function PatternLibraryTab() {
   // Increment usage count
   const handleIncrementUsage = async (pat: RecentPattern) => {
     setActionLoading(`${pat.id}-usage`);
-    setActionMessage(null);
     try {
       const res = await fetch(`/api/growth/pattern-library/${pat.id}/increment-usage`, {
         method: "POST"
       });
       const data = await res.json();
       if (data.success) {
-        setActionMessage({ text: "Kullanım miktarı artırıldı!", type: "success" });
+        toast.success("Kullanım miktarı artırıldı!");
         fetchData();
       } else {
-        setActionMessage({ text: data.error || "Aksiyon başarısız.", type: "error" });
+        toast.error(data.error || "Aksiyon başarısız.");
       }
-    } catch (err) {
-      setActionMessage({ text: "Ağ bağlantı hatası.", type: "error" });
+    } catch {
+      toast.error("Ağ bağlantı hatası.");
     } finally {
       setActionLoading(null);
     }
@@ -205,7 +244,7 @@ export default function PatternLibraryTab() {
   const handleSaveEdit = async () => {
     if (!editPattern) return;
     if (!editForm.patternName.trim()) {
-      setActionMessage({ text: "Pattern adı boş bırakılamaz.", type: "error" });
+      toast.error("Pattern adı boş bırakılamaz.");
       return;
     }
 
@@ -213,7 +252,7 @@ export default function PatternLibraryTab() {
     try {
       parsedStructure = JSON.parse(editForm.structureJsonStr);
     } catch {
-      setActionMessage({ text: "Geçersiz Structure JSON formatı.", type: "error" });
+      toast.error("Geçersiz Structure JSON formatı.");
       return;
     }
 
@@ -235,14 +274,14 @@ export default function PatternLibraryTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setActionMessage({ text: "Pattern başarıyla güncellendi!", type: "success" });
+        toast.success("Pattern başarıyla güncellendi!");
         setEditPattern(null);
         fetchData();
       } else {
-        setActionMessage({ text: data.error || "Güncelleme başarısız.", type: "error" });
+        toast.error(data.error || "Güncelleme başarısız.");
       }
-    } catch (err) {
-      setActionMessage({ text: "Ağ bağlantı hatası.", type: "error" });
+    } catch {
+      toast.error("Ağ bağlantı hatası.");
     } finally {
       setActionLoading(null);
     }
@@ -258,97 +297,49 @@ export default function PatternLibraryTab() {
   const categories = Array.from(new Set(patterns.map((p) => p.category).filter(Boolean)));
   const hookTypes = Array.from(new Set(patterns.map((p) => p.hookType).filter(Boolean)));
 
+  // Kompakt özet şeridi — eski 6'lı MetricCard grid'inin sıkılaştırılmış hali.
+  const summaryStats: { label: string; val: string | number; icon: ReactNode; color: string }[] = [
+    { label: "Toplam Pattern", val: summary.totalPatterns, icon: <BookOpen size={14} strokeWidth={1.8} />, color: "var(--text-muted)" },
+    { label: "Aktif Pattern", val: summary.activePatterns, icon: <CheckCircle2 size={14} strokeWidth={1.8} />, color: "var(--green)" },
+    { label: "Pasif Pattern", val: summary.inactivePatterns, icon: <PauseCircle size={14} strokeWidth={1.8} />, color: "var(--text-muted)" },
+    { label: "Ortalama Başarı", val: `%${summary.averageSuccessScore}`, icon: <TrendingUp size={14} strokeWidth={1.8} />, color: "var(--accent-2-text)" },
+    { label: "Toplam Kullanım", val: `${summary.totalUsageCount} kez`, icon: <Zap size={14} strokeWidth={1.8} />, color: "var(--text-muted)" },
+    { label: "Lider Pattern", val: summary.topPatternName.slice(0, 15) + (summary.topPatternName.length > 15 ? "…" : ""), icon: <Crown size={14} strokeWidth={1.8} />, color: "var(--accent-text)" },
+  ];
+
   return (
     <div style={{ width: "100%", position: "relative" }}>
       <PageHeader
         eyebrow="ÖĞREN"
         title="Pattern Kütüphanesi"
         subtitle="Kaydedilmiş viral pattern’leri yönet, başarı skorlarını izle ve hesap bazlı içerik formatlarını düzenle."
-        meta={
-          <>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-              <BookOpen size={15} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} />
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                {summary.totalPatterns}
-              </strong>{" "}
-              pattern
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-              <CheckCircle2 size={15} strokeWidth={1.8} style={{ color: "var(--green)" }} />
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                {summary.activePatterns}
-              </strong>{" "}
-              aktif
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-              <TrendingUp size={15} strokeWidth={1.8} style={{ color: "var(--accent-2-text)" }} />
-              ort. skor{" "}
-              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-                %{summary.averageSuccessScore}
-              </strong>
-            </span>
-          </>
-        }
+        size="compact"
       />
 
-      {/* Action Message Toast */}
-      {actionMessage && (
-        <div style={{
-          padding: "11px 16px",
-          borderRadius: "var(--radius-md)",
-          fontSize: "var(--text-sm)",
-          marginBottom: "var(--space-4)",
-          background: actionMessage.type === "success"
-            ? "color-mix(in srgb, var(--green) 12%, transparent)"
-            : "color-mix(in srgb, var(--danger) 12%, transparent)",
-          color: actionMessage.type === "success" ? "var(--green)" : "var(--danger)",
-          border: `1px solid ${actionMessage.type === "success"
-            ? "color-mix(in srgb, var(--green) 30%, transparent)"
-            : "color-mix(in srgb, var(--danger) 30%, transparent)"}`,
+      {/* Kompakt özet şeridi */}
+      <div
+        style={{
           display: "flex",
-          justifyContent: "space-between",
+          flexWrap: "wrap",
           alignItems: "center",
-          gap: 12
-        }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500 }}>
-            {actionMessage.type === "success"
-              ? <CheckCircle2 size={16} strokeWidth={2} />
-              : <X size={16} strokeWidth={2} />}
-            {actionMessage.text}
+          gap: "6px 20px",
+          padding: "9px 14px",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-lg)",
+          marginBottom: "var(--space-3)",
+        }}
+      >
+        {summaryStats.map((s) => (
+          <span key={s.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", color: s.color }}>{s.icon}</span>
+            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
+              {s.label}
+            </span>
+            <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-primary)", fontWeight: 500 }}>
+              {s.val}
+            </span>
           </span>
-          <button
-            onClick={() => setActionMessage(null)}
-            style={{ background: "transparent", border: "none", color: "currentColor", cursor: "pointer", display: "inline-flex", padding: 2 }}
-          >
-            <X size={15} strokeWidth={2} />
-          </button>
-        </div>
-      )}
-
-      {/* Summary Cards */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(168px, 1fr))",
-        gap: "var(--space-3)",
-        marginBottom: "var(--space-6)"
-      }}>
-        {[
-          { label: "Toplam Pattern", val: summary.totalPatterns, icon: <BookOpen size={16} strokeWidth={1.8} /> },
-          { label: "Aktif Pattern", val: summary.activePatterns, tone: "up" as const, icon: <CheckCircle2 size={16} strokeWidth={1.8} /> },
-          { label: "Pasif Pattern", val: summary.inactivePatterns, tone: "neutral" as const, icon: <PauseCircle size={16} strokeWidth={1.8} /> },
-          { label: "Ortalama Başarı", val: `%${summary.averageSuccessScore}`, accent: true, icon: <TrendingUp size={16} strokeWidth={1.8} /> },
-          { label: "Toplam Kullanım", val: `${summary.totalUsageCount} kez`, icon: <Zap size={16} strokeWidth={1.8} /> },
-          { label: "Lider Pattern", val: summary.topPatternName.slice(0, 15) + (summary.topPatternName.length > 15 ? "…" : ""), accent: true, icon: <Crown size={16} strokeWidth={1.8} /> }
-        ].map((item, idx) => (
-          <MetricCard
-            key={idx}
-            label={item.label}
-            value={item.val}
-            icon={item.icon}
-            accent={item.accent}
-            delta={item.tone ? (item.tone === "up" ? "öğrenme aktif" : "beklemede") : undefined}
-            deltaTone={item.tone}
-          />
         ))}
       </div>
 
@@ -356,29 +347,21 @@ export default function PatternLibraryTab() {
       <div style={{
         background: "var(--bg-surface)",
         border: "1px solid var(--border)",
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 20,
+        borderRadius: "var(--radius-lg)",
+        padding: "10px 12px",
+        marginBottom: "var(--space-4)",
         display: "flex",
         flexWrap: "wrap",
         gap: 8,
-        alignItems: "center"
+        alignItems: "flex-end"
       }}>
         {/* Account Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Hesap</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Hesap</label>
           <select
             value={accountHandle}
             onChange={(e) => setAccountHandle(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={{ ...FILTER_CONTROL, cursor: "pointer" }}
           >
             <option value="all">Tüm Hesaplar</option>
             <option value="grafikcem">@grafikcem</option>
@@ -388,19 +371,11 @@ export default function PatternLibraryTab() {
 
         {/* Status Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Durum</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Durum</label>
           <select
             value={activeStatus}
             onChange={(e) => setActiveStatus(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={{ ...FILTER_CONTROL, cursor: "pointer" }}
           >
             <option value="all">Tüm Durumlar</option>
             <option value="active">Aktifler</option>
@@ -410,19 +385,11 @@ export default function PatternLibraryTab() {
 
         {/* Category Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Kategori</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Kategori</label>
           <select
             value={categoryInput}
             onChange={(e) => setCategoryInput(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={{ ...FILTER_CONTROL, cursor: "pointer" }}
           >
             <option value="all">Tüm Kategoriler</option>
             {categories.map((c) => (
@@ -433,19 +400,11 @@ export default function PatternLibraryTab() {
 
         {/* Hook Type Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Hook Tipi</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Hook Tipi</label>
           <select
             value={hookTypeInput}
             onChange={(e) => setHookTypeInput(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={{ ...FILTER_CONTROL, cursor: "pointer" }}
           >
             <option value="all">Tüm Hook Tipleri</option>
             {hookTypes.map((ht) => (
@@ -456,19 +415,11 @@ export default function PatternLibraryTab() {
 
         {/* Sort Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Sırala</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Sırala</label>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={{ ...FILTER_CONTROL, cursor: "pointer" }}
           >
             <option value="successScore">Başarı Skoru (En Yüksek)</option>
             <option value="usageCount">Kullanım Sayısı (En Yüksek)</option>
@@ -479,21 +430,13 @@ export default function PatternLibraryTab() {
 
         {/* Search */}
         <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 150 }}>
-          <label style={{ fontSize: 9, color: "var(--text-muted)", textTransform: "uppercase" }}>Metin Arama</label>
+          <label style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase" }}>Metin Arama</label>
           <input
             type="text"
             placeholder="Pattern adı veya iyi hook ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{
-              background: "var(--bg-base)",
-              border: "1px solid var(--border)",
-              borderRadius: 5,
-              color: "var(--text-primary)",
-              padding: "4px 8px",
-              fontSize: 11,
-              outline: "none"
-            }}
+            style={FILTER_CONTROL}
           />
         </div>
 
@@ -508,28 +451,34 @@ export default function PatternLibraryTab() {
             setSort("successScore");
           }}
           style={{
-            alignSelf: "flex-end",
-            padding: "5px 10px",
+            height: "var(--control-h-sm)",
+            padding: "0 10px",
             background: "transparent",
             border: "1px solid var(--border)",
-            borderRadius: 5,
+            borderRadius: "var(--radius-sm)",
             color: "var(--text-secondary)",
-            fontSize: 11,
-            cursor: "pointer",
-            height: 25
+            fontSize: "var(--text-xs)",
+            fontFamily: "inherit",
+            cursor: "pointer"
           }}
         >
           Sıfırla
         </button>
       </div>
 
-      {/* Pattern Cards Grid */}
+      {/* Pattern Rows — yoğun liste düzeni */}
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "var(--space-3)" }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} height={172} style={{ borderRadius: "var(--radius-xl)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} height={44} style={{ borderRadius: "var(--radius-md)" }} />
           ))}
         </div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Pattern kütüphanesi yüklenemedi"
+          description="Pattern verisi şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void fetchData()}
+        />
       ) : patterns.length === 0 ? (
         <Card variant="quiet">
           <EmptyState
@@ -539,130 +488,96 @@ export default function PatternLibraryTab() {
           />
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 12 }}>
-          {patterns.map((pat) => {
+        <Card padded={false}>
+          {patterns.map((pat, idx) => {
             const scoreColor = getScoreBadgeColor(pat.successScore);
             return (
-              <Card key={pat.id} padded={false} interactive style={{
-                padding: "var(--space-4)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-              }}>
-                {/* Header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--accent-text)" }}>@{pat.accountHandle}</span>
-                    <span style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      fontSize: "var(--text-2xs)",
-                      fontWeight: 500,
-                      padding: "2px 6px",
-                      borderRadius: "var(--radius-sm)",
-                      background: pat.isActive
-                        ? "color-mix(in srgb, var(--green) 12%, transparent)"
-                        : "var(--bg-hover)",
-                      color: pat.isActive ? "var(--green)" : "var(--text-muted)"
-                    }}>
-                      <span style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: "50%",
-                        background: pat.isActive ? "var(--green)" : "var(--text-muted)"
-                      }} />
-                      {pat.isActive ? "Aktif" : "Pasif"}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                    <span className="tnum" style={{
-                      fontSize: "var(--text-2xs)",
-                      fontWeight: 500,
-                      padding: "2px 6px",
-                      borderRadius: "var(--radius-sm)",
-                      background: scoreColor.bg,
-                      color: scoreColor.text
-                    }}>
-                      %{pat.successScore} Başarı
-                    </span>
-                    <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", background: "var(--bg-hover)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>
-                      <Zap size={11} strokeWidth={2} /> {pat.usageCount} kez
-                    </span>
-                  </div>
-                </div>
-
-                {/* Body Content */}
-                <div>
-                  <h3 className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 500, margin: "0 0 8px 0", color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.25 }}>{pat.patternName}</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-                    {pat.category && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>{pat.category}</span>}
-                    {pat.hookType && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--blue)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>Hook: {pat.hookType}</span>}
-                    {pat.emotion && <span style={{ fontSize: "var(--text-2xs)", background: "var(--bg-hover)", border: "1px solid var(--border)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>Duygu: {pat.emotion}</span>}
-                  </div>
-                  {pat.viralityTrigger && (
-                    <p style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 8px 0", fontSize: "var(--text-xs)", color: "var(--accent-2-text)", fontWeight: 500 }}>
-                      <Flame size={13} strokeWidth={2} style={{ flexShrink: 0 }} /> {pat.viralityTrigger}
-                    </p>
-                  )}
-                </div>
-
-                {/* Previews */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)" }}>
-                  {pat.exampleGood && (
-                    <div>
-                      <span className="eyebrow" style={{ color: "var(--text-muted)" }}>İyi Hook Önizleme</span>
-                      <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", background: "var(--bg-base)", border: "1px solid var(--border)", padding: "5px 8px", borderRadius: "var(--radius-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: "italic" }}>
-                        &ldquo;{pat.exampleGood}&rdquo;
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions Grid */}
-                <div style={{
+              <div
+                key={pat.id}
+                style={{
                   display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 14px",
                   flexWrap: "wrap",
-                  gap: 4,
-                  marginTop: 6,
-                  borderTop: "1px solid var(--border)",
-                  paddingTop: 10,
-                  alignItems: "center"
-                }}>
-                  <button
-                    onClick={() => setActiveDetail(pat)}
+                  borderTop: idx > 0 ? "1px solid var(--border-faint)" : "none",
+                }}
+              >
+                {/* Sol: durum + ad + hesap + meta çipleri */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 320px" }}>
+                  <span
+                    title={pat.isActive ? "Aktif" : "Pasif"}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      background: "transparent",
-                      color: "var(--text-secondary)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "4px 8px",
-                      fontSize: "var(--text-2xs)",
-                      cursor: "pointer",
-                      transition: "border-color var(--duration-fast) var(--ease-out)"
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      background: pat.isActive ? "var(--green)" : "var(--text-muted)",
+                    }}
+                  />
+                  <span
+                    className="font-display"
+                    style={{
+                      fontSize: "var(--text-sm)",
+                      fontWeight: 500,
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.01em",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      minWidth: 0,
                     }}
                   >
+                    {pat.patternName}
+                  </span>
+                  <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--accent-text)", flexShrink: 0 }}>
+                    @{pat.accountHandle}
+                  </span>
+                  {pat.category && <span style={ROW_CHIP}>{pat.category}</span>}
+                  {pat.hookType && <span style={{ ...ROW_CHIP, color: "var(--blue)" }}>Hook: {pat.hookType}</span>}
+                  {pat.emotion && <span style={ROW_CHIP}>Duygu: {pat.emotion}</span>}
+                  {pat.viralityTrigger && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: "var(--text-2xs)",
+                        color: "var(--accent-2-text)",
+                        fontWeight: 500,
+                        maxWidth: 200,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      <Flame size={12} strokeWidth={2} style={{ flexShrink: 0 }} /> {pat.viralityTrigger}
+                    </span>
+                  )}
+                </div>
+
+                {/* Sağ: skor + kullanım + aksiyonlar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginLeft: "auto" }}>
+                  <span className="tnum" style={{
+                    fontSize: "var(--text-2xs)",
+                    fontWeight: 500,
+                    padding: "2px 6px",
+                    borderRadius: "var(--radius-sm)",
+                    background: scoreColor.bg,
+                    color: scoreColor.text,
+                    whiteSpace: "nowrap"
+                  }}>
+                    %{pat.successScore} Başarı
+                  </span>
+                  <span className="tnum" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", background: "var(--bg-hover)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap" }}>
+                    <Zap size={11} strokeWidth={2} /> {pat.usageCount} kez
+                  </span>
+
+                  <button onClick={() => setActiveDetail(pat)} style={ROW_BTN}>
                     <Search size={12} strokeWidth={2} /> Detay
                   </button>
 
-                  <button
-                    onClick={() => startEdit(pat)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      background: "transparent",
-                      color: "var(--text-secondary)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "4px 8px",
-                      fontSize: "var(--text-2xs)",
-                      cursor: "pointer"
-                    }}
-                  >
+                  <button onClick={() => startEdit(pat)} style={ROW_BTN}>
                     <Pencil size={12} strokeWidth={2} /> Düzenle
                   </button>
 
@@ -670,9 +585,7 @@ export default function PatternLibraryTab() {
                     onClick={() => handleToggleActive(pat)}
                     disabled={actionLoading === `${pat.id}-active`}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
+                      ...ROW_BTN,
                       background: pat.isActive
                         ? "color-mix(in srgb, var(--danger) 8%, transparent)"
                         : "color-mix(in srgb, var(--green) 8%, transparent)",
@@ -680,10 +593,6 @@ export default function PatternLibraryTab() {
                       border: `1px solid ${pat.isActive
                         ? "color-mix(in srgb, var(--danger) 22%, transparent)"
                         : "color-mix(in srgb, var(--green) 22%, transparent)"}`,
-                      borderRadius: "var(--radius-sm)",
-                      padding: "4px 8px",
-                      fontSize: "var(--text-2xs)",
-                      cursor: "pointer"
                     }}
                   >
                     {pat.isActive ? <PauseCircle size={12} strokeWidth={2} /> : <CheckCircle2 size={12} strokeWidth={2} />}
@@ -694,16 +603,9 @@ export default function PatternLibraryTab() {
                     onClick={() => handleIncrementUsage(pat)}
                     disabled={actionLoading === `${pat.id}-usage`}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      background: "transparent",
+                      ...ROW_BTN,
                       color: "var(--accent-text)",
                       border: "1px solid var(--accent-border)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "4px 8px",
-                      fontSize: "var(--text-2xs)",
-                      cursor: "pointer",
                       fontVariantNumeric: "tabular-nums"
                     }}
                   >
@@ -716,7 +618,7 @@ export default function PatternLibraryTab() {
                       onClick={() => handleAdjustScore(pat, 5)}
                       disabled={actionLoading === `${pat.id}-score`}
                       className="tnum"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", color: "var(--green)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", color: "var(--green)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}
                     >
                       <ArrowUp size={11} strokeWidth={2.4} /> 5
                     </button>
@@ -724,7 +626,7 @@ export default function PatternLibraryTab() {
                       onClick={() => handleAdjustScore(pat, -5)}
                       disabled={actionLoading === `${pat.id}-score`}
                       className="tnum"
-                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", borderLeft: "1px solid var(--border)", color: "var(--danger)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, cursor: "pointer" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "var(--bg-base)", border: "none", borderLeft: "1px solid var(--border)", color: "var(--danger)", padding: "3px 7px", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}
                     >
                       <ArrowDown size={11} strokeWidth={2.4} /> 5
                     </button>
@@ -735,26 +637,19 @@ export default function PatternLibraryTab() {
                     disabled
                     title="Draft Generator Sprint 10'da aktif olacak."
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 5,
-                      marginLeft: "auto",
-                      background: "transparent",
+                      ...ROW_BTN,
                       color: "var(--text-muted)",
                       border: "1px dashed var(--border)",
-                      borderRadius: "var(--radius-sm)",
-                      padding: "4px 8px",
-                      fontSize: "var(--text-2xs)",
                       cursor: "not-allowed"
                     }}
                   >
                     <Zap size={12} strokeWidth={2} /> Üret
                   </button>
                 </div>
-              </Card>
+              </div>
             );
           })}
-        </div>
+        </Card>
       )}
 
       {/* Pattern Detail Drawer (Right-sided sliding drawer style mockup) */}

@@ -3,23 +3,23 @@ import type { Page } from "@playwright/test";
 export type AreaId = "bugun" | "uretim" | "kesif" | "hafiza";
 
 /**
- * Sol sidebar'da bir birincil alan seçer, sonra o alanın sub-tab listesinden
- * ikincil sekmeyi açar. Tek-sekmeli alanlarda subLabel atlanır.
+ * Sol sidebar'da bir birincil alan seçer (yalnız 5 alan görünür), sonra
+ * workspace içi contextual sub-nav'dan ikincil sayfayı açar.
  */
 export async function selectTab(page: Page, areaId: AreaId, subLabel?: string): Promise<void> {
   await page.getByTestId(`sidebar-area-${areaId}`).click();
   if (subLabel) {
-    await page.getByRole("button", { name: subLabel, exact: true }).click();
+    await page.getByRole("tab", { name: subLabel, exact: true }).click();
   }
 }
 
 /**
- * Sol sidebar'daki Sistem kümesinden (Toolbox/Maliyetler/Sistem/Ayarlar)
- * bir utility sekmesi açar.
+ * Sistem alanını açar (sidebar 5. öğe) ve sub-nav'dan utility sayfasını seçer.
  */
 export async function selectUtility(
   page: Page,
   tabId: "toolbox" | "costs" | "system" | "settings",
 ): Promise<void> {
-  await page.getByTestId(`sidebar-utility-${tabId}`).click();
+  await page.getByTestId("sidebar-area-sistem").click();
+  await page.getByTestId(`subnav-tab-${tabId}`).click();
 }

@@ -1,5 +1,15 @@
 "use client";
-import { EmptyState, ErrorState } from "@/components/ui";
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  Input,
+  PageHeader,
+  PageScaffold,
+  Select,
+  Skeleton,
+  useToast,
+} from "@/components/ui";
 import {
   RefreshCw,
   Settings2,
@@ -11,7 +21,6 @@ import {
   Loader2,
   Clock,
   ShieldCheck,
-  AlertCircle,
   Flame,
   ChevronLeft,
   ChevronRight,
@@ -92,8 +101,8 @@ const RELIABILITY_COLORS: Record<string, string> = {
 };
 
 const VERIFICATION_BADGES: Record<string, { label: string; color: string }> = {
-  multi_source_confirmed: { label: "ÇOKLU KAYNAK", color: "var(--nw-accent-2)" },
-  editorial_confirmed: { label: "TEYİTLİ", color: "var(--nw-accent-2)" },
+  multi_source_confirmed: { label: "ÇOKLU KAYNAK", color: "var(--accent-text)" },
+  editorial_confirmed: { label: "TEYİTLİ", color: "var(--accent-text)" },
   official_only: { label: "RESMİ KAYNAK", color: "var(--text-secondary)" },
   single_source: { label: "TEK KAYNAK", color: "var(--yellow)" },
 };
@@ -148,8 +157,8 @@ export default function NewsPoolTab() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+  const toast = useToast();
 
   const [sort, setSort] = useState("buzz");
   const [status, setStatus] = useState("all");
@@ -157,11 +166,6 @@ export default function NewsPoolTab() {
   const [search, setSearch] = useState("");
   const [processing, setProcessing] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-
-  const showToast = (text: string, type: "success" | "error") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 4000);
-  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -199,7 +203,7 @@ export default function NewsPoolTab() {
       });
       if (data.success) setItems((prev) => prev.map((n) => (n.id === id ? { ...n, ...body } : n)));
     } catch {
-      showToast("Güncelleme başarısız.", "error");
+      toast.error("Güncelleme başarısız.");
     }
   };
 
@@ -211,15 +215,15 @@ export default function NewsPoolTab() {
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account }) }
       );
       if (data.success) {
-        showToast(`@${account} için taslak üretildi.`, "success");
+        toast.success(`@${account} için taslak üretildi.`);
         setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isUsed: true } : n)));
       } else if (data.blocked) {
-        showToast(`Engellendi: ${data.reason || "kalite filtresi"}`, "error");
+        toast.error(`Engellendi: ${data.reason || "kalite filtresi"}`);
       } else {
-        showToast(data.error || "Üretim başarısız.", "error");
+        toast.error(data.error || "Üretim başarısız.");
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      toast.error(err instanceof Error ? err.message : "Sunucu hatası.");
     } finally {
       setGeneratingKey(null);
     }
@@ -231,19 +235,19 @@ export default function NewsPoolTab() {
       for (let round = 1; round <= 5; round++) {
         const data = await fetchJson<ProcessResponse>("/api/news-pool/process", { method: "POST" });
         if (!data.success) {
-          showToast(data.error || "İşleme başarısız.", "error");
+          toast.error(data.error || "İşleme başarısız.");
           return;
         }
         const remaining = (data.translate?.remaining ?? 0) + (data.analyze?.remaining ?? 0);
         if (remaining <= 0) {
-          showToast("Haber havuzu işlendi (çeviri + analiz tamam).", "success");
+          toast.success("Haber havuzu işlendi (çeviri + analiz tamam).");
           return;
         }
         setProcessing(`İşleniyor... ${remaining} kaldı`);
       }
-      showToast("Kısmi işlendi — kalanlar için tekrar çalıştırın.", "success");
+      toast.success("Kısmi işlendi — kalanlar için tekrar çalıştırın.");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      toast.error(err instanceof Error ? err.message : "Sunucu hatası.");
     } finally {
       setProcessing(null);
       load();
@@ -264,81 +268,89 @@ export default function NewsPoolTab() {
     );
   }, [turkish, search]);
 
-  // Öne çıkan = top buzz (1 büyük + 3). Geri kalanı seçili sıraya göre arşiv.
-  const { featured, archive } = useMemo(() => {
-    const ranked = [...filtered].sort((a, b) => (b.buzzScore ?? 0) - (a.buzzScore ?? 0));
-    const top = ranked.slice(0, 4);
-    const topIds = new Set(top.map((n) => n.id));
-    return { featured: top, archive: filtered.filter((n) => !topIds.has(n.id)) };
+  // Öne çıkan sinyal = en yüksek buzz'lı tek haber; kalanı yoğun liste.
+  const { featured, rest } = useMemo(() => {
+    if (filtered.length === 0) return { featured: null as NewsItem | null, rest: [] as NewsItem[] };
+    const top = [...filtered].sort((a, b) => (b.buzzScore ?? 0) - (a.buzzScore ?? 0))[0];
+    return { featured: top, rest: filtered.filter((n) => n.id !== top.id) };
   }, [filtered]);
 
-  const sources = useMemo(() => {
-    const names = new Set<string>();
-    for (const n of items) if (n.newsSource?.name) names.add(n.newsSource.name);
-    return [...names];
-  }, [items]);
-
-  const totalPages = Math.max(1, Math.ceil(archive.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rest.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pageItems = archive.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItems = rest.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const usedCount = items.filter((n) => n.isUsed).length;
   const untranslated = items.length - turkish.length;
 
   return (
-    <div className="news-warm" style={{ width: "100%", paddingBottom: 64 }}>
-      {toast && <Toast toast={toast} />}
-
-      {/* Sıcak hero bandı — rakip "AI Gündem" tarzı, ortalanmış. */}
-      <section className="nw-hero" style={heroBand}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginBottom: 18 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--nw-accent)", boxShadow: "0 0 10px var(--nw-accent)" }} />
-          <span className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--nw-accent-2)", letterSpacing: "0.14em" }}>
-            DÜNYANIN CANLI YAPAY ZEKÂ GÜNDEMİ
-          </span>
-        </div>
-        <h1 className="font-display" style={heroTitle}>
-          Yapay zekânın nabzı, <em style={{ fontStyle: "italic", color: "var(--nw-accent)" }}>tek ekranda</em>
-        </h1>
-        <p style={heroSub}>
-          En sağlam kaynaklardan en güncel ve en çok konuşulan yapay zekâ haberleri — Türkçe, kaynağıyla.
-        </p>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 4 }}>
-          <button onClick={load} style={warmBtn} className="nw-pagebtn">
-            <RefreshCw size={15} strokeWidth={2} />
-            Gündemi Yenile
-          </button>
-          <button onClick={processAll} disabled={!!processing} style={ghostBtn} className="nw-pagebtn" title="Operatör: bekleyen haberleri çevir + analiz et">
-            {processing ? <Loader2 size={14} strokeWidth={2} className="rise" /> : <Settings2 size={14} strokeWidth={2} />}
-            {processing ?? "İşle"}
-          </button>
-        </div>
-        <div style={{ display: "flex", gap: 18, justifyContent: "center", marginTop: 18, flexWrap: "wrap" }}>
-          <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={turkish.length} label="Türkçe haber" />
-          <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={usedCount} label="kullanıldı" />
-          {untranslated > 0 && (
-            <Stat icon={<Loader2 size={13} strokeWidth={2} />} value={untranslated} label="çevriliyor" muted />
-          )}
-        </div>
-      </section>
-
-      {sources.length > 3 && <SourceMarquee sources={sources} />}
-
-      {/* Kontroller */}
-      <div style={controlsRow}>
-        <Field label="Sırala"><Select value={sort} onChange={setSort} options={SORTS} /></Field>
-        <Field label="Kategori"><Select value={category} onChange={setCategory} options={CATEGORIES} /></Field>
-        <Field label="Ara" grow>
-          <div style={{ position: "relative", width: "100%" }}>
-            <Search size={14} strokeWidth={1.8} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
-            <input type="text" placeholder="Haber ara..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, paddingLeft: 30 }} />
+    <PageScaffold
+      header={
+        <PageHeader
+          title="Haber Havuzu"
+          subtitle="En sağlam kaynaklardan en çok konuşulan yapay zekâ haberleri — Türkçe, kaynağıyla."
+          size="compact"
+          meta={
+            <>
+              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={turkish.length} label="Türkçe haber" />
+              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={usedCount} label="kullanıldı" />
+              {untranslated > 0 && (
+                <Stat icon={<Loader2 size={13} strokeWidth={2} />} value={untranslated} label="çevriliyor" muted />
+              )}
+            </>
+          }
+        />
+      }
+      toolbar={
+        <div style={toolbarRow}>
+          <Select aria-label="Sırala" value={sort} onChange={(e) => setSort(e.target.value)} options={SORTS} style={ctrlSm} />
+          <Select aria-label="Kategori" value={category} onChange={(e) => setCategory(e.target.value)} options={CATEGORIES} style={ctrlSm} />
+          <Select
+            aria-label="Durum (operatör)"
+            title="Durum (operatör)"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            options={STATUSES}
+            style={ctrlSm}
+          />
+          <div style={{ flex: "1 1 200px", minWidth: 160 }}>
+            <Input
+              type="text"
+              aria-label="Ara"
+              placeholder="Haber ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              iconLeft={<Search size={14} strokeWidth={1.8} />}
+              style={{ minHeight: "var(--control-h-sm)", padding: "4px 10px 4px 32px", fontSize: "var(--text-xs)" }}
+            />
           </div>
-        </Field>
-        <Field label="Durum (operatör)"><Select value={status} onChange={setStatus} options={STATUSES} /></Field>
-      </div>
-
+          <Button size="sm" variant="ghost" iconLeft={<RefreshCw size={14} strokeWidth={2} />} onClick={load}>
+            Gündemi Yenile
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={processAll}
+            disabled={!!processing}
+            title="Operatör: bekleyen haberleri çevir + analiz et"
+            iconLeft={
+              processing ? <Loader2 size={14} strokeWidth={2} className="rise" /> : <Settings2 size={14} strokeWidth={2} />
+            }
+          >
+            {processing ?? "İşle"}
+          </Button>
+        </div>
+      }
+    >
       {loading ? (
-        <div style={archiveGrid}>{Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}</div>
+        <div style={listBand}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ ...rowShell, borderTop: i > 0 ? "1px solid var(--border-faint)" : "none" }}>
+              <Skeleton width="46%" height={13} />
+              <Skeleton width={90} height={10} />
+              <Skeleton width={44} height={10} />
+            </div>
+          ))}
+        </div>
       ) : loadFailed ? (
         <ErrorState
           title="Haberler yüklenemedi"
@@ -346,42 +358,42 @@ export default function NewsPoolTab() {
           onRetry={() => void load()}
         />
       ) : filtered.length === 0 ? (
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+        <div style={listBand}>
           <EmptyState
             icon={<Newspaper size={24} strokeWidth={1.8} />}
             title={untranslated > 0 ? "Haberler çevriliyor…" : "Filtreye uygun Türkçe haber yok"}
             description={untranslated > 0
               ? `${untranslated} haber çeviri sırasında. Birazdan 'Yenile'ye basın veya 'İşle' ile çeviriyi hızlandırın.`
               : "Seçili kategori ve aramaya uyan haber bulunamadı. Filtreleri gevşetin."}
-            action={<button onClick={processAll} disabled={!!processing} style={warmBtn} className="nw-pagebtn">{processing ?? "Haberleri İşle"}</button>}
+            action={
+              <Button size="sm" variant="primary" onClick={processAll} disabled={!!processing}>
+                {processing ?? "Haberleri İşle"}
+              </Button>
+            }
           />
         </div>
       ) : (
         <>
-          {/* ÖNE ÇIKAN — 1 büyük + 3 öne çıkan kart */}
-          {featured.length > 0 && (
-            <section style={{ marginBottom: 40 }}>
-              <SectionHead label="ÖNE ÇIKAN HABERLER" note={`${archive.length} haber arşivde`} />
-              <FeaturedBig item={featured[0]} rank={1} onRead={() => patch(featured[0].id, { isRead: !featured[0].isRead })} />
-              {featured.length > 1 && (
-                <div style={{ ...featuredRow, marginTop: "var(--space-3)" }}>
-                  {featured.slice(1, 4).map((n, i) => (
-                    <FeaturedCard key={n.id} item={n} rank={i + 2} onRead={() => patch(n.id, { isRead: !n.isRead })} />
-                  ))}
-                </div>
-              )}
-            </section>
+          {featured && (
+            <FeaturedSignal item={featured} onRead={() => patch(featured.id, { isRead: !featured.isRead })} />
           )}
 
-          {/* ARŞİV — sayfalı grid */}
-          {archive.length > 0 && (
+          {rest.length > 0 && (
             <section>
-              <SectionHead label={sort === "buzz" ? "GÜNDEM" : "EN YENİLER"} />
-              <div style={archiveGrid}>
-                {pageItems.map((n) => (
-                  <ArchiveCard
+              <div style={listHead}>
+                <span className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                  {sort === "buzz" ? "GÜNDEM" : "EN YENİLER"}
+                </span>
+                <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                  {rest.length} haber
+                </span>
+              </div>
+              <div style={listBand}>
+                {pageItems.map((n, i) => (
+                  <NewsRow
                     key={n.id}
                     item={n}
+                    divider={i > 0}
                     generatingKey={generatingKey}
                     onGenerate={generate}
                     onToggleRead={() => patch(n.id, { isRead: !n.isRead })}
@@ -393,7 +405,7 @@ export default function NewsPoolTab() {
           )}
         </>
       )}
-    </div>
+    </PageScaffold>
   );
 }
 
@@ -402,255 +414,230 @@ export default function NewsPoolTab() {
 function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number; label: string; muted?: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: muted ? "var(--text-muted)" : "var(--text-secondary)" }}>
-      <span style={{ color: muted ? "var(--text-muted)" : "var(--nw-accent-2)" }}>{icon}</span>
+      <span style={{ display: "inline-flex", color: muted ? "var(--text-muted)" : "var(--accent-2-text)" }}>{icon}</span>
       <strong className="tnum" style={{ color: muted ? "var(--text-secondary)" : "var(--text-primary)", fontWeight: 500 }}>{value}</strong>
       {label}
     </span>
   );
 }
 
-function SectionHead({ label, note }: { label: string; note?: string }) {
+/** Tek kompakt "öne çıkan sinyal" satırı — en yüksek buzz'lı haber. */
+function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }) {
+  const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
   return (
-    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: "var(--space-3)", borderBottom: "1px solid var(--border)", paddingBottom: 10 }}>
-      <span className="eyebrow font-display" style={{ fontSize: "var(--text-base)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "0.01em" }}>{label}</span>
-      {note && <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{note}</span>}
-    </div>
-  );
-}
-
-function SourceMarquee({ sources }: { sources: string[] }) {
-  const loop = [...sources, ...sources];
-  return (
-    <div className="news-marquee" style={{ margin: "0 0 var(--space-5)", padding: "11px 0", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
-      <div className="news-marquee-track" aria-hidden>
-        {loop.map((name, i) => (
-          <span key={`${name}-${i}`} style={marqueeItem}>
-            <ShieldCheck size={11} strokeWidth={1.8} style={{ color: "var(--nw-accent-2)" }} />
-            {name}
+    <section aria-label="Öne çıkan sinyal" style={featuredRow}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--accent-2-text)", flexShrink: 0 }}>
+        <Flame size={14} strokeWidth={2} />
+        <span className="eyebrow" style={{ fontSize: "var(--text-2xs)" }}>ÖNE ÇIKAN</span>
+      </span>
+      <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={featuredTitle} title={item.trTitle ?? undefined}>
+        {item.trTitle}
+      </a>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        {item.buzzScore != null && (
+          <span className="tnum" title={`Buzz: ${item.buzzScore}`} style={buzzChip(buzzMeta(item.buzzScore)?.hot ?? false)}>
+            <Flame size={11} strokeWidth={2} />{item.buzzScore}
           </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Görsel yoksa sıcak gradient placeholder (kaynak + kategori).
-function Thumb({ item, height }: { item: NewsItem; height: number }) {
-  if (item.imageUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={item.imageUrl} alt="" style={{ width: "100%", height, objectFit: "cover", background: "var(--bg-elevated)", display: "block" }} onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
-    );
-  }
-  return (
-    <div style={{ width: "100%", height, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 4, padding: 14, background: "linear-gradient(135deg, var(--nw-soft), rgba(240,169,58,0.05))", borderBottom: "1px solid var(--border)" }}>
-      <Newspaper size={18} strokeWidth={1.6} style={{ color: "var(--nw-accent)", opacity: 0.7 }} />
-      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 500 }}>{item.newsSource?.name ?? catLabel(item.category)}</span>
-    </div>
-  );
-}
-
-function RankBadge({ rank }: { rank: number }) {
-  return (
-    <span style={{ position: "absolute", top: 12, left: 12, zIndex: 2, display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 26, height: 22, padding: "0 7px", borderRadius: "var(--radius-sm)", background: "var(--nw-accent)", color: "#1a1208", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "var(--font-display, inherit)" }} className="tnum">
-      {String(rank).padStart(2, "0")}
-    </span>
-  );
-}
-
-function FeaturedBig({ item, rank, onRead }: { item: NewsItem; rank: number; onRead: () => void }) {
-  const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
-  const buzz = buzzMeta(item.buzzScore);
-  return (
-    <article className="nw-card" style={{ ...cardBase, display: "grid", gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr)", overflow: "hidden", position: "relative" }}>
-      <RankBadge rank={rank} />
-      <div style={{ position: "relative" }}><Thumb item={item} height={300} /></div>
-      <div style={{ padding: "22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <SourceLine item={item} badge={badge} buzz={buzz?.hot ? item.buzzScore : null} />
-        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" className="font-display" style={{ fontSize: "var(--text-2xl, 1.6rem)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-          {item.trTitle}
+        )}
+        <SourceMeta item={item} />
+        {badge && <span title="Çapraz kaynak teyidi" style={badgeChip(badge.color)}>{badge.label}</span>}
+        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>
+          Kaynak haberi oku <ExternalLink size={11} strokeWidth={2} />
         </a>
-        {item.trSummary && <p style={summaryStyle(4)}>{item.trSummary}</p>}
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: "auto", paddingTop: 6 }}>
-          <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>Kaynak haberi oku <ExternalLink size={12} strokeWidth={2} /></a>
-          <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
-        </div>
-      </div>
-    </article>
+        <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+      </span>
+    </section>
   );
 }
 
-function FeaturedCard({ item, rank, onRead }: { item: NewsItem; rank: number; onRead: () => void }) {
-  const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
-  const buzz = buzzMeta(item.buzzScore);
-  return (
-    <article className="nw-card" style={{ ...cardBase, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
-      <RankBadge rank={rank} />
-      <Thumb item={item} height={150} />
-      <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 9, flex: 1 }}>
-        <SourceLine item={item} badge={badge} buzz={buzz?.hot ? item.buzzScore : null} small />
-        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" className="font-display" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.34, letterSpacing: "-0.01em" }}>
-          {item.trTitle}
-        </a>
-        {item.trSummary && <p style={summaryStyle(2)}>{item.trSummary}</p>}
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: "auto", paddingTop: 4 }}>
-          <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>Kaynak haberi oku <ExternalLink size={11} strokeWidth={2} /></a>
-          <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ArchiveCard({ item, generatingKey, onGenerate, onToggleRead }: {
-  item: NewsItem; generatingKey: string | null; onGenerate: (id: string, account: string) => void; onToggleRead: () => void;
+/** Yoğun liste satırı — başlık (ellipsis) + kaynak + skor + zaman + aksiyonlar. */
+function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
+  item: NewsItem; divider: boolean; generatingKey: string | null;
+  onGenerate: (id: string, account: string) => void; onToggleRead: () => void;
 }) {
   const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
   const buzz = buzzMeta(item.buzzScore);
   const showOps = canGenerate(item) && !item.isUsed;
   return (
-    <article className="nw-card" style={{ ...cardBase, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <Thumb item={item} height={130} />
-      <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
-        <SourceLine item={item} badge={badge} buzz={buzz?.hot ? item.buzzScore : null} small />
-        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" className="font-display" style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.36, letterSpacing: "-0.01em" }}>
-          {item.trTitle}
+    <article style={{ ...rowShell, borderTop: divider ? "1px solid var(--border-faint)" : "none" }}>
+      <a
+        href={safeHref(item.url)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={item.trTitle ?? undefined}
+        style={rowTitle}
+      >
+        {item.trTitle}
+      </a>
+
+      <span style={rowMeta}>
+        {item.buzzScore != null && (
+          <span className="tnum" title={`Buzz: ${item.buzzScore}`} style={buzzChip(buzz?.hot ?? false)}>
+            <Flame size={11} strokeWidth={2} />{item.buzzScore}
+          </span>
+        )}
+        <SourceMeta item={item} />
+        {badge && <span title="Çapraz kaynak teyidi" style={badgeChip(badge.color)}>{badge.label}</span>}
+        {timeAgo(item.publishedAt) && (
+          <span style={timeChip}>
+            <Clock size={10} strokeWidth={1.8} />{timeAgo(item.publishedAt)}
+          </span>
+        )}
+      </span>
+
+      <span style={rowActions}>
+        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink} title="Kaynak haberi oku">
+          oku <ExternalLink size={11} strokeWidth={2} />
         </a>
-        {item.trSummary && <p style={summaryStyle(2)}>{item.trSummary}</p>}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 9, marginTop: "auto" }}>
-          <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>oku <ExternalLink size={11} strokeWidth={2} /></a>
-          {item.isUsed ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 500, marginLeft: 6 }}>
-              <CheckCircle2 size={12} strokeWidth={1.8} /> Kullanıldı
-            </span>
-          ) : showOps ? (
-            ACCOUNTS.map((acc) => {
-              const busy = generatingKey === `${item.id}-${acc}`;
-              return (
-                <button key={acc} onClick={() => onGenerate(item.id, acc)} disabled={!!generatingKey} title={`@${acc} için taslak üret`} style={{ ...genBtnStyle, marginLeft: acc === ACCOUNTS[0] ? 6 : 0 }}>
-                  {busy ? <Loader2 size={11} strokeWidth={2} className="rise" /> : (<><Sparkles size={11} strokeWidth={2} />{acc}</>)}
-                </button>
-              );
-            })
-          ) : null}
-          <button onClick={onToggleRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
-        </div>
-      </div>
+        {item.isUsed ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 500 }}>
+            <CheckCircle2 size={12} strokeWidth={1.8} /> Kullanıldı
+          </span>
+        ) : showOps ? (
+          ACCOUNTS.map((acc) => {
+            const busy = generatingKey === `${item.id}-${acc}`;
+            return (
+              <button key={acc} onClick={() => onGenerate(item.id, acc)} disabled={!!generatingKey} title={`@${acc} için taslak üret`} style={genBtnStyle}>
+                {busy ? <Loader2 size={11} strokeWidth={2} className="rise" /> : (<><Sparkles size={11} strokeWidth={2} />{acc}</>)}
+              </button>
+            );
+          })
+        ) : null}
+        <button onClick={onToggleRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+      </span>
     </article>
   );
 }
 
-function SourceLine({ item, badge, buzz, small }: { item: NewsItem; badge: { label: string; color: string } | null; buzz: number | null; small?: boolean }) {
-  const fs = small ? "var(--text-2xs)" : "var(--text-xs)";
+/** Kaynak adı + güvenilirlik rengi (ShieldCheck) — tek kompakt öbek. */
+function SourceMeta({ item }: { item: NewsItem }) {
+  const name = item.newsSource?.name ?? catLabel(item.category);
+  const reliability = item.newsSource?.reliability;
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-      {item.newsSource && <span style={{ fontSize: fs, color: "var(--text-secondary)", fontWeight: 500 }}>{item.newsSource.name}</span>}
-      {item.newsSource && (
-        <span title={`Kaynak güvenilirliği: ${item.newsSource.reliability}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: RELIABILITY_COLORS[item.newsSource.reliability] || "var(--text-muted)", border: `1px solid ${RELIABILITY_COLORS[item.newsSource.reliability] || "var(--border)"}`, padding: "0 5px", borderRadius: "var(--radius-sm)", textTransform: "uppercase" }}>
-          <ShieldCheck size={10} strokeWidth={1.8} />{item.newsSource.reliability}
-        </span>
+    <span
+      title={reliability ? `Kaynak güvenilirliği: ${reliability}` : undefined}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 500, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+    >
+      {reliability && (
+        <ShieldCheck size={11} strokeWidth={1.8} style={{ flexShrink: 0, color: RELIABILITY_COLORS[reliability] || "var(--text-muted)" }} />
       )}
-      {timeAgo(item.publishedAt) && (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-          <Clock size={10} strokeWidth={1.8} />{timeAgo(item.publishedAt)}
-        </span>
-      )}
-      {buzz != null && (
-        <span title={`Buzz: ${buzz}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--nw-accent)" }}>
-          <Flame size={11} strokeWidth={2} /><span className="tnum">{buzz}</span>
-        </span>
-      )}
-      {badge && (
-        <span title="Çapraz kaynak teyidi" style={{ fontSize: "var(--text-2xs)", fontWeight: 500, color: badge.color, border: `1px solid ${badge.color}`, padding: "0 5px", borderRadius: "var(--radius-sm)" }}>{badge.label}</span>
-      )}
-    </div>
+      {name}
+    </span>
   );
 }
 
 function Pagination({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) {
   return (
-    <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center", marginTop: 28 }}>
-      <button className="nw-pagebtn" disabled={page <= 1} onClick={() => onChange(page - 1)} style={{ ...pageBtn, opacity: page <= 1 ? 0.4 : 1, cursor: page <= 1 ? "not-allowed" : "pointer" }}>
-        <ChevronLeft size={14} strokeWidth={2} /> Önceki
-      </button>
-      <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", minWidth: 56, textAlign: "center" }}>
+    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", marginTop: 10 }}>
+      <Button size="sm" variant="ghost" disabled={page <= 1} onClick={() => onChange(page - 1)} iconLeft={<ChevronLeft size={14} strokeWidth={2} />}>
+        Önceki
+      </Button>
+      <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", minWidth: 48, textAlign: "center" }}>
         {String(page).padStart(2, "0")} / {String(total).padStart(2, "0")}
       </span>
-      <button className="nw-pagebtn" disabled={page >= total} onClick={() => onChange(page + 1)} style={{ ...pageBtn, opacity: page >= total ? 0.4 : 1, cursor: page >= total ? "not-allowed" : "pointer" }}>
-        Sonraki <ChevronRight size={14} strokeWidth={2} />
-      </button>
+      <Button size="sm" variant="ghost" disabled={page >= total} onClick={() => onChange(page + 1)} iconRight={<ChevronRight size={14} strokeWidth={2} />}>
+        Sonraki
+      </Button>
     </div>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const heroBand: React.CSSProperties = { padding: "clamp(34px, 6vw, 56px) 24px clamp(28px, 4vw, 40px)", textAlign: "center", marginBottom: 24, border: "1px solid var(--border)" };
-const heroTitle: React.CSSProperties = { fontSize: "clamp(1.9rem, 1rem + 4vw, 3.4rem)", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.08, letterSpacing: "-0.025em", margin: "0 0 14px" };
-const heroSub: React.CSSProperties = { fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55, maxWidth: 540, margin: "0 auto 22px" };
+const toolbarRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
 
-const cardBase: React.CSSProperties = { background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" };
-const featuredRow: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "var(--space-3)" };
-const archiveGrid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" };
+const ctrlSm: React.CSSProperties = { minHeight: "var(--control-h-sm)", padding: "4px 8px", fontSize: "var(--text-xs)" };
 
-const controlsRow: React.CSSProperties = { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: "var(--space-5)", padding: "14px 16px", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" };
+const featuredRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap",
+  minHeight: 48,
+  padding: "8px 14px",
+  background: "color-mix(in srgb, var(--accent-2) 6%, var(--bg-surface))",
+  border: "1px solid color-mix(in srgb, var(--accent-2) 30%, var(--border-faint))",
+  borderRadius: "var(--radius-sm)",
+};
 
-const marqueeItem: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "0 18px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" };
+const featuredTitle: React.CSSProperties = {
+  flex: "1 1 240px",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "var(--text-sm)",
+  fontWeight: 500,
+  color: "var(--text-primary)",
+  textDecoration: "none",
+  letterSpacing: "-0.01em",
+};
 
-const readLink: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--nw-accent-2)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em" };
+const listHead: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "0 2px",
+  marginBottom: 8,
+};
 
-const warmBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 18px", background: "var(--nw-accent)", border: "1px solid var(--nw-accent)", color: "#1a1208", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" };
-const ghostBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" };
-const pageBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 14px", background: "var(--bg-elevated)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 999, fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit" };
+const listBand: React.CSSProperties = {
+  background: "var(--bg-surface)",
+  border: "1px solid var(--border-faint)",
+  borderRadius: "var(--radius-sm)",
+  overflow: "hidden",
+};
 
-function summaryStyle(lines: number): React.CSSProperties {
-  return { margin: 0, fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties;
+const rowShell: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  minHeight: 48,
+  padding: "6px 14px",
+};
+
+const rowTitle: React.CSSProperties = {
+  flex: "1 1 200px",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "var(--text-sm)",
+  fontWeight: 500,
+  color: "var(--text-primary)",
+  textDecoration: "none",
+  letterSpacing: "-0.01em",
+};
+
+const rowMeta: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 };
+
+const rowActions: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 };
+
+const timeChip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" };
+
+function buzzChip(hot: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: hot ? "var(--accent-2-text)" : "var(--text-muted)",
+    border: `1px solid ${hot ? "var(--accent-2-border)" : "var(--border-faint)"}`,
+    padding: "1px 6px",
+    borderRadius: "var(--radius-sm)",
+  };
 }
 
-const inputStyle: React.CSSProperties = { background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", padding: "8px 11px", fontSize: "var(--text-xs)", fontFamily: "inherit", outline: "none", width: "100%" };
+function badgeChip(color: string): React.CSSProperties {
+  return { fontSize: "var(--text-2xs)", fontWeight: 500, color, border: `1px solid ${color}`, padding: "0 5px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap" };
+}
 
-const genBtnStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 8px", background: "var(--nw-soft)", border: "1px solid var(--nw-border)", color: "var(--nw-accent-2)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "inherit", textTransform: "uppercase", letterSpacing: "0.02em", cursor: "pointer" };
+const readLink: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--accent-2-text)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" };
+
+const genBtnStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "var(--accent-2-dark)", border: "1px solid var(--accent-2-border)", color: "var(--accent-2-text)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "inherit", textTransform: "uppercase", letterSpacing: "0.02em", cursor: "pointer" };
 
 function toggleStyle(active: boolean): React.CSSProperties {
-  return { padding: "4px 9px", background: active ? "var(--nw-soft)" : "transparent", border: `1px solid ${active ? "var(--nw-border)" : "var(--border)"}`, color: active ? "var(--nw-accent-2)" : "var(--text-muted)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontFamily: "inherit", cursor: "pointer", marginLeft: "auto" };
-}
-
-function Field({ label, grow, children }: { label: string; grow?: boolean; children: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: grow ? 1 : undefined, minWidth: grow ? 160 : undefined }}>
-      <label className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: SelectOption[] }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}
-
-function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
-  const ok = toast.type === "success";
-  return (
-    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 999, display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-sm)", fontWeight: 500, background: "var(--bg-elevated)", color: "var(--text-primary)", border: `1px solid ${ok ? "color-mix(in srgb, var(--status-ok) 40%, transparent)" : "color-mix(in srgb, var(--danger) 40%, transparent)"}`, boxShadow: "var(--shadow-lg)" }}>
-      {ok ? <CheckCircle2 size={16} strokeWidth={1.8} style={{ color: "var(--green)" }} /> : <AlertCircle size={16} strokeWidth={1.8} style={{ color: "var(--danger)" }} />}
-      {toast.text}
-    </div>
-  );
-}
-
-function CardSkeleton() {
-  return (
-    <div style={{ ...cardBase, overflow: "hidden" }}>
-      <div className="rise" style={{ height: 130, background: "var(--bg-base)" }} />
-      <div style={{ padding: "13px 15px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div className="rise" style={{ height: 12, width: "40%", borderRadius: "var(--radius-sm)", background: "var(--bg-base)" }} />
-        <div className="rise" style={{ height: 16, width: "90%", borderRadius: "var(--radius-sm)", background: "var(--bg-base)" }} />
-        <div className="rise" style={{ height: 14, width: "70%", borderRadius: "var(--radius-sm)", background: "var(--bg-base)" }} />
-      </div>
-    </div>
-  );
+  return { padding: "3px 8px", background: active ? "var(--accent-dark)" : "transparent", border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`, color: active ? "var(--accent-text)" : "var(--text-muted)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontFamily: "inherit", cursor: "pointer" };
 }

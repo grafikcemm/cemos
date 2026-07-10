@@ -19,28 +19,32 @@ test("news pool offers the Düşük Skor archive filter", async ({ page }) => {
   await expect(page.locator("option", { hasText: "Karantina" })).toHaveCount(1);
 });
 
-test("morning dashboard renders the viral news section", async ({ page }) => {
+test("morning dashboard renders the viral news section behind the fold toggle", async ({ page }) => {
   await page.route("**/api/news-pool**", (route) =>
     route.fulfill({ json: { success: true, count: 0, items: [] } }),
   );
 
   await page.goto("/");
   await page.getByTestId("sidebar-area-bugun").click();
-  // Header renders regardless of data (empty state is inside the section).
+  await page.getByTestId("subnav-tab-morning").click();
+  // "Tepki vermeye değer" varsayılan katlanmış — aç, sonra bölümü doğrula.
+  await page.getByRole("button", { name: /Tepki vermeye değer/ }).click();
   await expect(page.getByText("Viral Haber Öne Çıkanlar")).toBeVisible({ timeout: 20_000 });
 });
 
-test("toolbox is reachable from the Sistem cluster and task areas are visible", async ({ page }) => {
+test("toolbox is reachable from the Sistem cluster and 5 areas are visible", async ({ page }) => {
   await page.route("**/api/toolbox**", (route) =>
     route.fulfill({ json: { success: true, items: [] } }),
   );
 
   await page.goto("/");
-  // Sol sidebar 4 birincil alanı gösterir (Bugün/Üretim/Keşif/Hafıza).
-  await expect(page.getByTestId("sidebar-area-bugun")).toHaveCount(1);
-  await expect(page.getByTestId("sidebar-area-uretim")).toHaveCount(1);
-  await expect(page.getByTestId("sidebar-area-kesif")).toHaveCount(1);
-  await expect(page.getByTestId("sidebar-area-hafiza")).toHaveCount(1);
+  // Sol sidebar 5 alanı gösterir (Bugün/Üretim/Keşif/Hafıza/Sistem) — alt
+  // sayfalar sidebar'da SERGİLENMEZ (workspace sub-nav'da yaşar).
+  for (const id of ["bugun", "uretim", "kesif", "hafiza", "sistem"]) {
+    await expect(page.getByTestId(`sidebar-area-${id}`)).toHaveCount(1);
+  }
+  await expect(page.getByTestId("subnav-tab-daily-queue")).toHaveCount(1); // aktif alanın sub-nav'ı
+  await expect(page.locator('[data-testid^="sidebar-tab-"]')).toHaveCount(0); // sidebar'da alt sekme yok
 
   await selectUtility(page, "toolbox");
 

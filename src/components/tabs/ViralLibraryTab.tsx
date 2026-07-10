@@ -156,15 +156,15 @@ export default function ViralLibraryTab() {
         eyebrow="TWITTER"
         title="Viral Kütüphane"
         subtitle="Yıldızladığın viral tweetler — referans ve yeni üretim kaynağı."
-        size="page"
+        size="compact"
       />
 
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-6)",
+          gap: "var(--space-2)",
+          marginBottom: "var(--space-4)",
         }}
       >
         <MetricCard
@@ -182,7 +182,7 @@ export default function ViralLibraryTab() {
           display: "flex",
           alignItems: "center",
           gap: "var(--space-2)",
-          marginBottom: "var(--space-5)",
+          marginBottom: "var(--space-4)",
           flexWrap: "wrap",
         }}
       >
@@ -203,8 +203,8 @@ export default function ViralLibraryTab() {
       </div>
 
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "var(--space-2)" }}>
+          {Array.from({ length: 4 }).map((_, i) => (
             <Card key={i} variant="default">
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <Skeleton width="35%" height={14} />
@@ -229,7 +229,7 @@ export default function ViralLibraryTab() {
           />
         </Card>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: "var(--space-2)", alignItems: "start" }}>
           {filtered.map((tweet) => (
             <SavedTweetCard
               key={tweet.id}
@@ -270,8 +270,8 @@ function SavedTweetCard({
 
   return (
     <Card variant="feature" padded={false}>
-      <div style={{ padding: "var(--space-4)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+      <div style={{ padding: "var(--space-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
           <div
             style={{
               width: 30,
@@ -354,7 +354,7 @@ function SavedTweetCard({
             fontSize: "var(--text-sm)",
             color: "var(--text-secondary)",
             lineHeight: 1.55,
-            marginBottom: "var(--space-3)",
+            marginBottom: "var(--space-2)",
           }}
         >
           {tweet.text}
@@ -366,8 +366,8 @@ function SavedTweetCard({
             gap: "var(--space-2)",
             flexWrap: "wrap",
             alignItems: "center",
-            paddingTop: "var(--space-3)",
-            borderTop: "1px solid var(--border)",
+            paddingTop: "var(--space-2)",
+            borderTop: "1px solid var(--border-faint)",
           }}
         >
           <span

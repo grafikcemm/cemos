@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useXAgentStore } from "@/store/xagent";
 import { fetchJson } from "@/lib/utils/safeFetch";
-import { PageHeader, Card, Button, MetricCard, EmptyState } from "../ui";
+import { PageHeader, Card, Button, MetricCard, EmptyState, ErrorState, Skeleton } from "../ui";
 
 type CouncilVerdict = {
   sourcePostId: string;
@@ -245,7 +245,7 @@ export default function DiscoveryEngineTab() {
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
       <PageHeader
-        surface
+        size="compact"
         eyebrow="Keşfet"
         title="Keşif Motoru"
         subtitle={`Çok kaynaklı keşif (X · Reddit · YouTube · RSS) → çok-ajanlı müzakere konseyi → viral pattern madenciliği → @${channel} için persona-sadık taslak üretimi.`}
@@ -318,7 +318,7 @@ export default function DiscoveryEngineTab() {
         </Card>
       )}
 
-      <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-5)" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-4)" }}>
         <Button
           variant="primary"
           onClick={runFull}
@@ -341,9 +341,19 @@ export default function DiscoveryEngineTab() {
         </Button>
       </div>
 
-      {/* Faz ilerleme göstergesi */}
+      {/* Faz ilerleme göstergesi — ince yatay şerit (dev kart değil) */}
       {showStepper && (
-        <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-4)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            marginBottom: "var(--space-4)",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            overflow: "hidden",
+          }}
+        >
           {STEPS.map((s, i) => {
             const st = stepStatus(s.id);
             const c = STEP_COLORS[st];
@@ -355,37 +365,36 @@ export default function DiscoveryEngineTab() {
                   flex: 1,
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
-                  padding: "12px 14px",
-                  background: c.bg,
-                  border: `1px solid ${c.border}`,
-                  borderRadius: "var(--radius-lg)",
-                  fontSize: "var(--text-sm)",
+                  gap: 8,
+                  padding: "6px 12px",
+                  minHeight: "var(--control-h-sm)",
+                  background: st === "pending" ? "transparent" : c.bg,
+                  borderLeft: i === 0 ? "none" : "1px solid var(--border-faint)",
+                  fontSize: "var(--text-xs)",
                   color: c.fg,
                   fontWeight: 500,
-                  boxShadow: "var(--highlight-top)",
-                  transition: "background var(--ease-out), border-color var(--ease-out), color var(--ease-out)",
+                  transition: "background var(--ease-out), color var(--ease-out)",
                 }}
               >
                 <span
                   style={{
                     display: "grid",
                     placeItems: "center",
-                    width: 24,
-                    height: 24,
-                    borderRadius: "var(--radius-md)",
+                    width: 18,
+                    height: 18,
+                    borderRadius: "var(--radius-sm)",
                     background: "color-mix(in srgb, currentColor 12%, transparent)",
                     flexShrink: 0,
                   }}
                 >
                   {st === "done" ? (
-                    <Check size={15} strokeWidth={2.2} />
+                    <Check size={12} strokeWidth={2.2} />
                   ) : st === "error" ? (
-                    <XIcon size={15} strokeWidth={2.2} />
+                    <XIcon size={12} strokeWidth={2.2} />
                   ) : st === "running" ? (
-                    <StepIcon size={15} strokeWidth={2} />
+                    <StepIcon size={12} strokeWidth={2} />
                   ) : (
-                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 500 }}>{i + 1}</span>
+                    <span className="tnum" style={{ fontSize: 10, fontWeight: 500 }}>{i + 1}</span>
                   )}
                 </span>
                 <span>{s.label}</span>
@@ -396,24 +405,17 @@ export default function DiscoveryEngineTab() {
         </div>
       )}
 
-      {error && (
-        <Card
-          variant="quiet"
-          style={{
-            marginBottom: "var(--space-4)",
-            background: "color-mix(in srgb, var(--danger) 7%, var(--bg-base))",
-            border: "1px solid color-mix(in srgb, var(--danger) 32%, transparent)",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
-            color: "var(--danger)",
-            fontSize: "var(--text-sm)",
-            lineHeight: 1.55,
-          }}
-        >
-          <AlertTriangle size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
-          <span>{error}</span>
+      {/* Koşarken kısmi sonuç yoksa iskelet — ekran asla boş kalmaz */}
+      {loading && !result && !miningOnly && (
+        <Card variant="quiet" padded style={{ marginBottom: "var(--space-4)" }}>
+          <Skeleton lines={3} height={14} />
         </Card>
+      )}
+
+      {error && (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <ErrorState description={error} />
+        </div>
       )}
 
       {result?.discovery && (
@@ -489,8 +491,8 @@ export default function DiscoveryEngineTab() {
             <MetricCard label="Müzakere edildi" value={mining.deliberated} />
             <MetricCard label="Elendi" value={mining.skipped} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {mining.verdicts.map((v) => (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {mining.verdicts.map((v, i) => (
               <div
                 key={v.sourcePostId}
                 style={{
@@ -498,10 +500,8 @@ export default function DiscoveryEngineTab() {
                   alignItems: "center",
                   flexWrap: "wrap",
                   gap: 12,
-                  padding: "10px 12px",
-                  background: "var(--bg-base)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border)",
+                  padding: "8px 2px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
                 }}
               >
                 <span
@@ -672,8 +672,8 @@ function OutlierHighlights() {
       <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 }}>
         Takip edilen kaynaklarda kendi ortalamasının belirgin üstüne çıkan içerikler — üretim için en sıcak referanslar.
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {items.map((o) => {
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {items.map((o, i) => {
           const title = o.contentItem?.title || o.contentItem?.body?.slice(0, 120) || "İçerik";
           const times = o.multiplier >= 10 ? Math.round(o.multiplier) : Math.round(o.multiplier * 10) / 10;
           return (
@@ -683,10 +683,8 @@ function OutlierHighlights() {
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: "10px 12px",
-                background: "var(--bg-base)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--border)",
+                padding: "8px 2px",
+                borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
               }}
             >
               <span

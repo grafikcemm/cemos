@@ -72,6 +72,7 @@ export default function PromptKutuphanesiTab() {
         eyebrow="KÜTÜPHANE"
         title="Prompt Kütüphanesi"
         subtitle="Kategorilere ayrılmış prompt arşivi — ara, gözden geçir, tek tıkla kopyala."
+        size="compact"
         meta={
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
@@ -88,44 +89,39 @@ export default function PromptKutuphanesiTab() {
         }
       />
 
-      <Card variant="quiet" padded={false} style={{ marginBottom: "var(--space-4)" }}>
-        <div style={{ padding: "14px 16px", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Kategori</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", padding: "8px 12px", fontSize: "var(--text-sm)", outline: "none", cursor: "pointer", transition: "border-color var(--ease-out) 150ms" }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>{c === "all" ? "Tümü" : c}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 200 }}>
-            <label className="eyebrow" style={{ color: "var(--text-muted)" }}>Arama</label>
-            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-              <Search size={15} strokeWidth={1.8} style={{ position: "absolute", left: 12, color: "var(--text-muted)", pointerEvents: "none" }} />
-              <input
-                type="text"
-                placeholder="Prompt ara..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ width: "100%", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", padding: "8px 12px 8px 34px", fontSize: "var(--text-sm)", outline: "none", transition: "border-color var(--ease-out) 150ms" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
-              />
-            </div>
-          </div>
+      {/* Kompakt toolbar — tek satır: kategori + arama (kart-içinde-kart yok) */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: "var(--space-4)" }}>
+        <select
+          value={category}
+          aria-label="Kategori"
+          onChange={(e) => setCategory(e.target.value)}
+          style={{ height: "var(--control-h-sm)", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", padding: "0 12px", fontSize: "var(--text-sm)", fontFamily: "inherit", outline: "none", cursor: "pointer", maxWidth: 240, transition: "border-color var(--ease-out) 150ms" }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+        >
+          {categories.map((c) => (
+            <option key={c} value={c}>{c === "all" ? "Tümü" : c}</option>
+          ))}
+        </select>
+        <div style={{ position: "relative", display: "flex", alignItems: "center", flex: 1, minWidth: 200, maxWidth: 420 }}>
+          <Search size={15} strokeWidth={1.8} style={{ position: "absolute", left: 10, color: "var(--text-muted)", pointerEvents: "none" }} />
+          <input
+            type="text"
+            placeholder="Prompt ara..."
+            aria-label="Arama"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", height: "var(--control-h-sm)", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-primary)", padding: "0 12px 0 32px", fontSize: "var(--text-sm)", fontFamily: "inherit", outline: "none", transition: "border-color var(--ease-out) 150ms" }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent-border)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+          />
         </div>
-      </Card>
+      </div>
 
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} height={148} style={{ borderRadius: "var(--radius-xl)" }} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-2)" }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} height={132} style={{ borderRadius: "var(--radius-lg)" }} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -147,13 +143,13 @@ export default function PromptKutuphanesiTab() {
           />
         </Card>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-2)" }}>
           {filtered.map((p) => (
             <Card
               key={p.id}
               interactive
               onClick={() => setSelected(p)}
-              style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                 <span className="font-display" style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--text-primary)", letterSpacing: "-0.01em", lineHeight: 1.2 }}>{p.title}</span>
@@ -181,7 +177,7 @@ export default function PromptKutuphanesiTab() {
       {selected && (
         <div
           onClick={() => setSelected(null)}
-          style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-base) 78%, transparent)", backdropFilter: "blur(2px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-base) 82%, transparent)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         >
           <div
             onClick={(e) => e.stopPropagation()}

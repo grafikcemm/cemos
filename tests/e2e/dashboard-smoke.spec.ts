@@ -4,12 +4,9 @@ import { selectTab, selectUtility } from "./helpers/nav";
 // Data-independent smoke tests (TRAN-CODE-1.5): assert UI shells, navigation
 // and loading placeholders — never row counts, so an empty DB also passes.
 
-test("topbar navigation from a dashboard page returns to the app shell (TRAN-KPI-1.1)", async ({
-  page,
-}) => {
-  await page.goto("/dashboard/weekly-learning-report");
+test("sidebar area navigation reaches Keşif Motoru", async ({ page }) => {
+  await page.goto("/");
   await selectTab(page, "kesif", "Keşif Motoru");
-  await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: "Keşif Motoru" })).toBeVisible();
 });
 
@@ -78,10 +75,26 @@ test("settings tab renders health cards and the learning status card", async ({ 
   });
 });
 
-test("weekly learning report page loads without a runtime error", async ({ page }) => {
-  await page.goto("/dashboard/weekly-learning-report");
-  await expect(page.getByText("CemOS").first()).toBeVisible();
-  // <nextjs-portal> always exists in dev (devtools indicator) — assert no
-  // actual error dialog text instead.
-  await expect(page.getByText(/Unhandled Runtime Error|Application error/)).toHaveCount(0);
-});
+// ── Deep-link'ler: yalnız URL değil DOĞRU BAŞLIK; persisted activeTab
+//    FARKLIYKEN de route'un sekmesi kazanmalı. ────────────────────────────
+const DEEP_LINKS: { path: string; crumb: string }[] = [
+  { path: "/dashboard/daily-queue", crumb: "Günlük Kuyruk" },
+  { path: "/dashboard/flow-radar", crumb: "Viral Radar" },
+  { path: "/dashboard/pattern-library", crumb: "Pattern Kütüphanesi" },
+  { path: "/dashboard/source-intelligence", crumb: "X Hesabı Kaynakları" },
+];
+
+for (const { path, crumb } of DEEP_LINKS) {
+  test(`deep-link ${path} seeds its tab even with a different persisted activeTab`, async ({
+    page,
+  }) => {
+    // Önce farklı bir sekmeye git → activeTab persist edilsin.
+    await page.goto("/");
+    await selectUtility(page, "costs");
+    await expect(page.getByRole("banner").getByText("Maliyetler")).toBeVisible();
+
+    // Deep-link route persisted state'i ezmeli (seed-once davranışı).
+    await page.goto(path);
+    await expect(page.getByRole("banner").getByText(crumb)).toBeVisible({ timeout: 20_000 });
+  });
+}

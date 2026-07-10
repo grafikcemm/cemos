@@ -7,8 +7,6 @@ import {
   Target,
   TrendingUp,
   ShieldAlert,
-  Percent,
-  Crown,
   Search,
   Heart,
   Repeat2,
@@ -24,7 +22,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { PageHeader, Card, EmptyState, SectionHeader, Badge, Skeleton, Button, Input, Select } from "@/components/ui";
+import { PageHeader, Card, EmptyState, ErrorState, SectionHeader, Badge, Skeleton, Button, Input, Select } from "@/components/ui";
 
 interface Source {
   id: string;
@@ -380,19 +378,32 @@ export default function SourceIntelligenceTab() {
 
       {/* Header */}
       <PageHeader
+        size="compact"
         eyebrow="ÖĞREN"
         title="X Hesabı Kaynakları"
         subtitle="İzlenen X hesaplarını ekle/düzenle, taranan postları ve fırsat skorlarını hesap bazlı yönet."
         meta={
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-            <Radar size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
-            <span>Aktif kaynak izleme · </span>
-            <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{summary.totalSources}</strong>
-            <span>kaynak</span>
-          </span>
+          <>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <Radar size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
+              <span>Aktif kaynak izleme · </span>
+              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{summary.totalSources}</strong>
+              <span>kaynak</span>
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span>Ortalama Fırsat</span>
+              <strong className="tnum" style={{ color: "var(--text-primary)", fontWeight: 500 }}>{summary.averageOpportunityScore}%</strong>
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span>En Başarılı Kaynak</span>
+              <strong style={{ color: "var(--accent-text)", fontWeight: 500 }}>
+                {summary.topSourceHandle ? `@${summary.topSourceHandle}` : "Yok"}
+              </strong>
+            </span>
+          </>
         }
         actions={
-          <Button variant="secondary" size="md" onClick={loadData} iconLeft={<RefreshCw size={15} strokeWidth={2} />}>
+          <Button variant="secondary" size="sm" onClick={loadData} iconLeft={<RefreshCw size={15} strokeWidth={2} />}>
             Yenile
           </Button>
         }
@@ -402,17 +413,10 @@ export default function SourceIntelligenceTab() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
           gap: "var(--space-3)"
         }}
       >
-        <StatCard
-          label="Toplam Kaynak"
-          value={summary.totalSources}
-          sub="Kaydedilmiş hesap"
-          tone="default"
-          icon={<Radar size={16} strokeWidth={1.8} />}
-        />
         <StatCard
           label="Aktif Kaynak"
           value={summary.activeSources}
@@ -440,21 +444,6 @@ export default function SourceIntelligenceTab() {
           sub="Risk skoru 70+"
           tone="danger"
           icon={<ShieldAlert size={16} strokeWidth={1.8} />}
-        />
-        <StatCard
-          label="Ortalama Fırsat"
-          value={`${summary.averageOpportunityScore}%`}
-          sub="Tüm kaynak ortalaması"
-          tone="default"
-          icon={<Percent size={16} strokeWidth={1.8} />}
-        />
-        <StatCard
-          label="En Başarılı Kaynak"
-          value={summary.topSourceHandle ? `@${summary.topSourceHandle}` : "Yok"}
-          sub="En yüksek fırsat skoru"
-          tone="accent"
-          icon={<Crown size={16} strokeWidth={1.8} />}
-          truncate
         />
       </div>
 
@@ -610,7 +599,6 @@ export default function SourceIntelligenceTab() {
               overflowY: "auto",
               display: "flex",
               flexDirection: "column",
-              gap: "var(--space-2)",
               paddingRight: 4
             }}
           >
@@ -622,29 +610,27 @@ export default function SourceIntelligenceTab() {
                 description="Tarama kaynağı eklendiğinde takip edilen hesaplar burada listelenir."
               />
             ) : (
-              sources.map((src) => (
+              sources.map((src, srcIndex) => (
                 <div
                   key={src.id}
                   style={{
-                    background: "var(--bg-surface)",
-                    border: "1px solid var(--border)",
-                    padding: "var(--space-3)",
-                    borderRadius: "var(--radius-lg)",
+                    padding: "10px 2px",
+                    borderTop: srcIndex === 0 ? "none" : "1px solid var(--border-faint)",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 6,
+                    gap: 4,
                     position: "relative"
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                    <div>
-                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
+                      <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
                         @{src.handle}
-                      </div>
+                      </span>
                       {src.displayName && (
-                        <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                        <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {src.displayName}
-                        </div>
+                        </span>
                       )}
                     </div>
                     <span
@@ -653,13 +639,10 @@ export default function SourceIntelligenceTab() {
                         alignItems: "center",
                         gap: 4,
                         fontSize: 9,
-                        background: src.enabled ? "color-mix(in srgb, var(--status-ok) 12%, transparent)" : "var(--bg-elevated)",
                         color: src.enabled ? "var(--green)" : "var(--text-muted)",
-                        border: src.enabled ? "1px solid color-mix(in srgb, var(--status-ok) 25%, transparent)" : "1px solid var(--border)",
-                        padding: "2px 6px",
-                        borderRadius: "var(--radius-sm)",
                         fontWeight: 500,
-                        letterSpacing: "0.04em"
+                        letterSpacing: "0.04em",
+                        flexShrink: 0
                       }}
                     >
                       <span style={{ width: 5, height: 5, borderRadius: "50%", background: src.enabled ? "var(--green)" : "var(--text-muted)" }} />
@@ -667,30 +650,24 @@ export default function SourceIntelligenceTab() {
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, fontSize: "var(--text-2xs)" }}>
-                    <span style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>
-                      Hedef: @{src.accountHandle}
-                    </span>
-                    <span style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>
-                      Filtre: {src.mode}
-                    </span>
-                    <span style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)", padding: "2px 6px", borderRadius: "var(--radius-sm)" }}>
-                      Eşik: {src.thresholdLikes} Beğeni
-                    </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 2, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                    <span>Hedef: <span style={{ color: "var(--text-secondary)" }}>@{src.accountHandle}</span></span>
+                    <span aria-hidden>·</span>
+                    <span>Filtre: <span style={{ color: "var(--text-secondary)" }}>{src.mode}</span></span>
+                    <span aria-hidden>·</span>
+                    <span>Eşik: <span style={{ color: "var(--text-secondary)" }}>{src.thresholdLikes} Beğeni</span></span>
+                    {src.totalPosts > 0 && (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span className="tnum">Toplam Post: <strong style={{ color: "var(--text-secondary)" }}>{src.totalPosts}</strong></span>
+                        <span aria-hidden>·</span>
+                        <span className="tnum">Ort. Fırsat: <strong style={{ color: "var(--accent-text)" }}>{src.averageOpportunity}%</strong></span>
+                      </>
+                    )}
                   </div>
-
-                  {src.totalPosts > 0 && (
-                    <div className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, display: "flex", justifyContent: "space-between" }}>
-                      <span>Toplam Post: <strong style={{ color: "var(--text-secondary)" }}>{src.totalPosts}</strong></span>
-                      <span>Ort. Fırsat: <strong style={{ color: "var(--accent-text)" }}>{src.averageOpportunity}%</strong></span>
-                    </div>
-                  )}
 
                   <div
                     style={{
-                      borderTop: "1px solid var(--border)",
-                      paddingTop: 8,
-                      marginTop: 4,
                       display: "flex",
                       justifyContent: "space-between",
                       gap: 4,
@@ -814,16 +791,17 @@ export default function SourceIntelligenceTab() {
           />
 
           {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", padding: "var(--space-2) 0" }}>
-              <Skeleton height={96} />
-              <Skeleton height={96} />
-              <Skeleton height={96} />
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", padding: "var(--space-2) 0" }}>
+              <Skeleton height={56} />
+              <Skeleton height={56} />
+              <Skeleton height={56} />
+              <Skeleton height={56} />
             </div>
           ) : error ? (
-            <EmptyState
-              icon={<ShieldAlert size={22} strokeWidth={1.8} />}
+            <ErrorState
               title="Fırsatlar yüklenemedi"
               description={error}
+              onRetry={loadData}
             />
           ) : sourcePosts.length === 0 ? (
             <EmptyState
@@ -836,13 +814,12 @@ export default function SourceIntelligenceTab() {
               style={{
                 maxHeight: 520,
                 overflowY: "auto",
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: 10,
+                display: "flex",
+                flexDirection: "column",
                 paddingRight: 4
               }}
             >
-              {sourcePosts.map((post) => {
+              {sourcePosts.map((post, postIndex) => {
                 const isHighOpp = post.opportunityScore >= 75;
                 const isHighRisk = post.riskScore >= 70;
 
@@ -850,13 +827,11 @@ export default function SourceIntelligenceTab() {
                   <div
                     key={post.id}
                     style={{
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border)",
-                      padding: "var(--space-3)",
-                      borderRadius: "var(--radius-lg)",
+                      padding: "10px 2px",
+                      borderTop: postIndex === 0 ? "none" : "1px solid var(--border-faint)",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 8
+                      gap: 6
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
@@ -955,8 +930,18 @@ export default function SourceIntelligenceTab() {
                       </div>
                     </div>
 
-                    {/* Text Preview */}
-                    <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                    {/* Text Preview — kompakt: 2 satır clamp, tam metin "Detayları Gör" modalında */}
+                    <div
+                      style={{
+                        fontSize: "var(--text-sm)",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.5,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden"
+                      }}
+                    >
                       {post.text}
                     </div>
 
@@ -967,10 +952,7 @@ export default function SourceIntelligenceTab() {
                         justifyContent: "space-between",
                         alignItems: "center",
                         flexWrap: "wrap",
-                        gap: 10,
-                        borderTop: "1px solid var(--border)",
-                        paddingTop: 8,
-                        marginTop: 4
+                        gap: 10
                       }}
                     >
                       <div className="tnum" style={{ display: "flex", gap: 12, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
@@ -1490,7 +1472,7 @@ const STAT_TONE_COLOR: Record<StatTone, string> = {
   danger: "var(--danger)",
 };
 
-/** Semantik-tonlu KPI kartı — editöryal display sayı + Lucide ikon + alt etiket. */
+/** Semantik-tonlu kompakt KPI tile — dashboard yoğunluğu: küçük pad, tek bakışta okunur. */
 function StatCard({
   label,
   value,
@@ -1510,13 +1492,13 @@ function StatCard({
   return (
     <div
       style={{
-        background: tone === "accent" ? "var(--gradient-accent), var(--bg-surface)" : "var(--gradient-surface), var(--bg-surface)",
+        background: tone === "accent" ? "var(--gradient-accent), var(--bg-surface)" : "var(--bg-surface)",
         border: `1px solid ${tone === "accent" ? "var(--accent-border)" : "var(--border)"}`,
-        borderRadius: "var(--radius-xl)",
-        padding: "16px 18px",
+        borderRadius: "var(--radius-lg)",
+        padding: "10px 14px",
         display: "flex",
         flexDirection: "column",
-        gap: 8,
+        gap: 4,
         boxShadow: "var(--highlight-top)",
         minWidth: 0,
       }}
@@ -1525,20 +1507,22 @@ function StatCard({
         <span className="eyebrow" style={{ color: "var(--text-secondary)" }}>{label}</span>
         <span style={{ display: "inline-flex", color, opacity: 0.85, flexShrink: 0 }}>{icon}</span>
       </div>
-      <div
-        className="font-display tnum"
-        style={{
-          fontSize: "var(--text-xl)",
-          fontWeight: 500,
-          color,
-          lineHeight: 1.1,
-          letterSpacing: "-0.01em",
-          ...(truncate ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : {}),
-        }}
-      >
-        {value}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+        <span
+          className="font-display tnum"
+          style={{
+            fontSize: "var(--text-lg)",
+            fontWeight: 500,
+            color,
+            lineHeight: 1.1,
+            letterSpacing: "-0.01em",
+            ...(truncate ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : {}),
+          }}
+        >
+          {value}
+        </span>
+        <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</span>
       </div>
-      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{sub}</div>
     </div>
   );
 }
