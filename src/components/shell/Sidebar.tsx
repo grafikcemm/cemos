@@ -14,15 +14,15 @@ import {
   Sparkles,
   TrendingUp,
   Newspaper,
-  AtSign,
   BrainCircuit,
   Video,
-  MonitorPlay,
   Camera,
   Users,
   Star,
   Type,
   Puzzle,
+  Send,
+  Radar,
   type LucideIcon,
 } from "lucide-react";
 import { useXAgentStore, type Channel } from "@/store/xagent";
@@ -38,10 +38,9 @@ const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
 const ICONS: Record<string, LucideIcon> = {
   Sunrise,
-  AtSign,
-  Camera,
+  Send,
+  Radar,
   Library,
-  MonitorPlay,
   Wrench,
   DollarSign,
   Activity,
@@ -65,7 +64,9 @@ const TAB_ICONS: Record<string, LucideIcon> = {
   instagram: Camera,
 };
 
-const ACTIVE_PILL = "linear-gradient(135deg, var(--accent), var(--accent-hover))";
+/* Aktif nav: solid pill DEĞİL — mor tint zemin + mor metin (dashboard sessiz aktiflik). */
+const ACTIVE_BG = "var(--accent-dark)";
+const ACTIVE_BORDER = "1px solid var(--accent-border)";
 
 type SidebarProps = {
   activeArea: PrimaryAreaId | null;
@@ -205,13 +206,12 @@ export default function Sidebar({
                     width: "100%",
                     padding: "10px 12px",
                     marginBottom: 4,
-                    borderRadius: "var(--radius-md)",
-                    border: "1px solid transparent",
-                    background: isActive ? ACTIVE_PILL : "transparent",
-                    boxShadow: isActive ? "var(--glow-cyan)" : "none",
-                    color: isActive ? "var(--accent-fg)" : "var(--text-secondary)",
+                    borderRadius: "var(--radius-sm)",
+                    border: isActive ? ACTIVE_BORDER : "1px solid transparent",
+                    background: isActive ? ACTIVE_BG : "transparent",
+                    color: isActive ? "var(--accent-text)" : "var(--text-secondary)",
                     fontSize: "var(--text-sm)",
-                    fontWeight: isActive ? 500 : 500,
+                    fontWeight: 500,
                     fontFamily: "inherit",
                     cursor: "pointer",
                     textAlign: "left",
@@ -280,10 +280,10 @@ export default function Sidebar({
             );
           })}
 
-          {/* Araçlar kümesi — eskiden footer ikonlarıydı, artık navde yayılı */}
+          {/* Sistem kümesi — sağlık/maliyet/araç/ayar yüzeyleri */}
           <div style={{ marginTop: 12 }}>
             <div className="eyebrow" style={{ padding: "4px 8px 7px", color: "var(--text-muted)" }}>
-              Araçlar
+              Sistem
             </div>
             {UTILITY_TABS.map((tab) => (
               <TabButton
@@ -442,11 +442,10 @@ function IconRail({
               justifyContent: "center",
               width: 40,
               height: 40,
-              borderRadius: "var(--radius-pill)",
-              border: "1px solid transparent",
-              background: isActive ? ACTIVE_PILL : "transparent",
-              boxShadow: isActive ? "var(--glow-cyan)" : "none",
-              color: isActive ? "var(--accent-fg)" : "var(--text-secondary)",
+              borderRadius: "var(--radius-sm)",
+              border: isActive ? ACTIVE_BORDER : "1px solid transparent",
+              background: isActive ? ACTIVE_BG : "transparent",
+              color: isActive ? "var(--accent-text)" : "var(--text-secondary)",
               cursor: "pointer",
               transition: "background 0.15s, color 0.15s",
             }}
@@ -486,11 +485,10 @@ function IconRail({
               justifyContent: "center",
               width: 40,
               height: 40,
-              borderRadius: "var(--radius-pill)",
-              border: "1px solid transparent",
-              background: isActive ? ACTIVE_PILL : "transparent",
-              boxShadow: isActive ? "var(--glow-cyan)" : "none",
-              color: isActive ? "var(--accent-fg)" : "var(--text-muted)",
+              borderRadius: "var(--radius-sm)",
+              border: isActive ? ACTIVE_BORDER : "1px solid transparent",
+              background: isActive ? ACTIVE_BG : "transparent",
+              color: isActive ? "var(--accent-text)" : "var(--text-muted)",
               cursor: "pointer",
               transition: "background 0.15s, color 0.15s",
             }}

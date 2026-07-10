@@ -8,14 +8,14 @@ test("topbar navigation from a dashboard page returns to the app shell (TRAN-KPI
   page,
 }) => {
   await page.goto("/dashboard/weekly-learning-report");
-  await selectTab(page, "kesfet", "Keşif Motoru");
+  await selectTab(page, "kesif", "Keşif Motoru");
   await expect(page).toHaveURL("/");
   await expect(page.getByRole("heading", { name: "Keşif Motoru" })).toBeVisible();
 });
 
 test("daily queue tab shows today's operation panel", async ({ page }) => {
   await page.goto("/");
-  await selectTab(page, "uret", "Günlük Kuyruk");
+  await selectTab(page, "bugun", "Günlük Kuyruk");
   await expect(page.getByText("Bugünkü Operasyon")).toBeVisible();
 });
 
@@ -49,7 +49,7 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
   });
 
   await page.goto("/");
-  await selectTab(page, "kesfet", "Viral Radar");
+  await selectTab(page, "kesif", "Viral Radar");
 
   const totalCard = page
     .locator("div")

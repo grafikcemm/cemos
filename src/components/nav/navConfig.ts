@@ -2,15 +2,15 @@
  * CemOS nav yapılandırması — tek doğruluk kaynağı.
  * Saf TS: React yok; Sidebar, AppShell, vitest ve e2e helper aynı modülü kullanır.
  *
- * IA v2 (2026-07): platform-bazlı gruplar — Bugün / Twitter / Kütüphane / Youtube
- * + Araçlar utility kümesi. Eski alanlar (Üret/Keşfet/Öğren/Sosyal Medya) ve
- * kaldırılan sekmeler (instagram, training-center, weekly-learning-report,
- * ai-rankings, content-intel, library host) TAB_ALIASES ile canlı id'lere iner.
+ * IA v3 (2026-07, dark dashboard): görev-bazlı alanlar — Bugün / Üretim /
+ * Keşif / Hafıza + Sistem utility kümesi. Tab ID'LERİ SABİT (persist edilen
+ * activeTab bozulmaz); yalnız gruplama/etiket değişti. Eski alanlar ve
+ * kaldırılan sekmeler TAB_ALIASES ile canlı id'lere iner.
  */
 
 export type NavTab = { readonly id: string; readonly label: string };
 
-export type NavGroupId = "bugun" | "twitter" | "instagram" | "kutuphane" | "youtube";
+export type NavGroupId = "bugun" | "uretim" | "kesif" | "hafiza";
 
 export type NavGroup = {
   readonly id: NavGroupId;
@@ -33,35 +33,34 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
-    id: "twitter",
-    label: "Twitter",
+    // Üretim: platform üretim/planlama yüzeyleri (X üretimi Bugün'de yaşar).
+    id: "uretim",
+    label: "Üretim",
+    tabs: [
+      { id: "instagram", label: "Instagram" },
+      { id: "youtube", label: "YouTube Fırsat Motoru" },
+    ],
+  },
+  {
+    // Keşif: sinyal toplama — radar, keşif motoru, kaynak istihbaratı.
+    id: "kesif",
+    label: "Keşif",
     tabs: [
       { id: "flow-radar", label: "Viral Radar" },
       { id: "discovery-engine", label: "Keşif Motoru" },
       { id: "source-intelligence", label: "X Hesabı Kaynakları" },
-      { id: "viral-library", label: "Viral Kütüphane" },
     ],
   },
   {
-    // Sprint 8 (C6): TEK Instagram alan ekranı — Rakip Radarı | Reels
-    // alt-sekmeleri ekran içinde yaşar; yeni top-level sekme çoğalmaz.
-    id: "instagram",
-    label: "Instagram",
-    tabs: [{ id: "instagram", label: "Instagram" }],
-  },
-  {
-    id: "kutuphane",
-    label: "Kütüphane",
+    // Hafıza: kalıcı bilgi — kütüphaneler + öğrenme.
+    id: "hafiza",
+    label: "Hafıza",
     tabs: [
+      { id: "viral-library", label: "Viral Kütüphane" },
       { id: "keyword-library", label: "Anahtar Kelime Kütüphanesi" },
       { id: "prompt-library", label: "Prompt Kütüphanesi" },
       { id: "pattern-library", label: "Pattern Kütüphanesi" },
     ],
-  },
-  {
-    id: "youtube",
-    label: "Youtube",
-    tabs: [{ id: "youtube", label: "YouTube Fırsat Motoru" }],
   },
 ];
 
@@ -109,7 +108,7 @@ export function normalizeTabId(tabId: string): string {
 /** Sekmenin ait olduğu grup; direkt sekme veya bilinmeyen id → null. */
 export function resolveGroupForTab(tabId: string): NavGroupId | null {
   const id = normalizeTabId(tabId);
-  if (id === "learn-dashboard") return "youtube";
+  if (id === "learn-dashboard") return "hafiza";
   for (const group of NAV_GROUPS) {
     if (group.tabs.some((tab) => tab.id === id)) return group.id;
   }
@@ -142,31 +141,28 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
     tabIds: ["morning", "daily-queue", "news-pool"],
   },
   {
-    id: "twitter",
-    label: "Twitter",
-    icon: "AtSign",
-    tabIds: ["flow-radar", "discovery-engine", "source-intelligence", "viral-library"],
+    id: "uretim",
+    label: "Üretim",
+    icon: "Send",
+    tabIds: ["instagram", "youtube"],
   },
   {
-    id: "instagram",
-    label: "Instagram",
-    icon: "Camera",
-    tabIds: ["instagram"],
+    id: "kesif",
+    label: "Keşif",
+    icon: "Radar",
+    tabIds: ["flow-radar", "discovery-engine", "source-intelligence"],
   },
   {
-    id: "kutuphane",
-    label: "Kütüphane",
+    id: "hafiza",
+    label: "Hafıza",
     icon: "Library",
-    tabIds: ["keyword-library", "prompt-library", "pattern-library"],
-  },
-  {
-    id: "youtube",
-    label: "Youtube",
-    icon: "MonitorPlay",
     // Youtube Öğrenme Kütüphanesi (learn-dashboard) yalnız
     // NEXT_PUBLIC_LEARN_ENABLED=true iken görünür (build-time inline).
     tabIds: [
-      "youtube",
+      "viral-library",
+      "keyword-library",
+      "prompt-library",
+      "pattern-library",
       ...(process.env.NEXT_PUBLIC_LEARN_ENABLED === "true" ? ["learn-dashboard"] : []),
     ],
   },
@@ -174,7 +170,7 @@ export const PRIMARY_AREAS: readonly PrimaryArea[] = [
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Yardımcı (utility) sekmeler — birincil alanların DIŞINDA, sol sidebar
- * "Araçlar" kümesinde yaşar (Toolbox / Maliyetler / Ayarlar).
+ * "Sistem" kümesinde yaşar (Toolbox / Maliyetler / Sistem / Ayarlar).
  * resolveAreaForTab bunlar için null döner (kasıtlı); shell isUtilityTab ile ele alır.
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -225,7 +221,7 @@ export function allNavigableTabs(): { id: string; label: string; group: string }
     }
   }
   for (const tab of UTILITY_TABS) {
-    out.push({ id: tab.id, label: tab.label, group: "Araçlar" });
+    out.push({ id: tab.id, label: tab.label, group: "Sistem" });
   }
   return out;
 }

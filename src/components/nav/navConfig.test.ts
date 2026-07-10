@@ -27,11 +27,11 @@ describe("resolveGroupForTab", () => {
   });
 
   it("should_resolve_alias_when_legacy_id_given", () => {
-    expect(resolveGroupForTab("flow")).toBe("twitter"); // flow-radar
-    expect(resolveGroupForTab("patterns")).toBe("kutuphane"); // → pattern-library
+    expect(resolveGroupForTab("flow")).toBe("kesif"); // flow-radar
+    expect(resolveGroupForTab("patterns")).toBe("hafiza"); // → pattern-library
     expect(resolveGroupForTab("queue")).toBe("bugun"); // daily-queue
-    expect(resolveGroupForTab("library")).toBe("twitter"); // → viral-library
-    expect(resolveGroupForTab("learn-dashboard")).toBe("youtube");
+    expect(resolveGroupForTab("library")).toBe("hafiza"); // → viral-library
+    expect(resolveGroupForTab("learn-dashboard")).toBe("hafiza");
   });
 });
 
@@ -93,15 +93,9 @@ describe("seedTargetForTab", () => {
   });
 });
 
-describe("NAV_GROUPS config (IA v2 + Sprint 8 Instagram)", () => {
-  it("should_have_five_platform_groups", () => {
-    expect(NAV_GROUPS.map((g) => g.id)).toEqual([
-      "bugun",
-      "twitter",
-      "instagram",
-      "kutuphane",
-      "youtube",
-    ]);
+describe("NAV_GROUPS config (IA v3 dark dashboard)", () => {
+  it("should_have_four_task_groups", () => {
+    expect(NAV_GROUPS.map((g) => g.id)).toEqual(["bugun", "uretim", "kesif", "hafiza"]);
   });
 
   it("should_have_no_hidden_groups", () => {
@@ -117,9 +111,9 @@ describe("NAV_GROUPS config (IA v2 + Sprint 8 Instagram)", () => {
   });
 
   it("should_expose_12_grouped_and_direct_tabs", () => {
-    // morning + (daily-queue, news-pool) + (flow-radar, discovery-engine,
-    // source-intelligence, viral-library) + (instagram) + (keyword-library,
-    // prompt-library, pattern-library) + (youtube). learn-dashboard env-koşullu.
+    // morning + (daily-queue, news-pool) + (instagram, youtube) + (flow-radar,
+    // discovery-engine, source-intelligence) + (viral-library, keyword-library,
+    // prompt-library, pattern-library). learn-dashboard env-koşullu.
     const visibleCount =
       DIRECT_TABS.length +
       NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);

@@ -1,9 +1,9 @@
 import type { Page } from "@playwright/test";
 
-export type AreaId = "bugun" | "uret" | "kesfet" | "ogren" | "sosyal-medya";
+export type AreaId = "bugun" | "uretim" | "kesif" | "hafiza";
 
 /**
- * Sol sidebar'da bir birincil alan seçer, sonra o alanın SubNav'ından
+ * Sol sidebar'da bir birincil alan seçer, sonra o alanın sub-tab listesinden
  * ikincil sekmeyi açar. Tek-sekmeli alanlarda subLabel atlanır.
  */
 export async function selectTab(page: Page, areaId: AreaId, subLabel?: string): Promise<void> {
@@ -14,12 +14,12 @@ export async function selectTab(page: Page, areaId: AreaId, subLabel?: string): 
 }
 
 /**
- * Sol sidebar footer'ındaki yardımcı kümeden (Maliyet/Ayarlar/AI Sıralama)
+ * Sol sidebar'daki Sistem kümesinden (Toolbox/Maliyetler/Sistem/Ayarlar)
  * bir utility sekmesi açar.
  */
 export async function selectUtility(
   page: Page,
-  tabId: "costs" | "settings" | "ai-rankings",
+  tabId: "toolbox" | "costs" | "system" | "settings",
 ): Promise<void> {
   await page.getByTestId(`sidebar-utility-${tabId}`).click();
 }

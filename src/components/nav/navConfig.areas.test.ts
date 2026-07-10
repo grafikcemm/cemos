@@ -16,7 +16,7 @@ const ALL_TAB_IDS = new Set<string>([
   ...NAV_GROUPS.flatMap((g) => g.tabs.map((t) => t.id)),
 ]);
 
-describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu (IA v2)", () => {
+describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu (IA v3)", () => {
   it("her area sekmesi gerçek bir sekme id'sine karşılık gelir", () => {
     for (const area of PRIMARY_AREAS) {
       for (const id of area.tabIds) {
@@ -38,15 +38,9 @@ describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu (IA v2)", () => {
     }
   });
 
-  it("5 ana alan tanımlı, id'leri benzersiz", () => {
-    expect(PRIMARY_AREAS).toHaveLength(5);
-    expect(PRIMARY_AREAS.map((a) => a.id)).toEqual([
-      "bugun",
-      "twitter",
-      "instagram",
-      "kutuphane",
-      "youtube",
-    ]);
+  it("4 ana alan tanımlı, id'leri benzersiz", () => {
+    expect(PRIMARY_AREAS).toHaveLength(4);
+    expect(PRIMARY_AREAS.map((a) => a.id)).toEqual(["bugun", "uretim", "kesif", "hafiza"]);
   });
 
   it("4 utility sekmesi tanımlı (Toolbox/Maliyetler/Sistem/Ayarlar)", () => {
@@ -60,19 +54,19 @@ describe("resolveAreaForTab", () => {
     expect(resolveAreaForTab("morning")).toBe("bugun");
     expect(resolveAreaForTab("daily-queue")).toBe("bugun");
     expect(resolveAreaForTab("news-pool")).toBe("bugun");
-    expect(resolveAreaForTab("flow-radar")).toBe("twitter");
-    expect(resolveAreaForTab("viral-library")).toBe("twitter");
-    expect(resolveAreaForTab("keyword-library")).toBe("kutuphane");
-    expect(resolveAreaForTab("youtube")).toBe("youtube");
+    expect(resolveAreaForTab("flow-radar")).toBe("kesif");
+    expect(resolveAreaForTab("viral-library")).toBe("hafiza");
+    expect(resolveAreaForTab("keyword-library")).toBe("hafiza");
+    expect(resolveAreaForTab("instagram")).toBe("uretim");
+    expect(resolveAreaForTab("youtube")).toBe("uretim");
   });
 
   it("legacy alias'ları doğru alana çözer", () => {
-    expect(resolveAreaForTab("flow")).toBe("twitter"); // → flow-radar
+    expect(resolveAreaForTab("flow")).toBe("kesif"); // → flow-radar
     expect(resolveAreaForTab("queue")).toBe("bugun"); // → daily-queue
-    expect(resolveAreaForTab("patterns")).toBe("kutuphane"); // → pattern-library
-    expect(resolveAreaForTab("library")).toBe("twitter"); // → viral-library
-    expect(resolveAreaForTab("instagram")).toBe("instagram"); // Sprint 8: canlı ekran (alias kalktı)
-    expect(resolveAreaForTab("content-intel")).toBe("twitter"); // → discovery-engine
+    expect(resolveAreaForTab("patterns")).toBe("hafiza"); // → pattern-library
+    expect(resolveAreaForTab("library")).toBe("hafiza"); // → viral-library
+    expect(resolveAreaForTab("content-intel")).toBe("kesif"); // → discovery-engine
   });
 
   it("utility sekmeleri ana alana çözülmez (null)", () => {
@@ -107,21 +101,22 @@ describe("isUtilityTab", () => {
 describe("firstTabOfArea / subTabsOfArea", () => {
   it("firstTabOfArea alanın ilk sekmesini verir", () => {
     expect(firstTabOfArea("bugun")).toBe("morning");
-    expect(firstTabOfArea("twitter")).toBe("flow-radar");
-    expect(firstTabOfArea("kutuphane")).toBe("keyword-library");
-    expect(firstTabOfArea("youtube")).toBe("youtube");
+    expect(firstTabOfArea("uretim")).toBe("instagram");
+    expect(firstTabOfArea("kesif")).toBe("flow-radar");
+    expect(firstTabOfArea("hafiza")).toBe("viral-library");
   });
 
   it("subTabsOfArea etiketleri tek-kaynaktan doldurur", () => {
-    const subs = subTabsOfArea("twitter");
-    expect(subs.map((s) => s.id)).toEqual([
+    const kesif = subTabsOfArea("kesif");
+    expect(kesif.map((s) => s.id)).toEqual([
       "flow-radar",
       "discovery-engine",
       "source-intelligence",
-      "viral-library",
     ]);
-    expect(subs.find((s) => s.id === "flow-radar")?.label).toBe("Viral Radar");
-    expect(subs.find((s) => s.id === "viral-library")?.label).toBe("Viral Kütüphane");
+    expect(kesif.find((s) => s.id === "flow-radar")?.label).toBe("Viral Radar");
+
+    const hafiza = subTabsOfArea("hafiza");
+    expect(hafiza.find((s) => s.id === "viral-library")?.label).toBe("Viral Kütüphane");
 
     const bugun = subTabsOfArea("bugun");
     expect(bugun.find((s) => s.id === "news-pool")?.label).toBe("Haberler");
