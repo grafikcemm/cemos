@@ -25,16 +25,12 @@ import {
   Radar,
   type LucideIcon,
 } from "lucide-react";
-import { useXAgentStore, type Channel } from "@/store/xagent";
 import {
   PRIMARY_AREAS,
   UTILITY_TABS,
   subTabsOfArea,
   type PrimaryAreaId,
 } from "@/components/nav/navConfig";
-import SystemStatus from "./SystemStatus";
-
-const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
 const ICONS: Record<string, LucideIcon> = {
   Sunrise,
@@ -93,9 +89,6 @@ export default function Sidebar({
   onToggleCollapse,
   onNavigate,
 }: SidebarProps) {
-  const activeChannel = useXAgentStore((s) => s.activeChannel);
-  const setActiveChannel = useXAgentStore((s) => s.setActiveChannel);
-
   const go = (fn: () => void) => {
     fn();
     onNavigate?.();
@@ -300,34 +293,8 @@ export default function Sidebar({
         </nav>
       )}
 
-      {/* Footer: status + channel + collapse */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        <SystemStatus compact={collapsed} />
-
-        {!collapsed && (
-          <select
-            value={activeChannel}
-            onChange={(e) => setActiveChannel(e.target.value as Channel)}
-            aria-label="Aktif kanal"
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-strong)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--text-primary)",
-              padding: "7px 10px",
-              fontSize: "var(--text-xs)",
-              cursor: "pointer",
-              outline: "none",
-            }}
-          >
-            {CHANNELS.map((ch) => (
-              <option key={ch} value={ch}>
-                @{ch}
-              </option>
-            ))}
-          </select>
-        )}
-
+      {/* Footer: collapse (durum + kanal artık TopStrip'te yaşar) */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, borderTop: "1px solid var(--border-faint)", flexShrink: 0 }}>
         <button
           onClick={onToggleCollapse}
           aria-label={collapsed ? "Menüyü genişlet" : "Menüyü daralt"}

@@ -446,6 +446,13 @@ b {
   display: none; /* varsayılan: masaüstünde gizli; ≤640px'de açılır */
 }
 
+/* Yalnız masaüstü öğeleri (topbar arama, durum etiketi) — ≤640px'de gizlenir. */
+@media (max-width: 640px) {
+  .app-desktop-only {
+    display: none !important;
+  }
+}
+
 @media (max-width: 640px) {
   :root {
     --space-page-x: 16px; /* dar ekranda gutter daralt */

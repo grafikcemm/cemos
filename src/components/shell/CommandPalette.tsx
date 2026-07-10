@@ -42,6 +42,7 @@ export default function CommandPalette({ onNavigate, activeTab }: PaletteProps) 
   }, []);
 
   // Global Cmd/Ctrl-K — input/textarea odaklıyken de çalışır (palete geçiş kasıtlı).
+  // TopStrip arama butonu "cemos:open-palette" custom event'iyle açar.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -51,8 +52,13 @@ export default function CommandPalette({ onNavigate, activeTab }: PaletteProps) 
         close();
       }
     };
+    const onOpenEvent = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("cemos:open-palette", onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("cemos:open-palette", onOpenEvent);
+    };
   }, [open, close]);
 
   useEffect(() => {
@@ -80,7 +86,7 @@ export default function CommandPalette({ onNavigate, activeTab }: PaletteProps) 
         position: "fixed",
         inset: 0,
         zIndex: 300,
-        background: "rgba(0, 0, 0, 0.55)",
+        background: "var(--scrim)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
