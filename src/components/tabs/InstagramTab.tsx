@@ -46,7 +46,7 @@ export default function InstagramTab() {
               onClick={() => setSub(t.id)}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 7,
-                padding: "8px 16px", borderRadius: "var(--radius-md)",
+                padding: "8px 16px", borderRadius: "var(--radius-sm)",
                 fontSize: "var(--text-sm)", fontWeight: 500, fontFamily: "inherit",
                 cursor: "pointer",
                 background: active ? "var(--accent-dark)" : "var(--bg-surface)",

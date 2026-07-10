@@ -30,6 +30,7 @@ import {
   ListTree,
 } from "lucide-react";
 import PipelineTraceDrawer from "@/components/growth/PipelineTraceDrawer";
+import { useXAgentStore } from "@/store/xagent";
 import {
   PageHeader,
   Card,
@@ -263,11 +264,14 @@ export default function YouTubeTab() {
             title="YouTube API yapılandırılmamış"
             description="YOUTUBE_API_KEY ayarlı değil. Anahtar eklendiğinde rakip kanallar taranır ve fırsat akışı dolar. Motor anahtarsız boş durumda kalır — hata vermez."
             action={
-              <a href="/dashboard/settings" style={{ textDecoration: "none" }}>
-                <Button variant="primary" size="sm" iconLeft={<Settings size={15} strokeWidth={2} />}>
-                  Ayarlara git
-                </Button>
-              </a>
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft={<Settings size={15} strokeWidth={2} />}
+                onClick={() => useXAgentStore.getState().setActiveTab("settings")}
+              >
+                Ayarlara git
+              </Button>
             }
           />
         </Card>
