@@ -172,9 +172,9 @@ export default function DraftPreview() {
       {/* Dry-run success badge */}
       {dryRunSuccess && (
         <div style={{
-          fontSize: 11, color: "#22d3ee", marginBottom: 8, padding: "5px 10px",
-          background: "rgba(6,182,212,0.1)", borderRadius: 5,
-          border: "1px solid rgba(6,182,212,0.3)",
+          fontSize: 11, color: "var(--status-info)", marginBottom: 8, padding: "5px 10px",
+          background: "color-mix(in srgb, var(--status-info) 10%, transparent)", borderRadius: 5,
+          border: "1px solid color-mix(in srgb, var(--status-info) 30%, transparent)",
         }}>
           ✓ Dry-run başarılı — gerçek tweet gönderilmedi
         </div>
@@ -182,7 +182,7 @@ export default function DraftPreview() {
 
       {/* Error */}
       {publishError && (
-        <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 8, padding: "5px 8px", background: "rgba(255,68,68,0.08)", borderRadius: 5 }}>
+        <div style={{ fontSize: 11, color: "var(--red)", marginBottom: 8, padding: "5px 8px", background: "color-mix(in srgb, var(--danger) 8%, transparent)", borderRadius: 5 }}>
           ✗ {publishError}
         </div>
       )}
@@ -207,9 +207,9 @@ export default function DraftPreview() {
           onClick={handlePublish}
           disabled={publishing}
           style={{
-            background: dryRunSuccess ? "rgba(6,182,212,0.15)" : "var(--accent)",
-            color: dryRunSuccess ? "#22d3ee" : "#000",
-            border: dryRunSuccess ? "1px solid rgba(6,182,212,0.4)" : "none",
+            background: dryRunSuccess ? "color-mix(in srgb, var(--status-info) 15%, transparent)" : "var(--accent)",
+            color: dryRunSuccess ? "var(--status-info)" : "var(--accent-2-fg)",
+            border: dryRunSuccess ? "1px solid color-mix(in srgb, var(--status-info) 40%, transparent)" : "none",
             borderRadius: 6,
             padding: "5px 14px",
             fontSize: 11,

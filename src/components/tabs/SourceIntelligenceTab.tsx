@@ -653,9 +653,9 @@ export default function SourceIntelligenceTab() {
                         alignItems: "center",
                         gap: 4,
                         fontSize: 9,
-                        background: src.enabled ? "rgba(63,178,127,0.12)" : "var(--bg-elevated)",
+                        background: src.enabled ? "color-mix(in srgb, var(--status-ok) 12%, transparent)" : "var(--bg-elevated)",
                         color: src.enabled ? "var(--green)" : "var(--text-muted)",
-                        border: src.enabled ? "1px solid rgba(63,178,127,0.25)" : "1px solid var(--border)",
+                        border: src.enabled ? "1px solid color-mix(in srgb, var(--status-ok) 25%, transparent)" : "1px solid var(--border)",
                         padding: "2px 6px",
                         borderRadius: "var(--radius-sm)",
                         fontWeight: 500,
@@ -885,9 +885,9 @@ export default function SourceIntelligenceTab() {
                             style={{
                               fontSize: "var(--text-2xs)",
                               fontWeight: 500,
-                              background: isHighOpp ? "rgba(63,178,127,0.14)" : "var(--bg-elevated)",
+                              background: isHighOpp ? "color-mix(in srgb, var(--status-ok) 14%, transparent)" : "var(--bg-elevated)",
                               color: isHighOpp ? "var(--green)" : "var(--text-primary)",
-                              border: isHighOpp ? "1px solid rgba(63,178,127,0.25)" : "1px solid var(--border)",
+                              border: isHighOpp ? "1px solid color-mix(in srgb, var(--status-ok) 25%, transparent)" : "1px solid var(--border)",
                               padding: "2px 6px",
                               borderRadius: "var(--radius-sm)"
                             }}
@@ -904,9 +904,9 @@ export default function SourceIntelligenceTab() {
                             style={{
                               fontSize: "var(--text-2xs)",
                               fontWeight: 500,
-                              background: isHighRisk ? "rgba(229,72,77,0.14)" : "var(--bg-elevated)",
+                              background: isHighRisk ? "color-mix(in srgb, var(--danger) 14%, transparent)" : "var(--bg-elevated)",
                               color: isHighRisk ? "var(--danger)" : "var(--text-primary)",
-                              border: isHighRisk ? "1px solid rgba(229,72,77,0.25)" : "1px solid var(--border)",
+                              border: isHighRisk ? "1px solid color-mix(in srgb, var(--danger) 25%, transparent)" : "1px solid var(--border)",
                               padding: "2px 6px",
                               borderRadius: "var(--radius-sm)"
                             }}
@@ -927,17 +927,17 @@ export default function SourceIntelligenceTab() {
                               post.suggestedAction === "tweet"
                                 ? "var(--accent-dark)"
                                 : post.suggestedAction === "quote"
-                                ? "rgba(76,141,255,0.12)"
+                                ? "color-mix(in srgb, var(--status-info) 12%, transparent)"
                                 : post.suggestedAction === "reply"
-                                ? "rgba(229,72,77,0.12)"
+                                ? "color-mix(in srgb, var(--danger) 12%, transparent)"
                                 : "var(--bg-elevated)",
                             border:
                               post.suggestedAction === "tweet"
                                 ? "1px solid var(--accent-border)"
                                 : post.suggestedAction === "quote"
-                                ? "1px solid rgba(76,141,255,0.25)"
+                                ? "1px solid color-mix(in srgb, var(--status-info) 25%, transparent)"
                                 : post.suggestedAction === "reply"
-                                ? "1px solid rgba(229,72,77,0.25)"
+                                ? "1px solid color-mix(in srgb, var(--danger) 25%, transparent)"
                                 : "1px solid var(--border)",
                             color:
                               post.suggestedAction === "tweet"
@@ -1071,7 +1071,7 @@ export default function SourceIntelligenceTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.72)",
+            background: "var(--scrim)",
             backdropFilter: "blur(2px)",
             display: "flex",
             alignItems: "center",
@@ -1196,7 +1196,7 @@ export default function SourceIntelligenceTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.72)",
+            background: "var(--scrim)",
             backdropFilter: "blur(2px)",
             display: "flex",
             alignItems: "center",
@@ -1318,7 +1318,7 @@ export default function SourceIntelligenceTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.78)",
+            background: "var(--scrim)",
             backdropFilter: "blur(2px)",
             display: "flex",
             alignItems: "center",

@@ -54,7 +54,7 @@ export default function FlowList({ items, generatingId, onGenerate, onDismiss, l
               onClick={() => setActiveFilter(f.id)}
               style={{
                 background: isActive ? "var(--accent)" : "transparent",
-                color: isActive ? "#000" : "var(--text-muted)",
+                color: isActive ? "var(--accent-2-fg)" : "var(--text-muted)",
                 border: isActive ? "none" : "1px solid var(--border)",
                 borderRadius: 5,
                 padding: "4px 10px",
@@ -69,7 +69,7 @@ export default function FlowList({ items, generatingId, onGenerate, onDismiss, l
               {f.label}
               <span style={{
                 fontSize: 9, fontWeight: 500,
-                background: isActive ? "rgba(0,0,0,0.2)" : "var(--bg-elevated)",
+                background: isActive ? "color-mix(in srgb, var(--accent-2-fg) 20%, transparent)" : "var(--bg-elevated)",
                 borderRadius: 3, padding: "0 4px",
               }}>
                 {counts[f.id] ?? 0}

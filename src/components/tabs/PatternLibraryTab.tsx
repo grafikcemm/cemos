@@ -851,7 +851,7 @@ export default function PatternLibraryTab() {
           left: 0,
           width: "100%",
           height: "100vh",
-          background: "rgba(0,0,0,0.7)",
+          background: "var(--scrim)",
           zIndex: 210,
           display: "flex",
           alignItems: "center",

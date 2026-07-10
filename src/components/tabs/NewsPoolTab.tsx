@@ -635,7 +635,7 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
 function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
   const ok = toast.type === "success";
   return (
-    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 999, display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-sm)", fontWeight: 500, background: "var(--bg-elevated)", color: "var(--text-primary)", border: `1px solid ${ok ? "rgba(63,178,127,0.4)" : "rgba(229,72,77,0.4)"}`, boxShadow: "var(--shadow-lg)" }}>
+    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 999, display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: "var(--radius-lg)", fontSize: "var(--text-sm)", fontWeight: 500, background: "var(--bg-elevated)", color: "var(--text-primary)", border: `1px solid ${ok ? "color-mix(in srgb, var(--status-ok) 40%, transparent)" : "color-mix(in srgb, var(--danger) 40%, transparent)"}`, boxShadow: "var(--shadow-lg)" }}>
       {ok ? <CheckCircle2 size={16} strokeWidth={1.8} style={{ color: "var(--green)" }} /> : <AlertCircle size={16} strokeWidth={1.8} style={{ color: "var(--danger)" }} />}
       {toast.text}
     </div>

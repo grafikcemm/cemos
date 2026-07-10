@@ -8,10 +8,10 @@ export type KanbanTone = "accent" | "accent2" | "danger" | "green" | "yellow" | 
 const TONES: Record<KanbanTone, { bg: string; text: string; border: string; dot: string }> = {
   accent: { bg: "var(--accent-dark)", text: "var(--accent-text)", border: "var(--accent-border)", dot: "var(--accent)" },
   accent2: { bg: "var(--accent-2-dark)", text: "var(--accent-2-text)", border: "var(--accent-2-border)", dot: "var(--accent-2)" },
-  danger: { bg: "rgba(190,18,60,0.12)", text: "var(--danger)", border: "rgba(190,18,60,0.26)", dot: "var(--danger)" },
-  green: { bg: "rgba(110,141,122,0.16)", text: "var(--green)", border: "rgba(110,141,122,0.3)", dot: "var(--green)" },
+  danger: { bg: "color-mix(in srgb, var(--danger) 12%, transparent)", text: "var(--danger)", border: "color-mix(in srgb, var(--danger) 26%, transparent)", dot: "var(--danger)" },
+  green: { bg: "color-mix(in srgb, var(--status-ok) 16%, transparent)", text: "var(--green)", border: "color-mix(in srgb, var(--status-ok) 30%, transparent)", dot: "var(--green)" },
   yellow: { bg: "color-mix(in srgb, var(--accent-2) 16%, transparent)", text: "var(--yellow)", border: "color-mix(in srgb, var(--accent-2) 30%, transparent)", dot: "var(--yellow)" },
-  blue: { bg: "rgba(91,149,255,0.12)", text: "var(--blue)", border: "rgba(91,149,255,0.26)", dot: "var(--blue)" },
+  blue: { bg: "color-mix(in srgb, var(--status-info) 12%, transparent)", text: "var(--blue)", border: "color-mix(in srgb, var(--status-info) 26%, transparent)", dot: "var(--blue)" },
   muted: { bg: "var(--bg-elevated)", text: "var(--text-muted)", border: "var(--border)", dot: "var(--text-muted)" },
 };
 

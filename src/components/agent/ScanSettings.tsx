@@ -100,7 +100,7 @@ export default function ScanSettings() {
             {[3, 5, 10, 20].map((n) => (
               <button key={n} onClick={() => setPostsPerSource(n)} style={{
                 flex: 1, padding: "5px 0", borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: "pointer",
-                background: postsPerSource === n ? "#1a1a1a" : "transparent",
+                background: postsPerSource === n ? "var(--bg-elevated)" : "transparent",
                 border: postsPerSource === n ? "1px solid var(--accent)" : "1px solid var(--border)",
                 color: postsPerSource === n ? "var(--accent)" : "var(--text-muted)",
               }}>{n}</button>
@@ -115,7 +115,7 @@ export default function ScanSettings() {
             {[3, 6, 12, 24, 48].map((n) => (
               <button key={n} onClick={() => setMaxPostAge(n)} style={{
                 flex: 1, padding: "5px 0", borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: "pointer",
-                background: maxPostAge === n ? "#1a1a1a" : "transparent",
+                background: maxPostAge === n ? "var(--bg-elevated)" : "transparent",
                 border: maxPostAge === n ? "1px solid var(--accent)" : "1px solid var(--border)",
                 color: maxPostAge === n ? "var(--accent)" : "var(--text-muted)",
               }}>{n}s</button>

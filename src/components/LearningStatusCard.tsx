@@ -23,7 +23,7 @@ type LearningStatus = {
 
 const cardStyle: React.CSSProperties = {
   background: "var(--bg-sunken)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--border)",
   borderRadius: 10,
   padding: 16,
   marginBottom: 14,
@@ -107,7 +107,7 @@ export default function LearningStatusCard() {
       </div>
 
       {status && status.topPatterns.length > 0 && (
-        <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--border-faint)", paddingTop: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
             En güçlü pattern'ler (gerçek performansla güncellenir)
           </div>

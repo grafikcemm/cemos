@@ -64,11 +64,11 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
   };
 
   const initial = (tweet.handle || "?")[0].toUpperCase();
-  const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "var(--status-warn)", "#10b981", "#6366f1"];
+  const colors = ["var(--status-info)", "var(--accent)", "var(--accent-hover)", "var(--status-warn)", "var(--status-ok)", "var(--accent-active)"];
   const avatarColor = colors[tweet.handle.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % colors.length];
   const timeAgo = tweet.createdAt ? formatTimeAgo(tweet.createdAt) : "";
 
-  const viralColor = tweet.viralScore >= 70 ? "var(--green)" : tweet.viralScore >= 40 ? "var(--status-warn)" : "#666";
+  const viralColor = tweet.viralScore >= 70 ? "var(--green)" : tweet.viralScore >= 40 ? "var(--status-warn)" : "var(--text-muted)";
 
   return (
     <div
@@ -99,7 +99,7 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
         <div style={{
           width: 40, height: 40, borderRadius: "50%", background: avatarColor, flexShrink: 0,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 15, fontWeight: 500, color: "#fff",
+          fontSize: 15, fontWeight: 500, color: "var(--accent-fg)",
         }}>{initial}</div>
 
         {/* Name + handle row */}
@@ -113,7 +113,8 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
               {/* Viral score badge */}
               <span style={{
                 fontSize: 10, fontWeight: 500, color: viralColor,
-                background: `${viralColor}18`, borderRadius: 4, padding: "1px 5px",
+                background: `color-mix(in srgb, ${viralColor} 9%, transparent)`,
+                borderRadius: 4, padding: "1px 5px",
               }}>▲{tweet.viralScore}</span>
               {/* Save */}
               <button
@@ -206,16 +207,16 @@ export default function TweetCard({ tweet, isGenerating, onGenerate, onDismiss, 
       {/* Agent actions */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 50 }}>
         <button onClick={() => onGenerate("TWEET")} disabled={isGenerating} style={{
-          background: isGenerating ? "#1a1a1a" : "var(--accent)", color: isGenerating ? "var(--text-muted)" : "var(--accent-fg)",
+          background: isGenerating ? "var(--bg-elevated)" : "var(--accent)", color: isGenerating ? "var(--text-muted)" : "var(--accent-fg)",
           border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 500,
           cursor: isGenerating ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 4,
         }}>{isGenerating ? <><span className="spinner" /> Üretiyor...</> : "✦ ÜRET"}</button>
         <button onClick={() => onGenerate("QUOTE")} disabled={isGenerating} style={{
-          background: "transparent", border: "1px solid #282828", color: "var(--text-secondary)",
+          background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)",
           borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: isGenerating ? "not-allowed" : "pointer",
         }}>❝ QUOTE</button>
         <button onClick={() => onGenerate("REPLY")} disabled={isGenerating} style={{
-          background: "transparent", border: "1px solid #282828", color: "var(--text-secondary)",
+          background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)",
           borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: isGenerating ? "not-allowed" : "pointer",
         }}>↩ YANIT</button>
         <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto" }}>~$0.0003</span>

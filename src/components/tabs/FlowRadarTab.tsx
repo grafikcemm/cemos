@@ -678,13 +678,13 @@ export default function FlowRadarTab() {
           Karar adayları zenginleştiriliyor ve yükleniyor...
         </div>
       ) : error ? (
-        <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
+        <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "color-mix(in srgb, var(--danger) 5%, transparent)", borderRadius: 6 }}>
           {error}
         </div>
       ) : candidates.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 10px", color: "var(--text-muted)", fontSize: 13, background: "var(--bg-base)", borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
+        <div style={{ textAlign: "center", padding: "80px 10px", color: "var(--text-muted)", fontSize: 13, background: "var(--bg-base)", borderRadius: 8, border: "1px solid var(--border-faint)" }}>
           Henüz Flow Radar adayı yok.
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
+          <p style={{ fontSize: 11, color: "color-mix(in srgb, var(--text-primary) 30%, transparent)", marginTop: 6 }}>
             Source Intelligence panelinde kaynak gönderiler tarandığında veya fırsat puanı oluştuğunda burada listelenecek.
           </p>
         </div>
@@ -716,7 +716,7 @@ export default function FlowRadarTab() {
                 key={cand.id}
                 style={{
                   background: "var(--bg-base)",
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  border: "1px solid var(--border-faint)",
                   padding: 16,
                   borderRadius: 8,
                   display: "flex",
@@ -734,11 +734,11 @@ export default function FlowRadarTab() {
                     {cand.sourceName && (
                       <span style={{ fontSize: 10, color: "var(--text-muted)" }}>({cand.sourceName})</span>
                     )}
-                    <span style={{ fontSize: 8, color: "rgba(255,255,255,0.15)" }}>•</span>
+                    <span style={{ fontSize: 8, color: "color-mix(in srgb, var(--text-primary) 15%, transparent)" }}>•</span>
                     <span
                       style={{
                         fontSize: 9,
-                        background: "rgba(255,255,255,0.04)",
+                        background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
                         color: "var(--text-muted)",
                         padding: "2px 6px",
                         borderRadius: 4,
@@ -758,10 +758,10 @@ export default function FlowRadarTab() {
                           cand.score.suggestedAction === "tweet"
                             ? "var(--accent-tint-15)"
                             : cand.score.suggestedAction === "quote"
-                            ? "rgba(96,165,250,0.15)"
+                            ? "color-mix(in srgb, var(--blue) 15%, transparent)"
                             : cand.score.suggestedAction === "reply"
-                            ? "rgba(244,63,94,0.15)"
-                            : "rgba(255,255,255,0.06)",
+                            ? "color-mix(in srgb, var(--danger) 15%, transparent)"
+                            : "color-mix(in srgb, var(--text-primary) 6%, transparent)",
                         color:
                           cand.score.suggestedAction === "tweet"
                             ? "var(--accent)"
@@ -783,7 +783,7 @@ export default function FlowRadarTab() {
                       <span
                         style={{
                           fontSize: 9,
-                          background: cand.status === "ignored" ? "rgba(248,113,113,0.12)" : "rgba(74,222,128,0.12)",
+                          background: cand.status === "ignored" ? "color-mix(in srgb, var(--danger) 12%, transparent)" : "color-mix(in srgb, var(--green) 12%, transparent)",
                           color: cand.status === "ignored" ? "var(--danger)" : "var(--green)",
                           padding: "2px 6px",
                           borderRadius: 4,
@@ -806,7 +806,7 @@ export default function FlowRadarTab() {
                     background: "var(--bg-surface)",
                     padding: 8,
                     borderRadius: 6,
-                    border: "1px solid rgba(255,255,255,0.03)"
+                    border: "1px solid var(--border-faint)"
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -860,7 +860,7 @@ export default function FlowRadarTab() {
 
                 {/* Heuristic Pattern recommendations */}
                 {cand.pattern.suggestedPatterns.length > 0 && (
-                  <div style={{ background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ background: "color-mix(in srgb, var(--text-primary) 3%, transparent)", padding: 8, borderRadius: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                     <div style={{ fontSize: 9, color: "var(--accent)", fontWeight: 500 }}>ÖNERİLEN VİRAL ŞABLONLAR:</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {cand.pattern.suggestedPatterns.map((pat, idx) => (
@@ -887,7 +887,7 @@ export default function FlowRadarTab() {
                     display: "flex",
                     flexWrap: "wrap",
                     gap: 6,
-                    borderTop: "1px solid rgba(255,255,255,0.04)",
+                    borderTop: "1px solid var(--border-faint)",
                     paddingTop: 10,
                     marginTop: 4
                   }}
@@ -895,8 +895,8 @@ export default function FlowRadarTab() {
                   <button
                     onClick={() => setSelectedCandidate(cand)}
                     style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
+                      border: "1px solid var(--border)",
                       color: "var(--text-primary)",
                       fontSize: 10,
                       fontWeight: 500,
@@ -928,8 +928,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleMarkReviewed(cand.id)}
                       style={{
-                        background: "rgba(74,222,128,0.08)",
-                        border: "1px solid rgba(74,222,128,0.15)",
+                        background: "color-mix(in srgb, var(--green) 8%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--green) 15%, transparent)",
                         color: "var(--green)",
                         fontSize: 10,
                         fontWeight: 500,
@@ -946,8 +946,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleIgnore(cand.id)}
                       style={{
-                        background: "rgba(248,113,113,0.08)",
-                        border: "1px solid rgba(248,113,113,0.15)",
+                        background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--danger) 15%, transparent)",
                         color: "var(--danger)",
                         fontSize: 10,
                         fontWeight: 500,
@@ -980,8 +980,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleGenerateDrafts(cand, "quote")}
                       style={{
-                        background: "rgba(96,165,250,0.12)",
-                        border: "1px solid rgba(96,165,250,0.2)",
+                        background: "color-mix(in srgb, var(--blue) 12%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--blue) 20%, transparent)",
                         color: "var(--blue)",
                         fontSize: 10,
                         fontWeight: 500,
@@ -995,8 +995,8 @@ export default function FlowRadarTab() {
                     <button
                       onClick={() => handleGenerateDrafts(cand, "reply")}
                       style={{
-                        background: "rgba(244,63,94,0.12)",
-                        border: "1px solid rgba(244,63,94,0.2)",
+                        background: "color-mix(in srgb, var(--danger) 12%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                         color: "var(--danger)",
                         fontSize: 10,
                         fontWeight: 500,
@@ -1024,7 +1024,7 @@ export default function FlowRadarTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.85)",
+            background: "var(--scrim)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1035,7 +1035,7 @@ export default function FlowRadarTab() {
           <div
             style={{
               background: "var(--bg-base)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--border)",
               padding: 22,
               borderRadius: 10,
               maxWidth: 600,
@@ -1063,7 +1063,7 @@ export default function FlowRadarTab() {
             </div>
 
             {/* Post text */}
-            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)" }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid var(--border-faint)" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>KAYNAK GÖNDERİ METNİ</div>
               <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
                 {selectedCandidate.content}
@@ -1071,7 +1071,7 @@ export default function FlowRadarTab() {
             </div>
 
             {/* Opportunity Breakdown */}
-            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid var(--border-faint)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>ÖNERİ GEREKÇESİ</div>
               <div style={{ fontSize: 12, color: "var(--text-primary)", lineHeight: 1.4 }}>
                 {selectedCandidate.score.reason}
@@ -1079,7 +1079,7 @@ export default function FlowRadarTab() {
             </div>
 
             {/* Heuristic pattern details */}
-            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.04)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "var(--bg-surface)", padding: 14, borderRadius: 8, border: "1px solid var(--border-faint)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>PATTERN EXTRACTION DETAYLARI</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
                 <div>
@@ -1100,12 +1100,12 @@ export default function FlowRadarTab() {
             </div>
 
             {/* Footer */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border-faint)", paddingTop: 14 }}>
               <button
                 onClick={() => setSelectedCandidate(null)}
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+                  border: "1px solid var(--border)",
                   color: "var(--text-primary)",
                   padding: "8px 16px",
                   borderRadius: 6,
@@ -1130,7 +1130,7 @@ export default function FlowRadarTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.85)",
+            background: "var(--scrim)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1141,7 +1141,7 @@ export default function FlowRadarTab() {
           <div
             style={{
               background: "var(--bg-base)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--border)",
               padding: 22,
               borderRadius: 10,
               maxWidth: 900,
@@ -1154,7 +1154,7 @@ export default function FlowRadarTab() {
             }}
           >
             {/* Modal Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.05)", paddingBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-faint)", paddingBottom: 12 }}>
               <div>
                 <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0, color: "var(--accent)", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
                   <span>Taslak Oluşturucu & Eleştirmen</span>
@@ -1176,7 +1176,7 @@ export default function FlowRadarTab() {
 
             {generatingDrafts ? (
               <div style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 30, height: 30, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
+                <div style={{ width: 30, height: 30, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
                 <style>{`
                   @keyframes spin {
                     0% { transform: rotate(0deg); }
@@ -1188,15 +1188,15 @@ export default function FlowRadarTab() {
                 </div>
               </div>
             ) : generatingError ? (
-              <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "rgba(248,113,113,0.05)", borderRadius: 6 }}>
+              <div style={{ textAlign: "center", padding: "40px 10px", color: "var(--danger)", fontSize: 13, background: "color-mix(in srgb, var(--danger) 5%, transparent)", borderRadius: 6 }}>
                 {generatingError}
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Source post summary in modal */}
-                <div style={{ background: "var(--bg-surface)", padding: 12, borderRadius: 6, border: "1px solid rgba(255,255,255,0.03)" }}>
+                <div style={{ background: "var(--bg-surface)", padding: 12, borderRadius: 6, border: "1px solid var(--border-faint)" }}>
                   <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>KAYNAK GÖNDERİ</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                     {currentDraftTargetPost?.content}
                   </div>
                 </div>
@@ -1215,7 +1215,7 @@ export default function FlowRadarTab() {
                         key={draftId}
                         style={{
                           background: "var(--bg-surface)",
-                          border: "1px solid rgba(255,255,255,0.04)",
+                          border: "1px solid var(--border-faint)",
                           borderRadius: 8,
                           padding: 14,
                           display: "flex",
@@ -1232,10 +1232,10 @@ export default function FlowRadarTab() {
                               textTransform: "uppercase",
                               background:
                                 item.draft.angle === "safe"
-                                  ? "rgba(74,222,128,0.12)"
+                                  ? "color-mix(in srgb, var(--green) 12%, transparent)"
                                   : item.draft.angle === "strong"
-                                  ? "rgba(96,165,250,0.12)"
-                                  : "rgba(244,63,94,0.12)",
+                                  ? "color-mix(in srgb, var(--blue) 12%, transparent)"
+                                  : "color-mix(in srgb, var(--danger) 12%, transparent)",
                               color:
                                 item.draft.angle === "safe"
                                   ? "var(--green)"
@@ -1255,7 +1255,7 @@ export default function FlowRadarTab() {
                         </div>
 
                         {/* Reasoning */}
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", background: "rgba(255,255,255,0.02)", padding: 6, borderRadius: 4 }}>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", background: "color-mix(in srgb, var(--text-primary) 2%, transparent)", padding: 6, borderRadius: 4 }}>
                           {item.draft.reasoning}
                         </div>
 
@@ -1267,7 +1267,7 @@ export default function FlowRadarTab() {
                             onChange={(e) => setEditableDrafts((prev) => ({ ...prev, [draftId]: e.target.value }))}
                             style={{
                               background: "var(--bg-base)",
-                              border: "1px solid rgba(255,255,255,0.08)",
+                              border: "1px solid var(--border)",
                               color: "var(--text-primary)",
                               padding: 10,
                               borderRadius: 6,
@@ -1279,7 +1279,7 @@ export default function FlowRadarTab() {
                               lineHeight: 1.4
                             }}
                           />
-                          <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 9, color: contentValue.length > 280 ? "var(--danger)" : "rgba(255,255,255,0.3)" }}>
+                          <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 9, color: contentValue.length > 280 ? "var(--danger)" : "color-mix(in srgb, var(--text-primary) 30%, transparent)" }}>
                             Karakter: {contentValue.length} / 280
                           </div>
                         </div>
@@ -1290,7 +1290,7 @@ export default function FlowRadarTab() {
                             background: "var(--bg-base)",
                             padding: 10,
                             borderRadius: 6,
-                            border: "1px solid rgba(255,255,255,0.03)",
+                            border: "1px solid var(--border-faint)",
                             display: "flex",
                             flexDirection: "column",
                             gap: 8
@@ -1305,7 +1305,7 @@ export default function FlowRadarTab() {
                                 <span style={{ color: "var(--text-muted)" }}>Persona Uyumu:</span>
                                 <span>{c.personaMatchScore}%</span>
                               </div>
-                              <div style={{ background: "rgba(255,255,255,0.05)", height: 3, borderRadius: 2 }}>
+                              <div style={{ background: "var(--border-faint)", height: 3, borderRadius: 2 }}>
                                 <div style={{ background: "var(--accent)", height: "100%", width: `${c.personaMatchScore}%`, borderRadius: 2 }} />
                               </div>
                             </div>
@@ -1315,7 +1315,7 @@ export default function FlowRadarTab() {
                                 <span style={{ color: "var(--text-muted)" }}>Kanca Gücü:</span>
                                 <span>{c.hookStrengthScore}%</span>
                               </div>
-                              <div style={{ background: "rgba(255,255,255,0.05)", height: 3, borderRadius: 2 }}>
+                              <div style={{ background: "var(--border-faint)", height: 3, borderRadius: 2 }}>
                                 <div style={{ background: "var(--blue)", height: "100%", width: `${c.hookStrengthScore}%`, borderRadius: 2 }} />
                               </div>
                             </div>
@@ -1325,26 +1325,26 @@ export default function FlowRadarTab() {
                                 <span style={{ color: "var(--text-muted)" }}>Risk Puanı:</span>
                                 <span style={{ color: c.riskScore >= 50 ? "var(--danger)" : "var(--green)" }}>{c.riskScore}%</span>
                               </div>
-                              <div style={{ background: "rgba(255,255,255,0.05)", height: 3, borderRadius: 2 }}>
+                              <div style={{ background: "var(--border-faint)", height: 3, borderRadius: 2 }}>
                                 <div style={{ background: c.riskScore >= 50 ? "var(--danger)" : "var(--green)", height: "100%", width: `${c.riskScore}%`, borderRadius: 2 }} />
                               </div>
                             </div>
                           </div>
 
                           {c.rewriteSuggestion && (
-                            <div style={{ fontSize: 9, color: "var(--danger)", background: "rgba(248,113,113,0.04)", padding: 6, borderRadius: 4, marginTop: 4 }}>
+                            <div style={{ fontSize: 9, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 4%, transparent)", padding: 6, borderRadius: 4, marginTop: 4 }}>
                               <strong>Öneri:</strong> {c.rewriteSuggestion}
                             </div>
                           )}
                         </div>
 
                         {/* Variant Actions */}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: "auto", borderTop: "1px solid var(--border-faint)", paddingTop: 10 }}>
                           <button
                             onClick={() => handleCopyDraft(draftId, contentValue)}
                             style={{
-                              background: "rgba(255,255,255,0.03)",
-                              border: "1px solid rgba(255,255,255,0.08)",
+                              background: "color-mix(in srgb, var(--text-primary) 3%, transparent)",
+                              border: "1px solid var(--border)",
                               color: "var(--text-primary)",
                               fontSize: 9,
                               padding: "4px 8px",
@@ -1360,8 +1360,8 @@ export default function FlowRadarTab() {
                             onClick={() => handleSaveFeedback(item, "approved")}
                             disabled={fStatus === "approved"}
                             style={{
-                              background: fStatus === "approved" ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.03)",
-                              border: fStatus === "approved" ? "1px solid var(--green)" : "1px solid rgba(255,255,255,0.08)",
+                              background: fStatus === "approved" ? "color-mix(in srgb, var(--green) 15%, transparent)" : "color-mix(in srgb, var(--text-primary) 3%, transparent)",
+                              border: fStatus === "approved" ? "1px solid var(--green)" : "1px solid var(--border)",
                               color: fStatus === "approved" ? "var(--green)" : "var(--text-primary)",
                               fontSize: 9,
                               padding: "4px 8px",
@@ -1377,8 +1377,8 @@ export default function FlowRadarTab() {
                             onClick={() => handleSaveFeedback(item, "rejected")}
                             disabled={fStatus === "rejected"}
                             style={{
-                              background: fStatus === "rejected" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.03)",
-                              border: fStatus === "rejected" ? "1px solid var(--danger)" : "1px solid rgba(255,255,255,0.08)",
+                              background: fStatus === "rejected" ? "color-mix(in srgb, var(--danger) 15%, transparent)" : "color-mix(in srgb, var(--text-primary) 3%, transparent)",
+                              border: fStatus === "rejected" ? "1px solid var(--danger)" : "1px solid var(--border)",
                               color: fStatus === "rejected" ? "var(--danger)" : "var(--text-primary)",
                               fontSize: 9,
                               padding: "4px 8px",
@@ -1416,12 +1416,12 @@ export default function FlowRadarTab() {
             )}
 
             {/* Modal Footer Close */}
-            <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 14 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border-faint)", paddingTop: 14 }}>
               <button
                 onClick={() => setDraftModalOpen(false)}
                 style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+                  border: "1px solid var(--border)",
                   color: "var(--text-primary)",
                   padding: "8px 16px",
                   borderRadius: 6,

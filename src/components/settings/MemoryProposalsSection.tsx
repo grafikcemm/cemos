@@ -189,7 +189,7 @@ export default function MemoryProposalsSection() {
           <Plus size={14} strokeWidth={2} /> {adding ? "Ekleniyor…" : "Kural Ekle"}
         </Button>
         {addError && (
-          <span role="alert" style={{ flexBasis: "100%", color: "var(--danger, #e5484d)", fontSize: "var(--text-2xs)" }}>
+          <span role="alert" style={{ flexBasis: "100%", color: "var(--danger)", fontSize: "var(--text-2xs)" }}>
             {addError}
           </span>
         )}

@@ -787,7 +787,7 @@ export default function DailyQueueTab() {
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 4 }}>Bugün için hazır taslak bulunmuyor.</div>
           <div style={{ fontSize: 12, maxWidth: 450, margin: "0 auto 16px auto" }}>
             {dateRange === "today" && (
-              <div style={{ background: "rgba(255,255,255,0.03)", padding: 10, borderRadius: 6, marginBottom: 12, border: "1px solid var(--border)" }}>
+              <div style={{ background: "var(--border-faint)", padding: 10, borderRadius: 6, marginBottom: 12, border: "1px solid var(--border)" }}>
                 🗂️ <strong>Eski aktif backlog:</strong> {summary.activeBacklogCount ?? 0} taslak bulunuyor.
               </div>
             )}
@@ -858,7 +858,7 @@ export default function DailyQueueTab() {
                   setFeedbackReason("");
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                  e.currentTarget.style.borderColor = "var(--border-strong)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = "var(--border)";
@@ -912,7 +912,7 @@ export default function DailyQueueTab() {
                   alignItems: "center",
                   flexWrap: "wrap",
                   gap: 6,
-                  borderTop: "1px solid rgba(255,255,255,0.03)",
+                  borderTop: "1px solid var(--border-faint)",
                   paddingTop: 8,
                   marginTop: 2
                 }}>
@@ -933,19 +933,19 @@ export default function DailyQueueTab() {
                       Viral {viralScore10.toFixed(1)}
                     </span>
                     {/* Angle / Mode */}
-                    <span style={{ fontSize: 9, color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", background: "var(--border-faint)", padding: "1px 5px", borderRadius: 4 }}>
                       {item.scoresParsed?.angle || "safe"}
                     </span>
-                    <span style={{ fontSize: 9, color: "var(--text-muted)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                    <span style={{ fontSize: 9, color: "var(--text-muted)", background: "var(--border-faint)", padding: "1px 5px", borderRadius: 4 }}>
                       {item.mode}
                     </span>
                     {item.scoresParsed?.packageId && (
-                      <span style={{ fontSize: 9, color: "var(--accent)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                      <span style={{ fontSize: 9, color: "var(--accent)", background: "var(--border-faint)", padding: "1px 5px", borderRadius: 4 }}>
                         PAKET{item.scoresParsed.packageRole && item.scoresParsed.packageRole !== "main" ? ` · ${item.scoresParsed.packageRole}` : ""}
                       </span>
                     )}
                     {(item.scoresParsed?.leakCount ?? 0) > 0 && (
-                      <span style={{ fontSize: 9, color: "var(--yellow)", background: "rgba(255,255,255,0.04)", padding: "1px 5px", borderRadius: 4 }}>
+                      <span style={{ fontSize: 9, color: "var(--yellow)", background: "var(--border-faint)", padding: "1px 5px", borderRadius: 4 }}>
                         ⚠ {item.scoresParsed?.leakCount} sızıntı
                       </span>
                     )}
@@ -1098,8 +1098,8 @@ export default function DailyQueueTab() {
                     disabled={isSaving}
                     style={{
                       padding: "6px 12px",
-                      background: "rgba(59,130,246,0.1)",
-                      border: "1px solid rgba(59,130,246,0.3)",
+                      background: "color-mix(in srgb, var(--status-info) 10%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--status-info) 30%, transparent)",
                       color: "var(--status-info)",
                       borderRadius: 6,
                       fontSize: 11,
@@ -1138,7 +1138,7 @@ export default function DailyQueueTab() {
                       <span>{s.name}</span>
                       <span style={{ fontWeight: 500, color: s.color }}>{s.val}</span>
                     </div>
-                    <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: 4, background: "var(--border-faint)", borderRadius: 2, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${s.val}%`, background: s.color, borderRadius: 2 }} />
                     </div>
                   </div>
@@ -1146,7 +1146,7 @@ export default function DailyQueueTab() {
               </div>
 
               {/* Recommendation, Angle & Reasoning */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 8, fontSize: 11 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, borderTop: "1px solid var(--border-faint)", paddingTop: 8, fontSize: 11 }}>
                 <div>
                   <span style={{ color: "var(--text-muted)", display: "block" }}>Tavsiye ve Açı:</span>
                   <span style={{ fontWeight: 500, color: "var(--accent)" }}>[{selectedItem.scoresParsed?.publishRecommendation || "publish"}]</span>
@@ -1230,7 +1230,7 @@ export default function DailyQueueTab() {
                   </div>
                 )}
                 {selectedItem.scoresParsed?.writerModel && (
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, borderTop: "1px solid var(--border-faint)", paddingTop: 4 }}>
                     <span style={{ color: "var(--text-muted)" }}>Writer Model:</span>
                     <span style={{ fontFamily: "monospace", fontSize: 9, color: "var(--text-secondary)" }}>{selectedItem.scoresParsed.writerModel}</span>
                   </div>
@@ -1263,7 +1263,7 @@ export default function DailyQueueTab() {
 
             {/* Workflow Actions */}
             {!(selectedItem.status === "published" || selectedItem.status === "manual_published") && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--border-faint)", paddingTop: 10 }}>
                 <span style={{ fontSize: 10, fontWeight: 500, color: "var(--text-muted)", textTransform: "uppercase" }}>
                   Kuyruk & feedback İşlemleri
                 </span>
@@ -1293,8 +1293,8 @@ export default function DailyQueueTab() {
                     disabled={isSaving}
                     style={{
                       padding: "8px 12px",
-                      background: selectedItem.status === "rejected" ? "rgba(239,68,68,0.15)" : "transparent",
-                      border: "1px solid rgba(255,68,68,0.3)",
+                      background: selectedItem.status === "rejected" ? "color-mix(in srgb, var(--danger) 15%, transparent)" : "transparent",
+                      border: "1px solid color-mix(in srgb, var(--danger) 30%, transparent)",
                       color: "var(--red)",
                       borderRadius: 6,
                       fontSize: 11,
@@ -1396,7 +1396,7 @@ export default function DailyQueueTab() {
             {/* Quick Feedback Form (Too AI, not my tone, make stronger) */}
             {!(selectedItem.status === "published" || selectedItem.status === "manual_published") && (
               <div style={{
-                borderTop: "1px solid rgba(255,255,255,0.04)",
+                borderTop: "1px solid var(--border-faint)",
                 paddingTop: 10,
                 display: "flex",
                 flexDirection: "column",
@@ -1436,7 +1436,7 @@ export default function DailyQueueTab() {
                       disabled={isSaving}
                       style={{
                         padding: "4px 8px",
-                        background: "rgba(255,255,255,0.03)",
+                        background: "var(--border-faint)",
                         border: "1px solid var(--border)",
                         color: "var(--text-secondary)",
                         borderRadius: 4,
@@ -1454,8 +1454,8 @@ export default function DailyQueueTab() {
             {/* Warn message if low score or high risk */}
             {selectedItem.scoresParsed?.publishScore < 50 && (
               <div style={{
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
+                background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                 padding: 10,
                 borderRadius: 6,
                 fontSize: 11,
@@ -1468,8 +1468,8 @@ export default function DailyQueueTab() {
 
             {selectedItem.scoresParsed?.riskScore >= 70 && (
               <div style={{
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
+                background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)",
                 padding: 10,
                 borderRadius: 6,
                 fontSize: 11,
@@ -1481,14 +1481,14 @@ export default function DailyQueueTab() {
             )}
 
             {/* Bottom Publish Now Button (Replaced with Operator Action) */}
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, display: "flex", gap: 8 }}>
+            <div style={{ borderTop: "1px solid var(--border-faint)", paddingTop: 10, display: "flex", gap: 8 }}>
               <button
                 onClick={() => handleCopyAndOpenX(detailContent)}
                 style={{
                   flex: 2,
                   padding: "10px 16px",
-                  background: "rgba(29, 155, 240, 0.15)",
-                  border: "1px solid rgba(29, 155, 240, 0.4)",
+                  background: "color-mix(in srgb, var(--status-info) 15%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--status-info) 40%, transparent)",
                   color: "var(--status-info)",
                   borderRadius: 6,
                   fontSize: 12,
@@ -1529,8 +1529,8 @@ export default function DailyQueueTab() {
                 style={{
                   flex: 1,
                   padding: "10px 16px",
-                  background: "rgba(168,85,247,0.15)",
-                  border: "1px solid rgba(168,85,247,0.4)",
+                  background: "var(--accent-tint-15)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
                   color: "var(--accent-text)",
                   borderRadius: 6,
                   fontSize: 12,

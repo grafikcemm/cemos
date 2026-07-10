@@ -133,7 +133,7 @@ export default function OperatorReadinessGate() {
         {readiness.warnings.length > 0 && (
           <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
             {readiness.warnings.map((w, i) => (
-              <li key={i} style={{ color: "#fbbf24" }}>
+              <li key={i} style={{ color: "var(--status-warn)" }}>
                 {w}
               </li>
             ))}
@@ -172,15 +172,15 @@ export default function OperatorReadinessGate() {
 
   return (
     <div style={{
-      background: "rgba(239, 68, 68, 0.06)",
-      border: "1px solid rgba(239, 68, 68, 0.25)",
+      background: "color-mix(in srgb, var(--danger) 6%, transparent)",
+      border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
       borderRadius: 8,
       padding: "14px 16px",
       marginBottom: 16,
       fontSize: 13,
       color: "var(--text-primary)"
     }}>
-      <div style={{ color: "#ef4444", fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ color: "var(--danger)", fontWeight: 500, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
         <span>⚠️ Operator Mode Hazır Değil</span>
       </div>
       
@@ -196,7 +196,7 @@ export default function OperatorReadinessGate() {
         ))}
         {readiness.warnings.map((warn, i) => (
           <li key={`warn-${i}`} style={{ color: "var(--text-primary)" }}>
-            <span style={{ color: "#fbbf24", marginRight: 4 }}>•</span> {warn} (Warning)
+            <span style={{ color: "var(--status-warn)", marginRight: 4 }}>•</span> {warn} (Warning)
           </li>
         ))}
       </ul>
@@ -205,8 +205,8 @@ export default function OperatorReadinessGate() {
         <div style={{
           marginBottom: 12,
           padding: "10px 12px",
-          background: "rgba(255, 255, 255, 0.02)",
-          border: "1px solid rgba(255, 255, 255, 0.04)",
+          background: "var(--border-faint)",
+          border: "1px solid var(--border-faint)",
           borderRadius: 6,
           fontSize: 11
         }}>
@@ -268,7 +268,7 @@ export default function OperatorReadinessGate() {
         </div>
       )}
 
-      <div style={{ fontSize: 11, borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 10, color: "var(--text-muted)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+      <div style={{ fontSize: 11, borderTop: "1px solid var(--border-faint)", paddingTop: 10, color: "var(--text-muted)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
         <div>
           💡 <strong>Çözüm:</strong> {solutionText}
         </div>
