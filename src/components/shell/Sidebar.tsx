@@ -287,7 +287,11 @@ export default function Sidebar({
                   icon={<Icon size={16} strokeWidth={2} />}
                   active={activeUtility === tab.id}
                   collapsed={false}
-                  onClick={() => go(() => onSelectUtility(tab.id))}
+                  // Doğrudan sekmeye git — onSelectUtility KULLANILMAZ: AppShell
+                  // "system" id'sini son-ziyaret-edilen utility'ye remapler (rail
+                  // kısayolu); explicit sayfa tıklaması o remap'e takılıp Sistem
+                  // sayfasını erişilmez kılıyordu (prod bug, 2026-07-11).
+                  onClick={() => go(() => onSelectTab(tab.id))}
                 />
               );
             })}

@@ -41,6 +41,19 @@ test("mobile bottom nav switches area; re-tap opens sub-page sheet", async ({ pa
   await expect(page.getByRole("banner").getByText("YouTube Fırsat Motoru")).toBeVisible();
 });
 
+test("Sistem page opens from Maliyetler (utility nav regression)", async ({ page }) => {
+  // Prod bug 2026-07-11: costs'tayken sidebar Sistem'e tıklamak "son ziyaret
+  // edilen utility" remap'ine takılıp içeriği Maliyetler'de bırakıyordu.
+  await page.goto("/");
+  await page.getByTestId("sidebar-utility-costs").click();
+  await expect(page.getByRole("banner").getByText("Maliyetler")).toBeVisible();
+
+  await page.getByTestId("sidebar-utility-system").click();
+  await expect(page.getByRole("banner").getByText("Sistem", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("sidebar-utility-system")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("banner").getByText("Maliyetler")).toHaveCount(0);
+});
+
 test("system status button opens the problem drawer", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Sistem durumu/ }).click();
