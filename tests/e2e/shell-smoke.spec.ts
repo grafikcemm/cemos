@@ -76,8 +76,7 @@ test("edit-gate: publish disabled until the operator edits the AI text", async (
   });
 
   await page.goto("/");
-  await page.getByTestId("sidebar-area-bugun").click();
-  await page.getByTestId("subnav-tab-morning").click();
+  await page.getByTestId("sidebar-tab-morning").click();
 
   const publishBtn = page.getByRole("button", { name: /Manuel Paylaşıldı/ });
   await expect(publishBtn).toBeVisible({ timeout: 20_000 });

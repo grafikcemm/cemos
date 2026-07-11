@@ -17,7 +17,6 @@ import {
 import Sidebar from "./Sidebar";
 import TopStrip from "./TopStrip";
 import CommandPalette from "./CommandPalette";
-import WorkspaceSubNav from "./WorkspaceSubNav";
 import MobileNav from "./MobileNav";
 import { renderScreen } from "./screenRegistry";
 
@@ -67,7 +66,8 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const utilityMeta = utilityActive ? UTILITY_TABS.find((u) => u.id === normalizedTab) : null;
   const activeUtility = utilityActive ? normalizedTab : null;
 
-  // Contextual sub-nav: aktif alanın alt sayfaları / Sistem kümesi.
+  // Breadcrumb etiketi: aktif alanın alt sayfaları / Sistem kümesi (yalnız
+  // TopStrip için — sayfa geçişi artık dolu sidebar'da yaşar).
   const subItems = utilityActive
     ? UTILITY_TABS.map((t) => ({ id: t.id, label: t.label }))
     : area
@@ -110,11 +110,13 @@ export default function AppShell({ initialTab }: AppShellProps) {
       <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
-        {/* Desktop sidebar — yalnız 5 alan */}
+        {/* Desktop sidebar — dolu nav: direkt öğeler + grup altı sayfalar */}
         <div className="app-sidebar-desktop">
           <Sidebar
             activeArea={area}
             onSelectArea={handleSelectArea}
+            activeTab={normalizedTab}
+            onSelectTab={setActiveTab}
             activeUtility={activeUtility}
             onSelectUtility={handleSelectUtility}
             collapsed={collapsed}
@@ -135,7 +137,6 @@ export default function AppShell({ initialTab }: AppShellProps) {
             areaLabel={utilityMeta ? "Sistem" : areaMeta?.label ?? "Bugün"}
             subTabLabel={activeSubLabel}
           />
-          <WorkspaceSubNav items={subItems} activeId={normalizedTab} onSelect={setActiveTab} />
           <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
             <div
               className="app-content"

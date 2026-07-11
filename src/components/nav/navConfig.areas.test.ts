@@ -119,6 +119,7 @@ describe("firstTabOfArea / subTabsOfArea", () => {
     expect(hafiza.find((s) => s.id === "viral-library")?.label).toBe("Viral Kütüphane");
 
     const bugun = subTabsOfArea("bugun");
-    expect(bugun.find((s) => s.id === "news-pool")?.label).toBe("Haberler");
+    expect(bugun.find((s) => s.id === "news-pool")?.label).toBe("Haber Havuzu");
+    expect(bugun.find((s) => s.id === "morning")?.label).toBe("Bugün");
   });
 });

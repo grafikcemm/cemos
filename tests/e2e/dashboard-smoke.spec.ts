@@ -4,15 +4,15 @@ import { selectTab, selectUtility } from "./helpers/nav";
 // Data-independent smoke tests (TRAN-CODE-1.5): assert UI shells, navigation
 // and loading placeholders — never row counts, so an empty DB also passes.
 
-test("sidebar area navigation reaches Keşif Motoru", async ({ page }) => {
+test("sidebar navigation reaches Keşif Motoru", async ({ page }) => {
   await page.goto("/");
-  await selectTab(page, "kesif", "Keşif Motoru");
+  await selectTab(page, "discovery-engine");
   await expect(page.getByRole("heading", { name: "Keşif Motoru" })).toBeVisible();
 });
 
 test("daily queue tab shows today's operation panel", async ({ page }) => {
   await page.goto("/");
-  await selectTab(page, "bugun", "Günlük Kuyruk");
+  await selectTab(page, "daily-queue");
   await expect(page.getByText("Bugünkü Operasyon")).toBeVisible();
 });
 
@@ -46,7 +46,7 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
   });
 
   await page.goto("/");
-  await selectTab(page, "kesif", "Viral Radar");
+  await selectTab(page, "flow-radar");
 
   const totalCard = page
     .locator("div")

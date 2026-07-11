@@ -17,9 +17,11 @@ describe("resolveGroupForTab", () => {
     }
   });
 
-  it("should_resolve_morning_to_bugun_group_area", () => {
-    // morning DIRECT_TABS'ta ama grup çözümü null (grup dışı direkt sekme).
+  it("should_resolve_direct_tabs_to_null_group", () => {
+    // Direkt sekmeler (Bugün/Haber Havuzu/Günlük Kuyruk) grup dışında yaşar.
     expect(resolveGroupForTab("morning")).toBeNull();
+    expect(resolveGroupForTab("news-pool")).toBeNull();
+    expect(resolveGroupForTab("daily-queue")).toBeNull();
   });
 
   it("should_return_null_when_tab_is_unknown", () => {
@@ -29,7 +31,7 @@ describe("resolveGroupForTab", () => {
   it("should_resolve_alias_when_legacy_id_given", () => {
     expect(resolveGroupForTab("flow")).toBe("kesif"); // flow-radar
     expect(resolveGroupForTab("patterns")).toBe("hafiza"); // → pattern-library
-    expect(resolveGroupForTab("queue")).toBe("bugun"); // daily-queue
+    expect(resolveGroupForTab("queue")).toBeNull(); // → daily-queue (direkt öğe)
     expect(resolveGroupForTab("library")).toBe("hafiza"); // → viral-library
     expect(resolveGroupForTab("learn-dashboard")).toBe("hafiza");
   });
@@ -93,9 +95,15 @@ describe("seedTargetForTab", () => {
   });
 });
 
-describe("NAV_GROUPS config (IA v3 dark dashboard)", () => {
-  it("should_have_four_task_groups", () => {
-    expect(NAV_GROUPS.map((g) => g.id)).toEqual(["bugun", "uretim", "kesif", "hafiza"]);
+describe("NAV_GROUPS config (dolu-nav: bugun sekmeleri DIRECT_TABS'ta)", () => {
+  it("should_have_three_task_groups", () => {
+    expect(NAV_GROUPS.map((g) => g.id)).toEqual(["uretim", "kesif", "hafiza"]);
+  });
+
+  it("should_expose_bugun_tabs_as_direct_tabs_without_heading", () => {
+    expect(DIRECT_TABS.map((t) => t.id)).toEqual(["morning", "news-pool", "daily-queue"]);
+    expect(DIRECT_TABS.find((t) => t.id === "morning")?.label).toBe("Bugün");
+    expect(DIRECT_TABS.find((t) => t.id === "news-pool")?.label).toBe("Haber Havuzu");
   });
 
   it("should_have_no_hidden_groups", () => {
@@ -111,7 +119,7 @@ describe("NAV_GROUPS config (IA v3 dark dashboard)", () => {
   });
 
   it("should_expose_12_grouped_and_direct_tabs", () => {
-    // morning + (daily-queue, news-pool) + (instagram, youtube) + (flow-radar,
+    // (morning, news-pool, daily-queue) + (instagram, youtube) + (flow-radar,
     // discovery-engine, source-intelligence) + (viral-library, keyword-library,
     // prompt-library, pattern-library). learn-dashboard env-koşullu.
     const visibleCount =

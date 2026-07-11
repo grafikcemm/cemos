@@ -10,6 +10,8 @@
 
 export type NavTab = { readonly id: string; readonly label: string };
 
+/** "bugun" grubu artık render edilmez (sekmeleri DIRECT_TABS'a taşındı) ama
+ *  alan katmanı (PRIMARY_AREAS/mobil) hâlâ "bugun" id'sini kullanır. */
 export type NavGroupId = "bugun" | "uretim" | "kesif" | "hafiza";
 
 export type NavGroup = {
@@ -20,19 +22,16 @@ export type NavGroup = {
   readonly hidden?: boolean;
 };
 
-/** Grup dışında, doğrudan barda duran sekmeler. (Etiket "Genel Bakış":
- *  Bugün alan adıyla çift görünmesin — id SABİT kalır.) */
-export const DIRECT_TABS: readonly NavTab[] = [{ id: "morning", label: "Genel Bakış" }];
+/** Grup dışında, sidebar'ın EN ÜSTÜNDE kategori başlığı OLMADAN duran
+ *  sekmeler (dolu-nav reversiyonu, 2026-07-11): Bugün + Haber Havuzu +
+ *  Günlük Kuyruk. ID'ler SABİT — yalnız yerleşim/etiket değişti. */
+export const DIRECT_TABS: readonly NavTab[] = [
+  { id: "morning", label: "Bugün" },
+  { id: "news-pool", label: "Haber Havuzu" },
+  { id: "daily-queue", label: "Günlük Kuyruk" },
+];
 
 export const NAV_GROUPS: readonly NavGroup[] = [
-  {
-    id: "bugun",
-    label: "Bugün",
-    tabs: [
-      { id: "daily-queue", label: "Günlük Kuyruk" },
-      { id: "news-pool", label: "Haberler" },
-    ],
-  },
   {
     // Üretim: platform üretim/planlama yüzeyleri (X üretimi Bugün'de yaşar).
     id: "uretim",
