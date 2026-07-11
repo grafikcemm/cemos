@@ -121,7 +121,7 @@ export default function CompetitorRadarSection() {
         <SectionHeader
           eyebrow="WATCHLIST"
           title="İzlenen Hesaplar"
-          description="En fazla 20 public professional hesap — yalnız resmi business_discovery okuması."
+          description="En fazla 30 public professional hesap — yalnız resmi business_discovery okuması."
         />
         <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", alignItems: "center" }}>
           <Input

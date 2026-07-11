@@ -10,7 +10,10 @@
 import { prisma } from "@/lib/db/client";
 import { getBusinessDiscovery, type BusinessDiscoveryMedia } from "@/lib/instagram/igClient";
 
-export const IG_WATCHLIST_MAX = 20; // günlük sync sınırı (spec: ≤20 hesap/gün)
+// 2026-07-11: 20→30 (kullanıcı isteği — site/araç tanıtan reels rakipleri
+// eklendi). business_discovery günlük sync maliyeti hesap başına ~1 çağrı;
+// 30 hesap hâlâ Meta rate-limit'inin çok altında.
+export const IG_WATCHLIST_MAX = 30;
 const BASELINE_WINDOW_DAYS = 30;
 const BASELINE_MIN_SAMPLE = 5;
 // YouTube outlier.ts ile aynı recency şekli: ≤7g tam, 7→30g lineer, taban 0.5.
