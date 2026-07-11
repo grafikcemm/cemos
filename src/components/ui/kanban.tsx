@@ -82,7 +82,7 @@ export type KanbanCardProps = {
 export function KanbanCard({ priority, tag, title, meta, progress, avatars, onClick }: KanbanCardProps) {
   const pct = progress && progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
   return (
-    <Card interactive onClick={onClick} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
+    <Card interactive onClick={onClick} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 10, borderRadius: "var(--radius-sm)" }}>
       {(priority || tag) && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {priority && <Pill label={priority.label} tone={priority.tone} />}
@@ -113,7 +113,7 @@ export type KanbanColumnDef<T> = { id: string; label: string; tone?: KanbanTone;
 function KanbanColumn<T>({ def, renderCard }: { def: KanbanColumnDef<T>; renderCard: (item: T) => ReactNode }) {
   const t = TONES[def.tone ?? "muted"];
   return (
-    <div style={{ flexShrink: 0, width: 304, display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ flexShrink: 0, width: 272, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4, position: "sticky", top: 0 }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: t.dot }} />
         <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)" }}>{def.label}</span>
@@ -130,7 +130,7 @@ function KanbanColumn<T>({ def, renderCard }: { def: KanbanColumnDef<T>; renderC
           {def.items.length}
         </span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {def.items.length === 0 ? (
           <div
             style={{
@@ -161,7 +161,7 @@ export function KanbanBoard<T>({
   renderCard: (item: T) => ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", gap: "var(--space-4)", overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
+    <div style={{ display: "flex", gap: "var(--space-3)", overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
       {columns.map((c) => (
         <KanbanColumn key={c.id} def={c} renderCard={renderCard} />
       ))}

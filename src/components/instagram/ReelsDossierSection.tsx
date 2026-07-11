@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Clapperboard, ShieldCheck, ShieldAlert, ShieldQuestion, Plus, CalendarDays } from "lucide-react";
-import { Card, SectionHeader, EmptyState, Badge, Button } from "@/components/ui";
+import { Card, SectionHeader, EmptyState, Badge, Button, Skeleton, TimelineLane } from "@/components/ui";
+import type { TimelineLaneItem } from "@/components/ui";
 import ErrorState from "@/components/ui/ErrorState";
 
 /**
@@ -48,6 +49,35 @@ const READINESS: Record<
 
 function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
+}
+
+function daysInMonth(month: string): number {
+  const [y, m] = month.split("-").map(Number);
+  if (!y || !m) return 31;
+  return new Date(y, m, 0).getDate();
+}
+
+/**
+ * Ay planı slotlarını pillar-bazlı TimelineLane şeritlerine dönüştürür
+ * (yalnız sunum — veri/mantık aynı). Ton eşlemesi semantik:
+ * mor (accent) = seri slotu, turuncu (accent-2) = evergreen üretim,
+ * info = diğer (seasonal/reactive).
+ */
+function slotsToLanes(slots: PlanSlotRow[]): { label: string; items: TimelineLaneItem[] }[] {
+  const lanes = new Map<string, TimelineLaneItem[]>();
+  for (const s of slots) {
+    const label = s.pillar || "plan";
+    const tone: TimelineLaneItem["tone"] = s.seriesKey
+      ? "accent"
+      : s.mixBucket === "evergreen"
+        ? "accent-2"
+        : "info";
+    const title = s.seriesKey ? `seri: ${s.seriesKey}` : s.topicHint || s.mixBucket;
+    const existing = lanes.get(label);
+    const item: TimelineLaneItem = { id: s.id, day: s.dayOfMonth, title, tone };
+    lanes.set(label, existing ? [...existing, item] : [item]);
+  }
+  return Array.from(lanes.entries()).map(([label, items]) => ({ label, items }));
 }
 
 export default function ReelsDossierSection() {
@@ -192,12 +222,10 @@ export default function ReelsDossierSection() {
   if (loading) {
     return (
       <Card variant="feature" padded>
-        <EmptyState
-          icon={<Clapperboard size={22} strokeWidth={1.8} />}
-          title="Reels dosyaları yükleniyor"
-          description="Dossier listesi ve ay planı getiriliyor."
-          compact
-        />
+        <div aria-busy="true" aria-label="Reels dosyaları yükleniyor">
+          <Skeleton width={160} height={12} style={{ marginBottom: "var(--space-4)" }} />
+          <Skeleton lines={4} />
+        </div>
       </Card>
     );
   }
@@ -291,16 +319,16 @@ export default function ReelsDossierSection() {
             compact
           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {(dossiers ?? []).map((d) => {
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {(dossiers ?? []).map((d, i) => {
               const r = READINESS[d.finalReadiness] ?? READINESS.not_ready;
               return (
                 <div
                   key={d.id}
                   style={{
                     display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)",
-                    padding: "10px var(--space-3)", borderRadius: "var(--radius-md)",
-                    background: "var(--bg-base)", border: "1px solid var(--border)",
+                    minHeight: 48, padding: "6px var(--space-1)",
+                    borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
                   }}
                 >
                   <Badge variant={r.variant} size="xs">
@@ -347,39 +375,14 @@ export default function ReelsDossierSection() {
             compact
           />
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))",
-              gap: "var(--space-2)",
-            }}
-          >
-            {planSlots.map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  padding: "var(--space-3)", borderRadius: "var(--radius-md)",
-                  background: "var(--bg-base)", border: "1px solid var(--border)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <span className="tnum" style={{ fontWeight: 600, color: "var(--text-primary)" }}>{s.dayOfMonth}</span>
-                  <Badge variant={s.mixBucket === "evergreen" ? "muted" : s.mixBucket === "seasonal" ? "blue" : "yellow"} size="xs">
-                    {s.mixBucket}
-                  </Badge>
-                </div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>{s.pillar}</div>
-                {s.seriesKey && (
-                  <div style={{ fontSize: "var(--text-2xs)", color: "var(--accent-text)", marginTop: 4 }}>
-                    seri: {s.seriesKey}
-                  </div>
-                )}
-                {s.topicHint && (
-                  <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {s.topicHint}
-                  </div>
-                )}
-              </div>
+          <div style={{ borderTop: "1px solid var(--border-faint)" }}>
+            {slotsToLanes(planSlots).map((lane) => (
+              <TimelineLane
+                key={lane.label}
+                label={lane.label}
+                items={lane.items}
+                daysInMonth={daysInMonth(currentMonth())}
+              />
             ))}
           </div>
         )}

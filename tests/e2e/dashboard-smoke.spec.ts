@@ -65,13 +65,25 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
 });
 
 test("settings tab renders health cards and the learning status card", async ({ page }) => {
+  // Hermetik: /api/health canlı OpenRouter/Buffer probe'ları koşar ve soğuk
+  // sunucuda 30-40s sürebilir — sabit sağlıklı fixture ile mock'lanır.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({
+      json: {
+        openrouter: { configured: true, ok: true },
+        socialdata: { configured: true, ok: true },
+        buffer: { configured: false, ok: true },
+        database: { ok: true },
+        worker: { mode: "worker", inferredStatus: "recent_tick" },
+      },
+    }),
+  );
+
   await page.goto("/");
   await selectUtility(page, "settings");
-  // The settings load runs live health checks (OpenRouter/Buffer) — generous
-  // timeout for cold dev servers.
-  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 40_000 });
+  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("ÖĞRENME DURUMU", { exact: false })).toBeVisible({
-    timeout: 40_000,
+    timeout: 20_000,
   });
 });
 

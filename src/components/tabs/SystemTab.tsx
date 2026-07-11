@@ -15,8 +15,6 @@ import {
   Button,
   Card,
   ErrorState,
-  MetricCard,
-  MetricGrid,
   PageHeader,
   SectionHeader,
   Skeleton,
@@ -108,6 +106,52 @@ function fmtUsd(v: number | null | undefined): string {
   return v == null ? "—" : `$${v.toFixed(2)}`;
 }
 
+/** Kompakt stat hücresi — MetricCard'ın yoğun tek-sıra karşılığı (overview arketipi). */
+function StatCell({ label, value, icon, accent = false }: { label: string; value: string; icon: React.ReactNode; accent?: boolean }) {
+  return (
+    <div style={{ background: "var(--bg-surface)", padding: "var(--space-3) var(--space-4)", display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: "var(--text-2xs)",
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+          fontWeight: 500,
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ display: "inline-flex", color: accent ? "var(--accent-text)" : "var(--text-muted)", flexShrink: 0 }}>{icon}</span>
+        {label}
+      </span>
+      <span
+        className="font-display tnum"
+        style={{
+          fontSize: "var(--text-xl)",
+          fontWeight: 500,
+          color: accent ? "var(--accent-text)" : "var(--text-primary)",
+          letterSpacing: "-0.015em",
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Düz bölüm — kart-içinde-kart yerine SectionHeader + yoğun satırlar; ayraç: --border-faint. */
+function PanelSection({ title, children, first = false }: { title: string; children: React.ReactNode; first?: boolean }) {
+  return (
+    <section style={{ padding: "var(--space-4) var(--space-5)", borderTop: first ? "none" : "1px solid var(--border-faint)" }}>
+      <SectionHeader title={title} />
+      {children}
+    </section>
+  );
+}
+
 export default function SystemTab() {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
 
@@ -138,6 +182,7 @@ export default function SystemTab() {
 
   const header = (
     <PageHeader
+      size="compact"
       eyebrow="SİSTEM"
       title="Sistem Sağlığı"
       subtitle="Worker, cron, haber pipeline'ı, maliyet ve kalite sinyalleri — tek pane."
@@ -153,15 +198,17 @@ export default function SystemTab() {
     return (
       <div style={{ width: "100%" }}>
         {header}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
-          {[0, 1, 2, 3].map((i) => (
-            <Card key={i} variant="default" padded>
-              <Skeleton lines={2} height={14} />
-            </Card>
-          ))}
-        </div>
-        <Card variant="feature" padded>
-          <Skeleton lines={5} height={16} />
+        <Card variant="default" padded={false} style={{ marginBottom: "var(--space-5)", overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 1, background: "var(--border-faint)" }}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{ background: "var(--bg-surface)", padding: "var(--space-3) var(--space-4)" }}>
+                <Skeleton lines={2} height={12} />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card variant="default" padded>
+          <Skeleton lines={6} height={14} />
         </Card>
       </div>
     );
@@ -189,122 +236,130 @@ export default function SystemTab() {
     <div style={{ width: "100%" }}>
       {header}
 
-      {/* Özet metrikler */}
-      <div style={{ marginBottom: "var(--space-5)" }}>
-        <MetricGrid
-          items={[
-            {
-              label: "Bugün maliyet",
-              value: fmtUsd(costs?.today?.totalUsd),
-              icon: <CircleDollarSign size={16} strokeWidth={1.8} />,
-              accent: true,
-            },
-            {
-              label: "Arka plan işçisi",
-              value: workerInfo.label,
-              icon: <Activity size={16} strokeWidth={1.8} />,
-            },
-            {
-              label: "Golden pass",
-              value: kpis?.goldenPassPct != null ? `%${kpis.goldenPassPct}` : "—",
-              icon: <Target size={16} strokeWidth={1.8} />,
-            },
-            {
-              label: "Kabul oranı (30g)",
-              value: kpis?.acceptanceRate != null ? `%${Math.round(kpis.acceptanceRate * 100)}` : "—",
-              icon: <HeartPulse size={16} strokeWidth={1.8} />,
-            },
-          ]}
-        />
-      </div>
-
-      {/* Worker & Cron */}
-      <SectionHeader title="Worker & Cron" />
-      <Card variant="default" padded style={{ marginBottom: "var(--space-5)" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <StatusDot tone={workerInfo.tone} />
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>
-              {worker?.mode === "cron" ? "Vercel cron modu" : worker?.mode === "worker" ? "Lokal worker modu" : "Mod bilinmiyor"}
-            </span>
-            <Badge variant={workerInfo.tone === "ok" ? "accent" : "muted"} size="xs">
-              {workerInfo.label}
-            </Badge>
-            {worker?.lastTickAt && (
-              <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                son tick: {new Date(worker.lastTickAt).toLocaleString("tr-TR")}
-              </span>
-            )}
-          </div>
-          {worker?.recommendation && (
-            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-              {worker.recommendation}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <ShieldCheck
-              size={14}
-              strokeWidth={2}
-              style={{ color: cronAuth?.ok === false ? "var(--status-error)" : "var(--status-ok)" }}
-            />
-            <span style={{ fontSize: "var(--text-xs)", color: cronAuth?.ok === false ? "var(--status-error)" : "var(--text-muted)" }}>
-              {cronAuth?.message ?? "Cron auth durumu bilinmiyor."}
-            </span>
-          </div>
+      {/* Özet metrikler — kompakt tek sıra */}
+      <Card variant="default" padded={false} style={{ marginBottom: "var(--space-5)", overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 1, background: "var(--border-faint)" }}>
+          <StatCell
+            label="Bugün maliyet"
+            value={fmtUsd(costs?.today?.totalUsd)}
+            icon={<CircleDollarSign size={14} strokeWidth={1.8} />}
+            accent
+          />
+          <StatCell
+            label="Arka plan işçisi"
+            value={workerInfo.label}
+            icon={<Activity size={14} strokeWidth={1.8} />}
+          />
+          <StatCell
+            label="Golden pass"
+            value={kpis?.goldenPassPct != null ? `%${kpis.goldenPassPct}` : "—"}
+            icon={<Target size={14} strokeWidth={1.8} />}
+          />
+          <StatCell
+            label="Kabul oranı (30g)"
+            value={kpis?.acceptanceRate != null ? `%${Math.round(kpis.acceptanceRate * 100)}` : "—"}
+            icon={<HeartPulse size={14} strokeWidth={1.8} />}
+          />
         </div>
       </Card>
 
-      {/* Haber pipeline */}
-      <SectionHeader title="Haber Pipeline" />
-      <Card variant="default" padded style={{ marginBottom: "var(--space-5)" }}>
-        {news ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Newspaper size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              <StatusDot tone={news.status === "green" ? "ok" : news.status === "yellow" ? "warn" : news.status ? "error" : "muted"} />
+      {/* Tek panel — düz bölümler, --border-faint ayraçlar */}
+      <Card variant="default" padded={false}>
+        {/* Worker & Cron */}
+        <PanelSection title="Worker & Cron" first>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <StatusDot tone={workerInfo.tone} />
               <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>
-                {news.status === "green" ? "Sağlıklı" : news.status === "yellow" ? "Uyarı" : news.status === "red" ? "Sorunlu" : "Bilinmiyor"}
+                {worker?.mode === "cron" ? "Vercel cron modu" : worker?.mode === "worker" ? "Lokal worker modu" : "Mod bilinmiyor"}
+              </span>
+              <Badge variant={workerInfo.tone === "ok" ? "accent" : "muted"} size="xs">
+                {workerInfo.label}
+              </Badge>
+              {worker?.lastTickAt && (
+                <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                  son tick: {new Date(worker.lastTickAt).toLocaleString("tr-TR")}
+                </span>
+              )}
+            </div>
+            {worker?.recommendation && (
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                {worker.recommendation}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: "var(--space-2)", borderTop: "1px solid var(--border-faint)" }}>
+              <ShieldCheck
+                size={14}
+                strokeWidth={2}
+                style={{ color: cronAuth?.ok === false ? "var(--status-error)" : "var(--status-ok)" }}
+              />
+              <span style={{ fontSize: "var(--text-xs)", color: cronAuth?.ok === false ? "var(--status-error)" : "var(--text-muted)" }}>
+                {cronAuth?.message ?? "Cron auth durumu bilinmiyor."}
               </span>
             </div>
-            <div className="tnum" style={{ display: "flex", gap: "var(--space-5)", fontSize: "var(--text-xs)", color: "var(--text-muted)", flexWrap: "wrap" }}>
-              <span>ham birikim: {news.rawBacklog ?? "—"}</span>
-              <span>hatalı: {news.failedBacklog ?? "—"}</span>
-              <span>çeviri 24s: {news.translatedLast24h ?? "—"}</span>
-              <span>analiz 24s: {news.analyzedLast24h ?? "—"}</span>
-            </div>
-            {news.message && (
-              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>{news.message}</div>
-            )}
           </div>
-        ) : (
-          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>Pipeline verisi alınamadı.</span>
-        )}
-      </Card>
+        </PanelSection>
 
-      {/* Maliyet dökümü */}
-      <SectionHeader title="Preset Bazlı Harcama (bu ay)" />
-      <Card variant="default" padded>
-        {byPreset.length === 0 ? (
-          <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
-            Bu ay preset etiketli harcama yok. Detay: Maliyetler sekmesi.
-          </span>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {byPreset.map((p) => (
-              <div key={p.preset} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-                <span style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}>
-                  {p.preset}
-                </span>
-                <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                  {p.calls} çağrı
-                </span>
-                <span className="tnum" style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", minWidth: 64, textAlign: "right" }}>
-                  ${p.costUsd.toFixed(3)}
+        {/* Haber pipeline */}
+        <PanelSection title="Haber Pipeline">
+          {news ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Newspaper size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
+                <StatusDot tone={news.status === "green" ? "ok" : news.status === "yellow" ? "warn" : news.status ? "error" : "muted"} />
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>
+                  {news.status === "green" ? "Sağlıklı" : news.status === "yellow" ? "Uyarı" : news.status === "red" ? "Sorunlu" : "Bilinmiyor"}
                 </span>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="tnum" style={{ display: "flex", gap: "var(--space-5)", fontSize: "var(--text-xs)", color: "var(--text-muted)", flexWrap: "wrap" }}>
+                <span>ham birikim: {news.rawBacklog ?? "—"}</span>
+                <span>hatalı: {news.failedBacklog ?? "—"}</span>
+                <span>çeviri 24s: {news.translatedLast24h ?? "—"}</span>
+                <span>analiz 24s: {news.analyzedLast24h ?? "—"}</span>
+              </div>
+              {news.message && (
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>{news.message}</div>
+              )}
+            </div>
+          ) : (
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>Pipeline verisi alınamadı.</span>
+          )}
+        </PanelSection>
+
+        {/* Maliyet dökümü — tabular */}
+        <PanelSection title="Preset Bazlı Harcama (bu ay)">
+          {byPreset.length === 0 ? (
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+              Bu ay preset etiketli harcama yok. Detay: Maliyetler sekmesi.
+            </span>
+          ) : (
+            <div>
+              {byPreset.map((p, i) => (
+                <div
+                  key={p.preset}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0, 1fr) auto minmax(72px, auto)",
+                    alignItems: "center",
+                    gap: "var(--space-3)",
+                    padding: "6px 0",
+                    borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
+                  }}
+                >
+                  <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-mono)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.preset}
+                  </span>
+                  <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", textAlign: "right" }}>
+                    {p.calls} çağrı
+                  </span>
+                  <span className="tnum" style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", textAlign: "right" }}>
+                    ${p.costUsd.toFixed(3)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </PanelSection>
       </Card>
     </div>
   );

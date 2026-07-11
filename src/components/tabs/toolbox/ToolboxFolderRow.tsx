@@ -34,11 +34,11 @@ export type FolderItem = {
 
 const rowStyle: React.CSSProperties = {
   display: "flex",
-  gap: "var(--space-3)",
+  gap: "var(--space-2)",
   overflowX: "auto",
-  paddingBottom: 6,
+  paddingBottom: 4,
   scrollbarWidth: "none",
-  marginBottom: "var(--space-5)",
+  marginBottom: "var(--space-4)",
 };
 
 function FolderTile({
@@ -60,48 +60,57 @@ function FolderTile({
       aria-pressed={active}
       style={{
         flexShrink: 0,
-        width: 158,
+        minWidth: 128,
         textAlign: "left",
         cursor: "pointer",
         display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        padding: 14,
+        alignItems: "center",
+        gap: 8,
+        padding: "7px 12px 7px 8px",
         fontFamily: "inherit",
         background: active ? "var(--gradient-surface), var(--bg-elevated)" : "var(--bg-surface)",
         border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`,
-        borderRadius: "var(--radius-lg)",
-        boxShadow: active ? "var(--shadow-md), var(--highlight-top)" : "var(--shadow-sm), var(--highlight-top)",
-        transition: "border-color .15s var(--ease-out), background .15s, transform .15s, box-shadow .15s",
+        borderRadius: "var(--radius-md)",
+        boxShadow: active ? "var(--shadow-sm), var(--highlight-top)" : "none",
+        transition: "border-color .15s var(--ease-out), background .15s, box-shadow .15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "translateY(-1px)";
         if (!active) e.currentTarget.style.borderColor = "var(--border-strong)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
         e.currentTarget.style.borderColor = active ? "var(--accent-border)" : "var(--border)";
       }}
     >
       <span
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: "var(--radius-md)",
+          width: 28,
+          height: 28,
+          borderRadius: "var(--radius-sm)",
           display: "grid",
           placeItems: "center",
           background: tileBg,
           border: `1px solid ${tileBorder}`,
           color: tone,
+          flexShrink: 0,
         }}
       >
-        <Icon size={19} strokeWidth={2} fill={item.icon === "Star" ? "currentColor" : "none"} />
+        <Icon size={15} strokeWidth={2} fill={item.icon === "Star" ? "currentColor" : "none"} />
       </span>
-      <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.3 }}>
+      <span style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: "var(--text-xs)",
+            fontWeight: 500,
+            color: "var(--text-primary)",
+            lineHeight: 1.3,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
           {item.label}
         </span>
-        <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+        <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", whiteSpace: "nowrap" }}>
           {item.count} kaynak
         </span>
       </span>
@@ -129,9 +138,9 @@ export default function ToolboxFolderRow({
             key={i}
             style={{
               flexShrink: 0,
-              width: 158,
-              height: 96,
-              borderRadius: "var(--radius-lg)",
+              width: 128,
+              height: 44,
+              borderRadius: "var(--radius-md)",
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
             }}

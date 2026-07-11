@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Radar, UserPlus, Flame } from "lucide-react";
-import { Card, SectionHeader, EmptyState, Badge, Button } from "@/components/ui";
+import { Card, SectionHeader, EmptyState, Badge, Button, Input, Skeleton } from "@/components/ui";
 import ErrorState from "@/components/ui/ErrorState";
 
 /**
@@ -96,12 +96,10 @@ export default function CompetitorRadarSection() {
   if (loading) {
     return (
       <Card variant="feature" padded>
-        <EmptyState
-          icon={<Radar size={22} strokeWidth={1.8} />}
-          title="Rakip radarı yükleniyor"
-          description="Watchlist ve outlier feed getiriliyor."
-          compact
-        />
+        <div aria-busy="true" aria-label="Rakip radarı yükleniyor">
+          <Skeleton width={160} height={12} style={{ marginBottom: "var(--space-4)" }} />
+          <Skeleton lines={4} />
+        </div>
       </Card>
     );
   }
@@ -125,19 +123,14 @@ export default function CompetitorRadarSection() {
           title="İzlenen Hesaplar"
           description="En fazla 20 public professional hesap — yalnız resmi business_discovery okuması."
         />
-        <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
-          <input
+        <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", alignItems: "center" }}>
+          <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addAccount()}
             placeholder="@kullaniciadi"
             aria-label="İzlenecek Instagram hesabı"
-            style={{
-              flex: "1 1 220px", minWidth: 0, padding: "9px 12px",
-              background: "var(--bg-base)", border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)", color: "var(--text-primary)",
-              fontSize: "var(--text-sm)", fontFamily: "inherit",
-            }}
+            style={{ flex: "1 1 220px", minWidth: 0 }}
           />
           <Button size="sm" onClick={addAccount} loading={adding} iconLeft={<UserPlus size={14} strokeWidth={2} />}>
             Ekle
@@ -157,14 +150,14 @@ export default function CompetitorRadarSection() {
             compact
           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {(watch ?? []).map((w) => (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {(watch ?? []).map((w, i) => (
               <div
                 key={w.id}
                 style={{
                   display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)",
-                  padding: "8px var(--space-3)", borderRadius: "var(--radius-md)",
-                  background: "var(--bg-base)", border: "1px solid var(--border)",
+                  minHeight: 44, padding: "4px var(--space-1)",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
                   fontSize: "var(--text-sm)",
                 }}
               >
@@ -197,8 +190,8 @@ export default function CompetitorRadarSection() {
             compact
           />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {(outliers ?? []).map((o) => (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {(outliers ?? []).map((o, i) => (
               <a
                 key={o.contentItemId}
                 href={o.url ?? undefined}
@@ -206,8 +199,8 @@ export default function CompetitorRadarSection() {
                 rel="noopener noreferrer"
                 style={{
                   display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)",
-                  padding: "10px var(--space-3)", borderRadius: "var(--radius-md)",
-                  background: "var(--bg-base)", border: "1px solid var(--border)",
+                  minHeight: 48, padding: "6px var(--space-1)",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
                   textDecoration: "none",
                 }}
               >
@@ -218,8 +211,9 @@ export default function CompetitorRadarSection() {
                 <span style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)" }}>@{o.author}</span>
                 {o.insufficient && <Badge variant="yellow" size="xs">az örneklem</Badge>}
                 <span
+                  title={o.caption || undefined}
                   style={{
-                    flex: "1 1 100%", color: "var(--text-primary)",
+                    flex: "1 1 200px", minWidth: 0, color: "var(--text-primary)",
                     fontSize: "var(--text-sm)", overflow: "hidden",
                     textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}

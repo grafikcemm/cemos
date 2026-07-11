@@ -22,7 +22,7 @@ function hostOf(url: string): string {
 }
 
 /** Site favicon (Google s2) with an initial-tile fallback on load failure. */
-function Favicon({ url, title, size = 38 }: { url: string; title: string; size?: number }) {
+function Favicon({ url, title, size = 32 }: { url: string; title: string; size?: number }) {
   const [failed, setFailed] = useState(false);
   const host = hostOf(url);
   const initial = (title || host || "?").trim().charAt(0).toUpperCase();
@@ -32,7 +32,7 @@ function Favicon({ url, title, size = 38 }: { url: string; title: string; size?:
       style={{
         width: size,
         height: size,
-        borderRadius: "var(--radius-md)",
+        borderRadius: "var(--radius-sm)",
         flexShrink: 0,
         display: "grid",
         placeItems: "center",
@@ -46,14 +46,14 @@ function Favicon({ url, title, size = 38 }: { url: string; title: string; size?:
         <img
           src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`}
           alt=""
-          width={size - 16}
-          height={size - 16}
+          width={size - 12}
+          height={size - 12}
           loading="lazy"
           onError={() => setFailed(true)}
           style={{ display: "block", borderRadius: 4 }}
         />
       ) : (
-        <span style={{ fontSize: 15, fontWeight: 500, color: "var(--accent-text)" }}>{initial}</span>
+        <span style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>{initial}</span>
       )}
     </div>
   );
@@ -72,11 +72,12 @@ const genBtnStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 5,
-  padding: "5px 8px",
+  minHeight: "var(--control-h-sm)",
+  padding: "0 8px",
   background: "var(--gradient-accent-2), var(--accent-2-dark)",
   border: "1px solid var(--accent-2-border)",
   color: "var(--accent-2-text)",
-  borderRadius: "var(--radius-md)",
+  borderRadius: "var(--radius-sm)",
   fontSize: "var(--text-2xs)",
   fontWeight: 500,
   fontFamily: "inherit",
@@ -103,8 +104,8 @@ export default function ToolboxToolCard({
   onGenerate: (id: string, account: string) => void;
 }) {
   return (
-    <Card interactive style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+    <Card interactive style={{ display: "flex", flexDirection: "column", gap: 8, padding: 13 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
         <Favicon url={t.url} title={t.title} />
         <a
           href={safeExternalHref(t.url)}
@@ -183,7 +184,7 @@ export default function ToolboxToolCard({
           gap: 8,
           flexWrap: "wrap",
           alignItems: "center",
-          borderTop: "1px solid var(--border)",
+          borderTop: "1px solid var(--border-faint)",
           paddingTop: 8,
           marginTop: "auto",
         }}

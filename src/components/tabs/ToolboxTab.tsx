@@ -1,17 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Wrench,
   RefreshCw,
   Loader2,
   Star,
   Search as SearchIcon,
-  CheckCircle2,
-  XCircle,
   SearchX,
 } from "lucide-react";
-import { PageHeader, Card, EmptyState, Skeleton, SubNav } from "@/components/ui";
+import {
+  PageHeader,
+  Card,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  SubNav,
+  Button,
+  Input,
+  useToast,
+} from "@/components/ui";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { TOOLBOX_BUCKETS, chipLabel } from "@/lib/toolbox/buckets";
 import ToolboxFolderRow, { type FolderItem } from "./toolbox/ToolboxFolderRow";
@@ -39,6 +47,7 @@ export default function ToolboxTab() {
 
   const [bucketItems, setBucketItems] = useState<Record<string, Tool[]>>({});
   const [loadingBucket, setLoadingBucket] = useState<string | null>(null);
+  const [bucketErrors, setBucketErrors] = useState<Record<string, boolean>>({});
 
   const [activeKey, setActiveKey] = useState<string>("ai");
   const [activeSubCat, setActiveSubCat] = useState<string>(ALL);
@@ -50,16 +59,24 @@ export default function ToolboxTab() {
 
   const [favItems, setFavItems] = useState<Tool[]>([]);
   const [favLoading, setFavLoading] = useState(false);
+  const [favError, setFavError] = useState(false);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [favKey, setFavKey] = useState<string | null>(null);
 
-  const showToast = (text: string, type: "success" | "error") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  // App-level toast (mesajlar birebir korunur). Ref üzerinden çağrılır ki
+  // provider re-render'ları useCallback kimliklerini bozup yükleme
+  // efektlerini tekrar tetiklemesin.
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+  const showToast = useCallback((text: string, type: "success" | "error") => {
+    if (type === "success") toastRef.current.success(text);
+    else toastRef.current.error(text);
+  }, []);
 
   const loadCounts = useCallback(async () => {
     setLoadingCounts(true);
@@ -72,36 +89,47 @@ export default function ToolboxTab() {
     } finally {
       setLoadingCounts(false);
     }
-  }, []);
+  }, [showToast]);
 
-  const loadBucket = useCallback(async (key: string) => {
-    setLoadingBucket(key);
-    try {
-      const data = await fetchJson<ListResponse>(`/api/toolbox?bucket=${key}&limit=200`);
-      if (data.success && data.items) {
-        setBucketItems((prev) => ({ ...prev, [key]: data.items! }));
-      } else {
-        showToast(data.error || "Grup yüklenemedi.", "error");
+  const loadBucket = useCallback(
+    async (key: string) => {
+      setLoadingBucket(key);
+      setBucketErrors((prev) => ({ ...prev, [key]: false }));
+      try {
+        const data = await fetchJson<ListResponse>(`/api/toolbox?bucket=${key}&limit=200`);
+        if (data.success && data.items) {
+          setBucketItems((prev) => ({ ...prev, [key]: data.items! }));
+        } else {
+          setBucketErrors((prev) => ({ ...prev, [key]: true }));
+          showToast(data.error || "Grup yüklenemedi.", "error");
+        }
+      } catch (err) {
+        setBucketErrors((prev) => ({ ...prev, [key]: true }));
+        showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      } finally {
+        setLoadingBucket(null);
       }
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
-    } finally {
-      setLoadingBucket(null);
-    }
-  }, []);
+    },
+    [showToast]
+  );
 
   const loadFavorites = useCallback(async () => {
     setFavLoading(true);
+    setFavError(false);
     try {
       const data = await fetchJson<ListResponse>("/api/toolbox?favorite=true&limit=300");
       if (data.success && data.items) setFavItems(data.items);
-      else showToast(data.error || "Favoriler alınamadı.", "error");
+      else {
+        setFavError(true);
+        showToast(data.error || "Favoriler alınamadı.", "error");
+      }
     } catch (err) {
+      setFavError(true);
       showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
     } finally {
       setFavLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   // Mount: counts + featured AI bucket.
   useEffect(() => {
@@ -137,7 +165,7 @@ export default function ToolboxTab() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch]);
+  }, [debouncedSearch, showToast]);
 
   const selectFolder = (key: string) => {
     setActiveKey(key);
@@ -274,55 +302,73 @@ export default function ToolboxTab() {
       : [];
   const visibleItems = activeSubCat === ALL ? activeItems : activeItems.filter((t) => t.category === activeSubCat);
 
-  const activeLoading = activeKey === FAV_KEY ? favLoading : loadingBucket === activeKey || !bucketItems[activeKey];
+  const activeError = activeKey === FAV_KEY ? favError : !!bucketErrors[activeKey];
+  const activeLoading =
+    activeKey === FAV_KEY
+      ? favLoading
+      : loadingBucket === activeKey || (!bucketItems[activeKey] && !activeError);
 
   return (
-    <div style={{ width: "100%", paddingBottom: 60 }}>
-      {toast && <Toast toast={toast} />}
-
+    <div style={{ width: "100%", paddingBottom: "var(--space-10)" }}>
       <PageHeader
         eyebrow="ARAÇ KUTUSU"
         title="Toolbox"
         subtitle="İçerik üretimini besleyen araç ve kaynaklar — gruba göre seç, alt-kategoride filtrele, hesaplara fikir kuyruğu kur."
-        actions={
-          <button onClick={refresh} disabled={refreshing} style={refreshBtnStyle}>
-            {refreshing ? (
-              <Loader2 size={15} strokeWidth={2} style={{ animation: "spin 0.6s linear infinite" }} />
-            ) : (
-              <RefreshCw size={15} strokeWidth={2} />
-            )}
-            {refreshing ? "Kontrol ediliyor…" : "Yenile"}
-          </button>
-        }
+        size="compact"
         meta={
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
-              <Wrench size={14} strokeWidth={2} />
+              <Wrench size={13} strokeWidth={2} />
               <span className="tnum">{total}</span> araç / kaynak
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)", fontWeight: 500 }}>
-              <Star size={14} strokeWidth={2} fill="currentColor" />
+              <Star size={13} strokeWidth={2} fill="currentColor" />
               <span className="tnum">{favoritesCount}</span> favori
             </span>
           </>
         }
       />
 
-      {/* Search */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: "var(--space-5)" }}>
+      {/* Toolbar: arama + yenile — tek kompakt satır */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: "var(--space-4)",
+        }}
+      >
         <div style={{ position: "relative", display: "flex", alignItems: "center", flex: 1, minWidth: 200 }}>
-          <SearchIcon size={15} strokeWidth={2} style={{ position: "absolute", left: 10, color: "var(--text-muted)", pointerEvents: "none" }} />
-          <input
+          <Input
             type="text"
             placeholder="Tüm araçlarda ara…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ ...inputStyle, paddingLeft: 32, height: 36 }}
+            iconLeft={<SearchIcon size={14} strokeWidth={2} />}
+            style={{
+              minHeight: "var(--control-h-sm)",
+              padding: "0 30px 0 32px",
+              fontSize: "var(--text-xs)",
+            }}
           />
           {searching && (
-            <Loader2 size={14} strokeWidth={2} style={{ position: "absolute", right: 10, color: "var(--text-muted)", animation: "spin 0.6s linear infinite" }} />
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              style={{ position: "absolute", right: 10, color: "var(--text-muted)", animation: "spin 0.6s linear infinite" }}
+            />
           )}
         </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={refresh}
+          loading={refreshing}
+          iconLeft={<RefreshCw size={14} strokeWidth={2} />}
+        >
+          {refreshing ? "Kontrol ediliyor…" : "Yenile"}
+        </Button>
       </div>
 
       {isSearchMode ? (
@@ -358,6 +404,12 @@ export default function ToolboxTab() {
           {/* Grid */}
           {activeLoading ? (
             <ToolboxSkeletonGrid />
+          ) : activeError ? (
+            <ErrorState
+              title={activeKey === FAV_KEY ? "Favoriler alınamadı" : "Grup yüklenemedi"}
+              description="Araç listesi şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+              onRetry={() => (activeKey === FAV_KEY ? loadFavorites() : loadBucket(activeKey))}
+            />
           ) : visibleItems.length === 0 ? (
             <Card variant="quiet" padded={false}>
               <EmptyState
@@ -381,83 +433,26 @@ export default function ToolboxTab() {
 
 function ToolGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-2)" }}>
       {children}
-    </div>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--bg-sunken)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-primary)",
-  padding: "5px 8px",
-  fontSize: "var(--text-xs)",
-  fontFamily: "inherit",
-  outline: "none",
-  width: "100%",
-};
-
-const refreshBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "var(--bg-elevated)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-secondary)",
-  fontSize: "var(--text-xs)",
-  fontWeight: 500,
-  fontFamily: "inherit",
-  cursor: "pointer",
-  height: 32,
-  transition: "background 0.15s var(--ease-out), border-color 0.15s",
-};
-
-function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
-  const ok = toast.type === "success";
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 999,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "12px 18px",
-        borderRadius: "var(--radius-lg)",
-        fontSize: "var(--text-sm)",
-        fontWeight: 500,
-        background: "var(--gradient-surface), var(--bg-elevated)",
-        border: `1px solid ${ok ? "var(--green)" : "var(--danger)"}`,
-        color: ok ? "var(--green)" : "var(--danger)",
-        boxShadow: "var(--shadow-lg)",
-      }}
-    >
-      {ok ? <CheckCircle2 size={16} strokeWidth={2} /> : <XCircle size={16} strokeWidth={2} />}
-      <span style={{ color: "var(--text-primary)" }}>{toast.text}</span>
     </div>
   );
 }
 
 function ToolboxSkeletonGrid() {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Card key={i} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <ToolGrid>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Card key={i} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 13 }}>
           <Skeleton width="70%" height={14} />
-          <Skeleton height={36} />
-          <Skeleton width="45%" height={20} />
+          <Skeleton height={32} />
+          <Skeleton width="45%" height={18} />
           <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
-            <Skeleton width="48%" height={26} />
-            <Skeleton width="48%" height={26} />
+            <Skeleton width="48%" height={24} />
+            <Skeleton width="48%" height={24} />
           </div>
         </Card>
       ))}
-    </div>
+    </ToolGrid>
   );
 }
