@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import Drawer from "@/components/ui/Drawer";
-import { verificationLabel } from "@/lib/services/whyToday";
+import { verificationLabel, freshnessWarning } from "@/lib/services/whyToday";
 import { VERIFICATION_DOT } from "./readinessMeta";
 import type { MorningDraft } from "./useDailyQueueData";
 
@@ -42,6 +42,11 @@ export default function DraftDetailDrawer({ draft, open, onClose }: Props) {
           <Section title="Neden bugün?">
             <Chip dot={VERIFICATION_DOT[why.verification]} label={verificationLabel(why.verification)} />
             {why.reason && <p style={pStyle}>{why.reason}</p>}
+            {freshnessWarning(why.verification) && (
+              <p data-testid="drawer-freshness-warning" style={{ ...pStyle, color: "var(--status-warn)" }}>
+                {freshnessWarning(why.verification)}
+              </p>
+            )}
             {!why.isClaimVerified && why.verification !== "unverified" && (
               <p style={{ ...pStyle, color: "var(--text-muted)" }}>
                 Kaynak mevcut ≠ iddia doğrulandı. Yayından önce teyit gerekir.

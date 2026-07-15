@@ -80,6 +80,13 @@ const items = [
     { content: "Yeni model kodlama hizini %70 artiriyor.", hasSource: false },
     { verification: "unverified", isClaimVerified: false, reason: null, sourceAgeHours: null },
   ),
+  // §8E: readiness kontrollerinden geçen AMA kaynağı eski taslak — güncellik
+  // uyarısı readiness'ten ayrı görünmeli (çelişki değil, iki ayrı eksen).
+  fixture(
+    "stale-1",
+    { content: "Bu araci client projesinde denedim; ekip icin faydali oldu ve is akisini belirgin hizlandirdi." },
+    { verification: "stale", isClaimVerified: false, reason: "Eski dayanak · 3 gün önce", sourceAgeHours: 72 },
+  ),
 ];
 
 async function mockAndOpen(page: Page) {
@@ -97,14 +104,54 @@ test.describe("Bugün karar kuyruğu (düzeltilmiş sözleşme)", () => {
     await mockAndOpen(page);
   });
 
-  test("ready kart: intent-only 'X'te aç' + 'Paylaşıldı'; kozmetik edit-gate metni YOK", async ({ page }) => {
+  test("ready kart (§8E/§8D): 'Kontrolleri geçti'; intent-only 'X'te aç'; Paylaşıldı intent'ten önce YOK", async ({ page }) => {
     const card = page.getByTestId("draft-review-card").first();
     await expect(card).toHaveAttribute("data-readiness", "ready");
-    await expect(card.getByTestId("readiness-badge")).toContainText("Yayına hazır");
+    // §8E: readiness = teknik/kalite; "Yayına hazır" değil.
+    await expect(card.getByTestId("readiness-badge")).toContainText("Kontrolleri geçti");
+    await expect(card.getByTestId("readiness-badge")).not.toContainText("Yayına hazır");
     await expect(card.getByTestId("cta-open-x")).toBeVisible();
-    await expect(card.getByTestId("cta-mark-published")).toBeVisible();
+    // §8D: Paylaşıldı yalnız intent açıldıktan sonra belirir.
+    await expect(card.getByTestId("cta-mark-published")).toHaveCount(0);
     await expect(page.getByText(/değiştirmeden yayınlayamazsın/)).toHaveCount(0);
     await expect(page.getByText(/Onayla ve yayınla/)).toHaveCount(0);
+  });
+
+  test("ready kart (§8D): dinlenirken en fazla 3 ana eylem; utility taşma menüsünde", async ({ page }) => {
+    const card = page.getByTestId("draft-review-card").first();
+    // Görünür: X'te aç (primary) + Düzenle (secondary) + ⋯ (taşma tetikleyici).
+    await expect(card.getByTestId("cta-open-x")).toBeVisible();
+    await expect(card.getByTestId("cta-edit")).toBeVisible();
+    await expect(card.getByTestId("cta-overflow")).toBeVisible();
+    // Kaydet yalnız dirty (dinlenirken YOK); utility taşmada (henüz DOM'da değil).
+    await expect(card.getByTestId("cta-save")).toHaveCount(0);
+    await expect(card.getByTestId("cta-copy")).toHaveCount(0);
+    await expect(card.getByTestId("cta-generate-image")).toHaveCount(0);
+  });
+
+  test("ready kart (§8D): X'te aç → 'Paylaşıldı olarak işaretle' belirir (publish_prepared)", async ({ page }) => {
+    // window.open'ı gerçek popup açmaması için no-op'la (intent penceresi test-dışı).
+    await page.evaluate(() => {
+      window.open = () => null;
+    });
+    const card = page.getByTestId("draft-review-card").first();
+    await expect(card.getByTestId("cta-mark-published")).toHaveCount(0);
+    await card.getByTestId("cta-open-x").click();
+    await expect(card.getByTestId("cta-mark-published")).toBeVisible();
+    await expect(card.getByTestId("cta-mark-published")).toContainText("Paylaşıldı olarak işaretle");
+  });
+
+  test("taşma menüsü (§8D): açılır, klavye erişilebilir, Escape kapatır", async ({ page }) => {
+    const card = page.getByTestId("draft-review-card").first();
+    const trigger = card.getByTestId("cta-overflow");
+    await expect(trigger).toHaveAttribute("aria-label", "Diğer eylemler");
+    await trigger.click();
+    const menu = page.getByTestId("card-overflow-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByTestId("cta-copy")).toBeVisible();
+    await expect(menu.getByTestId("cta-detail")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
   });
 
   test("needs_edit kart: 'Düzenle' primary; intent/publish YOK; nedenler görünür", async ({ page }) => {
@@ -126,9 +173,19 @@ test.describe("Bugün karar kuyruğu (düzeltilmiş sözleşme)", () => {
     await expect(card.getByTestId("readiness-reasons")).toContainText(/kaynak yok|yayınlanamaz/i);
   });
 
-  test("Detay drawer açılır; kart ile aynı doğrulama sonucu (kaynak ≠ fact-check)", async ({ page }) => {
+  test("stale kaynak (§8E): 'Kontrolleri geçti' + AYRI güncellik uyarısı (çelişki değil)", async ({ page }) => {
+    await page.getByTestId("queue-row-stale-1").click();
     const card = page.getByTestId("draft-review-card").first();
-    await card.getByTestId("cta-detail").click();
+    await expect(card).toHaveAttribute("data-readiness", "ready");
+    await expect(card.getByTestId("readiness-badge")).toContainText("Kontrolleri geçti");
+    await expect(card.getByTestId("freshness-warning")).toContainText(/Kaynak eski; yayınlamadan önce güncelliği kontrol et/);
+    await expect(page.getByText(/Bayat kaynak/)).toHaveCount(0);
+  });
+
+  test("Detay drawer (§8D): taşma menüsünden açılır; kart ile aynı doğrulama", async ({ page }) => {
+    const card = page.getByTestId("draft-review-card").first();
+    await card.getByTestId("cta-overflow").click();
+    await page.getByTestId("card-overflow-menu").getByTestId("cta-detail").click();
     await expect(page.getByText("Taslak detayı")).toBeVisible();
     await expect(page.getByText("Neden bugün?")).toBeVisible();
     await expect(page.getByText("Doğrulandı").first()).toBeVisible();

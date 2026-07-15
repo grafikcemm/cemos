@@ -7,8 +7,10 @@ import type { VerificationState } from "@/lib/services/whyToday";
  * needs_edit = peach dikkat, blocked = koyu hata-tint. Rozet noktası semantik
  * renk; metin ton yüzeyinin currentColor'ını kullanır (WCAG token'lı).
  */
+// §8E: `ready` = teknik/kalite kontrollerinden geçti — YAYIN GARANTİSİ değil
+// (güncellik ayrı eksende, freshnessWarning). "Yayına hazır" → "Kontrolleri geçti".
 export const READINESS_META: Record<ReadinessState, { label: string; tone: SurfaceTone; dot: string }> = {
-  ready: { label: "Yayına hazır", tone: "inverse", dot: "var(--status-ok)" },
+  ready: { label: "Kontrolleri geçti", tone: "inverse", dot: "var(--status-ok)" },
   needs_edit: { label: "Düzenleme gerekli", tone: "peach", dot: "var(--status-warn)" },
   blocked: { label: "Yayınlanamaz", tone: "blocked", dot: "var(--status-error)" },
 };

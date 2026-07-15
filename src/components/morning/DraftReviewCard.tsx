@@ -7,14 +7,16 @@ import {
   ExternalLink,
   ImageIcon,
   Info,
+  MoreHorizontal,
   PencilLine,
   Save,
   Check,
 } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { assessReadiness, type ReadinessResult } from "@/lib/services/readinessService";
-import { verificationLabel } from "@/lib/services/whyToday";
+import { verificationLabel, freshnessWarning } from "@/lib/services/whyToday";
 import Surface, { InverseCard, PeachCard } from "@/components/ui/Surface";
+import Popover from "@/components/ui/Popover";
 import DraftDetailDrawer from "./DraftDetailDrawer";
 import ThreadSegmentEditor from "./ThreadSegmentEditor";
 import { READINESS_META, VERIFICATION_DOT } from "./readinessMeta";
@@ -57,11 +59,17 @@ export default function DraftReviewCard({
   const [imgLoading, setImgLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(draft.generatedImageUrl ?? null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // §8D: "Paylaşıldı olarak işaretle" yalnız X intent'i açıldıktan (publish_prepared)
+  // sonra belirginleşir — gerçek paylaşım sırasını taklit eder.
+  const [publishPrepared, setPublishPrepared] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isThread = draft.draftType.toUpperCase() === "THREAD";
   const isPublished = draft.status === "manual_published" || draft.status === "published";
   const maxChars = draft.readinessInput?.maxChars ?? 280;
+  // Kaydet yalnız içerik gerçekten değişince (dirty) veya düzenleme modunda görünür.
+  const originalText = norm(draft.editedContent || draft.content || "");
+  const isDirty = text !== originalText;
 
   // Canlı readiness: düzenlenen metin (veya segment) üzerinde AYNI saf fonksiyon.
   const liveReadiness: ReadinessResult = useMemo(() => {
@@ -87,9 +95,11 @@ export default function DraftReviewCard({
   };
 
   // Intent-only (ADR-017): pencere açmak yayın DEĞİL. Yalnız ready'de sunulur.
+  // Açılınca publish_prepared → "Paylaşıldı olarak işaretle" belirginleşir (§8D).
   const handleOpenX = () => {
     const url = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
+    setPublishPrepared(true);
   };
 
   const handleGenerateImage = async () => {
@@ -191,6 +201,30 @@ export default function DraftReviewCard({
     </div>
   );
 
+  // §8E: güncellik uyarısı readiness'ten AYRI. Readiness "Kontrolleri geçti" olsa
+  // bile kaynak eskiyse açık ayrı uyarı (kart + drawer aynı cümle).
+  const freshnessNote = why ? freshnessWarning(why.verification) : null;
+  const freshnessBlock = !isPublished && freshnessNote && (
+    <div
+      data-testid="freshness-warning"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 7,
+        background: "color-mix(in srgb, var(--status-warn) 12%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--status-warn) 30%, transparent)",
+        borderRadius: "var(--radius-md)",
+        padding: "7px 10px",
+        fontSize: "var(--text-xs)",
+        color: "var(--sf-fg)",
+        lineHeight: 1.5,
+      }}
+    >
+      <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--status-warn)", flexShrink: 0, marginTop: 5 }} />
+      {freshnessNote}
+    </div>
+  );
+
   const reasonsBlock = !isPublished && state !== "ready" && liveReadiness.reasons.length > 0 && (
     <div
       data-testid="readiness-reasons"
@@ -257,42 +291,107 @@ export default function DraftReviewCard({
     </div>
   );
 
+  // §8D eylem hiyerarşisi — dinlenirken en fazla 2-3 görünür ana eylem:
+  //  primary (ready → X'te aç · aksi → Düzenle) + ikincil Düzenle + taşma menüsü.
+  //  Kaydet yalnız dirty; Paylaşıldı yalnız publish_prepared. needs_edit/blocked
+  //  güvenlik sözleşmesi (intent/publish YOK) değişmez.
   const actions = !isPublished && (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-      {state === "ready" && (
+      {state === "ready" ? (
         <button type="button" onClick={handleOpenX} data-testid="cta-open-x" style={primaryBtn}>
           <ExternalLink size={14} strokeWidth={2} /> X&apos;te aç
         </button>
-      )}
-      {state !== "ready" && !isThread && (
+      ) : !isThread ? (
         <button type="button" onClick={enterEdit} data-testid="cta-edit" style={primaryBtn}>
           <PencilLine size={14} strokeWidth={2} /> Düzenle
         </button>
+      ) : null}
+
+      {state === "ready" && !isThread && !editing && (
+        <button type="button" onClick={enterEdit} data-testid="cta-edit" style={ghostBtn}>
+          <PencilLine size={13} strokeWidth={2} /> Düzenle
+        </button>
       )}
-      {!isThread && (state === "ready" || editing) && (
+
+      {!isThread && (editing || isDirty) && (
         <button type="button" onClick={handleSave} disabled={saving} data-testid="cta-save" style={ghostBtn}>
           <Save size={13} strokeWidth={2} /> {saving ? "…" : "Kaydet"}
         </button>
       )}
-      {!isThread && state === "ready" && !editing && (
-        <button type="button" onClick={enterEdit} style={ghostBtn}>
-          <PencilLine size={13} strokeWidth={2} /> Düzenle
+
+      {state === "ready" && publishPrepared && (
+        <button
+          type="button"
+          onClick={handleMarkPublished}
+          disabled={publishing}
+          data-testid="cta-mark-published"
+          style={preparedBtn}
+        >
+          <Check size={14} strokeWidth={2} /> {publishing ? "…" : "Paylaşıldı olarak işaretle"}
         </button>
       )}
-      <button type="button" onClick={handleCopy} style={ghostBtn}>
-        <Copy size={13} strokeWidth={2} /> Kopyala
-      </button>
-      <button type="button" onClick={handleGenerateImage} disabled={imgLoading} style={ghostBtn}>
-        <ImageIcon size={13} strokeWidth={2} /> {imgLoading ? "…" : imageUrl ? "Yeniden üret" : "Görsel üret"}
-      </button>
-      <button type="button" onClick={() => setDrawerOpen(true)} data-testid="cta-detail" style={ghostBtn}>
-        <Info size={13} strokeWidth={2} /> Detay
-      </button>
-      {state === "ready" && (
-        <button type="button" onClick={handleMarkPublished} disabled={publishing} data-testid="cta-mark-published" style={{ ...ghostBtn, marginLeft: "auto" }}>
-          <Check size={13} strokeWidth={2} /> {publishing ? "…" : "Paylaşıldı"}
-        </button>
-      )}
+
+      <div style={{ marginLeft: "auto" }}>
+        <Popover
+          label="Diğer eylemler"
+          menuTestId="card-overflow-menu"
+          align="end"
+          trigger={(props) => (
+            <button
+              {...props}
+              type="button"
+              data-testid="cta-overflow"
+              aria-label="Diğer eylemler"
+              style={{ ...ghostBtn, padding: "0 10px" }}
+            >
+              <MoreHorizontal size={16} strokeWidth={2} />
+            </button>
+          )}
+        >
+          {(close) => (
+            <>
+              <button
+                role="menuitem"
+                data-testid="cta-copy"
+                className="cx-nav-item"
+                style={overflowItemStyle}
+                onClick={() => {
+                  void handleCopy();
+                  close();
+                }}
+              >
+                <Copy size={15} strokeWidth={2} /> <span className="cx-nav-label">Kopyala</span>
+              </button>
+              <button
+                role="menuitem"
+                data-testid="cta-generate-image"
+                disabled={imgLoading}
+                className="cx-nav-item"
+                style={overflowItemStyle}
+                onClick={() => {
+                  void handleGenerateImage();
+                  close();
+                }}
+              >
+                <ImageIcon size={15} strokeWidth={2} />{" "}
+                <span className="cx-nav-label">{imgLoading ? "Üretiliyor…" : imageUrl ? "Görseli yeniden üret" : "Görsel üret"}</span>
+              </button>
+              <button
+                role="menuitem"
+                data-testid="cta-detail"
+                className="cx-nav-item"
+                style={overflowItemStyle}
+                onClick={() => {
+                  setDrawerOpen(true);
+                  close();
+                }}
+              >
+                <Info size={15} strokeWidth={2} /> <span className="cx-nav-label">Detay</span>
+              </button>
+            </>
+          )}
+        </Popover>
+      </div>
     </div>
   );
 
@@ -311,6 +410,7 @@ export default function DraftReviewCard({
       {whyRow}
       {/* Referans: başlık/meta ile gövde arası ince ayraç. */}
       <div aria-hidden style={{ height: 1, background: "var(--sf-border)", opacity: 0.85 }} />
+      {freshnessBlock}
       {reasonsBlock}
       {contentBlock}
       {imageBlock}
@@ -351,6 +451,17 @@ const ghostBtn: React.CSSProperties = {
   background: "transparent", color: "var(--sf-fg)", border: "1px solid var(--sf-border)", borderRadius: "var(--radius-sm)",
   fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer",
 };
+
+// Intent açıldıktan sonra beliren "Paylaşıldı olarak işaretle" — accent-çerçeveli,
+// birincil boyut (belirginleşir) ama dolgu değil (gerçek paylaşım kullanıcıda).
+const preparedBtn: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: 7, height: "var(--control-h)", padding: "0 16px",
+  background: "transparent", color: "var(--sf-fg)", border: "1px solid var(--accent)", borderRadius: "var(--radius-sm)",
+  fontSize: "var(--text-sm)", fontWeight: 600, fontFamily: "inherit", cursor: "pointer",
+};
+
+// Taşma menüsü öğesi — cx-nav-item (dark elevated yüzey) + sabit yükseklik.
+const overflowItemStyle: React.CSSProperties = { height: 36 };
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (

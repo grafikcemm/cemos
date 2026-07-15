@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { whyToday, verificationLabel, type WhyTodayInput } from "./whyToday";
+import { whyToday, verificationLabel, freshnessWarning, type WhyTodayInput } from "./whyToday";
 
 const NOW = 1_700_000_000_000;
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000);
@@ -87,5 +87,21 @@ describe("verificationLabel", () => {
     expect(verificationLabel("source_available")).toBe("Kaynak mevcut");
     expect(verificationLabel("verified")).toBe("Doğrulandı");
     expect(verificationLabel("partially_verified")).toBe("Kısmen doğrulandı");
+  });
+
+  it("stale etiketi 'Kaynak eski' (jargon 'Bayat kaynak' değil, §8E)", () => {
+    expect(verificationLabel("stale")).toBe("Kaynak eski");
+  });
+});
+
+describe("freshnessWarning (§8E) — güncellik ekseni readiness'ten AYRI", () => {
+  it("stale → açık, ayrı güncellik uyarısı cümlesi", () => {
+    expect(freshnessWarning("stale")).toBe("Kaynak eski; yayınlamadan önce güncelliği kontrol et.");
+  });
+
+  it("stale dışı tüm durumlar → null (güncellik uyarısı yok)", () => {
+    for (const v of ["verified", "partially_verified", "source_available", "unverified"] as const) {
+      expect(freshnessWarning(v), v).toBeNull();
+    }
   });
 });

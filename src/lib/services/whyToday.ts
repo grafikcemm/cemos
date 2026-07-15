@@ -58,11 +58,20 @@ const STATE_LABELS: Record<VerificationState, string> = {
   partially_verified: "Kısmen doğrulandı",
   source_available: "Kaynak mevcut", // ≠ doğrulandı
   unverified: "Doğrulanmadı",
-  stale: "Bayat kaynak",
+  stale: "Kaynak eski", // güncellik ekseni — readiness'ten AYRI (§8E)
 };
 
 export function verificationLabel(state: VerificationState): string {
   return STATE_LABELS[state];
+}
+
+/**
+ * Güncellik uyarısı (§8E) — readiness'ten AYRI eksen. Readiness "Kontrolleri
+ * geçti" olsa bile kaynak eskiyse açık, ayrı bir uyarı gerekir. Kart ve drawer
+ * AYNI cümleyi gösterir (tek kaynak). Yalnız `stale`'de dolu; aksi null.
+ */
+export function freshnessWarning(state: VerificationState): string | null {
+  return state === "stale" ? "Kaynak eski; yayınlamadan önce güncelliği kontrol et." : null;
 }
 
 function toMs(value: Date | string | null): number | null {
