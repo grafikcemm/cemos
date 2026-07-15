@@ -118,6 +118,10 @@ model QueueItem {
   scores            String      @default("{}")
   lintReport        String?
   candidatesJson    String      @default("[]")
+  // Faz 1C: yapısal thread segmentleri (JSON: ThreadSegment[]; Zod-typed).
+  // Additive-only, nullable — okuma: parseThreadSegments (readiness yapısal
+  // thread doğrulaması). Üretim hattının doğrudan segment üretmesi Faz 2.
+  threadSegments    String?
   lastError         String?
   approvedAt        DateTime?
   // News→draft bridge: which NewsItem this draft was grounded on (if any).
