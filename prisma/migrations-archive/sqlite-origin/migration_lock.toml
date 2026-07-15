@@ -1,0 +1,5 @@
+# ARŞİV — orijinal (dev) migration_lock. Provider = sqlite idi; canlı DB
+# PostgreSQL/Neon olduğu için P3019 uyumsuzluğuna yol açıyordu. Faz 1C.2'de
+# aktif zincir postgres baseline'a (0_init) taşındı; aktif lock artık postgresql.
+# Bu dosya yalnızca tarihsel kayıt — Prisma bunu OKUMAZ (aktif path dışı).
+provider = "sqlite"
