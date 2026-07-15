@@ -1,73 +1,78 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Ink — primary text RGB (#F4F4F5); text/borders derive from it ───────── */
-  --ink: 244, 244, 245;
+  /* ── Ink — primary text RGB (#262220 antrasit); text/borders derive from it ─ */
+  --ink: 38, 34, 32;
 
-  /* ── Surface ramp — DARK DASHBOARD grafit (frame > workspace > kart) ─────── */
-  --bg-base: #151515; /* app frame / page canvas */
-  --bg-workspace: #0f0f10; /* ana çalışma paneli (frame'den koyu, yuvarlak) */
-  --bg-sunken: #101012; /* sunken: input/track/quote */
-  --bg-surface: #171719; /* default card */
-  --bg-elevated: #1d1d20; /* overlay / dropdown / modal panel */
-  --bg-hover: #232327; /* hover fill */
-  --bg-rail: #111112; /* sidebar / topstrip rail */
-  --surface-overlay: rgba(17, 17, 18, 0.82); /* sticky topstrip (blur backdrop) */
+  /* ── Surface ramp — LIGHT EDITORIAL kırık beyaz (base > workspace/kart) ──── */
+  --bg-base: #f7f6f2; /* app frame / page canvas (kırık beyaz) */
+  --bg-workspace: #ffffff; /* ana çalışma paneli (beyaz) */
+  --bg-sunken: #f1efea; /* sunken: input/track/quote */
+  --bg-surface: #ffffff; /* default card */
+  --bg-elevated: #ffffff; /* overlay / dropdown / modal panel (gölge ile ayrışır) */
+  --bg-hover: #f1efea; /* hover fill */
+  --bg-rail: #f4f2ed; /* sidebar / topstrip rail */
+  --surface-overlay: rgba(255, 255, 255, 0.82); /* sticky topstrip (blur backdrop) */
 
-  /* ── Borders (white-opacity) + text (#F4F4F5 / #A1A1AA / #66666F) ────────── */
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --border-faint: rgba(255, 255, 255, 0.05); /* iç bölücüler */
-  --text-primary: #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --text-muted: #66666f;
-  --text-faint: rgba(var(--ink), 0.38); /* sadece ≥14px meta/timestamp */
+  /* ── Borders (light) + text (gerçek WCAG — ADR-018) ─────────────────────── */
+  --border: #e6e3dc;
+  --border-strong: #d8d4cc;
+  --border-faint: #efede8; /* iç bölücüler */
+  --text-primary: #262220; /* 14.8:1 AAA */
+  --text-secondary: #5a554f; /* 6.82:1 AA */
+  --text-muted: #726c64; /* 4.80:1 AA (küçük normal metin geçer) */
+  --text-faint: #b3aea6; /* YALNIZ dekoratif/disabled — anlam taşıyan metinde kullanılmaz */
 
-  /* ── Marka accent — MOR (PRIMARY): seçim / focus / aktif-nav / grafik ────── */
-  --accent: #8b5cf6;
-  --accent-hover: #a855f7;
-  --accent-active: #7c3aed;
-  --accent-deep: #6d28d9; /* derin vurgu / ikincil hover */
-  --accent-fg: #ffffff; /* mor dolgu üstünde metin/ikon */
-  --accent-text: #a855f7; /* metin-olarak-mor (eyebrow/link/inline) koyu zeminde */
+  /* ── Marka accent — TERRACOTTA (PRIMARY): seçim / focus / aktif-nav / link ─ */
+  --accent: #a8481f; /* 5.42:1 bg · 5.86:1 beyaz metinle */
+  --accent-hover: #8f3a16;
+  --accent-active: #7a3213;
+  --accent-deep: #6d2c11; /* derin vurgu / ikincil hover */
+  --accent-fg: #ffffff; /* terracotta dolgu üstünde metin/ikon */
+  --accent-text: #a8481f; /* metin-olarak-terracotta (eyebrow/link/inline) */
 
   /* Accent alpha tint'leri — literal rgba() üçlülerinin yerini alır (tema-uyumlu). */
   --accent-tint-05: color-mix(in srgb, var(--accent) 5%, transparent);
   --accent-tint-08: color-mix(in srgb, var(--accent) 8%, transparent);
   --accent-tint-12: color-mix(in srgb, var(--accent) 12%, transparent);
-  --accent-tint-15: color-mix(in srgb, var(--accent) 15%, transparent);
-  --accent-tint-20: color-mix(in srgb, var(--accent) 20%, transparent);
-  --accent-tint-30: color-mix(in srgb, var(--accent) 30%, transparent);
-  --accent-dark: var(--accent-tint-15); /* translucent ghost bg (aktif nav/badge) */
+  --accent-tint-15: color-mix(in srgb, var(--accent) 14%, white);
+  --accent-tint-20: color-mix(in srgb, var(--accent) 20%, white);
+  --accent-tint-30: color-mix(in srgb, var(--accent) 30%, white);
+  --accent-dark: var(--accent-tint-15); /* soluk terracotta tint (aktif nav/badge zemini) */
   --accent-border: var(--accent-tint-30);
 
-  /* ── İkincil accent — TURUNCU: birincil aksiyon / üret / progress ────────── */
-  --accent-2: #ff5538;
-  --accent-2-hover: #ff6b50;
-  --accent-2-text: #ff5538;
-  --accent-2-fg: #151515; /* turuncu dolgu üstünde metin/ikon — KOYU (kontrast) */
-  --accent-2-border: color-mix(in srgb, var(--accent-2) 30%, transparent);
-  --accent-2-dark: color-mix(in srgb, var(--accent-2) 15%, transparent);
+  /* ── İkincil accent — ADR-017 tek-accent: --accent-2 artık terracotta'ya alias ─ */
+  --accent-2: var(--accent);
+  --accent-2-hover: var(--accent-hover);
+  --accent-2-text: var(--accent-text);
+  --accent-2-fg: var(--accent-fg);
+  --accent-2-border: var(--accent-border);
+  --accent-2-dark: var(--accent-dark);
 
-  /* ── Semantik durum (token'lı — off-token hex literaller bunlara iner) ───── */
-  --status-ok: #18d989; /* success */
-  --status-warn: #e6b566; /* warning / stale (aksiyon-turuncusundan ayrık) */
-  --status-error: #ff4d6d; /* error / destructive */
-  --status-info: #22c7f2; /* info / cyan */
+  /* ── Semantik durum (gerçek WCAG — nokta/ikon; chip metni ayrıca ≥4.5:1) ── */
+  --status-ok: #2e7d52; /* success (nokta/ikon) */
+  --status-ok-text: #256b44; /* ok chip metni — tint zeminde 5.50:1 */
+  --status-warn: #b4740e; /* warning / stale (nokta) */
+  --status-warn-text: #8a5a08; /* warn chip metni — tint zeminde 5.05:1 */
+  --status-error: #b3261e; /* error / destructive — 5.33:1 */
+  --status-info: var(--accent); /* tek-accent: ayrı mavi yok */
   --danger: var(--status-error);
-  --danger-hover: #e63a5a;
+  --danger-hover: #9a2019;
   --red: var(--status-error); /* legacy alias → danger */
-  --blue: var(--status-info); /* legacy alias → info */
+  --blue: var(--status-info); /* legacy alias → info (accent) */
   --yellow: var(--status-warn); /* legacy alias → warning */
   --green: var(--status-ok); /* legacy alias → success */
 
-  /* ── Chart palette (mirrored in src/lib/theme/chartColors.ts) ───────────── */
-  --chart-1: #8b5cf6; /* purple */
-  --chart-2: #22c7f2; /* cyan */
-  --chart-3: #18d989; /* green */
-  --chart-4: #ff5538; /* orange */
-  --chart-grid: rgba(255, 255, 255, 0.06);
-  --chart-axis: rgba(255, 255, 255, 0.36);
+  /* ── Chart palette — accent + nötr; dekoratif çoklu-renk YOK ────────────── */
+  --chart-1: #a8481f; /* accent terracotta */
+  --chart-2: #726c64; /* nötr gri */
+  --chart-3: #2e7d52; /* status-ok */
+  --chart-4: #b4740e; /* status-warn */
+  --chart-grid: rgba(20, 18, 16, 0.08);
+  --chart-axis: rgba(20, 18, 16, 0.36);
+
+  /* ── Okunabilir içerik genişliği (06 §4) ────────────────────────────────── */
+  --content-max: 960px;
 
   /* ── Spacing scale (px) ─────────────────────────────────────────────────── */
   --space-1: 4px;
@@ -136,24 +141,18 @@
   --gradient-surface: linear-gradient(160deg, var(--bg-elevated), var(--bg-surface));
   --gradient-hero: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)); /* no-op */
 
-  /* ── Elevation — soft premium katmanlı yumuşak gölgeler ─────────────────── */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.28), 0 10px 30px -16px rgba(0, 0, 0, 0.5); /* L1 */
-  --shadow-md: 0 6px 28px -6px rgba(0, 0, 0, 0.5), 0 2px 8px 0 rgba(0, 0, 0, 0.32); /* L2 */
-  --shadow-lg: 0 34px 70px -26px rgba(0, 0, 0, 0.72), 0 4px 14px 0 rgba(0, 0, 0, 0.3); /* L3 */
-  --shadow-card: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 16px 40px -24px rgba(0, 0, 0, 0.55);
-  --shadow-pop: 0 20px 48px -18px rgba(0, 0, 0, 0.62), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  /* primary (lavanta) buton rest — premium inset highlight + yumuşak siyah gölge */
-  --glow-cyan: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.3),
-    0 10px 26px -12px rgba(0, 0, 0, 0.5);
-  /* hover — lavanta-cast yumuşak parıltı */
-  --shadow-accent: inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
-    0 4px 10px -2px color-mix(in srgb, var(--accent) 26%, transparent),
-    0 10px 22px -6px color-mix(in srgb, var(--accent) 18%, transparent);
-  --shadow-modal: 0 34px 70px -26px rgba(0, 0, 0, 0.72),
-    0 0 80px color-mix(in srgb, var(--accent) 8%, transparent);
-  --shadow-drawer: -10px 0 40px rgba(0, 0, 0, 0.62);
-  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.06); /* tactile üst-kenar */
-  --ring-focus: 0 0 0 3px var(--accent-tint-20); /* a11y focus ring */
+  /* ── Elevation — açık editorial: ince, glow YOK (06 §5) ─────────────────── */
+  --shadow-sm: 0 1px 2px rgba(20, 18, 16, 0.06); /* L1 */
+  --shadow-md: 0 2px 6px rgba(20, 18, 16, 0.08); /* L2 */
+  --shadow-lg: 0 8px 28px -8px rgba(20, 18, 16, 0.14); /* L3 */
+  --shadow-card: 0 1px 3px rgba(20, 18, 16, 0.08);
+  --shadow-pop: 0 4px 16px rgba(20, 18, 16, 0.12);
+  --glow-cyan: 0 1px 2px rgba(20, 18, 16, 0.06); /* legacy adı — açık temada sade gölge */
+  --shadow-accent: 0 1px 3px rgba(20, 18, 16, 0.1); /* hover — glow yok */
+  --shadow-modal: 0 12px 48px -12px rgba(20, 18, 16, 0.22);
+  --shadow-drawer: -8px 0 40px rgba(20, 18, 16, 0.16);
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0); /* açık temada görünmez (shadow-listesinde geçerli) */
+  --ring-focus: 0 0 0 3px var(--accent-tint-30); /* a11y focus ring (terracotta) */
 
   /* ── Motion + doku ──────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -164,41 +163,41 @@
 
 @theme inline {
   /* Colors → Tailwind utilities (bg-surface, text-danger, border-default…) */
-  --color-base: #151515;
-  --color-workspace: #0f0f10;
-  --color-sunken: #101012;
-  --color-surface: #171719;
-  --color-elevated: #1d1d20;
-  --color-bg-hover: #232327;
-  --color-rail: #111112;
-  --color-border-default: rgba(255, 255, 255, 0.09);
-  --color-border-strong: rgba(255, 255, 255, 0.16);
-  --color-border-faint: rgba(255, 255, 255, 0.05);
-  --color-text-primary: #f4f4f5;
-  --color-text-secondary: #a1a1aa;
-  --color-text-muted: #66666f;
-  --color-text-faint: rgba(244, 244, 245, 0.38);
+  --color-base: #f7f6f2;
+  --color-workspace: #ffffff;
+  --color-sunken: #f1efea;
+  --color-surface: #ffffff;
+  --color-elevated: #ffffff;
+  --color-bg-hover: #f1efea;
+  --color-rail: #f4f2ed;
+  --color-border-default: #e6e3dc;
+  --color-border-strong: #d8d4cc;
+  --color-border-faint: #efede8;
+  --color-text-primary: #262220;
+  --color-text-secondary: #5a554f;
+  --color-text-muted: #726c64;
+  --color-text-faint: #b3aea6;
 
-  --color-accent: #8b5cf6;
-  --color-accent-hover: #a855f7;
-  --color-accent-dark: color-mix(in srgb, #8b5cf6 15%, transparent);
+  --color-accent: #a8481f;
+  --color-accent-hover: #8f3a16;
+  --color-accent-dark: color-mix(in srgb, #a8481f 14%, white);
   --color-accent-fg: #ffffff;
-  --color-accent-text: #a855f7;
+  --color-accent-text: #a8481f;
 
-  --color-accent-2: #ff5538;
-  --color-accent-2-text: #ff5538;
-  --color-accent-2-fg: #151515;
+  --color-accent-2: #a8481f;
+  --color-accent-2-text: #a8481f;
+  --color-accent-2-fg: #ffffff;
 
-  --color-danger: #ff4d6d;
-  --color-success: #18d989;
-  --color-xred: #ff4d6d;
-  --color-xblue: #22c7f2;
-  --color-xyellow: #e6b566;
+  --color-danger: #b3261e;
+  --color-success: #2e7d52;
+  --color-xred: #b3261e;
+  --color-xblue: #a8481f;
+  --color-xyellow: #b4740e;
 
-  --color-chart-1: #8b5cf6;
-  --color-chart-2: #22c7f2;
-  --color-chart-3: #18d989;
-  --color-chart-4: #ff5538;
+  --color-chart-1: #a8481f;
+  --color-chart-2: #726c64;
+  --color-chart-3: #2e7d52;
+  --color-chart-4: #b4740e;
 
   /* Radius → rounded-* utilities */
   --radius-sm: 8px;

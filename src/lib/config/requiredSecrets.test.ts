@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { assertRequiredSecrets, findMissingSecrets } from "./requiredSecrets";
 
-const ALL_KEYS = ["DATABASE_URL", "OPENROUTER_API_KEY", "CRON_SECRET", "CREDENTIAL_ENC_KEY"];
+const ALL_KEYS = [
+  "DATABASE_URL",
+  "OPENROUTER_API_KEY",
+  "CRON_SECRET",
+  "CREDENTIAL_ENC_KEY",
+  // Faz 1A erişim kapısı (ADR-013/017)
+  "ACCESS_PASSWORD_HASH",
+  "SESSION_SECRET",
+];
 
 describe("startup secret assertion (FIRST-SPRINT item 18)", () => {
   const originalEnv = { ...process.env };
@@ -40,7 +48,13 @@ describe("startup secret assertion (FIRST-SPRINT item 18)", () => {
     process.env.DATABASE_URL = "postgres://test";
     const { fatal, warned } = findMissingSecrets();
     expect(fatal).toEqual([]);
-    expect(warned).toEqual(["OPENROUTER_API_KEY", "CRON_SECRET", "CREDENTIAL_ENC_KEY"]);
+    expect(warned).toEqual([
+      "OPENROUTER_API_KEY",
+      "CRON_SECRET",
+      "CREDENTIAL_ENC_KEY",
+      "ACCESS_PASSWORD_HASH",
+      "SESSION_SECRET",
+    ]);
     expect(() => assertRequiredSecrets()).not.toThrow();
   });
 

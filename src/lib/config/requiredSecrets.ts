@@ -17,6 +17,10 @@ const REQUIRED_IN_PRODUCTION = [
   "OPENROUTER_API_KEY",
   "CRON_SECRET",
   "CREDENTIAL_ENC_KEY",
+  // Faz 1A tek-operatör erişim kapısı (ADR-013/017): prod'da zorunlu →
+  // yoksa proxy fail-closed /giris?setup=1 gösterir. Dev'de uyarılır (kapı kapalı).
+  "ACCESS_PASSWORD_HASH",
+  "SESSION_SECRET",
 ] as const;
 
 function isProductionRuntime(): boolean {

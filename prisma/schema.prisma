@@ -1539,3 +1539,19 @@ model HashtagDna {
 
   @@unique([accountHandle, seriesId])
 }
+
+/// Tek-operatör erişim kapısı brute-force throttle (ADR-013/017). Ham IP
+/// SAKLANMAZ — ipKey = HMAC(ip, SESSION_SECRET). Global pencere için özel
+/// ipKey "__global__" satırı kullanılır. Additive, default'lu, production-safe.
+/// Not: tablo push edilene dek throttle fail-open degrade eder (birincil kapı
+/// parola hash'idir); login yine sabit gecikmeyle brute-force'u yavaşlatır.
+model AuthAttempt {
+  id          String    @id @default(cuid())
+  ipKey       String    @unique // HMAC(ip, secret) — asla ham IP
+  failCount   Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
+}
