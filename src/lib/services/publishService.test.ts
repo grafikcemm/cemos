@@ -39,6 +39,7 @@ vi.mock("@/lib/services/imageService", () => ({
 }));
 
 import { performanceRepo } from "@/lib/db/performanceRepo";
+import { processFeedback } from "@/lib/growth-engine/feedback-service";
 
 describe("publishService", () => {
   const mockQueueItem = {
@@ -111,38 +112,82 @@ describe("publishService", () => {
     await expect(publishService.validatePublishable("qi_1")).rejects.toThrow("empty_content");
   });
 
-  describe("markManualPublished", () => {
-    const publishableItem = {
+  describe("markManualPublished (yayın-anı readiness — düzeltilmiş sözleşme)", () => {
+    // Ready = judged + TR doğallık ≥55 + risk düşük + sızıntı yok + sınır içi.
+    const readyScores = JSON.stringify({
+      telemetry: { judged: true },
+      turkishNaturalness: 82,
+      riskScore: 15,
+      sourceFaithfulness: 88,
+      leaks: [],
+    });
+    const readyItem = {
       ...mockQueueItem,
       status: "scheduled",
-      editedContent: "Clean content tweet — kendi sesimle yeniden yazdım.", // differs → edit-gate passes
+      content: "Temiz taslak — sahada test ettigim araci anlattim.",
+      editedContent: null,
       mode: "default",
+      draftType: "TWEET",
+      scores: readyScores,
+      lintReport: null,
+      threadSegments: null,
+      sourcePostId: null,
+      newsItemId: null,
       account: { id: "acc_1", handle: "grafikcem", maxChars: 280 },
     };
 
-    it("enforces the edit-gate: raw AI output cannot be marked published", async () => {
+    function mockPublishWrites() {
+      vi.mocked(prisma.publishLog.create).mockResolvedValue({ id: "log_1" } as never);
+      vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_1", generatedImageUrl: null } as never);
+      vi.mocked(prisma.usageLog.create).mockResolvedValue({} as never);
+    }
+
+    it("needs_edit taslak (judged=false) → edit_required, yayın YOK", async () => {
       vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
-        ...publishableItem,
-        editedContent: null, // no edit → blocked
+        ...readyItem,
+        scores: "{}", // judged=false → fail-closed needs_edit
       } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
 
       await expect(publishService.markManualPublished("qi_1")).rejects.toThrow("edit_required");
       expect(performanceRepo.createPublished).not.toHaveBeenCalled();
     });
 
-    it("records the publication in the performance ledger (PublishedPost) with draft provenance", async () => {
+    it("blocked taslak (karakter sınırı aşımı) → readiness_blocked, yayın YOK", async () => {
+      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
+        ...readyItem,
+        content: "x".repeat(300), // 300 > 280 → over_char_limit block
+        editedContent: null,
+      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
+
+      await expect(publishService.markManualPublished("qi_1")).rejects.toThrow("readiness_blocked");
+      expect(performanceRepo.createPublished).not.toHaveBeenCalled();
+    });
+
+    it("ready taslak DÜZENLEME OLMADAN yayınlanır (kozmetik edit-gate kalktı)", async () => {
       vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(
-        publishableItem as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>
+        readyItem as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>
       );
-      vi.mocked(prisma.publishLog.create).mockResolvedValue({ id: "log_1" } as never);
-      vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_1", generatedImageUrl: null } as never);
-      vi.mocked(prisma.usageLog.create).mockResolvedValue({} as never);
+      mockPublishWrites();
+
+      const res = await publishService.markManualPublished("qi_1");
+      expect(res.log.id).toBe("log_1");
+      // Düzenlenmemiş ready çıktı → sahte "edited" öğrenme sinyali ÜRETİLMEZ.
+      expect(processFeedback).not.toHaveBeenCalled();
+    });
+
+    it("düzenlenmiş ready taslak → PublishedPost provenance + 'edited' öğrenme sinyali", async () => {
+      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
+        ...readyItem,
+        editedContent: "Temiz taslak — kendi sesimle yeniden yazdim, araci sahada test ettim.",
+      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
+      mockPublishWrites();
 
       await publishService.markManualPublished("qi_1");
 
       expect(performanceRepo.createPublished).toHaveBeenCalledWith(
         expect.objectContaining({ accountId: "acc_1", platform: "x", draftQueueItemId: "qi_1" })
       );
+      expect(processFeedback).toHaveBeenCalledWith(expect.objectContaining({ feedbackType: "edited" }));
     });
   });
 });

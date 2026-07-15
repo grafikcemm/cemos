@@ -1,140 +1,92 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Check,
   CheckCircle2,
-  Circle,
   Copy,
-  Dot,
   ExternalLink,
   ImageIcon,
+  Info,
+  PencilLine,
   Save,
-  ShieldAlert,
+  Check,
 } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
+import { assessReadiness, type ReadinessResult } from "@/lib/services/readinessService";
+import { verificationLabel } from "@/lib/services/whyToday";
+import Surface, { InverseCard, PeachCard } from "@/components/ui/Surface";
+import DraftDetailDrawer from "./DraftDetailDrawer";
+import ThreadSegmentEditor from "./ThreadSegmentEditor";
+import { READINESS_META, VERIFICATION_DOT } from "./readinessMeta";
 import type { MorningDraft } from "./useDailyQueueData";
 
 type Props = {
   draft: MorningDraft;
   onSave: (id: string, content: string) => Promise<boolean>;
+  onSaveSegments: (id: string, segmentsJson: string | null) => Promise<boolean>;
   onMarkPublished: (id: string) => Promise<boolean>;
   onToast: (text: string, type: "success" | "error") => void;
-  /** Kuyruktaki İLK bekleyen kart — belirgin NEXT UP çerçevesi alır. */
+  /** Kuyruktaki İLK bekleyen kart — "SIRADAKİ" işareti + A/E/J/K kısayolları. */
   isNextUp?: boolean;
-  /** J kısayolu: bu taslağı şimdilik atla (sonraki NEXT UP olur). */
+  /** J kısayolu: bu taslağı şimdilik atla. */
   onSkip?: () => void;
 };
 
 const norm = (s: string) => s.replace(/@@/g, "").trim();
 
-/** lintReport JSON'ından kalite kapısı Türkçe notlarını çıkarır (fail-soft). */
-function extractGateNotes(lintReport: string | null | undefined): string[] {
-  if (!lintReport) return [];
-  try {
-    const parsed = JSON.parse(lintReport) as {
-      issues?: { code?: string; message?: string }[];
-    };
-    return (parsed.issues ?? [])
-      .filter((i) => i.code === "quality_gate" && typeof i.message === "string")
-      .map((i) => i.message as string);
-  } catch {
-    return [];
-  }
-}
-
-/** Ayrışık sinyal çubukları — TEK viral sayı ASLA gösterilmez (item 7). */
-function SignalRow({ draft }: { draft: MorningDraft }) {
-  const s = draft.scoresParsed;
-  if (!s) return null;
-  if (!s.judged) {
-    return (
-      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-        Sinyaller skorlanmadı (hızlı yol) · leak {s.leakCount ?? 0}
-      </span>
-    );
-  }
-  const chip = (label: string, value: number | null, invert = false) => {
-    if (typeof value !== "number") return null;
-    const good = invert ? value <= 30 : value >= 70;
-    const bad = invert ? value >= 60 : value <= 45;
-    const color = bad ? "var(--danger)" : good ? "var(--green)" : "var(--accent-2-text)";
-    return (
-      <span
-        key={label}
-        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)" }}
-      >
-        {label}{" "}
-        <strong className="tnum" style={{ color, fontWeight: 600 }}>
-          {Math.round(value)}
-        </strong>
-      </span>
-    );
-  };
-  const leakColor = (s.leakCount ?? 0) > 0 ? "var(--danger)" : "var(--green)";
-  return (
-    <div
-      aria-label="Ayrışık kalite sinyalleri"
-      style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "4px 2px" }}
-    >
-      {chip("kanca", s.hookStrengthScore)}
-      {chip("doğallık", s.turkishNaturalness)}
-      {chip("özgünlük", s.noveltyScore)}
-      {chip("persona", s.personaMatchScore)}
-      {chip("risk", s.riskScore, true)}
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)" }}>
-        leak{" "}
-        <strong className="tnum" style={{ color: leakColor, fontWeight: 600 }}>
-          {s.leakCount ?? 0}
-        </strong>
-      </span>
-    </div>
-  );
-}
-
+/**
+ * Bugün karar kartı (Faz 1C-e, referans ADR-021). Ton = readiness:
+ *  ready → ivory ada · needs_edit → peach dikkat · blocked → koyu hata-tint.
+ * Kozmetik edit-gate KALKTI (düzeltilmiş sözleşme): ready taslak düzenlenmeden
+ * de yayınlanabilir. Birincil eylem intent-only "X'te aç" (ADR-017); "Paylaşıldı"
+ * = manuel onay (yalnız ready). needs_edit/blocked yayınlanamaz. A/E/J/K.
+ */
 export default function DraftReviewCard({
   draft,
   onSave,
+  onSaveSegments,
   onMarkPublished,
   onToast,
   isNextUp = false,
   onSkip,
 }: Props) {
-  const originalText = norm(draft.content || "");
   const [text, setText] = useState(norm(draft.editedContent || draft.content || ""));
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [imgLoading, setImgLoading] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(
-    (draft as { generatedImageUrl?: string | null }).generatedImageUrl ?? null
-  );
+  const [imageUrl, setImageUrl] = useState<string | null>(draft.generatedImageUrl ?? null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const isThread = draft.draftType.toUpperCase() === "THREAD";
   const isPublished = draft.status === "manual_published" || draft.status === "published";
-  // EDIT-GATE: publish stays disabled until the operator edits the AI output.
-  const isEdited = norm(text) !== originalText && norm(text).length > 0;
-  // Kalite kapısı (item 8): yüksek-şiddet leak / düşük TR doğallık / yasak klişe
-  // → needs_edit. Kart GÖRÜNÜR ve düzenlenebilir; yayın/kopya akışında net uyarı.
-  const needsEdit = draft.status === "needs_edit";
-  const gateNotes = needsEdit ? extractGateNotes(draft.lintReport) : [];
+  const maxChars = draft.readinessInput?.maxChars ?? 280;
+
+  // Canlı readiness: düzenlenen metin (veya segment) üzerinde AYNI saf fonksiyon.
+  const liveReadiness: ReadinessResult = useMemo(() => {
+    if (!draft.readinessInput) return draft.readiness ?? { state: "needs_edit", reasons: [] };
+    return assessReadiness({ ...draft.readinessInput, editedContent: text });
+  }, [draft.readinessInput, draft.readiness, text]);
+
+  const state = liveReadiness.state;
+  const meta = READINESS_META[state];
+  const why = draft.whyToday;
 
   const handleSave = async () => {
     setSaving(true);
     const ok = await onSave(draft.id, text);
     setSaving(false);
+    if (ok) setEditing(false);
     onToast(ok ? "Taslak kaydedildi." : "Kaydetme başarısız.", ok ? "success" : "error");
   };
 
   const handleCopy = async () => {
     const ok = await copyToClipboard(text);
-    if (ok && needsEdit && !isEdited) {
-      // Kopyalama engellenmez ama kalite kapısı uyarısı net verilir.
-      onToast("Kopyalandı — dikkat: bu taslak kalite kapısına takıldı, düzenlemeden paylaşma.", "error");
-      return;
-    }
     onToast(ok ? "Metin panoya kopyalandı." : "Kopyalama başarısız.", ok ? "success" : "error");
   };
 
+  // Intent-only (ADR-017): pencere açmak yayın DEĞİL. Yalnız ready'de sunulur.
   const handleOpenX = () => {
     const url = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
@@ -149,11 +101,11 @@ export default function DraftReviewCard({
         setImageUrl(data.generatedImageUrl);
         onToast(data.reused ? "Mevcut görsel kullanıldı." : "Görsel üretildi.", "success");
       } else if (data.code === "budget") {
-        onToast("Aylık fal görsel bütçesi doldu.", "error");
+        onToast("Aylık görsel bütçesi doldu.", "error");
       } else if (data.code === "not_configured") {
-        onToast("Görsel üretimi yapılandırılmamış: Vercel'de FAL_KEY env değişkenini ekleyin.", "error");
+        onToast("Görsel üretimi yapılandırılmamış (FAL_KEY).", "error");
       } else {
-        onToast(data.error || "Görsel üretilemedi (fal anahtarı/yapılandırma?).", "error");
+        onToast(data.error || "Görsel üretilemedi.", "error");
       }
     } catch {
       onToast("Görsel üretimi başarısız.", "error");
@@ -162,319 +114,245 @@ export default function DraftReviewCard({
     }
   };
 
-  const handlePublish = async () => {
-    if (!isEdited) return;
+  // Manuel "Paylaşıldı" onayı — sunucu yayın-anı readiness'i yeniden koşar;
+  // ready değilse typed hata + nedenler döner (kart zaten göstermiyor).
+  const handleMarkPublished = async () => {
+    if (state !== "ready") {
+      onToast("Taslak yayına hazır değil — önce düzenle.", "error");
+      return;
+    }
     setPublishing(true);
-    // Persist the edit first so the server-side edit-gate sees the change.
-    await onSave(draft.id, text);
     const ok = await onMarkPublished(draft.id);
     setPublishing(false);
     onToast(ok ? "Manuel paylaşıldı olarak işaretlendi." : "İşaretleme başarısız.", ok ? "success" : "error");
   };
 
-  // A/E/J/K kısayolları — yalnız NEXT UP kartında, yazarken ASLA tetiklenmez.
-  // A=Kaydet · E=düzenleme alanına odaklan · J=atla · K=Manuel Paylaşıldı.
-  const keyActions = useRef({ save: handleSave, publish: handlePublish, skip: onSkip });
-  useEffect(() => {
-    keyActions.current = { save: handleSave, publish: handlePublish, skip: onSkip };
-  });
+  const enterEdit = () => {
+    setEditing(true);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
 
+  // A/E/J/K — yalnız NEXT UP, yazarken tetiklenmez. A=Kaydet · E=Düzenle ·
+  // J=atla · K=Paylaşıldı (ready-only).
+  const keyActions = useRef({ save: handleSave, publish: handleMarkPublished, skip: onSkip, edit: enterEdit });
+  useEffect(() => {
+    keyActions.current = { save: handleSave, publish: handleMarkPublished, skip: onSkip, edit: enterEdit };
+  });
   useEffect(() => {
     if (!isNextUp || isPublished) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      ) {
-        return;
-      }
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       const k = e.key.toLowerCase();
-      if (k === "a") {
-        e.preventDefault();
-        void keyActions.current.save();
-      } else if (k === "e") {
-        e.preventDefault();
-        textareaRef.current?.focus();
-      } else if (k === "j") {
-        e.preventDefault();
-        keyActions.current.skip?.();
-      } else if (k === "k") {
-        e.preventDefault();
-        void keyActions.current.publish();
-      }
+      if (k === "a") { e.preventDefault(); void keyActions.current.save(); }
+      else if (k === "e") { e.preventDefault(); keyActions.current.edit(); }
+      else if (k === "j") { e.preventDefault(); keyActions.current.skip?.(); }
+      else if (k === "k") { e.preventDefault(); void keyActions.current.publish(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isNextUp, isPublished]);
 
-  return (
-    <div
-      style={{
-        background: isPublished
-          ? "color-mix(in srgb, var(--green) 6%, var(--bg-surface))"
-          : "var(--gradient-surface), var(--bg-surface)",
-        border: `1px solid ${
-          isPublished
-            ? "color-mix(in srgb, var(--green) 30%, transparent)"
-            : isNextUp
-              ? "var(--accent-border)"
-              : "var(--border)"
-        }`,
-        borderRadius: "var(--radius-lg)",
-        padding: "var(--space-3)",
-        boxShadow: isNextUp
-          ? "0 0 0 1px var(--accent-border), var(--shadow-sm), var(--highlight-top)"
-          : "var(--shadow-sm), var(--highlight-top)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--space-2)",
-        transition: "border-color var(--ease-out), background var(--ease-out)",
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          {isNextUp && !isPublished && (
-            <span
-              className="eyebrow"
-              style={{
-                background: "var(--accent)",
-                color: "var(--accent-fg)",
-                padding: "2px 8px",
-                borderRadius: "var(--radius-sm)",
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-              }}
-            >
-              NEXT UP
-            </span>
-          )}
-          <span className="eyebrow" style={{ color: "var(--accent-text)" }}>@{draft.accountHandle}</span>
-          <span style={{ fontSize: "var(--text-2xs)", background: "color-mix(in srgb, var(--blue) 12%, transparent)", color: "var(--blue)", padding: "1px 6px", borderRadius: "var(--radius-sm)", fontWeight: 500 }}>
-            {draft.draftType}
-          </span>
-          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", background: "var(--bg-elevated)", border: "1px solid var(--border)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
-            {draft.mode}
-          </span>
-          {isEdited && !isPublished && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--accent-text)", background: "color-mix(in srgb, var(--accent) 12%, transparent)", border: "1px solid var(--accent-border)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
-              <Dot size={14} strokeWidth={3} style={{ margin: "0 -4px" }} /> orijinalden farklı
-            </span>
-          )}
-          {!isEdited && !isPublished && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--accent-2-text)", background: "color-mix(in srgb, var(--yellow) 12%, transparent)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
-              <Circle size={9} strokeWidth={2.5} /> AI çıktısı düzenlenmedi
-            </span>
-          )}
-          {needsEdit && !isPublished && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--danger)", background: "color-mix(in srgb, var(--danger) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)", padding: "1px 6px", borderRadius: "var(--radius-sm)" }}>
-              <ShieldAlert size={11} strokeWidth={2.5} /> düzenleme gerekli
-            </span>
-          )}
-        </div>
-        {isPublished && (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--green)" }}>
-            <CheckCircle2 size={14} strokeWidth={2} /> Paylaşıldı
+  // ── Alt bloklar ────────────────────────────────────────────────────────────
+  const headerRow = (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+        {isNextUp && !isPublished && (
+          <span style={{ fontSize: "var(--text-2xs)", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", background: "var(--accent)", color: "var(--accent-fg)", padding: "2px 8px", borderRadius: "var(--radius-sm)" }}>
+            Sıradaki
           </span>
         )}
+        <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--sf-fg)" }}>@{draft.accountHandle}</span>
+        <span style={{ fontSize: "var(--text-2xs)", color: "var(--sf-muted)", border: "1px solid var(--sf-border)", padding: "1px 7px", borderRadius: "var(--radius-pill)" }}>
+          X · {draft.draftType}
+        </span>
       </div>
-
-      {/* Ayrışık alt-sinyaller — tek "viral skor" sayısı YOK (item 7). */}
-      <SignalRow draft={draft} />
-
-      {/* Kalite kapısı Türkçe nedenleri (item 8): redirect, silme değil. */}
-      {needsEdit && !isPublished && gateNotes.length > 0 && (
-        <div
-          style={{
-            background: "color-mix(in srgb, var(--danger) 7%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)",
-            borderRadius: "var(--radius-md)",
-            padding: "8px 10px",
-            fontSize: "var(--text-2xs)",
-            color: "var(--text-secondary)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}
-        >
-          <span style={{ fontWeight: 600, color: "var(--danger)" }}>
-            Kalite kapısı: bu taslak düzenlenmeden yayınlanamaz.
-          </span>
-          {gateNotes.map((note, i) => (
-            <span key={i}>• {note}</span>
-          ))}
-        </div>
+      {isPublished ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--status-ok-text)" }}>
+          <CheckCircle2 size={14} strokeWidth={2} /> Paylaşıldı
+        </span>
+      ) : (
+        <span data-testid="readiness-badge" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--sf-fg)" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: meta.dot, flexShrink: 0 }} />
+          {meta.label}
+        </span>
       )}
+    </div>
+  );
 
-      {/* Editable textarea */}
+  const whyRow = why && (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--sf-muted)", flexWrap: "wrap" }}>
+      <span data-testid="verification-chip" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 500, color: "var(--sf-fg)" }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: VERIFICATION_DOT[why.verification], flexShrink: 0 }} />
+        {verificationLabel(why.verification)}
+      </span>
+      {why.reason && <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {why.reason}</span>}
+    </div>
+  );
+
+  const reasonsBlock = !isPublished && state !== "ready" && liveReadiness.reasons.length > 0 && (
+    <div
+      data-testid="readiness-reasons"
+      style={{
+        display: "flex", flexDirection: "column", gap: 4,
+        background: state === "blocked" ? "color-mix(in srgb, var(--status-error) 12%, transparent)" : "var(--sf-sunken)",
+        border: `1px solid ${state === "blocked" ? "color-mix(in srgb, var(--status-error) 34%, transparent)" : "var(--sf-border)"}`,
+        borderRadius: "var(--radius-md)", padding: "8px 11px",
+      }}
+    >
+      <span style={{ fontSize: "var(--text-2xs)", fontWeight: 600, color: state === "blocked" ? "var(--status-error)" : "var(--sf-fg)" }}>
+        {state === "blocked" ? "Yayınlanamaz — engelleyen sorunlar:" : "Yayından önce düzelt:"}
+      </span>
+      {liveReadiness.reasons.map((r) => (
+        <span key={r.code} style={{ fontSize: "var(--text-xs)", color: "var(--sf-muted)", lineHeight: 1.5 }}>• {r.message}</span>
+      ))}
+    </div>
+  );
+
+  const contentBlock = isThread ? (
+    <ThreadSegmentEditor
+      segmentsJson={draft.threadSegments}
+      content={norm(draft.editedContent || draft.content || "")}
+      disabled={isPublished}
+      onSave={(json) => onSaveSegments(draft.id, json)}
+      onToast={onToast}
+    />
+  ) : editing && !isPublished ? (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <textarea
         ref={textareaRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={5}
-        disabled={isPublished}
         style={{
-          width: "100%",
-          background: "var(--bg-base)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-md)",
-          padding: "var(--space-3)",
-          color: "var(--text-primary)",
-          fontSize: "var(--text-sm)",
-          lineHeight: 1.6,
-          resize: "vertical",
-          outline: "none",
-          boxSizing: "border-box",
-          opacity: isPublished ? 0.6 : 1,
-          transition: "border-color var(--ease-out)",
+          width: "100%", background: "var(--sf-sunken)", border: "1px solid var(--sf-border)", borderRadius: "var(--radius-md)",
+          padding: "var(--space-3)", color: "var(--sf-fg)", fontSize: "var(--text-md)", lineHeight: 1.6, resize: "vertical",
+          outline: "none", boxSizing: "border-box", fontFamily: "inherit",
         }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-        <span>{isEdited ? "Düzenlendi" : "Orijinal AI metni"}</span>
-        <span className="tnum" style={{ color: text.length > 280 ? "var(--danger)" : "var(--text-muted)", fontWeight: text.length > 280 ? 500 : 500 }}>
-          {text.length} karakter
+      <div style={{ display: "flex", justifyContent: "flex-end", fontSize: "var(--text-2xs)" }}>
+        <span className="tnum" style={{ color: text.length > maxChars ? "var(--status-error)" : "var(--sf-muted)" }}>
+          {text.length}/{maxChars} karakter
         </span>
       </div>
+    </div>
+  ) : (
+    <div
+      data-testid="draft-content"
+      onClick={isPublished ? undefined : enterEdit}
+      style={{
+        whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "var(--text-md)", lineHeight: 1.6,
+        color: "var(--sf-fg)", cursor: isPublished ? "default" : "text", opacity: isPublished ? 0.7 : 1,
+      }}
+    >
+      {text || <span style={{ color: "var(--sf-muted)" }}>(boş taslak)</span>}
+    </div>
+  );
 
-      {imageUrl && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
-            alt="Üretilen görsel"
-            style={{ width: "100%", maxWidth: 320, borderRadius: 8, border: "1px solid var(--border)" }}
-          />
-          <a
-            href={imageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 10, color: "var(--blue)" }}
-          >
-            ⬇ Görseli aç / indir
-          </a>
-        </div>
+  const imageBlock = imageUrl && (
+    <div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl} alt="Üretilen görsel" style={{ width: "100%", maxWidth: 300, borderRadius: "var(--radius-md)", border: "1px solid var(--sf-border)" }} />
+    </div>
+  );
+
+  const actions = !isPublished && (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+      {state === "ready" && (
+        <button type="button" onClick={handleOpenX} data-testid="cta-open-x" style={primaryBtn}>
+          <ExternalLink size={14} strokeWidth={2} /> X&apos;te aç
+        </button>
       )}
-
-      {!isPublished && (
-        <>
-          {/* Action row — Lucide ikonlar + token renkler (emoji yasak). */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={btnStyle("var(--accent-tint-12)", "var(--accent-border)", "var(--accent-text)")}
-            >
-              <Save size={13} strokeWidth={2} /> {saving ? "..." : "Kaydet"}
-            </button>
-            <button onClick={handleCopy} style={btnStyle("var(--bg-elevated)", "var(--border)", "var(--text-secondary)")}>
-              <Copy size={13} strokeWidth={2} /> Kopyala
-            </button>
-            <button
-              onClick={handleOpenX}
-              style={btnStyle(
-                "color-mix(in srgb, var(--status-info) 12%, transparent)",
-                "color-mix(in srgb, var(--status-info) 35%, transparent)",
-                "var(--status-info)"
-              )}
-            >
-              <ExternalLink size={13} strokeWidth={2} /> X&apos;te Aç
-            </button>
-            <button
-              onClick={handleGenerateImage}
-              disabled={imgLoading}
-              title="fal.ai (Nano Banana Pro) ile bu tweet'e görsel üret"
-              style={btnStyle("var(--accent-2-dark)", "var(--accent-2-border)", "var(--accent-2-text)")}
-            >
-              <ImageIcon size={13} strokeWidth={2} />{" "}
-              {imgLoading ? "..." : imageUrl ? "Yeniden üret" : "Görsel üret"}
-            </button>
-            <button
-              onClick={handlePublish}
-              disabled={!isEdited || publishing}
-              title={!isEdited ? "Önce AI çıktısını düzenleyin" : "Manuel paylaşıldı işaretle"}
-              style={{
-                ...btnStyle(
-                  isEdited ? "var(--accent-2)" : "var(--accent-2-dark)",
-                  "var(--accent-2-border)",
-                  isEdited ? "var(--accent-2-fg)" : "var(--accent-2-text)"
-                ),
-                flex: 1,
-                minWidth: 150,
-                fontWeight: 600,
-                cursor: isEdited && !publishing ? "pointer" : "not-allowed",
-                opacity: isEdited ? 1 : 0.45,
-              }}
-            >
-              <Check size={13} strokeWidth={2.5} /> {publishing ? "..." : "Manuel Paylaşıldı"}
-            </button>
-          </div>
-
-          {!isEdited && (
-            <div style={{ fontSize: 10, color: "var(--yellow)", lineHeight: 1.4 }}>
-              AI çıktısını kendi sesinle düzenlemeden yayınlayamazsın.
-            </div>
-          )}
-
-          {isNextUp && (
-            <div
-              aria-label="Klavye kısayolları"
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                fontSize: "var(--text-2xs)",
-                color: "var(--text-muted)",
-              }}
-            >
-              <span><Kbd>A</Kbd> kaydet</span>
-              <span><Kbd>E</Kbd> düzenle</span>
-              <span><Kbd>J</Kbd> atla</span>
-              <span><Kbd>K</Kbd> paylaşıldı</span>
-            </div>
-          )}
-        </>
+      {state !== "ready" && !isThread && (
+        <button type="button" onClick={enterEdit} data-testid="cta-edit" style={primaryBtn}>
+          <PencilLine size={14} strokeWidth={2} /> Düzenle
+        </button>
+      )}
+      {!isThread && (state === "ready" || editing) && (
+        <button type="button" onClick={handleSave} disabled={saving} data-testid="cta-save" style={ghostBtn}>
+          <Save size={13} strokeWidth={2} /> {saving ? "…" : "Kaydet"}
+        </button>
+      )}
+      {!isThread && state === "ready" && !editing && (
+        <button type="button" onClick={enterEdit} style={ghostBtn}>
+          <PencilLine size={13} strokeWidth={2} /> Düzenle
+        </button>
+      )}
+      <button type="button" onClick={handleCopy} style={ghostBtn}>
+        <Copy size={13} strokeWidth={2} /> Kopyala
+      </button>
+      <button type="button" onClick={handleGenerateImage} disabled={imgLoading} style={ghostBtn}>
+        <ImageIcon size={13} strokeWidth={2} /> {imgLoading ? "…" : imageUrl ? "Yeniden üret" : "Görsel üret"}
+      </button>
+      <button type="button" onClick={() => setDrawerOpen(true)} data-testid="cta-detail" style={ghostBtn}>
+        <Info size={13} strokeWidth={2} /> Detay
+      </button>
+      {state === "ready" && (
+        <button type="button" onClick={handleMarkPublished} disabled={publishing} data-testid="cta-mark-published" style={{ ...ghostBtn, marginLeft: "auto" }}>
+          <Check size={13} strokeWidth={2} /> {publishing ? "…" : "Paylaşıldı"}
+        </button>
       )}
     </div>
   );
+
+  const shortcuts = isNextUp && !isPublished && (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: "var(--text-2xs)", color: "var(--sf-muted)" }}>
+      <span><Kbd>A</Kbd> kaydet</span>
+      <span><Kbd>E</Kbd> düzenle</span>
+      <span><Kbd>J</Kbd> atla</span>
+      <span><Kbd>K</Kbd> paylaşıldı</span>
+    </div>
+  );
+
+  const inner = (
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      {headerRow}
+      {whyRow}
+      {reasonsBlock}
+      {contentBlock}
+      {imageBlock}
+      {actions}
+      {shortcuts}
+    </div>
+  );
+
+  const testid = "draft-review-card";
+  const common = { "data-testid": testid, "data-readiness": isPublished ? "published" : state } as const;
+
+  const card = isPublished ? (
+    <Surface tone="default" {...common} style={{ opacity: 0.85 }}>{inner}</Surface>
+  ) : state === "ready" ? (
+    <InverseCard {...common}>{inner}</InverseCard>
+  ) : state === "needs_edit" ? (
+    <PeachCard {...common}>{inner}</PeachCard>
+  ) : (
+    <Surface tone="blocked" {...common}>{inner}</Surface>
+  );
+
+  return (
+    <>
+      {card}
+      <DraftDetailDrawer draft={draft} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    </>
+  );
 }
 
-function btnStyle(bg: string, border: string, color: string): React.CSSProperties {
-  return {
-    minHeight: "var(--control-h-sm)",
-    padding: "0 12px",
-    background: bg,
-    border: `1px solid ${border}`,
-    color,
-    borderRadius: "var(--radius-sm)",
-    fontSize: 11,
-    fontWeight: 500,
-    fontFamily: "inherit",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  };
-}
+const primaryBtn: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: 7, height: "var(--control-h)", padding: "0 18px",
+  background: "var(--accent)", color: "var(--accent-fg)", border: "1px solid var(--accent)", borderRadius: "var(--radius-sm)",
+  fontSize: "var(--text-sm)", fontWeight: 600, fontFamily: "inherit", cursor: "pointer",
+};
+
+const ghostBtn: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: 6, height: "var(--control-h-sm)", padding: "0 12px",
+  background: "transparent", color: "var(--sf-fg)", border: "1px solid var(--sf-border)", borderRadius: "var(--radius-sm)",
+  fontSize: "var(--text-xs)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer",
+};
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd
-      style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: "var(--text-2xs)",
-        border: "1px solid var(--border)",
-        borderRadius: 4,
-        padding: "0 4px",
-        color: "var(--text-secondary)",
-        background: "var(--bg-elevated)",
-      }}
-    >
+    <kbd style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", border: "1px solid var(--sf-border)", borderRadius: 4, padding: "0 4px", color: "var(--sf-muted)" }}>
       {children}
     </kbd>
   );

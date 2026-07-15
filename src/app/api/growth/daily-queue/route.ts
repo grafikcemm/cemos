@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { accountProfiles } from "@/lib/accounts";
 import { computePillarConsistency } from "@/lib/growth-engine/pillar-consistency";
+import { readinessInputFromQueueItem } from "@/lib/services/readinessAdapter";
+import { assessReadiness } from "@/lib/services/readinessService";
+import { whyToday } from "@/lib/services/whyToday";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
@@ -55,7 +58,11 @@ export async function GET(req: NextRequest) {
     const rawItems = await prisma.queueItem.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      // Faz 1C: "Neden bugün?" + doğrulama durumu kaynağa dayanır (whyToday).
+      include: { sourcePost: true, newsItem: true },
     });
+
+    const nowMs = Date.now();
 
     const { getLocalDayBounds } = await import("@/lib/utils/date");
     const { start: startOfToday, end: endOfToday } = getLocalDayBounds("Europe/Istanbul");
@@ -98,10 +105,42 @@ export async function GET(req: NextRequest) {
          isEstimatedScore = true;
       }
 
+      // Faz 1C: yayına-hazırlık (kart/drawer AYNI türetilmiş sonucu kullanır) +
+      // "Neden bugün?"/doğrulama (kaynak ≠ fact-check). Yayın anında publishService
+      // bunu YENİDEN çalıştırır — bu payload UI kararı, yayın kapısı değil.
+      const readinessInput = readinessInputFromQueueItem(item, {
+        handle: accHandle,
+        maxChars: acc?.maxChars ?? 280,
+      });
+      const readiness = assessReadiness(readinessInput);
+      const why = whyToday({
+        newsItem: item.newsItem
+          ? {
+              sourceVerification: item.newsItem.sourceVerification,
+              whyPeopleCare: item.newsItem.whyPeopleCare,
+              title: item.newsItem.trTitle ?? item.newsItem.originalTitle,
+              fetchedAt: item.newsItem.fetchedAt,
+            }
+          : null,
+        sourcePost: item.sourcePost
+          ? {
+              scannedAt: item.sourcePost.scannedAt,
+              publishedAt: item.sourcePost.publishedAt,
+              url: item.sourcePost.url,
+            }
+          : null,
+        nowMs,
+      });
+
       return {
         ...item,
         accountHandle: accHandle,
         displayName: acc?.xHandle || acc?.handle || "unknown",
+        readiness,
+        // Client canlı readiness için: düzenlerken editedContent'i değiştirip
+        // assessReadiness'i YENİDEN koşar (aynı saf fonksiyon → kart/sunucu tutarlı).
+        readinessInput,
+        whyToday: why,
         scoresParsed: {
           publishScore,
           isEstimatedScore,

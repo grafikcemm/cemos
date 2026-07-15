@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, Inbox, ShieldAlert, Zap } from "lucide-react";
+import { CheckCircle2, Inbox, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import DraftReviewCard from "./DraftReviewCard";
+import { READINESS_META } from "./readinessMeta";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 import EmptyState from "../ui/EmptyState";
 import ErrorState from "../ui/ErrorState";
@@ -27,7 +28,7 @@ const isDone = (d: MorningDraft) =>
  * o taslağa taşır. J kısayolu sıradaki bekleyene atlar.
  */
 export default function ReviewQueue({ onToast, queue }: Props) {
-  const { drafts, loading, error, fetchDrafts, saveDraft, markPublished } = queue;
+  const { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, markPublished } = queue;
   const [generating, setGenerating] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
 
@@ -153,6 +154,7 @@ export default function ReviewQueue({ onToast, queue }: Props) {
           draft={focused}
           isNextUp={!isDone(focused)}
           onSave={saveDraft}
+          onSaveSegments={saveSegments}
           onMarkPublished={markPublished}
           onToast={onToast}
           onSkip={handleSkip}
@@ -237,7 +239,8 @@ function QueueRow({
   onClick: () => void;
 }) {
   const done = isDone(draft);
-  const needsEdit = draft.status === "needs_edit";
+  const rState = draft.readiness?.state;
+  const rMeta = rState ? READINESS_META[rState] : null;
   const snippet = (draft.editedContent || draft.content || "").replace(/\s+/g, " ").trim();
 
   return (
@@ -268,11 +271,12 @@ function QueueRow({
       }}
     >
       {done ? (
-        <CheckCircle2 size={14} strokeWidth={2} style={{ color: "var(--green)", flexShrink: 0 }} />
-      ) : needsEdit ? (
-        <ShieldAlert size={14} strokeWidth={2} style={{ color: "var(--danger)", flexShrink: 0 }} />
+        <CheckCircle2 size={14} strokeWidth={2} style={{ color: "var(--status-ok)", flexShrink: 0 }} />
       ) : (
-        <Circle size={13} strokeWidth={2} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+        <span
+          aria-hidden
+          style={{ width: 9, height: 9, borderRadius: "50%", background: rMeta?.dot ?? "var(--text-muted)", flexShrink: 0 }}
+        />
       )}
       <span
         style={{
@@ -301,7 +305,7 @@ function QueueRow({
         {snippet || "(boş taslak)"}
       </span>
       <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", flexShrink: 0 }}>
-        {done ? "paylaşıldı" : needsEdit ? "düzenleme gerekli" : draft.draftType}
+        {done ? "paylaşıldı" : rMeta ? rMeta.label : draft.draftType}
       </span>
     </button>
   );

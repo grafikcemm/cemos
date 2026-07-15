@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
+import { assessReadiness, type ReadinessInput, type ReadinessResult } from "@/lib/services/readinessService";
+import { parseThreadSegments } from "@/lib/growth-engine/threadSegments";
+import type { WhyTodayResult } from "@/lib/services/whyToday";
 
 /** Sprint 1 ayrışık alt-sinyaller — API scoresParsed'tan (tek sayı YOK). */
 export type MorningDraftScores = {
@@ -16,7 +19,23 @@ export type MorningDraftScores = {
   judged: boolean;
   leaks: { kind: string; severity: string; note: string }[];
   leakCount: number;
+  reasoning?: string;
+  angle?: string;
+  patternUsed?: string | null;
+  writerModel?: string;
+  judgeModel?: string;
+  finalEditorModel?: string;
 };
+
+/** Drawer kaynak bloğu — scannedAt "tarandı" (fact-check DEĞİL). */
+export type MorningSourcePost = { url: string; scannedAt: string; publishedAt: string | null } | null;
+export type MorningNewsItem = {
+  trTitle: string | null;
+  originalTitle: string;
+  whyPeopleCare: string | null;
+  url: string;
+  sourceVerification: string | null;
+} | null;
 
 export type MorningDraft = {
   id: string;
@@ -33,6 +52,18 @@ export type MorningDraft = {
   /** Kalite kapısı Türkçe notları buradan okunur (quality_gate issue'ları). */
   lintReport?: string | null;
   generatedImageUrl?: string | null;
+  /** Faz 1C — yayına-hazırlık (sunucu, kayıtlı metin üzerinde). */
+  readiness?: ReadinessResult;
+  /** Faz 1C — client canlı readiness için (editedContent'i değiştir → assessReadiness). */
+  readinessInput?: ReadinessInput;
+  /** Faz 1C — "Neden bugün?" + doğrulama durumu. */
+  whyToday?: WhyTodayResult;
+  /** Faz 1C — yapısal thread segmentleri (JSON string; yoksa null). */
+  threadSegments?: string | null;
+  sourcePostId?: string | null;
+  newsItemId?: string | null;
+  sourcePost?: MorningSourcePost;
+  newsItem?: MorningNewsItem;
 };
 
 type DailyQueueResponse = {
@@ -40,6 +71,14 @@ type DailyQueueResponse = {
   error?: string;
   items?: MorningDraft[];
 };
+
+/** editedContent/threadSegments değişince readiness'i client'ta YENİDEN türet
+ *  (aynı saf assessReadiness → kart/kuyruk/sunucu tutarlı). */
+function recompute(draft: MorningDraft, patch: Partial<ReadinessInput>): MorningDraft {
+  if (!draft.readinessInput) return draft;
+  const nextInput = { ...draft.readinessInput, ...patch };
+  return { ...draft, readinessInput: nextInput, readiness: assessReadiness(nextInput) };
+}
 
 /**
  * Loads today's drafts grouped per account for the Morning Dashboard review
@@ -95,7 +134,34 @@ export function useDailyQueueData() {
       );
       if (data.success) {
         setDrafts((prev) =>
-          prev.map((d) => (d.id === id ? { ...d, editedContent: content } : d))
+          prev.map((d) => (d.id === id ? recompute({ ...d, editedContent: content }, { editedContent: content }) : d))
+        );
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  /** Yapısal thread segmentlerini kaydet (JSON string; null = temizle). */
+  const saveSegments = useCallback(async (id: string, segmentsJson: string | null): Promise<boolean> => {
+    try {
+      const data = await fetchJson<{ success: boolean }>(
+        `/api/growth/daily-queue/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadSegments: segmentsJson }),
+        }
+      );
+      if (data.success) {
+        setDrafts((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? recompute({ ...d, threadSegments: segmentsJson }, { threadSegments: parseThreadSegments(segmentsJson) })
+              : d
+          )
         );
         return true;
       }
@@ -127,5 +193,5 @@ export function useDailyQueueData() {
     }
   }, []);
 
-  return { drafts, loading, error, fetchDrafts, saveDraft, markPublished };
+  return { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, markPublished };
 }

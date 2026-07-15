@@ -5,6 +5,16 @@ import { isNearDuplicate } from "@/lib/utils/textSimilarity";
 import { imageService } from "@/lib/services/imageService";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { performanceRepo } from "@/lib/db/performanceRepo";
+import { assessQueueItemReadiness } from "@/lib/services/readinessAdapter";
+
+/** Yayın-anı readiness engeli — nedenleri taşır (route → 422 + Türkçe döküm). */
+class ReadinessPublishError extends Error {
+  reasons: { code: string; message: string }[];
+  constructor(code: "readiness_blocked" | "edit_required", reasons: { code: string; message: string }[]) {
+    super(code);
+    this.reasons = reasons;
+  }
+}
 
 function getDayBounds(date: Date) {
   const start = new Date(date);
@@ -94,16 +104,26 @@ export const publishService = {
       throw new Error("invalid_status");
     }
 
-    // EDIT-GATE (absolute): raw AI output reads as spam. The operator must add
-    // their own voice — block publishing unless editedContent differs from the
-    // original AI content. @grafikcem = AI-native designer speaking from the field.
-    const original = item.content.trim();
-    const edited = item.editedContent?.trim() ?? "";
-    if (!edited || edited === original) {
-      throw new Error("edit_required");
+    // YAYIN-ANI READINESS (ADR-020 düzeltilmiş sözleşme). Kozmetik "AI çıktısını
+    // mutlaka değiştir" (edited !== original) edit-gate'i KALKTI. İnsan onayı
+    // kalite/policy kapısını SESSİZCE geçemez; taslak metni (editedContent ??
+    // content) üzerinden readiness YENİDEN çalışır:
+    //   blocked   → yayınlanamaz (route 422 + Türkçe nedenler)
+    //   needs_edit→ "Düzenle" (yayın yok; kullanıcı metni düzenleyip ready yapar)
+    //   ready     → yayınlanabilir (düzenleme ŞART değil).
+    const readiness = assessQueueItemReadiness(item, item.account);
+    if (readiness.state !== "ready") {
+      throw new ReadinessPublishError(
+        readiness.state === "blocked" ? "readiness_blocked" : "edit_required",
+        readiness.reasons.map((r) => ({ code: r.code, message: r.message }))
+      );
     }
 
-    const text = edited;
+    const original = item.content.trim();
+    const edited = item.editedContent?.trim() ?? "";
+    const text = edited || original;
+    // Öğrenme sinyali için: metin gerçekten elden geçti mi (yoksa ready AI çıktısı mı).
+    const wasEdited = edited.length > 0 && edited !== original;
 
     const log = await prisma.publishLog.create({
       data: {
@@ -147,23 +167,25 @@ export const publishService = {
       })
       .catch(() => {});
 
-    // Manual publish is the strongest learning signal: the edit-gate above
-    // guarantees the operator rewrote the AI draft in their own voice, so log
-    // it as an "edited" FeedbackEvent + TrainingExample. Best-effort — a
-    // learning-pipeline hiccup must never undo a successful publish. (Previously
-    // the morning flow recorded nothing here, leaving Training Center at 0.)
-    await processFeedback({
-      accountHandle: item.account.handle as "grafikcem" | "maskulenkod",
-      accountId: item.accountId,
-      feedbackType: "edited",
-      originalContent: original,
-      editedContent: edited,
-      reason: "Manuel paylaşıldı (sabah akışı)",
-      queueItemId,
-      modeId: item.mode,
-      saveTrainingExample: true,
-      saveAsPattern: false,
-    }).catch(() => {});
+    // Öğrenme sinyali — DÜRÜST: yalnız metin gerçekten elden geçtiyse "edited"
+    // FeedbackEvent + TrainingExample yaz. Edit-gate kalktığı için ready AI
+    // çıktısı düzenlenmeden yayınlanabilir; o durumda sahte "edited" sinyali
+    // ÜRETME (aksi hâlde eğitim verisi kirlenir). Best-effort — öğrenme hattı
+    // aksaklığı başarılı yayını asla geri almaz.
+    if (wasEdited) {
+      await processFeedback({
+        accountHandle: item.account.handle as "grafikcem" | "maskulenkod",
+        accountId: item.accountId,
+        feedbackType: "edited",
+        originalContent: original,
+        editedContent: edited,
+        reason: "Manuel paylaşıldı (sabah akışı)",
+        queueItemId,
+        modeId: item.mode,
+        saveTrainingExample: true,
+        saveAsPattern: false,
+      }).catch(() => {});
+    }
 
     // maskulenkod: every PUBLISHED tweet gets a topic-relevant image, generated
     // here (publish time) so rejected drafts never burn credits. grafikcem stays

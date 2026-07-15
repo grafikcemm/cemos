@@ -14,14 +14,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ success: true, logId: log.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Hata";
+    const reasons = (err as { reasons?: { code: string; message: string }[] })?.reasons;
     const status =
       msg === "queue_item_not_found" ? 404
       : msg === "invalid_status" ? 409
-      : msg === "edit_required" ? 422
+      : msg === "edit_required" || msg === "readiness_blocked" ? 422
       : 500;
-    const error = msg === "edit_required"
-      ? "AI çıktısını kendi sesinle düzenlemeden yayınlayamazsın."
-      : msg;
-    return NextResponse.json({ success: false, error, code: msg }, { status });
+    const error =
+      msg === "readiness_blocked"
+        ? "Taslak yayınlanamaz — önce engelleyen sorunları gider."
+        : msg === "edit_required"
+          ? "Taslak yayına hazır değil — önce düzenle."
+          : msg;
+    return NextResponse.json({ success: false, error, code: msg, reasons }, { status });
   }
 }

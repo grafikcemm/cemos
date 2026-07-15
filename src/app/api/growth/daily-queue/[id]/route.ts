@@ -4,11 +4,14 @@ import { prisma } from "@/lib/db/client";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { parseThreadSegments, serializeThreadSegments } from "@/lib/growth-engine/threadSegments";
 
 const UpdateQueueItemSchema = z.object({
   content: z.string().max(10000).optional(),
   status: z.string().max(50).optional(),
   scheduledAt: z.union([z.string(), z.null()]).optional(),
+  // Faz 1C: yapısal thread segmentleri (JSON string: ThreadSegment[]); null = temizle.
+  threadSegments: z.union([z.string().max(40000), z.null()]).optional(),
 });
 
 export async function PATCH(
@@ -24,7 +27,7 @@ export async function PATCH(
     const parsed = UpdateQueueItemSchema.safeParse(body.data);
     if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
 
-    const { content, status, scheduledAt } = parsed.data;
+    const { content, status, scheduledAt, threadSegments } = parsed.data;
 
     // 1. Fetch existing item
     const existing = await queueRepo.findById(id);
@@ -45,6 +48,17 @@ export async function PATCH(
         return fail("Content cannot be empty.", 400);
       }
       updates.content = content.trim();
+    }
+
+    // 3b. Yapısal thread segmentleri (Zod-doğrulanmış; null = temizle, fail-closed).
+    if (threadSegments !== undefined) {
+      if (threadSegments === null) {
+        updates.threadSegments = null;
+      } else {
+        const segs = parseThreadSegments(threadSegments);
+        if (!segs) return fail("Geçersiz thread segmentleri.", 400);
+        updates.threadSegments = serializeThreadSegments(segs);
+      }
     }
 
     // 4. Validate scheduledAt date
@@ -92,6 +106,15 @@ export async function PATCH(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue update.";
+    const reasons = (err as { reasons?: { code: string; message: string }[] })?.reasons;
+    if (msg === "readiness_blocked") {
+      return fail("Taslak yayınlanamaz — önce engelleyen sorunları gider.", 422, { code: msg, reasons });
+    }
+    if (msg === "edit_required") {
+      return fail("Taslak yayına hazır değil — önce düzenle.", 422, { code: msg, reasons });
+    }
+    if (msg === "invalid_status") return fail("Durum geçersiz.", 409, { code: msg });
+    if (msg === "queue_item_not_found") return fail("Taslak bulunamadı.", 404, { code: msg });
     return fail(msg, 500);
   }
 }

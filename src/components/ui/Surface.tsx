@@ -58,6 +58,8 @@ type SurfaceProps = {
   className?: string;
   style?: CSSProperties;
   "data-testid"?: string;
+  /** Serbest durum işareti (E2E/analitik) — ör. readiness state. */
+  "data-readiness"?: string;
 };
 
 /** Ton renklerini (fg/muted/sunken/border) dışarıya veren yardımcı — kart içi
@@ -74,6 +76,7 @@ export default function Surface({
   className,
   style,
   "data-testid": testid,
+  "data-readiness": dataReadiness,
 }: SurfaceProps) {
   const t = TONES[tone];
   return (
@@ -82,6 +85,7 @@ export default function Surface({
       onClick={onClick}
       data-testid={testid}
       data-surface-tone={tone}
+      data-readiness={dataReadiness}
       style={{
         // Çocukların tonu bilmeden tüketmesi için:
         ["--sf-fg" as string]: t.fg,
