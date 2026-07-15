@@ -14,13 +14,10 @@ import SettingsTab from "@/components/tabs/SettingsTab";
 import TakvimTab from "@/components/plan/TakvimTab";
 import FirsatlarTab from "@/components/plan/FirsatlarTab";
 import SerilerTab from "@/components/plan/SerilerTab";
-import {
-  LibTumuHost,
-  LibIlhamHost,
-  LibOgrenmeHost,
-  ProfileMemoryHost,
-  ProfileIntegrationsHost,
-} from "@/components/host/hostScreens";
+import LibTumuTab from "@/components/library/LibTumuTab";
+import LibIlhamTab from "@/components/library/LibIlhamTab";
+import LibOgrenmeTab from "@/components/library/LibOgrenmeTab";
+import { ProfileMemoryHost, ProfileIntegrationsHost } from "@/components/host/hostScreens";
 
 /**
  * (Alias normalize edilmiş) activeTab id → ekran bileşeni. Shell + standalone
@@ -47,11 +44,11 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <SerilerTab />;
     // ── Kütüphane ──
     case "lib-tumu":
-      return <LibTumuHost />;
+      return <LibTumuTab />;
     case "lib-ilham":
-      return <LibIlhamHost />;
+      return <LibIlhamTab />;
     case "lib-ogrenme":
-      return <LibOgrenmeHost />;
+      return <LibOgrenmeTab />;
     // ── REDESIGNED-ADVANCED (araştırma detayı) ──
     case "news-pool":
       return <RadarTab />;

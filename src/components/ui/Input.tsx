@@ -1,16 +1,19 @@
 "use client";
 
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 
 type InputProps = {
   invalid?: boolean;
   iconLeft?: ReactNode;
+  /** React 19: ref doğrudan prop olarak iletilir (odak/scroll için). */
+  ref?: Ref<HTMLInputElement>;
 } & InputHTMLAttributes<HTMLInputElement>;
 
 /** Single-line text field — gömük (sunken) yüzey + accent focus ring. */
-export default function Input({ invalid = false, iconLeft, style, ...rest }: InputProps) {
+export default function Input({ invalid = false, iconLeft, ref, style, ...rest }: InputProps) {
   const field = (
     <input
+      ref={ref}
       {...rest}
       style={{
         flex: 1,

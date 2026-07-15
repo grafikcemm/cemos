@@ -10,42 +10,6 @@ import HostPlaceholder from "./HostPlaceholder";
  * host'ları kendi başlığını taşır (shell başlık sağlamaz).
  */
 
-export function LibTumuHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Kütüphane"
-      title="Tümü"
-      subtitle="Viral örnekler, prompt, pattern ve anahtar kelime kaynaklarında birleşik arama."
-      comingContent="Burada dört kütüphanenin (viral, prompt, pattern, anahtar kelime) birleşik aramalı yüzeyi yaşayacak."
-    />
-  );
-}
-
-export function LibIlhamHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Kütüphane"
-      title="İlham"
-      subtitle="Panolar ve rakip içerik analizi."
-      comingContent="Burada koleksiyon panoları ve rakip içeriklerinin yapısal analizi yaşayacak."
-    />
-  );
-}
-
-export function LibOgrenmeHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Kütüphane"
-      title="Öğrenme"
-      subtitle="Öğrenme içerikleri — Gelen kutusu, öğreniliyor, hazır ve bugünkü tekrar."
-      comingContent="Burada YouTube/Obsidian öğrenme akışı (Gelen kutusu · Öğreniliyor · Hazır · Bugünkü tekrar) yaşayacak."
-    />
-  );
-}
-
 export function ProfileMemoryHost() {
   return (
     <HostPlaceholder
