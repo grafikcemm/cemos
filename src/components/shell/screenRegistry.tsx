@@ -11,10 +11,10 @@ import ToolboxTab from "@/components/tabs/ToolboxTab";
 import CostsTab from "@/components/tabs/CostsTab";
 import SystemTab from "@/components/tabs/SystemTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
+import TakvimTab from "@/components/plan/TakvimTab";
+import FirsatlarTab from "@/components/plan/FirsatlarTab";
+import SerilerTab from "@/components/plan/SerilerTab";
 import {
-  PlanTakvimHost,
-  PlanFirsatlarHost,
-  PlanSerilerHost,
   LibTumuHost,
   LibIlhamHost,
   LibOgrenmeHost,
@@ -40,11 +40,11 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <MorningDashboardTab />;
     // ── Plan ──
     case "plan-takvim":
-      return <PlanTakvimHost />;
+      return <TakvimTab />;
     case "plan-firsatlar":
-      return <PlanFirsatlarHost />;
+      return <FirsatlarTab />;
     case "plan-seriler":
-      return <PlanSerilerHost />;
+      return <SerilerTab />;
     // ── Kütüphane ──
     case "lib-tumu":
       return <LibTumuHost />;

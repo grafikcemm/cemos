@@ -10,42 +10,6 @@ import HostPlaceholder from "./HostPlaceholder";
  * host'ları kendi başlığını taşır (shell başlık sağlamaz).
  */
 
-export function PlanTakvimHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Plan"
-      title="Takvim"
-      subtitle="Aylık yayın yerleşimi ve seçilen fırsattan üretilen reels senaryosu."
-      comingContent="Burada aylık yayın takvimi ve seçilen fırsattan üretilmiş reels dossier'i yaşayacak."
-    />
-  );
-}
-
-export function PlanFirsatlarHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Plan"
-      title="Fırsatlar"
-      subtitle="Editoryal seçilmiş içerik fırsatları — rakip, trend, haber ve sektör sinyalleri."
-      comingContent="Burada rakip radarı, haber buzz'ı, YouTube fırsatları ve ham araştırmaya inen detay bağlantıları yaşayacak."
-    />
-  );
-}
-
-export function PlanSerilerHost() {
-  return (
-    <HostPlaceholder
-      bare
-      eyebrow="Plan"
-      title="Seriler"
-      subtitle="Carousel ve Reels seri DNA'sı — görsel düzen, caption ve hook kalıpları."
-      comingContent="Burada seri DNA editörü, caption/hashtag yapısı ve seri performansı yaşayacak."
-    />
-  );
-}
-
 export function LibTumuHost() {
   return (
     <HostPlaceholder

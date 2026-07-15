@@ -1,4 +1,5 @@
 export { default as Badge } from "./Badge";
+export { default as BlockedExternalState } from "./BlockedExternalState";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
 export { default as ChartContainer } from "./ChartContainer";
@@ -20,7 +21,9 @@ export { default as ScoreBars } from "./ScoreBars";
 export { default as SectionHeader } from "./SectionHeader";
 export { default as Select } from "./Select";
 export { default as Skeleton } from "./Skeleton";
+export { default as StaleNotice } from "./StaleNotice";
 export { default as StatusBadge } from "./StatusBadge";
+export { default as Surface, InverseCard, PeachCard, surfaceTone, type SurfaceTone } from "./Surface";
 export { default as SubNav } from "./SubNav";
 export { default as Table } from "./Table";
 export { default as Textarea } from "./Textarea";
