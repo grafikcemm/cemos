@@ -1,44 +1,51 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Ink — primary text RGB (#262220 antrasit); text/borders derive from it ─ */
-  --ink: 38, 34, 32;
+  /* Tek tema: DESKTOP DARK EDITORIAL (ADR-020, light kararını supersede eder).
+     Native form/scrollbar/date-picker koyu render için. */
+  color-scheme: dark;
 
-  /* ── Surface ramp — LIGHT EDITORIAL kırık beyaz (base > workspace/kart) ──── */
-  --bg-base: #f7f6f2; /* app frame / page canvas (kırık beyaz) */
-  --bg-workspace: #ffffff; /* ana çalışma paneli (beyaz) */
-  --bg-sunken: #f1efea; /* sunken: input/track/quote */
-  --bg-surface: #ffffff; /* default card */
-  --bg-elevated: #ffffff; /* overlay / dropdown / modal panel (gölge ile ayrışır) */
-  --bg-hover: #f1efea; /* hover fill */
-  --bg-rail: #f4f2ed; /* sidebar / topstrip rail */
-  --surface-overlay: rgba(255, 255, 255, 0.82); /* sticky topstrip (blur backdrop) */
+  /* ── Ink — primary text RGB (#F2EFE8 kırık beyaz); ink-türevli rgba (scrollbar,
+     chart-grid) buradan LIGHT olarak türetilir (dark yüzeyde açık iz). ──────── */
+  --ink: 242, 239, 232;
 
-  /* ── Borders (light) + text (gerçek WCAG — ADR-018) ─────────────────────── */
-  --border: #e6e3dc;
-  --border-strong: #d8d4cc;
-  --border-faint: #efede8; /* iç bölücüler */
-  --text-primary: #262220; /* 14.8:1 AAA */
-  --text-secondary: #5a554f; /* 6.82:1 AA */
-  --text-muted: #726c64; /* 4.80:1 AA (küçük normal metin geçer) */
-  --text-faint: #b3aea6; /* YALNIZ dekoratif/disabled — anlam taşıyan metinde kullanılmaz */
+  /* ── Surface ramp — DARK EDITORIAL sıcak antrasit/kömür (base < surface) ─── */
+  --bg-base: #101114; /* app frame / page canvas (sıcak kömür) */
+  --bg-workspace: #131519; /* ana çalışma paneli */
+  --bg-sunken: #0d0f13; /* sunken: input/track/quote (base'den koyu) */
+  --bg-surface: #191c21; /* default card */
+  --bg-elevated: #20242a; /* overlay / dropdown / modal panel */
+  --bg-hover: #242830; /* hover fill */
+  --bg-rail: #0d0f12; /* sidebar / topstrip rail (en koyu) */
+  --surface-overlay: rgba(16, 17, 20, 0.82); /* sticky topstrip (blur backdrop) */
 
-  /* ── Marka accent — TERRACOTTA (PRIMARY): seçim / focus / aktif-nav / link ─ */
-  --accent: #a8481f; /* 5.42:1 bg · 5.86:1 beyaz metinle */
-  --accent-hover: #8f3a16;
-  --accent-active: #7a3213;
-  --accent-deep: #6d2c11; /* derin vurgu / ikincil hover */
+  /* ── Borders (ince nötr) + text (gerçek WCAG — dark, ADR-020) ───────────── */
+  --border: #2b3038;
+  --border-strong: #3a404a;
+  --border-faint: #1e2229; /* iç bölücüler (base ile border arası) */
+  --text-primary: #f2efe8; /* kırık beyaz — ~16:1 AAA */
+  --text-secondary: #b8b2a8; /* ~8:1 AA */
+  --text-muted: #918b82; /* ~4.9:1 AA (küçük normal metin geçer) */
+  --text-faint: #6a655e; /* YALNIZ dekoratif/disabled — anlam taşıyan metinde kullanılmaz */
+
+  /* ── Marka accent — TERRACOTTA (PRIMARY). Dark'ta İKİ katman:
+     solid-fill (#A8481F, beyaz fg — buton/aktif dolgu) + text/icon/link (#E4865E,
+     dark yüzeyde AA — inline metin/eyebrow/ikon/focus). Mor/violet YOK. ─────── */
+  --accent: #a8481f; /* solid dolgu (beyaz --accent-fg ile 7.5:1) */
+  --accent-hover: #bc5528; /* dark'ta hover daha parlak */
+  --accent-active: #8f3a16;
+  --accent-deep: #c86a3a; /* derin/ikincil vurgu (dark: daha açık) */
   --accent-fg: #ffffff; /* terracotta dolgu üstünde metin/ikon */
-  --accent-text: #a8481f; /* metin-olarak-terracotta (eyebrow/link/inline) */
+  --accent-text: #e4865e; /* metin-olarak-terracotta — dark bg-base'de ~6.6:1 */
 
-  /* Accent alpha tint'leri — literal rgba() üçlülerinin yerini alır (tema-uyumlu). */
-  --accent-tint-05: color-mix(in srgb, var(--accent) 5%, transparent);
-  --accent-tint-08: color-mix(in srgb, var(--accent) 8%, transparent);
-  --accent-tint-12: color-mix(in srgb, var(--accent) 12%, transparent);
-  --accent-tint-15: color-mix(in srgb, var(--accent) 14%, white);
-  --accent-tint-20: color-mix(in srgb, var(--accent) 20%, white);
-  --accent-tint-30: color-mix(in srgb, var(--accent) 30%, white);
-  --accent-dark: var(--accent-tint-15); /* soluk terracotta tint (aktif nav/badge zemini) */
+  /* Accent alpha tint'leri — dark yüzeyde terracotta iz (transparent ile mix). */
+  --accent-tint-05: color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent-tint-08: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-tint-12: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-tint-15: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-tint-20: color-mix(in srgb, var(--accent) 26%, transparent);
+  --accent-tint-30: color-mix(in srgb, var(--accent) 42%, transparent);
+  --accent-dark: var(--accent-tint-15); /* koyu terracotta yüzey (aktif nav/badge zemini) */
   --accent-border: var(--accent-tint-30);
 
   /* ── İkincil accent — ADR-017 tek-accent: --accent-2 artık terracotta'ya alias ─ */
@@ -49,30 +56,33 @@
   --accent-2-border: var(--accent-border);
   --accent-2-dark: var(--accent-dark);
 
-  /* ── Semantik durum (gerçek WCAG — nokta/ikon; chip metni ayrıca ≥4.5:1) ── */
-  --status-ok: #2e7d52; /* success (nokta/ikon) */
-  --status-ok-text: #256b44; /* ok chip metni — tint zeminde 5.50:1 */
-  --status-warn: #b4740e; /* warning / stale (nokta) */
-  --status-warn-text: #8a5a08; /* warn chip metni — tint zeminde 5.05:1 */
-  --status-error: #b3261e; /* error / destructive — 5.33:1 */
-  --status-info: var(--accent); /* tek-accent: ayrı mavi yok */
+  /* ── Semantik durum (dark, gerçek WCAG — chip metni bg-base'de ≥4.5:1) ──── */
+  --status-ok: #3fb068; /* success (nokta/ikon) */
+  --status-ok-text: #56cb8c; /* ok metni/chip — dark yüzeyde ≥6:1 */
+  --status-warn: #c88a2e; /* warning / stale (nokta) */
+  --status-warn-text: #e0a94a; /* warn metni/chip — dark yüzeyde ≥7:1 */
+  --status-error: #e5595e; /* error / destructive — dark yüzeyde ≥5:1 (metin+nokta) */
+  --status-info: var(--accent-text); /* tek-accent: light terracotta (metin-güvenli) */
   --danger: var(--status-error);
-  --danger-hover: #9a2019;
+  --danger-hover: #ef7378;
   --red: var(--status-error); /* legacy alias → danger */
   --blue: var(--status-info); /* legacy alias → info (accent) */
   --yellow: var(--status-warn); /* legacy alias → warning */
   --green: var(--status-ok); /* legacy alias → success */
 
-  /* ── Chart palette — accent + nötr; dekoratif çoklu-renk YOK ────────────── */
-  --chart-1: #a8481f; /* accent terracotta */
-  --chart-2: #726c64; /* nötr gri */
-  --chart-3: #2e7d52; /* status-ok */
-  --chart-4: #b4740e; /* status-warn */
-  --chart-grid: rgba(20, 18, 16, 0.08);
-  --chart-axis: rgba(20, 18, 16, 0.36);
+  /* ── Chart palette — dark: açık terracotta + nötr; dekoratif çoklu-renk YOK  */
+  --chart-1: #d2703f; /* accent terracotta (dark: açık) */
+  --chart-2: #918b82; /* nötr gri */
+  --chart-3: #4fb07a; /* status-ok (açık) */
+  --chart-4: #d69a45; /* status-warn (açık) */
+  --chart-grid: rgba(242, 239, 232, 0.07);
+  --chart-axis: rgba(242, 239, 232, 0.34);
 
-  /* ── Okunabilir içerik genişliği (06 §4) ────────────────────────────────── */
-  --content-max: 960px;
+  /* ── Desktop içerik genişliği varyantları (1B.5, desktop-only) ──────────── */
+  --content-reading: 960px; /* Bugün/drawer okuma */
+  --content-standard: 1080px; /* Profil/Ayarlar/Toolbox */
+  --content-wide: 1280px; /* Takvim/Kütüphane tablo/advanced araştırma */
+  --content-max: var(--content-standard); /* geriye dönük alias */
 
   /* ── Spacing scale (px) ─────────────────────────────────────────────────── */
   --space-1: 4px;
@@ -106,7 +116,7 @@
   /* ── Kontrol boyutları + scrim ──────────────────────────────────────────── */
   --control-h: 40px; /* standart kontrol yüksekliği */
   --control-h-sm: 32px; /* küçük kontrol */
-  --scrim: rgba(0, 0, 0, 0.6); /* drawer/modal/overlay perdesi */
+  --scrim: rgba(0, 0, 0, 0.72); /* drawer/modal/overlay perdesi (dark) */
 
   /* ── Typography scale (px) ──────────────────────────────────────────────── */
   --text-2xs: 10px;
@@ -131,28 +141,24 @@
   /* Başlık ağırlığı — soft premium hiyerarşi 600'e izin verir (700 hâlâ yasak). */
   --font-weight-heading: 600;
 
-  /* ── Yüzey gradyanları / atmosfer (lavanta + şeftali) ───────────────────── */
-  --gradient-accent: linear-gradient(135deg, var(--accent-tint-15), var(--accent-tint-05) 60%, transparent);
-  --gradient-accent-2: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent-2) 15%, transparent),
-    transparent 70%
-  );
+  /* ── Yüzey gradyanları — dark: çok hafif, token-bazlı; dekoratif/mor YOK ─── */
+  --gradient-accent: linear-gradient(135deg, var(--accent-tint-08), transparent 60%);
+  --gradient-accent-2: linear-gradient(135deg, var(--accent-tint-08), transparent 70%);
   --gradient-surface: linear-gradient(160deg, var(--bg-elevated), var(--bg-surface));
   --gradient-hero: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)); /* no-op */
 
-  /* ── Elevation — açık editorial: ince, glow YOK (06 §5) ─────────────────── */
-  --shadow-sm: 0 1px 2px rgba(20, 18, 16, 0.06); /* L1 */
-  --shadow-md: 0 2px 6px rgba(20, 18, 16, 0.08); /* L2 */
-  --shadow-lg: 0 8px 28px -8px rgba(20, 18, 16, 0.14); /* L3 */
-  --shadow-card: 0 1px 3px rgba(20, 18, 16, 0.08);
-  --shadow-pop: 0 4px 16px rgba(20, 18, 16, 0.12);
-  --glow-cyan: 0 1px 2px rgba(20, 18, 16, 0.06); /* legacy adı — açık temada sade gölge */
-  --shadow-accent: 0 1px 3px rgba(20, 18, 16, 0.1); /* hover — glow yok */
-  --shadow-modal: 0 12px 48px -12px rgba(20, 18, 16, 0.22);
-  --shadow-drawer: -8px 0 40px rgba(20, 18, 16, 0.16);
-  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0); /* açık temada görünmez (shadow-listesinde geçerli) */
-  --ring-focus: 0 0 0 3px var(--accent-tint-30); /* a11y focus ring (terracotta) */
+  /* ── Elevation — dark editorial: siyah, ince, glow YOK; hafif üst highlight  */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4); /* L1 */
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45); /* L2 */
+  --shadow-lg: 0 8px 28px -8px rgba(0, 0, 0, 0.55); /* L3 */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --glow-cyan: 0 1px 2px rgba(0, 0, 0, 0.4); /* legacy adı — dark'ta sade gölge (glow değil) */
+  --shadow-accent: 0 1px 3px rgba(0, 0, 0, 0.45); /* hover — glow yok */
+  --shadow-modal: 0 16px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-drawer: -8px 0 40px rgba(0, 0, 0, 0.5);
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.02); /* dark: çok hafif kenar (globals allow) */
+  --ring-focus: 0 0 0 3px var(--accent-tint-30); /* a11y focus ring (terracotta tint) */
 
   /* ── Motion + doku ──────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -163,41 +169,41 @@
 
 @theme inline {
   /* Colors → Tailwind utilities (bg-surface, text-danger, border-default…) */
-  --color-base: #f7f6f2;
-  --color-workspace: #ffffff;
-  --color-sunken: #f1efea;
-  --color-surface: #ffffff;
-  --color-elevated: #ffffff;
-  --color-bg-hover: #f1efea;
-  --color-rail: #f4f2ed;
-  --color-border-default: #e6e3dc;
-  --color-border-strong: #d8d4cc;
-  --color-border-faint: #efede8;
-  --color-text-primary: #262220;
-  --color-text-secondary: #5a554f;
-  --color-text-muted: #726c64;
-  --color-text-faint: #b3aea6;
+  --color-base: #101114;
+  --color-workspace: #131519;
+  --color-sunken: #0d0f13;
+  --color-surface: #191c21;
+  --color-elevated: #20242a;
+  --color-bg-hover: #242830;
+  --color-rail: #0d0f12;
+  --color-border-default: #2b3038;
+  --color-border-strong: #3a404a;
+  --color-border-faint: #1e2229;
+  --color-text-primary: #f2efe8;
+  --color-text-secondary: #b8b2a8;
+  --color-text-muted: #918b82;
+  --color-text-faint: #6a655e;
 
   --color-accent: #a8481f;
-  --color-accent-hover: #8f3a16;
-  --color-accent-dark: color-mix(in srgb, #a8481f 14%, white);
+  --color-accent-hover: #bc5528;
+  --color-accent-dark: color-mix(in srgb, #a8481f 20%, transparent);
   --color-accent-fg: #ffffff;
-  --color-accent-text: #a8481f;
+  --color-accent-text: #e4865e;
 
   --color-accent-2: #a8481f;
-  --color-accent-2-text: #a8481f;
+  --color-accent-2-text: #e4865e;
   --color-accent-2-fg: #ffffff;
 
-  --color-danger: #b3261e;
-  --color-success: #2e7d52;
-  --color-xred: #b3261e;
-  --color-xblue: #a8481f;
-  --color-xyellow: #b4740e;
+  --color-danger: #e5595e;
+  --color-success: #3fb068;
+  --color-xred: #e5595e;
+  --color-xblue: #e4865e;
+  --color-xyellow: #c88a2e;
 
-  --color-chart-1: #a8481f;
-  --color-chart-2: #726c64;
-  --color-chart-3: #2e7d52;
-  --color-chart-4: #b4740e;
+  --color-chart-1: #d2703f;
+  --color-chart-2: #918b82;
+  --color-chart-3: #4fb07a;
+  --color-chart-4: #d69a45;
 
   /* Radius → rounded-* utilities */
   --radius-sm: 8px;
@@ -361,9 +367,10 @@ input:focus {
   outline: none;
 }
 
-/* A11y: keyboard focus must always be visible (Eden sage focus ring). */
+/* A11y: keyboard focus her yüzeyde görünür. Dark'ta solid accent (#A8481F) çok
+   koyu (~2.5:1) → light terracotta accent-text (#E4865E, ≥3:1 UI-görünür). */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
   box-shadow: var(--ring-focus);
   border-radius: var(--radius-sm);

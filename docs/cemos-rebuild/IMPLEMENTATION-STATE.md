@@ -4,10 +4,17 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0 ✅ + Phase 0 düzeltmeleri ✅ + Faz 1A ✅ + **Faz 1B ✅ TAMAMLANDI.** Sıradaki: **Faz 1C** (Bugün + gerçek readiness + threadSegments + whyToday + 5-durum doğrulama).
+- **Faz:** Faz 0 ✅ + P0 ✅ + Faz 1A ✅ + Faz 1B ✅ + **Faz 1B.5 (desktop dark editorial) ✅ TAMAMLANDI.** Sıradaki: **Faz 1C** (desktop-only UI).
 - **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
-- **Commit'ler:** `2cd7b24` docs(rebuild) Faz 0 · `fb90f33` feat(faz1a) auth+design system · `c964979` handoff · `b68e32a` feat(faz1b) 3-görevli shell + store v9.
-- **Tasarım onayı (ADR-017):** Kullanıcı onayladı — Terracotta accent; X API ödemesi ONAYLANMADI (Faz 1E intent-only, XApi BLOCKED-EXTERNAL). Phase 0 düzeltmeleri (A-F) uygulandı.
+- **Commit'ler:** `2cd7b24` Faz 0 · `fb90f33` faz1a · `c964979` handoff · `b68e32a` faz1b · `adae802`+`1146aec` handoff/1C-map · `feat(theme)` faz1b.5 dark.
+- **Tema (ADR-020, kullanıcı 2026-07-15):** **desktop-only + tek tema DARK EDITORIAL** (light kararı supersede; terracotta korunur). Desktop kabul: 1024/1280/1440/1920, **1024–1920 taşma yok**; mobil best-effort. X API ödemesi ONAYLANMADI (Faz 1E intent-only).
+
+### Faz 1B.5 tamamlanan (feat(theme)) — ADR-020
+- **globals.css dark flip** (token İSİMLERİ sabit, DEĞERLER dark): bg-base `#101114`…surface `#191C21`…elevated `#20242A`; text-primary `#F2EFE8`/secondary `#B8B2A8`/muted `#918B82`; accent split solid `#A8481F`(+beyaz fg) / text-link-focus `#E4865E`; siyah gölge (glow yok); `color-scheme:dark`; `--ink` light RGB (scrollbar/chart-grid auto açık); status/chart dark-açık varyant. `chartColors.ts` dark.
+- **Desktop genişlik varyantları:** `--content-reading/standard/wide` (960/1080/1280); AppShell ekran-bazlı uygular (Bugün/Toolbox/Profil=standard, Takvim/Kütüphane/advanced=wide); `PageScaffold width` prop eklendi.
+- **`theme-tokens.test.ts` dark:** gerçek WCAG (metin ≥4.5:1, focus ≥3:1) + dark-tema-kilidi (yüzey relLum düşük/metin yüksek) + açık-tema literal regression (#f7f6f2…) + mor/neon ban. `:focus-visible` accent-text (dark görünür).
+- **Doğrulama:** typecheck ✓ · lint 0 err ✓ · unit **1251/1251** ✓ · build ✓ · e2e **22/22** ✓ · gerçek app dark 1280/1440/1920/1024 — Bugün(gerçek kart)/Plan(wide)/Profil menü/Giris, **1024–1920 taşma 0**, console **0 error** (`shots/cemos-rebuild/faz1b5/`).
+- **Kapsam notu:** MobileNav + ≤640 responsive KORUNDU (best-effort); silinmedi. Faz 1C–1F UI yalnız desktop tasarlanır (drawer=side panel, segment editor desktop, 1024 kullanılabilir; 390 screenshot YOK). Docs (06/05/03/FINAL) desktop-only + dark'a güncellendi.
 
 ### Faz 1B tamamlanan (commit b68e32a) — ADR-019
 - **Yeni IA:** `navConfig` = PRIMARY_AREAS(bugun/plan/kutuphane) + ADVANCED_TABS(5, parentArea=plan) + UTILITY_TABS(toolbox) + PROFILE_TABS(5) + AREA_ALIASES + güncellenmiş TAB_ALIASES. Yardımcılar: `highlightAreaForTab`, `resolveAreaForTab`, `isAdvanced/Utility/ProfileTab`, `advanced/profileMeta`, `labelForTab`, `subTabsOfArea`, `allNavigableTabs`.

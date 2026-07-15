@@ -1,6 +1,8 @@
-# 06 — Design System Spec (CemOS açık editorial)
+# 06 — Design System Spec (CemOS desktop dark editorial)
 
-> Kaynak: tasarım araştırması (Linear/Notion/Typefully/Superhuman/Buffer, erişim 2026-07-15) + master prompt görsel yön + `rules/ecc/web/design-quality.md`. Token İSİMLERİ mevcut `globals.css` ile aynı kalır (30 primitive kırılmaz); DEĞERLER açık editorial'e flip edilir. **Accent = İLK HİPOTEZ (terracotta); tasarım onay kapısında dondurulur (ADR-004).**
+> **⚠ TEMA GÜNCELLENDİ — ADR-020 (2026-07-15):** Tek tema artık **DESKTOP DARK EDITORIAL** (sıcak antrasit + terracotta). Aşağıdaki "açık editorial" palet metni TARİHSEL kayıttır; canlı değerler Faz 1B.5'te `globals.css`'e dark olarak uygulandı (bg-base `#101114`, text-primary `#F2EFE8`, accent solid `#A8481F` / text `#E4865E`). Light/dark toggle yok. Desktop-only: birincil 1280/1440/1920, min 1024, **1024–1920 yatay taşma yok**. Mobil = best-effort. Kesin palet: ADR-020 + `theme-tokens.test.ts`.
+>
+> Kaynak: tasarım araştırması (Linear/Notion/Typefully/Superhuman/Buffer, erişim 2026-07-15) + master prompt görsel yön + `rules/ecc/web/design-quality.md`. Token İSİMLERİ mevcut `globals.css` ile aynı kalır (30 primitive kırılmaz); DEĞERLER dark editorial'e flip edildi. **Accent = terracotta (korunur).**
 
 ## 1. Yön ve karakter
 
@@ -117,7 +119,7 @@ loading (skeleton >500ms) · empty (başlık + açıklama + tek opsiyonel aksiyo
 - **Focus:** `:focus-visible` her zaman accent ring (`--ring-focus 0 0 0 3px var(--accent-tint-strong)`); görünür, her interaktif element.
 - **Klavye:** ana akış tam klavye; A/E/J/K tek-el erişilebilir (araştırma: Superhuman iki-el eleştirisi — audit). Drawer/sheet: focus trap + return + explicit close.
 - **Motion:** yalnız transform/opacity/filter; `--ease-out cubic-bezier(0.16,1,0.3,1)`; enter ease-out / leave ease-in; `prefers-reduced-motion` global kill (zorunlu). Bounce/elastic YASAK (AI-slop).
-- **Responsive:** 320/375/390/768/1024/1280/1440. ≤640: sidebar→bottom-nav (3 alan + Profil), sheet re-tap; workspace full-bleed; page-x 16px. **Mobil publish: swipe-to-dismiss ASLA — deliberate non-dismissible onay; CTA thumb-erişilebilir alt bölge** (araştırma: geri-alınamaz aksiyon için sheet yanlış). Yatay taşma yasak; geniş içerik `overflow-x:auto`.
+- **Responsive (DESKTOP-ONLY, ADR-020):** birincil **1280/1440/1920**, minimum graceful **1024**; **1024–1920 yatay taşma YOK**; geniş içerik `overflow-x:auto`. İçerik genişliği varyantları: reading 960 / standard 1080 / wide 1280 (shell ekran-bazlı; hiçbir ekran 1920'ye yayılmaz). **Mobil = best-effort compatibility** (MobileNav + ≤640 responsive kod korunur ama kabul kriteri değil; 390 screenshot alınmaz). _Tarihsel:_ eski ≤640 bottom-nav + non-dismissible mobil publish notu tasarım kaydı olarak kalır, implementasyon zorunluluğu değildir.
 
 ## 11. Hardcoded-koyu → token stratejisi
 

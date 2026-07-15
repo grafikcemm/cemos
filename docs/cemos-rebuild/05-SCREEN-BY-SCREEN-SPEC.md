@@ -1,6 +1,8 @@
 # 05 — Screen-by-Screen Spec (bağlayıcı, SPEC-PENDING YOK)
 
-> BÜTÜN kullanıcı-erişilebilir yüzeyler tam kesinlikte. Tasarım sistemi: `06-DESIGN-SYSTEM-SPEC.md` (açık editorial, terracotta hipotez, Inter+Newsreader, 960px, 5+1 durum). Sınıflandırma: `04-COMPLETE-UI-REDESIGN-PLAN.md`. Her ekran aynı template.
+> **⚠ ADR-020 (2026-07-15):** CemOS **desktop-only + tek tema dark editorial**. Aşağıdaki **"Mobil wireframe" satırları TARİHSEL tasarım kaydıdır — implementasyon zorunluluğu DEĞİL** (mobil = best-effort). Desktop kabul: birincil 1280/1440/1920, min 1024, 1024–1920 taşma yok. Renkler dark (bkz. ADR-020 / `06`). İçerik genişliği: reading 960 / standard 1080 / wide 1280 (Bugün/Profil=standard; Takvim/Kütüphane/advanced=wide).
+>
+> BÜTÜN kullanıcı-erişilebilir yüzeyler tam kesinlikte. Tasarım sistemi: `06-DESIGN-SYSTEM-SPEC.md` (dark editorial, terracotta, Inter, desktop genişlik varyantları, 5+1 durum). Sınıflandırma: `04-COMPLETE-UI-REDESIGN-PLAN.md`. Her ekran aynı template.
 
 **Template alanları:** Amaç · Yeni ev/eski karşılık · Desktop wireframe · Mobil wireframe · İçerik sırası · Birincil/ikincil eylemler · Component ağacı · Veri kaynakları · Durumlar (loading/empty/error/success/stale/blocked-external) · Klavye · Responsive · Kabul kriterleri.
 

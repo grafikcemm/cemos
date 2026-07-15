@@ -3,38 +3,45 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 
 /**
- * Redesign guard (Faz 1A). İki koruma:
- *  (1) no-literal: eski KOYU-dönem literalleri (mor #8b5cf6, turuncu #ff5538,
- *      grafit yüzeyler, koyu-tema durum hex'leri, white-opacity kenarlar) ve
- *      daha eski Eden kalıntıları src/ içinde SIFIR olmalı. Renk yalnız
- *      tokenlar üzerinden gelir; literal geri sızarsa açık tema bozulur.
- *  (2) gerçek WCAG 2.1 kontrast: globals.css token çiftlerinin gerçek kontrast
- *      oranı ≥ 4.5:1 (ADR-018). El-hesabı değil — burada hesaplanır.
+ * Redesign guard (ADR-020 — DESKTOP DARK EDITORIAL). Üç koruma:
+ *  (1) no-literal: eski MOR/VIOLET dark dashboard (#8b5cf6, #a855f7, #ff5538,
+ *      neon/glow durum hex'leri) VE Faz 1A açık-tema yüzey literalleri (#f7f6f2…)
+ *      component'lerde SIFIR olmalı — renk yalnız token üzerinden gelir.
+ *  (2) tema-kilidi: globals.css yüzeyleri KOYU, ana metin AÇIK kalmalı
+ *      (relLum yönü) — açık-temaya yanlışlıkla geri dönüş engellenir.
+ *  (3) gerçek WCAG 2.1 kontrast: dark token çiftleri ≥4.5:1 (metin) / ≥3:1
+ *      (focus ring UI). El-hesabı değil — burada hesaplanır.
  */
 
 const SRC = join(process.cwd(), "src");
 const GLOBALS = join(SRC, "app", "globals.css");
 
-// globals.css ve chartColors.ts kaynak-of-truth; onlarda literal beklenir.
+// globals.css ve chartColors.ts kaynak-of-truth; onlarda hex literal beklenir.
 const ALLOWED = new Set(["src/app/globals.css", "src/lib/theme/chartColors.ts"]);
 
-// Yasaklı literaller — KOYU-dönem (mor/turuncu/grafit) + Eden kalıntısı.
+// Yasaklı literaller — eski MOR dark dashboard + Faz 1A AÇIK-tema yüzeyleri.
 const BANNED: Array<[string, RegExp]> = [
-  // koyu-dönem accent (mor/turuncu)
+  // eski mor/violet dark dashboard accent
   ["mor accent #8b5cf6", /#8b5cf6/i],
   ["mor accent-text #a855f7", /#a855f7/i],
   ["turuncu accent-2 #ff5538", /#ff5538/i],
-  // koyu-dönem yüzeyler
-  ["dark base #151515", /#151515/i],
-  ["dark workspace #0f0f10", /#0f0f10/i],
-  ["dark surface #171719", /#171719/i],
-  // koyu-dönem durum hex'leri
-  ["dark status-ok #18d989", /#18d989/i],
-  ["dark status-info #22c7f2", /#22c7f2/i],
-  ["dark status-error #ff4d6d", /#ff4d6d/i],
-  ["dark status-warn #e6b566", /#e6b566/i],
-  // white-opacity kenar/gölge (koyu tema imzası)
+  // eski mor-dönem yüzeyler
+  ["eski dark base #151515", /#151515/i],
+  ["eski dark workspace #0f0f10", /#0f0f10/i],
+  ["eski dark surface #171719", /#171719/i],
+  // eski neon/glow durum hex'leri
+  ["neon status-ok #18d989", /#18d989/i],
+  ["neon status-info #22c7f2", /#22c7f2/i],
+  ["neon status-error #ff4d6d", /#ff4d6d/i],
+  ["neon status-warn #e6b566", /#e6b566/i],
+  // component'lerde white-opacity kenar/gölge (dark editorial'da token kullan)
   ["white-opacity border rgba(255,255,255", /rgba\(\s*255\s*,\s*255\s*,\s*255/],
+  // Faz 1A açık-tema yüzey literalleri — geri sızmamalı (regression)
+  ["light base #f7f6f2", /#f7f6f2/i],
+  ["light rail #f4f2ed", /#f4f2ed/i],
+  ["light sunken #f1efea", /#f1efea/i],
+  ["light border #e6e3dc", /#e6e3dc/i],
+  ["light border-strong #d8d4cc", /#d8d4cc/i],
   // eski Eden kalıntıları
   ["sage hex #c8e0bf", /#c8e0bf/i],
   ["coral rgba (217,119,87)", /rgba\(\s*217\s*,\s*119\s*,\s*87/],
@@ -101,16 +108,37 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe("WCAG AA kontrast (gerçek hesap)", () => {
+describe("dark tema kilidi (relLum yönü — açık-temaya dönüş engeli)", () => {
   const css = readFileSync(GLOBALS, "utf8");
   const t = (name: string) => parseToken(css, name);
 
-  // metin/zemin ve chip metni/tint çiftleri (küçük normal metin ≥ 4.5:1)
+  it("temel yüzeyler KOYU (relLum düşük)", () => {
+    expect(relLum(t("bg-base")), "bg-base koyu olmalı").toBeLessThan(0.15);
+    expect(relLum(t("bg-rail")), "bg-rail koyu olmalı").toBeLessThan(0.15);
+    expect(relLum(t("bg-surface")), "bg-surface koyu olmalı").toBeLessThan(0.2);
+    expect(relLum(t("bg-elevated")), "bg-elevated koyu olmalı").toBeLessThan(0.25);
+  });
+
+  it("ana metin AÇIK (relLum yüksek)", () => {
+    expect(relLum(t("text-primary")), "text-primary açık olmalı").toBeGreaterThan(0.6);
+    expect(relLum(t("text-secondary")), "text-secondary açık olmalı").toBeGreaterThan(0.35);
+  });
+});
+
+describe("WCAG AA kontrast (gerçek hesap — dark)", () => {
+  const css = readFileSync(GLOBALS, "utf8");
+  const t = (name: string) => parseToken(css, name);
+
+  // metin/zemin çiftleri (küçük normal metin ≥ 4.5:1). Link = accent-text
+  // (dark'ta light terracotta); solid --accent yalnız dolgu (beyaz fg ile test).
   const pairs: Array<[string, string, string]> = [
     ["text-primary / bg-base", "text-primary", "bg-base"],
     ["text-secondary / bg-base", "text-secondary", "bg-base"],
     ["text-muted / bg-base", "text-muted", "bg-base"],
-    ["accent (link) / bg-base", "accent", "bg-base"],
+    ["text-primary / bg-surface", "text-primary", "bg-surface"],
+    ["text-secondary / bg-surface", "text-secondary", "bg-surface"],
+    ["accent-text (link) / bg-base", "accent-text", "bg-base"],
+    ["accent-text (link) / bg-surface", "accent-text", "bg-surface"],
     ["status-error / bg-base", "status-error", "bg-base"],
     ["status-ok-text / bg-base", "status-ok-text", "bg-base"],
     ["status-warn-text / bg-base", "status-warn-text", "bg-base"],
@@ -123,14 +151,19 @@ describe("WCAG AA kontrast (gerçek hesap)", () => {
     });
   }
 
-  it("accent-fg (beyaz) accent dolgu üstünde ≥ 4.5:1", () => {
+  it("accent-fg (beyaz) accent solid-dolgu üstünde ≥ 4.5:1", () => {
     const ratio = contrast(t("accent-fg"), t("accent"));
     expect(ratio, `accent-fg/accent = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("focus ring (accent-text) temel yüzeylerde görünür ≥ 3:1 (UI eşiği)", () => {
+    for (const surface of ["bg-base", "bg-surface", "bg-rail", "bg-elevated"]) {
+      const ratio = contrast(t("accent-text"), t(surface));
+      expect(ratio, `accent-text/${surface} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it("text-faint anlam-taşıyan metin için değil (bg-base'de < 4.5:1 — dekoratif)", () => {
-    // text-faint bilinçli düşük kontrast; bu testi geçmesi onun dekoratif
-    // kullanımını belgeler (anlam taşıyan metinde kullanılmamalı).
     const ratio = contrast(t("text-faint"), t("bg-base"));
     expect(ratio).toBeLessThan(4.5);
   });

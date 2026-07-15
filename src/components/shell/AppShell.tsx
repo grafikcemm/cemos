@@ -104,6 +104,14 @@ export default function AppShell({ initialTab }: AppShellProps) {
     setActiveTab(lastTabByArea.current[areaId] ?? firstTabOfArea(areaId));
   };
 
+  // Desktop içerik genişliği (1B.5, desktop-only): Takvim/Kütüphane/advanced =
+  // wide (1280); Bugün/Toolbox/Profil = standard (1080). Ekranlar kendi
+  // PageScaffold width varyantıyla daha da daraltabilir (reading 960).
+  const contentWidth =
+    advanced || primaryArea === "plan" || primaryArea === "kutuphane"
+      ? "var(--content-wide)"
+      : "var(--content-standard)";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
       <AutomationManager />
@@ -132,7 +140,7 @@ export default function AppShell({ initialTab }: AppShellProps) {
               className="app-content"
               style={{
                 width: "100%",
-                maxWidth: "var(--content-max)",
+                maxWidth: contentWidth,
                 marginInline: "auto",
                 padding: "var(--space-page-top) var(--space-page-x) 48px",
                 minWidth: 0,

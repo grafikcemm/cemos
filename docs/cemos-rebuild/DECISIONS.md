@@ -78,3 +78,15 @@
 7. **Yeni host ekranları (plan-*, lib-*, profile-memory, profile-integrations):** Faz 1B'de dürüst `HostPlaceholder` (05 empty-state; ölü CTA yok). Tam kompozisyon Faz 1D. Eski dashboard kompozisyonu KOPYALANMADI.
 8. **Varsayım:** `lib-ogrenme` her zaman görünür (Öğrenme birinci-sınıf Kütüphane alt-alanı); `NEXT_PUBLIC_LEARN_ENABLED` gate'i Learn ÖZELLİĞİNE taşınır (Faz 1D).
 9. **E2E harness sertleştirme:** cold Next-dev ilk-compile 30s'yi aşabildiğinden `global-setup` warmup GET + retry + 120s timeout ile güçlendirildi.
+
+### ADR-020 — Tema kararı DEĞİŞTİ: DESKTOP DARK EDITORIAL (ADR-017 §tema'yı supersede eder)
+**2026-07-15 (kullanıcı kararı, Faz 1B sonrası).** Kullanıcı önceki "açık editorial" tema kararını (ADR-017 madde-örtük + ADR-018 açık kontrast tablosu) **değiştirdi**. ADR-017/018 append-only kayıt olarak KALIR (silinmez); tema yönü bu ADR ile güncellenir.
+1. **CemOS yalnız DESKTOP.** Mobil artık ürün kabul kriteri değil.
+2. **Tek tema = DARK EDITORIAL** (sıcak antrasit/kömür). Light/dark toggle YOK. `color-scheme: dark`.
+3. **Terracotta accent KORUNUR** (marka). Eski CemOS mor/violet/neon/glow/glassmorphism YASAK; eski dark dashboard token'ları geri gelmez.
+4. **Palet (Faz 1B.5'te uygulandı, gerçek WCAG ile ayarlandı):** bg-base `#101114` · workspace `#131519` · rail `#0D0F12` · sunken `#0D0F13` · surface `#191C21` · elevated `#20242A` · hover `#242830` · border `#2B3038` · border-strong `#3A404A` · text-primary `#F2EFE8` · text-secondary `#B8B2A8` · text-muted `#918B82` · text-faint `#6A655E` (dekoratif) · **accent split:** solid-fill `#A8481F` (+beyaz fg 7.5:1) / text-icon-link-focus `#E4865E` (dark bg'de ~6.6:1). Durum/chart metinleri dark'ta açık varyant (status-error `#E5595E`, ok-text `#56CB8C`, warn-text `#E0A94A`; chart açık terracotta/nötr). Token İSİMLERİ değişmedi — yalnız değerler + dark elevation (siyah gölge, glow yok).
+5. **Focus ring** dark'ta `accent-text` (#E4865E, ≥3:1 UI eşiği) — solid accent çok koyu (2.5:1) olduğu için.
+6. **Desktop içerik genişliği varyantları:** `--content-reading` 960 · `--content-standard` 1080 · `--content-wide` 1280. Shell ekran-bazlı uygular (Bugün/Toolbox/Profil=standard; Takvim/Kütüphane/advanced=wide); `PageScaffold width` prop reading/standard/wide ile ekran daha da daraltabilir. Hiçbir ekran 1920'ye yayılmaz (max wide 1280, ortalı).
+7. **Desktop destek sözleşmesi:** birincil 1280/1440/1920; minimum graceful 1024; **1024–1920 yatay taşma yok**. Eski "1280+390" ve "320–1440" kriterleri bununla değiştirildi (docs güncellendi).
+8. **MobileNav + responsive kod** silinmedi — "best-effort / mevcut compatibility". Mobil başarısızlığı desktop ürününün tamamlanmasını engellemez; yeni 390 screenshot/mobil-özel component üretilmez. 05 spec mobil wireframe'leri tarihsel tasarım kaydı (implementasyon zorunluluğu değil).
+9. **`theme-tokens.test.ts`** dark'a güncellendi: gerçek WCAG (metin ≥4.5:1, focus ≥3:1), dark-tema-kilidi (yüzey relLum düşük / metin yüksek — açık-temaya dönüş engeli), açık-tema literal regression bans (#f7f6f2…), mor/neon/glow bans korunur. Salt-hex listesi değil — kontrast hesabı gerçek.

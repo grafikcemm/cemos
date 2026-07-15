@@ -1,6 +1,8 @@
 # 03 — Delivery Roadmap
 
-> Faz 1 dilimleri (uygulanabilir kabul kriterleriyle) + Faz 2-5 iskelet. Her dilim = çalışan, testli, geri alınabilir dikey dilim; sonunda `npm test && typecheck && lint` yeşil, UI dilimlerinde `build`+`playwright`+1280/390 screenshot. Kaynak: `FINAL-IMPLEMENTATION-PLAN.md`.
+> Faz 1 dilimleri (uygulanabilir kabul kriterleriyle) + Faz 2-5 iskelet. Her dilim = çalışan, testli, geri alınabilir dikey dilim; sonunda `npm test && typecheck && lint` yeşil, UI dilimlerinde `build`+`playwright`+desktop screenshot. Kaynak: `FINAL-IMPLEMENTATION-PLAN.md`.
+>
+> **⚠ ADR-020 (desktop-only, dark editorial):** Bu belgedeki TÜM "1280/390" / "1280+390" ifadeleri **"1024/1280/1440/1920 desktop screenshot"**, TÜM "320-1440 taşma yok" ifadeleri **"1024–1920 taşma yok"** olarak okunur. Mobil = best-effort (390 screenshot alınmaz). Tema dark.
 
 ## Faz 1 — dilimler
 

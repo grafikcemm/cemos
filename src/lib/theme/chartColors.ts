@@ -3,18 +3,18 @@
  * recharts renders SVG attributes that cannot read CSS custom properties,
  * so chart series must pull their colors from this JS module instead.
  *
- * Açık editorial palet (ADR-017/018): accent terracotta + nötr; dekoratif
- * çoklu-renk yok. Değerler globals.css --chart-* ile birebir eşleşir.
+ * DARK EDITORIAL palet (ADR-020): açık terracotta + nötr; dekoratif çoklu-renk
+ * yok. Değerler globals.css --chart-* ile birebir eşleşir.
  */
 export const chartColors = {
-  primary: "#a8481f", // terracotta accent (chart-1)
-  secondary: "#726c64", // nötr gri (chart-2)
-  tertiary: "#2e7d52", // status-ok yeşil (chart-3)
-  quaternary: "#b4740e", // status-warn kehribar (chart-4)
-  grid: "rgba(20,18,16,0.08)",
-  axis: "rgba(20,18,16,0.36)",
-  tooltipBg: "#ffffff",
-  tooltipBorder: "#e6e3dc",
+  primary: "#d2703f", // terracotta accent, dark-açık (chart-1)
+  secondary: "#918b82", // nötr gri (chart-2)
+  tertiary: "#4fb07a", // status-ok yeşil, açık (chart-3)
+  quaternary: "#d69a45", // status-warn kehribar, açık (chart-4)
+  grid: "rgba(242,239,232,0.07)",
+  axis: "rgba(242,239,232,0.34)",
+  tooltipBg: "#20242a", // bg-elevated (dark)
+  tooltipBorder: "#3a404a", // border-strong (dark)
 } as const;
 
 export type ChartColorKey = keyof typeof chartColors;
