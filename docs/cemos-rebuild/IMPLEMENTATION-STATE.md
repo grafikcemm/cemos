@@ -4,9 +4,17 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0 TAMAMLANDI (araştırma + baseline + canlı denetim + 10 belge + tasarım onay paketi). **Faz 1 BAŞLAMADI** — tasarım onay kapısında duruluyor.
-- **Branch:** `feature/cemos-rebuild` (mevcut `feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Commit YOK, push YOK** (kullanıcı onayı bekliyor).
-- **Çalışma ağacı:** kod değişikliği YOK. Yeni dosyalar: `docs/cemos-rebuild/*` (10 belge), `shots/cemos-rebuild/*` (baseline + design-approval mockup+render). Untracked master prompt + `shots/` korundu.
+- **Faz:** Faz 0 ✅ + **Phase 0 düzeltmeleri ✅ + Faz 1A ✅ TAMAMLANDI.** Sıradaki: **Faz 1B** (shell/sidebar + store v9).
+- **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
+- **Commit'ler:** `2cd7b24` docs(rebuild) Faz 0 · `fb90f33` feat(faz1a) auth + açık editorial design system.
+- **Tasarım onayı (ADR-017):** Kullanıcı onayladı — Terracotta accent; X API ödemesi ONAYLANMADI (Faz 1E intent-only, XApi BLOCKED-EXTERNAL). Phase 0 düzeltmeleri (A-F: WCAG kontrast, publish CTA intent-only, doğrulama tutarlılığı, maliyet tablosu, doc temizlik, mockup) uygulandı.
+
+### Faz 1A tamamlanan (commit fb90f33)
+- **Auth:** `src/proxy.ts` (Next 16 gate), `src/lib/auth/session.ts`+`throttle.ts` (+test), `src/app/giris` (native form→303), `src/app/api/auth/{login,logout}`, `ACCESS_PASSWORD_HASH`+`SESSION_SECRET` (requiredSecrets+.env.example), `scripts/hash-access-password.ts`, `AuthAttempt` Prisma modeli (additive).
+- **Design system:** `globals.css` açık editorial + terracotta (token isimleri sabit), `chartColors.ts`, `theme-tokens.test.ts` (koyu-literal yasağı + gerçek WCAG kontrast), `--content-max:960px` token (uygulaması Faz 1B shell'de).
+- **E2E:** `global-setup.ts` (login→storageState), `access-gate.spec.ts`, `playwright.config.ts` (gate env + reuseExistingServer:false).
+- **Doğrulama:** typecheck ✓ · lint 0 err · unit **1229/1229** ✓ · build ✓ · e2e **20/20** ✓ · gerçek app açık tema render + /giris (console **0 error**, 1280+390: `shots/cemos-rebuild/faz1a/`).
+- **[USER] gerekli:** `prisma db push` (AuthAttempt tablosu — yoksa throttle fail-open) + prod'da `ACCESS_PASSWORD_HASH`/`SESSION_SECRET` env (yoksa prod kapı fail-closed `/giris?setup=1`). E2E hash sabit salt "e2e-test-pass" içindir; prod'da `hash-access-password.ts` ile gerçek üret.
 
 ## Tamamlanan (Faz 0 kabul)
 
