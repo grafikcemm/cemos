@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Activity } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
 import Drawer from "@/components/ui/Drawer";
-import { useSystemStatus } from "./useSystemStatus";
+import { healthDotColor } from "@/lib/services/systemHealth";
+import { useSystemHealth } from "./SystemHealthProvider";
 
 type TopStripProps = {
   areaLabel: string;
@@ -86,28 +87,29 @@ export default function TopStrip({ areaLabel, subTabLabel }: TopStripProps) {
 }
 
 /**
- * Sistem durum butonu — nokta + kısa etiket; tıklanınca sorun drawer'ı açılır.
- * Sağlıklıyken sessiz; sorun sayısı arttıkça renk uyarıya döner.
+ * Sistem durum chip'i (§8C — TEK türetilmiş health state) — nokta + kısa etiket;
+ * tıklanınca detay drawer'ı açılır. Topbar chip = ANA gösterim. checking/healthy/
+ * warning/unavailable AYNI kaynaktan (SystemHealthProvider); Bugün tiki de aynı.
  */
 function SystemStatusButton() {
-  const { todayCost, workerStatus, problems } = useSystemStatus();
+  const { result, todayCost, refresh } = useSystemHealth();
   const [open, setOpen] = useState(false);
 
-  const hasError = problems.some((p) => p.severity === "error");
-  const hasWarn = problems.length > 0;
-  const dot = hasError
-    ? "var(--status-error)"
-    : hasWarn
-      ? "var(--status-warn)"
-      : workerStatus === "unknown"
-        ? "var(--text-muted)"
-        : "var(--status-ok)";
-  const label = hasWarn ? `${problems.length} sorun` : "Sağlıklı";
+  const dot = healthDotColor(result);
+  const label = result.label;
+  const chipColor =
+    result.state === "warning"
+      ? result.hasError
+        ? "var(--status-error)"
+        : "var(--status-warn)"
+      : "var(--text-secondary)";
 
   return (
     <>
       <button
         type="button"
+        data-testid="system-health-chip"
+        data-health-state={result.state}
         onClick={() => setOpen(true)}
         aria-label={`Sistem durumu: ${label}`}
         title={`Sistem durumu: ${label}`}
@@ -120,7 +122,7 @@ function SystemStatusButton() {
           background: "transparent",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-sm)",
-          color: hasError ? "var(--status-error)" : hasWarn ? "var(--status-warn)" : "var(--text-secondary)",
+          color: chipColor,
           fontSize: "var(--text-xs)",
           fontFamily: "inherit",
           cursor: "pointer",
@@ -132,7 +134,7 @@ function SystemStatusButton() {
             height: 7,
             borderRadius: "50%",
             background: dot,
-            boxShadow: hasWarn ? `0 0 6px ${dot}` : "none",
+            boxShadow: result.state === "warning" ? `0 0 6px ${dot}` : "none",
             flexShrink: 0,
           }}
         />
@@ -160,7 +162,42 @@ function SystemStatusButton() {
             </span>
           </div>
 
-          {problems.length === 0 ? (
+          {result.state === "checking" ? (
+            <StatusNote tone="muted">Durum kontrol ediliyor…</StatusNote>
+          ) : result.state === "unavailable" ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 9,
+                padding: "12px",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-secondary)",
+                fontSize: "var(--text-sm)",
+              }}
+            >
+              <span>Durum alınamadı — sorun sayısı belirlenemiyor.</span>
+              <button
+                type="button"
+                onClick={refresh}
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text-secondary)",
+                  padding: "2px 8px",
+                  fontSize: "var(--text-2xs)",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+              >
+                Yeniden dene
+              </button>
+            </div>
+          ) : result.problems.length === 0 ? (
             <div
               style={{
                 display: "flex",
@@ -178,7 +215,7 @@ function SystemStatusButton() {
               Tüm sistemler sağlıklı görünüyor.
             </div>
           ) : (
-            problems.map((p, i) => (
+            result.problems.map((p, i) => (
               <div
                 key={i}
                 style={{
@@ -208,5 +245,22 @@ function SystemStatusButton() {
         </div>
       </Drawer>
     </>
+  );
+}
+
+function StatusNote({ tone, children }: { tone: "muted"; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        padding: "12px",
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm)",
+        color: tone === "muted" ? "var(--text-muted)" : "var(--text-secondary)",
+        fontSize: "var(--text-sm)",
+      }}
+    >
+      {children}
+    </div>
   );
 }

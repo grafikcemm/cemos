@@ -1,20 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchJson } from "@/lib/utils/safeFetch";
+import { healthDotColor } from "@/lib/services/systemHealth";
+import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 
 /**
- * Tek satır sabah sayacı (FIRST-SPRINT item 1) — eski 3-tile hero'nun yerini
- * aldı: "N taslak seni bekliyor (grafikcem X · maskulenkod Y) · ● sağlıklı".
- * Aksiyon üstte, istatistik gürültüsü yok; sağlık tiki buradadır ve
- * OperatorReadinessGate yalnız SORUN varken genişler (item 2).
+ * Tek satır sabah sayacı (FIRST-SPRINT item 1) — "N taslak seni bekliyor
+ * (grafikcem X · maskulenkod Y) · ● sağlıklı". Sağlık tiki §8C uyarınca TOPBAR
+ * chip'iyle AYNI kaynaktan (SystemHealthProvider) beslenir → Bugün özeti ile
+ * topbar çelişemez. Üretim/operator hazırlığı AYRI eksendir (OperatorReadinessGate,
+ * yalnız sorun varken genişler).
  */
-
-type Readiness = {
-  ready: boolean;
-  readyWithWarning?: boolean;
-};
 
 const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"] as const;
 
@@ -27,22 +23,7 @@ type Props = {
 
 export default function MorningHeroStats({ queue }: Props) {
   const { drafts, loading } = queue;
-  const [readiness, setReadiness] = useState<Readiness | null>(null);
-  const [readinessFailed, setReadinessFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchJson<Readiness>("/api/settings/operator-readiness")
-      .then((data) => {
-        if (!cancelled) setReadiness(data);
-      })
-      .catch(() => {
-        if (!cancelled) setReadinessFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { result: health } = useSystemHealth();
 
   const pending = drafts.filter((d) => !isDone(d));
   const perAccount = ACCOUNT_ORDER.map((h) => ({
@@ -50,24 +31,8 @@ export default function MorningHeroStats({ queue }: Props) {
     count: pending.filter((d) => d.accountHandle === h).length,
   }));
 
-  const healthColor = readinessFailed
-    ? "var(--text-muted)"
-    : readiness == null
-      ? "var(--text-muted)"
-      : readiness.ready && !readiness.readyWithWarning
-        ? "var(--green)"
-        : readiness.ready
-          ? "var(--yellow)"
-          : "var(--danger)";
-  const healthLabel = readinessFailed
-    ? "durum alınamadı"
-    : readiness == null
-      ? "kontrol ediliyor"
-      : readiness.ready && !readiness.readyWithWarning
-        ? "sağlıklı"
-        : readiness.ready
-          ? "uyarılı"
-          : "sorun var";
+  const healthColor = healthDotColor(health);
+  const healthLabel = health.label;
 
   const headline = loading
     ? "Taslaklar yükleniyor…"
@@ -102,6 +67,8 @@ export default function MorningHeroStats({ queue }: Props) {
         </span>
       )}
       <span
+        data-testid="morning-health-tick"
+        data-health-state={health.state}
         style={{
           marginLeft: "auto",
           display: "inline-flex",

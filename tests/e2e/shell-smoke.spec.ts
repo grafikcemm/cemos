@@ -18,14 +18,25 @@ test("sidebar yalnız 3 görev + Toolbox + Profil gösterir (legacy motor adı y
   }
 });
 
-test("hesap bağlam kartı kanal değiştiriciyi açar ve kanal değiştirir", async ({ page }) => {
+test("hesap değiştirici (§8F): non-modal popover; Escape kapatır + focus döner; kanal değişir", async ({ page }) => {
   await page.goto("/");
-  await page.getByTestId("sidebar-account").click();
+  await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
+  const trigger = page.getByTestId("sidebar-account");
+  await trigger.click();
   const switcher = page.getByTestId("account-switcher");
   await expect(switcher).toBeVisible();
+  // Non-modal: marka/sidebar/workspace görünür kalır (modal scrim YOK).
+  await expect(page.locator(".app-sidebar")).toBeVisible();
+  await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
   await expect(switcher.getByTestId("account-option-grafikcem")).toBeVisible();
   await expect(switcher.getByTestId("account-option-maskulenkod")).toBeVisible();
-  await switcher.getByTestId("account-option-maskulenkod").click();
+  // Escape kapatır + focus tetikleyiciye döner (§8F).
+  await page.keyboard.press("Escape");
+  await expect(switcher).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  // Yeniden aç + kanal değiştir.
+  await trigger.click();
+  await page.getByTestId("account-option-maskulenkod").click();
   await expect(page.getByTestId("sidebar-account")).toContainText("@maskulenkod");
 });
 

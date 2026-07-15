@@ -16,6 +16,7 @@ import {
 import { useXAgentStore, type Channel } from "@/store/xagent";
 import { PRIMARY_AREAS, type PrimaryAreaId } from "@/components/nav/navConfig";
 import AppIcon from "@/components/ui/AppIcon";
+import Popover from "@/components/ui/Popover";
 import ProfileMenu from "./ProfileMenu";
 
 const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
@@ -189,93 +190,75 @@ function NavItem({
 }
 
 /** İşlenmiş hesap bağlam kartı — monogram (gradient tile) + @handle + "Aktif
- *  hesap" + kanal değiştirici. Sahte stok foto YOK; kaliteli monogram. */
+ *  hesap" + kanal değiştirici. Sahte stok foto YOK. Menü = paylaşılan Popover
+ *  (§8F: non-modal, transparent perde, Escape, focus-return, roving klavye). */
 function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Channel) => void }) {
-  const [open, setOpen] = useState(false);
   const initial = channel.charAt(0).toUpperCase();
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        data-testid="sidebar-account"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`Aktif hesap: @${channel} — değiştir`}
-        className="cx-account-card"
-      >
-        <span className="cx-account-avatar">{initial}</span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              display: "block",
-              fontSize: "var(--text-sm)",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              letterSpacing: "-0.01em",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            @{channel}
+    <Popover
+      label="Hesap değiştir"
+      menuTestId="account-switcher"
+      fill
+      trigger={(props) => (
+        <button
+          {...props}
+          data-testid="sidebar-account"
+          aria-label={`Aktif hesap: @${channel} — değiştir`}
+          className="cx-account-card"
+        >
+          <span className="cx-account-avatar">{initial}</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span
+              style={{
+                display: "block",
+                fontSize: "var(--text-sm)",
+                fontWeight: 600,
+                color: "var(--text-primary)",
+                letterSpacing: "-0.01em",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              @{channel}
+            </span>
+            <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 1 }}>
+              Aktif hesap
+            </span>
           </span>
-          <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 1 }}>
-            Aktif hesap
-          </span>
-        </span>
-        <AppIcon icon={ChevronsUpDown} size="sm" color="var(--text-muted)" />
-      </button>
-
-      {open && (
-        <>
-          <div aria-hidden onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 90 }} />
-          <div
-            role="menu"
-            aria-label="Hesap değiştir"
-            data-testid="account-switcher"
-            style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              left: 0,
-              right: 0,
-              zIndex: 100,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-strong)",
-              borderRadius: "var(--radius-md)",
-              boxShadow: "var(--shadow-modal)",
-              padding: 5,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            {CHANNELS.map((ch) => {
-              const active = ch === channel;
-              return (
-                <button
-                  key={ch}
-                  role="menuitem"
-                  data-testid={`account-option-${ch}`}
-                  onClick={() => {
-                    onSelect(ch);
-                    setOpen(false);
-                  }}
-                  aria-current={active ? "true" : undefined}
-                  className="cx-nav-item"
-                  style={{ height: 36 }}
-                >
-                  <span className="cx-account-avatar" style={{ width: 22, height: 22, fontSize: "var(--text-2xs)", borderRadius: 7 }}>
-                    {ch.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="cx-nav-label" style={{ color: "var(--text-primary)" }}>@{ch}</span>
-                  {active && <AppIcon icon={Check} size="sm" color="var(--accent-text)" />}
-                </button>
-              );
-            })}
-          </div>
-        </>
+          <AppIcon icon={ChevronsUpDown} size="sm" color="var(--text-muted)" />
+        </button>
       )}
-    </div>
+    >
+      {(close) =>
+        CHANNELS.map((ch) => {
+          const active = ch === channel;
+          return (
+            <button
+              key={ch}
+              role="menuitem"
+              data-testid={`account-option-${ch}`}
+              onClick={() => {
+                onSelect(ch);
+                close();
+              }}
+              aria-current={active ? "true" : undefined}
+              className="cx-nav-item"
+              style={{ height: 36 }}
+            >
+              <span
+                className="cx-account-avatar"
+                style={{ width: 22, height: 22, fontSize: "var(--text-2xs)", borderRadius: 7 }}
+              >
+                {ch.charAt(0).toUpperCase()}
+              </span>
+              <span className="cx-nav-label" style={{ color: "var(--text-primary)" }}>@{ch}</span>
+              {active && <AppIcon icon={Check} size="sm" color="var(--accent-text)" />}
+            </button>
+          );
+        })
+      }
+    </Popover>
   );
 }

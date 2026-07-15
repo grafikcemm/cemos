@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useXAgentStore } from "@/store/xagent";
-import AutomationManager from "@/components/agent/AutomationManager";
+import { SystemHealthProvider } from "./SystemHealthProvider";
 import {
   PRIMARY_AREAS,
   PROFILE_TABS,
@@ -133,8 +133,8 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const shellHeader = primaryArea === "plan" || primaryArea === "kutuphane";
 
   return (
+    <SystemHealthProvider>
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
-      <AutomationManager />
       <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
@@ -194,5 +194,6 @@ export default function AppShell({ initialTab }: AppShellProps) {
         onSelectProfileTab={setActiveTab}
       />
     </div>
+    </SystemHealthProvider>
   );
 }

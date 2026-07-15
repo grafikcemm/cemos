@@ -128,7 +128,7 @@ export default function OperatorReadinessGate() {
         }}
       >
         <summary style={{ cursor: "pointer", color: "var(--status-warn)", fontWeight: 500, listStyle: "none" }}>
-          ⚠️ Sistem uyarılı — taslak akışı çalışıyor, detay için tıkla
+          ⚠️ Üretim akışı uyarılı — taslak akışı çalışıyor, detay için tıkla
         </summary>
         {readiness.warnings.length > 0 && (
           <ul style={{ margin: "8px 0 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>

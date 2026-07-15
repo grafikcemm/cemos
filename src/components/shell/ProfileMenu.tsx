@@ -60,7 +60,7 @@ export default function ProfileMenu({ activeId, onSelect, onClose }: ProfileMenu
           background: "var(--bg-elevated)",
           border: "1px solid var(--border-strong)",
           borderRadius: "var(--radius-md)",
-          boxShadow: "var(--shadow-modal)",
+          boxShadow: "var(--shadow-lg)",
           padding: 6,
           display: "flex",
           flexDirection: "column",
