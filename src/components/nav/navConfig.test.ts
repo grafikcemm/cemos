@@ -1,130 +1,252 @@
 import { describe, it, expect } from "vitest";
 import {
-  DIRECT_TABS,
-  NAV_GROUPS,
+  PRIMARY_AREAS,
+  ADVANCED_TABS,
+  UTILITY_TABS,
+  PROFILE_TABS,
   TAB_ALIASES,
+  AREA_ALIASES,
   normalizeTabId,
-  resolveGroupForTab,
+  normalizeAreaId,
+  labelForTab,
+  resolveAreaForTab,
+  isAdvancedTab,
+  advancedMeta,
+  isUtilityTab,
+  isProfileTab,
+  highlightAreaForTab,
+  firstTabOfArea,
+  subTabsOfArea,
   seedTargetForTab,
+  allNavigableTabs,
 } from "./navConfig";
 
-describe("resolveGroupForTab", () => {
-  it("should_resolve_group_for_every_tab_in_every_group", () => {
-    for (const group of NAV_GROUPS) {
-      for (const tab of group.tabs) {
-        expect(resolveGroupForTab(tab.id)).toBe(group.id);
-      }
-    }
+/** Tüm CANLI (doğrudan render edilebilir) tab id'leri. */
+const LIVE_IDS = new Set<string>([
+  ...PRIMARY_AREAS.flatMap((a) => a.tabIds),
+  ...ADVANCED_TABS.map((t) => t.id),
+  ...UTILITY_TABS.map((t) => t.id),
+  ...PROFILE_TABS.map((t) => t.id),
+]);
+
+/** REDESIGNED-ADVANCED id'leri — asla alias'lanmaz, migration'da değişmez. */
+const ADVANCED_IDS = ["news-pool", "youtube", "flow-radar", "discovery-engine", "source-intelligence"];
+
+describe("PRIMARY_AREAS (3-görevli IA)", () => {
+  it("üç birincil alan: Bugün/Plan/Kütüphane", () => {
+    expect(PRIMARY_AREAS.map((a) => a.id)).toEqual(["bugun", "plan", "kutuphane"]);
   });
 
-  it("should_resolve_direct_tabs_to_null_group", () => {
-    // Direkt sekmeler (Bugün/Haber Havuzu/Günlük Kuyruk) grup dışında yaşar.
-    expect(resolveGroupForTab("morning")).toBeNull();
-    expect(resolveGroupForTab("news-pool")).toBeNull();
-    expect(resolveGroupForTab("daily-queue")).toBeNull();
+  it("alan sekmeleri beklenen id'ler", () => {
+    expect(subTabsOfArea("bugun").map((t) => t.id)).toEqual(["morning"]);
+    expect(subTabsOfArea("plan").map((t) => t.id)).toEqual([
+      "plan-takvim",
+      "plan-firsatlar",
+      "plan-seriler",
+    ]);
+    expect(subTabsOfArea("kutuphane").map((t) => t.id)).toEqual([
+      "lib-tumu",
+      "lib-ilham",
+      "lib-ogrenme",
+    ]);
   });
 
-  it("should_return_null_when_tab_is_unknown", () => {
-    expect(resolveGroupForTab("does-not-exist")).toBeNull();
-  });
-
-  it("should_resolve_alias_when_legacy_id_given", () => {
-    expect(resolveGroupForTab("flow")).toBe("kesif"); // flow-radar
-    expect(resolveGroupForTab("patterns")).toBe("hafiza"); // → pattern-library
-    expect(resolveGroupForTab("queue")).toBeNull(); // → daily-queue (direkt öğe)
-    expect(resolveGroupForTab("library")).toBe("hafiza"); // → viral-library
-    expect(resolveGroupForTab("learn-dashboard")).toBe("hafiza");
+  it("tüm alan+advanced+utility+profile id'leri benzersiz", () => {
+    const all = [
+      ...PRIMARY_AREAS.flatMap((a) => a.tabIds),
+      ...ADVANCED_TABS.map((t) => t.id),
+      ...UTILITY_TABS.map((t) => t.id),
+      ...PROFILE_TABS.map((t) => t.id),
+    ];
+    expect(new Set(all).size).toBe(all.length);
   });
 });
 
-describe("normalizeTabId", () => {
-  it("should_map_every_alias_to_an_existing_live_tab_or_utility", () => {
-    const allTabIds = new Set([
-      ...DIRECT_TABS.map((t) => t.id),
-      ...NAV_GROUPS.flatMap((g) => g.tabs.map((t) => t.id)),
-      "toolbox",
-      "costs",
-      "settings",
-      "learn-dashboard",
-    ]);
+describe("normalizeTabId + TAB_ALIASES", () => {
+  it("her alias canlı bir id'ye çözülür", () => {
     for (const [alias, target] of Object.entries(TAB_ALIASES)) {
       expect(normalizeTabId(alias)).toBe(target);
-      expect(allTabIds.has(target), `alias ${alias} → ${target} canlı değil`).toBe(true);
+      expect(LIVE_IDS.has(target), `alias ${alias} → ${target} canlı değil`).toBe(true);
     }
   });
 
-  it("should_never_have_alias_keys_that_shadow_live_tab_ids", () => {
-    // KRİTİK: pattern-library gibi bir id hem alias anahtarı hem canlı sekme
-    // olursa normalizeTabId gerçek ekranı gölgeler. Bu asla olmamalı.
-    const liveIds = new Set([
-      ...DIRECT_TABS.map((t) => t.id),
-      ...NAV_GROUPS.flatMap((g) => g.tabs.map((t) => t.id)),
-      "toolbox",
-      "costs",
-      "settings",
-      "learn-dashboard",
-    ]);
+  it("alias ANAHTARI asla canlı bir id'yi gölgeleyemez", () => {
     for (const alias of Object.keys(TAB_ALIASES)) {
-      expect(liveIds.has(alias), `alias anahtarı ${alias} canlı bir sekme id'sini gölgeliyor`).toBe(false);
+      expect(LIVE_IDS.has(alias), `alias anahtarı ${alias} canlı bir sekmeyi gölgeliyor`).toBe(false);
     }
   });
 
-  it("should_pass_through_when_id_has_no_alias", () => {
+  it("ABSORBED ekranlar yeni evlerine çözülür", () => {
+    expect(normalizeTabId("daily-queue")).toBe("morning");
+    expect(normalizeTabId("viral-library")).toBe("lib-tumu");
+    expect(normalizeTabId("keyword-library")).toBe("lib-tumu");
+    expect(normalizeTabId("prompt-library")).toBe("lib-tumu");
+    expect(normalizeTabId("pattern-library")).toBe("lib-tumu");
+    expect(normalizeTabId("learn-dashboard")).toBe("lib-ogrenme");
+    expect(normalizeTabId("instagram")).toBe("plan-seriler");
+  });
+
+  it("REDESIGNED-ADVANCED id'leri DEĞİŞMEDEN geçer (alias'lanmaz)", () => {
+    for (const id of ADVANCED_IDS) {
+      expect(normalizeTabId(id)).toBe(id);
+      expect(TAB_ALIASES).not.toHaveProperty(id);
+    }
+  });
+
+  it("alias'sız id kendine geçer", () => {
+    expect(normalizeTabId("plan-firsatlar")).toBe("plan-firsatlar");
     expect(normalizeTabId("settings")).toBe("settings");
   });
+});
 
-  it("should_map_retired_tabs_to_live_screens", () => {
-    // Sprint 8: "instagram" alias'ı kalktı — canlı ekran (kendine geçer).
-    expect(normalizeTabId("instagram")).toBe("instagram");
-    expect(normalizeTabId("training-center")).toBe("morning");
-    expect(normalizeTabId("weekly-learning-report")).toBe("morning");
-    expect(normalizeTabId("ai-rankings")).toBe("toolbox");
-    expect(normalizeTabId("content-intel")).toBe("discovery-engine");
+describe("resolveAreaForTab", () => {
+  it("birincil alan üyelerini çözer", () => {
+    expect(resolveAreaForTab("morning")).toBe("bugun");
+    expect(resolveAreaForTab("plan-takvim")).toBe("plan");
+    expect(resolveAreaForTab("plan-seriler")).toBe("plan");
+    expect(resolveAreaForTab("lib-tumu")).toBe("kutuphane");
+  });
+
+  it("ABSORBED alias'ları yeni alanlarına çözer", () => {
+    expect(resolveAreaForTab("daily-queue")).toBe("bugun"); // → morning
+    expect(resolveAreaForTab("viral-library")).toBe("kutuphane"); // → lib-tumu
+    expect(resolveAreaForTab("instagram")).toBe("plan"); // → plan-seriler
+  });
+
+  it("advanced/utility/profile/bilinmeyen → null", () => {
+    expect(resolveAreaForTab("flow-radar")).toBeNull(); // advanced
+    expect(resolveAreaForTab("toolbox")).toBeNull();
+    expect(resolveAreaForTab("system")).toBeNull(); // profile
+    expect(resolveAreaForTab("does-not-exist")).toBeNull();
+  });
+});
+
+describe("advanced ekranlar", () => {
+  it("5 advanced ekran, hepsi Plan ebeveyni", () => {
+    expect(ADVANCED_TABS.map((t) => t.id)).toEqual(ADVANCED_IDS);
+    for (const t of ADVANCED_TABS) expect(t.parentArea).toBe("plan");
+  });
+
+  it("isAdvancedTab + advancedMeta", () => {
+    expect(isAdvancedTab("flow-radar")).toBe(true);
+    expect(isAdvancedTab("morning")).toBe(false);
+    expect(advancedMeta("youtube")?.label).toBe("YouTube Fırsat Motoru");
+    expect(advancedMeta("morning")).toBeNull();
+  });
+
+  it("eski deep-link alias'ları advanced'e çözülür", () => {
+    expect(isAdvancedTab("flow")).toBe(true); // → flow-radar
+    expect(isAdvancedTab("sources")).toBe(true); // → source-intelligence
+    expect(isAdvancedTab("content-radar")).toBe(true); // → news-pool
+  });
+});
+
+describe("isUtilityTab / isProfileTab", () => {
+  it("Toolbox utility", () => {
+    expect(isUtilityTab("toolbox")).toBe(true);
+    expect(isUtilityTab("ai-rankings")).toBe(true); // alias → toolbox
+    expect(isUtilityTab("costs")).toBe(false); // artık profil
+  });
+
+  it("Profil yüzeyleri", () => {
+    expect(PROFILE_TABS.map((t) => t.id)).toEqual([
+      "profile-memory",
+      "profile-integrations",
+      "system",
+      "costs",
+      "settings",
+    ]);
+    expect(isProfileTab("system")).toBe(true);
+    expect(isProfileTab("costs")).toBe(true);
+    expect(isProfileTab("settings")).toBe(true);
+    expect(isProfileTab("profile-memory")).toBe(true);
+    expect(isProfileTab("toolbox")).toBe(false);
+    expect(isProfileTab("morning")).toBe(false);
+  });
+});
+
+describe("highlightAreaForTab", () => {
+  it("birincil sekme → kendi alanı", () => {
+    expect(highlightAreaForTab("morning")).toBe("bugun");
+    expect(highlightAreaForTab("plan-firsatlar")).toBe("plan");
+    expect(highlightAreaForTab("lib-ogrenme")).toBe("kutuphane");
+  });
+
+  it("advanced ekran → araştırma ebeveyni (Plan)", () => {
+    expect(highlightAreaForTab("flow-radar")).toBe("plan");
+    expect(highlightAreaForTab("news-pool")).toBe("plan");
+    expect(highlightAreaForTab("youtube")).toBe("plan");
+  });
+
+  it("utility/profile → null", () => {
+    expect(highlightAreaForTab("toolbox")).toBeNull();
+    expect(highlightAreaForTab("system")).toBeNull();
+  });
+});
+
+describe("firstTabOfArea", () => {
+  it("alanın ilk sekmesi", () => {
+    expect(firstTabOfArea("bugun")).toBe("morning");
+    expect(firstTabOfArea("plan")).toBe("plan-takvim");
+    expect(firstTabOfArea("kutuphane")).toBe("lib-tumu");
+  });
+});
+
+describe("labelForTab", () => {
+  it("etiketleri tek kaynaktan verir (alias normalize)", () => {
+    expect(labelForTab("morning")).toBe("Bugün");
+    expect(labelForTab("plan-firsatlar")).toBe("Fırsatlar");
+    expect(labelForTab("lib-tumu")).toBe("Tümü");
+    expect(labelForTab("viral-library")).toBe("Tümü"); // alias → lib-tumu
+    expect(labelForTab("system")).toBe("Sistem");
   });
 });
 
 describe("seedTargetForTab", () => {
-  it("should_seed_radar_deep_links_to_news_pool_views", () => {
+  it("radar deep-link'leri news-pool görünümlerine tohumlar", () => {
     expect(seedTargetForTab("repo-radar")).toEqual({ host: "news-pool", view: "repo" });
     expect(seedTargetForTab("content-radar")).toEqual({ host: "news-pool", view: "news" });
   });
 
-  it("should_fall_back_to_normalized_host_without_view", () => {
-    expect(seedTargetForTab("pattern-library")).toEqual({ host: "pattern-library" });
-    expect(seedTargetForTab("library")).toEqual({ host: "viral-library" });
+  it("normalize edilmiş host'a düşer (view yok)", () => {
+    expect(seedTargetForTab("pattern-library")).toEqual({ host: "lib-tumu" });
+    expect(seedTargetForTab("daily-queue")).toEqual({ host: "morning" });
+    expect(seedTargetForTab("flow-radar")).toEqual({ host: "flow-radar" });
   });
 });
 
-describe("NAV_GROUPS config (dolu-nav: bugun sekmeleri DIRECT_TABS'ta)", () => {
-  it("should_have_three_task_groups", () => {
-    expect(NAV_GROUPS.map((g) => g.id)).toEqual(["uretim", "kesif", "hafiza"]);
+describe("normalizeAreaId + AREA_ALIASES", () => {
+  it("eski alan id'leri yeni alanlara çözülür", () => {
+    expect(AREA_ALIASES).toEqual({ uretim: "plan", kesif: "plan", hafiza: "kutuphane" });
+    expect(normalizeAreaId("uretim")).toBe("plan");
+    expect(normalizeAreaId("kesif")).toBe("plan");
+    expect(normalizeAreaId("hafiza")).toBe("kutuphane");
+    expect(normalizeAreaId("plan")).toBe("plan");
+  });
+});
+
+describe("allNavigableTabs (Cmd+K)", () => {
+  it("birincil + advanced + toolbox + profil yüzeylerini içerir", () => {
+    const tabs = allNavigableTabs();
+    const ids = tabs.map((t) => t.id);
+    // Birincil
+    expect(ids).toContain("morning");
+    expect(ids).toContain("plan-firsatlar");
+    expect(ids).toContain("lib-tumu");
+    // Advanced
+    expect(ids).toContain("flow-radar");
+    expect(ids).toContain("news-pool");
+    // Utility + profil
+    expect(ids).toContain("toolbox");
+    expect(ids).toContain("system");
+    expect(ids).toContain("profile-memory");
   });
 
-  it("should_expose_bugun_tabs_as_direct_tabs_without_heading", () => {
-    expect(DIRECT_TABS.map((t) => t.id)).toEqual(["morning", "news-pool", "daily-queue"]);
-    expect(DIRECT_TABS.find((t) => t.id === "morning")?.label).toBe("Bugün");
-    expect(DIRECT_TABS.find((t) => t.id === "news-pool")?.label).toBe("Haber Havuzu");
-  });
-
-  it("should_have_no_hidden_groups", () => {
-    expect(NAV_GROUPS.filter((g) => g.hidden)).toEqual([]);
-  });
-
-  it("should_have_unique_tab_ids_when_all_groups_and_direct_tabs_combined", () => {
-    const ids = [
-      ...DIRECT_TABS.map((t) => t.id),
-      ...NAV_GROUPS.flatMap((g) => g.tabs.map((t) => t.id)),
-    ];
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("should_expose_12_grouped_and_direct_tabs", () => {
-    // (morning, news-pool, daily-queue) + (instagram, youtube) + (flow-radar,
-    // discovery-engine, source-intelligence) + (viral-library, keyword-library,
-    // prompt-library, pattern-library). learn-dashboard env-koşullu.
-    const visibleCount =
-      DIRECT_TABS.length +
-      NAV_GROUPS.filter((g) => !g.hidden).reduce((n, g) => n + g.tabs.length, 0);
-    expect(visibleCount).toBe(12);
+  it("grup etiketleri atanmış", () => {
+    const tabs = allNavigableTabs();
+    expect(tabs.find((t) => t.id === "flow-radar")?.group).toBe("Araştırma");
+    expect(tabs.find((t) => t.id === "system")?.group).toBe("Profil");
+    expect(tabs.find((t) => t.id === "toolbox")?.group).toBe("Toolbox");
+    expect(tabs.find((t) => t.id === "morning")?.group).toBe("Bugün");
   });
 });

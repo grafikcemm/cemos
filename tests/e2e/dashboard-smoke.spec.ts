@@ -10,10 +10,11 @@ test("sidebar navigation reaches Keşif Motoru", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Keşif Motoru" })).toBeVisible();
 });
 
-test("daily queue tab shows today's operation panel", async ({ page }) => {
+test("daily-queue (absorbed) Bugün alanına iner", async ({ page }) => {
+  // ABSORBED (v9): eski Günlük Kuyruk ekranı Bugün'e katlandı — ayrı yüzey yok.
   await page.goto("/");
   await selectTab(page, "daily-queue");
-  await expect(page.getByText("Bugünkü Operasyon")).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Bugün", { exact: true })).toBeVisible();
 });
 
 test("viral radar shows placeholders, never a false zero, while loading (TRAN-KPI-1.3)", async ({
@@ -89,11 +90,12 @@ test("settings tab renders health cards and the learning status card", async ({ 
 
 // ── Deep-link'ler: yalnız URL değil DOĞRU BAŞLIK; persisted activeTab
 //    FARKLIYKEN de route'un sekmesi kazanmalı. ────────────────────────────
+// Legacy deep-link'ler yeni evlerine iner (ABSORBED) ya da advanced kalır.
 const DEEP_LINKS: { path: string; crumb: string }[] = [
-  { path: "/dashboard/daily-queue", crumb: "Günlük Kuyruk" },
-  { path: "/dashboard/flow-radar", crumb: "Viral Radar" },
-  { path: "/dashboard/pattern-library", crumb: "Pattern Kütüphanesi" },
-  { path: "/dashboard/source-intelligence", crumb: "X Hesabı Kaynakları" },
+  { path: "/dashboard/daily-queue", crumb: "Bugün" }, // absorbed → morning
+  { path: "/dashboard/flow-radar", crumb: "Viral Radar" }, // advanced
+  { path: "/dashboard/pattern-library", crumb: "Tümü" }, // absorbed → lib-tumu
+  { path: "/dashboard/source-intelligence", crumb: "X Hesabı Kaynakları" }, // advanced
 ];
 
 for (const { path, crumb } of DEEP_LINKS) {
@@ -103,7 +105,7 @@ for (const { path, crumb } of DEEP_LINKS) {
     // Önce farklı bir sekmeye git → activeTab persist edilsin.
     await page.goto("/");
     await selectUtility(page, "costs");
-    await expect(page.getByRole("banner").getByText("Maliyetler")).toBeVisible();
+    await expect(page.getByRole("banner").getByText("Maliyet", { exact: true })).toBeVisible();
 
     // Deep-link route persisted state'i ezmeli (seed-once davranışı).
     await page.goto(path);

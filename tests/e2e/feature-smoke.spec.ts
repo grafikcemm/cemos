@@ -31,24 +31,12 @@ test("morning dashboard renders the viral news section behind the fold toggle", 
   await expect(page.getByText("Viral Haber Öne Çıkanlar")).toBeVisible({ timeout: 20_000 });
 });
 
-test("toolbox is reachable from the Sistem group in the full sidebar", async ({ page }) => {
+test("toolbox utility olarak sidebar'dan erişilebilir ve boş durumu gösterir", async ({ page }) => {
   await page.route("**/api/toolbox**", (route) =>
     route.fulfill({ json: { success: true, items: [] } }),
   );
 
   await page.goto("/");
-  // Dolu sidebar: en üstte kategorisiz direkt öğeler + grup altı sayfalar.
-  for (const id of ["morning", "news-pool", "daily-queue", "instagram", "flow-radar", "viral-library"]) {
-    await expect(page.getByTestId(`sidebar-tab-${id}`)).toHaveCount(1);
-  }
-  // Grup başlıkları eyebrow olarak görünür; workspace sub-nav artık yok.
-  // ("Sistem" hem grup başlığı hem utility sekmesi — first() strict-mode'u aşar.)
-  const sidebar = page.locator(".app-sidebar");
-  for (const label of ["Üretim", "Keşif", "Hafıza", "Sistem"]) {
-    await expect(sidebar.getByText(label, { exact: true }).first()).toBeVisible();
-  }
-  await expect(page.locator('[data-testid^="subnav-tab-"]')).toHaveCount(0);
-
   await selectUtility(page, "toolbox");
 
   await expect(page.getByRole("heading", { name: "Toolbox" })).toBeVisible();

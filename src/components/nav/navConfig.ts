@@ -1,232 +1,168 @@
 /**
  * CemOS nav yapılandırması — tek doğruluk kaynağı.
- * Saf TS: React yok; Sidebar, AppShell, vitest ve e2e helper aynı modülü kullanır.
+ * Saf TS: React yok; Sidebar, AppShell, ProfileMenu, MobileNav, CommandPalette,
+ * vitest ve e2e helper aynı modülü kullanır.
  *
- * IA v3 (2026-07, dark dashboard): görev-bazlı alanlar — Bugün / Üretim /
- * Keşif / Hafıza + Sistem utility kümesi. Tab ID'LERİ SABİT (persist edilen
- * activeTab bozulmaz); yalnız gruplama/etiket değişti. Eski alanlar ve
- * kaldırılan sekmeler TAB_ALIASES ile canlı id'lere iner.
+ * IA (rebuild, 2026-07): üç göreve indirgenmiş ana navigasyon —
+ * **Bugün · Plan · Kütüphane** + Toolbox (utility) + Profil (menü). Utility ve
+ * ayar yüzeyleri ana rail'de DEĞİL; Profil menüsünde toplanır (05 §A6).
+ *
+ * İki ekran sınıfı (04 planı):
+ *  - ABSORBED: eski ekran kullanıcı erişiminden çıkar, id'si yeni eve alias'lanır
+ *    (`daily-queue`→morning, `viral-library`…→lib-tumu, `instagram`→plan-seriler…).
+ *  - REDESIGNED-ADVANCED: `news-pool`/`youtube`/`flow-radar`/`discovery-engine`/
+ *    `source-intelligence` — Fırsatlar araştırma detayı; **alias'lanMAZ**, canlı
+ *    id olarak kalır, store v9 migration bunlara dokunmaz.
+ *
+ * Legacy invariant: localStorage anahtarı "xagent-store" değişmez.
  */
 
 export type NavTab = { readonly id: string; readonly label: string };
 
-/** "bugun" grubu artık render edilmez (sekmeleri DIRECT_TABS'a taşındı) ama
- *  alan katmanı (PRIMARY_AREAS/mobil) hâlâ "bugun" id'sini kullanır. */
-export type NavGroupId = "bugun" | "uretim" | "kesif" | "hafiza";
-
-export type NavGroup = {
-  readonly id: NavGroupId;
-  readonly label: string;
-  readonly tabs: readonly NavTab[];
-  /** Tanımlı ama render edilmez. */
-  readonly hidden?: boolean;
-};
-
-/** Grup dışında, sidebar'ın EN ÜSTÜNDE kategori başlığı OLMADAN duran
- *  sekmeler (dolu-nav reversiyonu, 2026-07-11): Bugün + Haber Havuzu +
- *  Günlük Kuyruk. ID'ler SABİT — yalnız yerleşim/etiket değişti. */
-export const DIRECT_TABS: readonly NavTab[] = [
-  { id: "morning", label: "Bugün" },
-  { id: "news-pool", label: "Haber Havuzu" },
-  { id: "daily-queue", label: "Günlük Kuyruk" },
-];
-
-export const NAV_GROUPS: readonly NavGroup[] = [
-  {
-    // Üretim: platform üretim/planlama yüzeyleri (X üretimi Bugün'de yaşar).
-    id: "uretim",
-    label: "Üretim",
-    tabs: [
-      { id: "instagram", label: "Instagram" },
-      { id: "youtube", label: "YouTube Fırsat Motoru" },
-    ],
-  },
-  {
-    // Keşif: sinyal toplama — radar, keşif motoru, kaynak istihbaratı.
-    id: "kesif",
-    label: "Keşif",
-    tabs: [
-      { id: "flow-radar", label: "Viral Radar" },
-      { id: "discovery-engine", label: "Keşif Motoru" },
-      { id: "source-intelligence", label: "X Hesabı Kaynakları" },
-    ],
-  },
-  {
-    // Hafıza: kalıcı bilgi — kütüphaneler + öğrenme.
-    id: "hafiza",
-    label: "Hafıza",
-    tabs: [
-      { id: "viral-library", label: "Viral Kütüphane" },
-      { id: "keyword-library", label: "Anahtar Kelime Kütüphanesi" },
-      { id: "prompt-library", label: "Prompt Kütüphanesi" },
-      { id: "pattern-library", label: "Pattern Kütüphanesi" },
-    ],
-  },
-];
-
-/**
- * XAgentApp render alias'ları + persist edilmiş legacy activeTab değerleri.
- * Her eski id canlı bir ekrana iner — ölü sekme yok. Alias ANAHTARLARI asla
- * canlı tab id'leriyle çakışamaz (test garantisi: navConfig.test.ts).
- */
-export const TAB_ALIASES: Readonly<Record<string, string>> = {
-  flow: "flow-radar",
-  queue: "daily-queue",
-  sources: "source-intelligence",
-  // Kütüphane host (library) dağıldı: Tweetler → Viral Kütüphane (Twitter),
-  // Promptlar/Patternler → Kütüphane grubunda bağımsız sekmeler.
-  library: "viral-library",
-  patterns: "pattern-library",
-  "prompt-kutuphanesi": "prompt-library",
-  // Radar host = Haberler (news-pool); İçerik görünümü kaldırıldı.
-  "content-radar": "news-pool",
-  "repo-radar": "news-pool",
-  // İçerik Zekası Keşif Motoru'na eridi.
-  "content-intel": "discovery-engine",
-  // Kaldırılan sekmeler → en yakın canlı ekran.
-  "ai-rankings": "toolbox",
-  "weekly-learning-report": "morning",
-  "training-center": "morning",
-  // NOT: "instagram" alias'ı kaldırıldı — Sprint 8'de canlı ekran oldu
-  // (persist edilmiş legacy activeTab="instagram" artık doğrudan yeni
-  // Instagram alanına iner; alias anahtarı canlı id ile çakışamaz kuralı).
-};
-
-/** Folded/legacy sekme id → host + alt-görünüm (deep-link seeding için). */
-export function seedTargetForTab(tabId: string): { host: string; view?: string } {
-  const map: Record<string, { host: string; view: string }> = {
-    "content-radar": { host: "news-pool", view: "news" },
-    "repo-radar": { host: "news-pool", view: "repo" },
-  };
-  return map[tabId] ?? { host: normalizeTabId(tabId) };
-}
-
-export function normalizeTabId(tabId: string): string {
-  return TAB_ALIASES[tabId] ?? tabId;
-}
-
-/** Sekmenin ait olduğu grup; direkt sekme veya bilinmeyen id → null. */
-export function resolveGroupForTab(tabId: string): NavGroupId | null {
-  const id = normalizeTabId(tabId);
-  if (id === "learn-dashboard") return "hafiza";
-  for (const group of NAV_GROUPS) {
-    if (group.tabs.some((tab) => tab.id === id)) return group.id;
-  }
-  return null;
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
- * Birincil alan katmanı (sol sidebar IA).
- *
- * IA v2'de alanlar ile gruplar bire bir örtüşür; alan katmanı `morning`
- * direkt sekmesini Bugün grubuna ve koşullu `learn-dashboard`'ı Youtube
- * grubuna projekte eder. Yeni id YOK → store migration yalnız alias'lar için.
- * ──────────────────────────────────────────────────────────────────────── */
-
-export type PrimaryAreaId = NavGroupId;
+/** Üç birincil görev alanı. */
+export type PrimaryAreaId = "bugun" | "plan" | "kutuphane";
 
 export type PrimaryArea = {
   readonly id: PrimaryAreaId;
   readonly label: string;
   /** lucide-react ikon adı. */
   readonly icon: string;
+  /** Alanın alt-sekmeleri (tek sekmeli alan alt-nav göstermez). */
   readonly tabIds: readonly string[];
 };
 
 export const PRIMARY_AREAS: readonly PrimaryArea[] = [
+  { id: "bugun", label: "Bugün", icon: "Sunrise", tabIds: ["morning"] },
   {
-    id: "bugun",
-    label: "Bugün",
-    icon: "Sunrise",
-    tabIds: ["morning", "daily-queue", "news-pool"],
+    id: "plan",
+    label: "Plan",
+    icon: "CalendarRange",
+    tabIds: ["plan-takvim", "plan-firsatlar", "plan-seriler"],
   },
   {
-    id: "uretim",
-    label: "Üretim",
-    icon: "Send",
-    tabIds: ["instagram", "youtube"],
-  },
-  {
-    id: "kesif",
-    label: "Keşif",
-    icon: "Radar",
-    tabIds: ["flow-radar", "discovery-engine", "source-intelligence"],
-  },
-  {
-    id: "hafiza",
-    label: "Hafıza",
+    id: "kutuphane",
+    label: "Kütüphane",
     icon: "Library",
-    // Youtube Öğrenme Kütüphanesi (learn-dashboard) yalnız
-    // NEXT_PUBLIC_LEARN_ENABLED=true iken görünür (build-time inline).
-    tabIds: [
-      "viral-library",
-      "keyword-library",
-      "prompt-library",
-      "pattern-library",
-      ...(process.env.NEXT_PUBLIC_LEARN_ENABLED === "true" ? ["learn-dashboard"] : []),
-    ],
+    tabIds: ["lib-tumu", "lib-ilham", "lib-ogrenme"],
   },
 ];
 
-/* ──────────────────────────────────────────────────────────────────────────
- * Yardımcı (utility) sekmeler — birincil alanların DIŞINDA, sol sidebar
- * "Sistem" kümesinde yaşar (Toolbox / Maliyetler / Sistem / Ayarlar).
- * resolveAreaForTab bunlar için null döner (kasıtlı); shell isUtilityTab ile ele alır.
- * ──────────────────────────────────────────────────────────────────────── */
-
-export type UtilityTab = {
+/**
+ * REDESIGNED-ADVANCED araştırma ekranları — ana nav DIŞINDA. Fırsatlar'dan ve
+ * Cmd+K'dan açılır; sidebar highlight'ı için `parentArea`ya (Plan) bağlanır.
+ * id'ler CANLI ve SABİT — alias'lanmaz, migration'da değişmez.
+ */
+export type AdvancedTab = {
   readonly id: string;
   readonly label: string;
-  /** lucide-react ikon adı. */
-  readonly icon: string;
+  readonly parentArea: PrimaryAreaId;
 };
+
+export const ADVANCED_TABS: readonly AdvancedTab[] = [
+  { id: "news-pool", label: "Haber Havuzu", parentArea: "plan" },
+  { id: "youtube", label: "YouTube Fırsat Motoru", parentArea: "plan" },
+  { id: "flow-radar", label: "Viral Radar", parentArea: "plan" },
+  { id: "discovery-engine", label: "Keşif Motoru", parentArea: "plan" },
+  { id: "source-intelligence", label: "X Hesabı Kaynakları", parentArea: "plan" },
+];
+
+/** Yardımcı (utility) — ana alanlar altında ayrı, küçük. Yalnız Toolbox. */
+export type UtilityTab = { readonly id: string; readonly label: string; readonly icon: string };
 
 export const UTILITY_TABS: readonly UtilityTab[] = [
   { id: "toolbox", label: "Toolbox", icon: "Wrench" },
-  { id: "costs", label: "Maliyetler", icon: "DollarSign" },
-  // Sprint 9: dağınık sağlık sinyalleri tek panede (worker/cron/pipeline/KPI).
+];
+
+/** Profil menüsü yüzeyleri (05 §A6) — utility/system/settings buraya taşındı. */
+export type ProfileTab = { readonly id: string; readonly label: string; readonly icon: string };
+
+export const PROFILE_TABS: readonly ProfileTab[] = [
+  { id: "profile-memory", label: "CemOS'un bildikleri", icon: "Brain" },
+  { id: "profile-integrations", label: "Entegrasyonlar", icon: "Plug" },
   { id: "system", label: "Sistem", icon: "Activity" },
+  { id: "costs", label: "Maliyet", icon: "DollarSign" },
   { id: "settings", label: "Ayarlar", icon: "Settings" },
 ];
 
-/** Sekme yardımcı kümeye mi ait? (alias normalize edilir) */
-export function isUtilityTab(tabId: string): boolean {
-  const id = normalizeTabId(tabId);
-  return UTILITY_TABS.some((t) => t.id === id);
-}
-
-/** Tüm sekmelerin id→label sözlüğü (DIRECT_TABS + NAV_GROUPS + utility tek kaynak). */
-const TAB_LABELS: Readonly<Record<string, string>> = (() => {
-  const map: Record<string, string> = {};
-  for (const tab of DIRECT_TABS) map[tab.id] = tab.label;
-  for (const group of NAV_GROUPS) {
-    for (const tab of group.tabs) map[tab.id] = tab.label;
-  }
-  for (const tab of UTILITY_TABS) map[tab.id] = tab.label;
-  // Youtube Öğrenme Kütüphanesi — NAV_GROUPS dışında yaşar (koşullu projeksiyon).
-  map["learn-dashboard"] = "Youtube Öğrenme Kütüphanesi";
-  return map;
-})();
+/**
+ * Eski ALAN id'leri → yeni alan (savunmacı: persist edilmiş/deep-link alan
+ * referansları için). activeTab TAB id taşır, ALAN id değil — bu yüzden pratikte
+ * yalnız ileri-uyumluluk; testle sabitlenir.
+ */
+export const AREA_ALIASES: Readonly<Record<string, PrimaryAreaId>> = {
+  uretim: "plan",
+  kesif: "plan",
+  hafiza: "kutuphane",
+};
 
 /**
- * Komut paleti (Cmd/Ctrl-K) için gezilebilir tüm sekmeler — alan etiketiyle.
- * Tek kaynak: PRIMARY_AREAS + UTILITY_TABS (+ koşullu learn-dashboard zaten
- * PRIMARY_AREAS projeksiyonunda).
+ * Persist edilmiş/deep-link legacy activeTab → canlı ekran. ABSORBED ekranlar
+ * yeni evlerine, eski deep-link id'leri güncel hedeflerine iner. Alias
+ * ANAHTARLARI asla canlı bir tab id'sini gölgeleyemez (test garantisi).
+ * REDESIGNED-ADVANCED id'leri (news-pool/youtube/flow-radar/discovery-engine/
+ * source-intelligence) burada HEDEF olabilir ama ANAHTAR değildir → dokunulmaz.
  */
-export function allNavigableTabs(): { id: string; label: string; group: string }[] {
-  const out: { id: string; label: string; group: string }[] = [];
-  for (const area of PRIMARY_AREAS) {
-    for (const id of area.tabIds) {
-      out.push({ id, label: TAB_LABELS[id] ?? id, group: area.label });
-    }
-  }
-  for (const tab of UTILITY_TABS) {
-    out.push({ id: tab.id, label: tab.label, group: "Sistem" });
-  }
-  return out;
+export const TAB_ALIASES: Readonly<Record<string, string>> = {
+  // ── ABSORBED (rebuild v9): eski ekranlar yeni evlerine ──
+  "daily-queue": "morning",
+  "viral-library": "lib-tumu",
+  "keyword-library": "lib-tumu",
+  "prompt-library": "lib-tumu",
+  "pattern-library": "lib-tumu",
+  "learn-dashboard": "lib-ogrenme",
+  instagram: "plan-seriler",
+  // ── Eski deep-link / kaldırılmış id'ler ──
+  flow: "flow-radar",
+  queue: "morning", // eski daily-queue absorbe edildi
+  sources: "source-intelligence",
+  library: "lib-tumu",
+  patterns: "lib-tumu",
+  "prompt-kutuphanesi": "lib-tumu",
+  "content-radar": "news-pool",
+  "repo-radar": "news-pool",
+  "content-intel": "discovery-engine",
+  "ai-rankings": "toolbox",
+  "weekly-learning-report": "morning",
+  "training-center": "morning",
+};
+
+/** Tüm gezilebilir sekmelerin id→etiket sözlüğü (tek kaynak). */
+const TAB_LABELS: Readonly<Record<string, string>> = {
+  morning: "Bugün",
+  "plan-takvim": "Takvim",
+  "plan-firsatlar": "Fırsatlar",
+  "plan-seriler": "Seriler",
+  "lib-tumu": "Tümü",
+  "lib-ilham": "İlham",
+  "lib-ogrenme": "Öğrenme",
+  "news-pool": "Haber Havuzu",
+  youtube: "YouTube Fırsat Motoru",
+  "flow-radar": "Viral Radar",
+  "discovery-engine": "Keşif Motoru",
+  "source-intelligence": "X Hesabı Kaynakları",
+  toolbox: "Toolbox",
+  "profile-memory": "CemOS'un bildikleri",
+  "profile-integrations": "Entegrasyonlar",
+  system: "Sistem",
+  costs: "Maliyet",
+  settings: "Ayarlar",
+};
+
+export function normalizeTabId(tabId: string): string {
+  return TAB_ALIASES[tabId] ?? tabId;
 }
 
-/** Sekmenin ait olduğu birincil alan; bilinmeyen/eşleşmeyen id → null. */
+export function normalizeAreaId(areaId: string): string {
+  return AREA_ALIASES[areaId] ?? areaId;
+}
+
+/** Sekmenin (alias normalize edilmiş) insan-okur etiketi. */
+export function labelForTab(tabId: string): string {
+  const id = normalizeTabId(tabId);
+  return TAB_LABELS[id] ?? id;
+}
+
+/** Sekmenin ait olduğu birincil alan; advanced/utility/profile/bilinmeyen → null. */
 export function resolveAreaForTab(tabId: string): PrimaryAreaId | null {
   const id = normalizeTabId(tabId);
   for (const area of PRIMARY_AREAS) {
@@ -235,15 +171,79 @@ export function resolveAreaForTab(tabId: string): PrimaryAreaId | null {
   return null;
 }
 
+/** Advanced araştırma ekranı mı? */
+export function isAdvancedTab(tabId: string): boolean {
+  const id = normalizeTabId(tabId);
+  return ADVANCED_TABS.some((t) => t.id === id);
+}
+
+export function advancedMeta(tabId: string): AdvancedTab | null {
+  const id = normalizeTabId(tabId);
+  return ADVANCED_TABS.find((t) => t.id === id) ?? null;
+}
+
+/** Sekme yardımcı kümeye (Toolbox) mi ait? */
+export function isUtilityTab(tabId: string): boolean {
+  const id = normalizeTabId(tabId);
+  return UTILITY_TABS.some((t) => t.id === id);
+}
+
+/** Sekme Profil yüzeyi mi? */
+export function isProfileTab(tabId: string): boolean {
+  const id = normalizeTabId(tabId);
+  return PROFILE_TABS.some((t) => t.id === id);
+}
+
+export function profileMeta(tabId: string): ProfileTab | null {
+  const id = normalizeTabId(tabId);
+  return PROFILE_TABS.find((t) => t.id === id) ?? null;
+}
+
+/**
+ * Sidebar'da hangi birincil alanın yanacağı: birincil sekme → kendi alanı;
+ * advanced ekran → araştırma ebeveyni (Plan); utility/profile → null.
+ */
+export function highlightAreaForTab(tabId: string): PrimaryAreaId | null {
+  const primary = resolveAreaForTab(tabId);
+  if (primary) return primary;
+  return advancedMeta(tabId)?.parentArea ?? null;
+}
+
 /** Alanın ilk (varsayılan) sekme id'si. */
 export function firstTabOfArea(areaId: PrimaryAreaId): string {
   const area = PRIMARY_AREAS.find((a) => a.id === areaId);
-  return area ? area.tabIds[0] : DIRECT_TABS[0].id;
+  return area ? area.tabIds[0] : "morning";
 }
 
-/** Alanın ikincil sekmeleri (SubNav için), etiketler tek-kaynaktan. */
+/** Alanın alt-sekmeleri (SubNav için), etiketler tek-kaynaktan. */
 export function subTabsOfArea(areaId: PrimaryAreaId): { id: string; label: string }[] {
   const area = PRIMARY_AREAS.find((a) => a.id === areaId);
   if (!area) return [];
-  return area.tabIds.map((id) => ({ id, label: TAB_LABELS[id] ?? id }));
+  return area.tabIds.map((id) => ({ id, label: labelForTab(id) }));
+}
+
+/** Folded/legacy deep-link id → host + alt-görünüm (standalone route seeding). */
+export function seedTargetForTab(tabId: string): { host: string; view?: string } {
+  const map: Record<string, { host: string; view: string }> = {
+    "content-radar": { host: "news-pool", view: "news" },
+    "repo-radar": { host: "news-pool", view: "repo" },
+  };
+  return map[tabId] ?? { host: normalizeTabId(tabId) };
+}
+
+/**
+ * Komut paleti (Cmd/Ctrl-K) için gezilebilir tüm sekmeler — grup etiketiyle.
+ * Birincil alanlar + advanced araştırma + Toolbox + Profil yüzeyleri.
+ */
+export function allNavigableTabs(): { id: string; label: string; group: string }[] {
+  const out: { id: string; label: string; group: string }[] = [];
+  for (const area of PRIMARY_AREAS) {
+    for (const id of area.tabIds) {
+      out.push({ id, label: labelForTab(id), group: area.label });
+    }
+  }
+  for (const t of ADVANCED_TABS) out.push({ id: t.id, label: t.label, group: "Araştırma" });
+  for (const t of UTILITY_TABS) out.push({ id: t.id, label: t.label, group: "Toolbox" });
+  for (const t of PROFILE_TABS) out.push({ id: t.id, label: t.label, group: "Profil" });
+  return out;
 }

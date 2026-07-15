@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { XAGENT_STORE_VERSION, migrateXAgentStore } from "./migrations";
+import { XAGENT_STORE_VERSION, XAGENT_STORE_NAME, migrateXAgentStore } from "./migrations";
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -356,7 +356,7 @@ export const useXAgentStore = create<XAgentStore>()(
       monthlyResetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
     }),
     {
-      name: "xagent-store",
+      name: XAGENT_STORE_NAME, // LEGACY INVARIANT: "xagent-store" (migrations.ts)
       version: XAGENT_STORE_VERSION,
       migrate: migrateXAgentStore,
       partialize: (state) => ({

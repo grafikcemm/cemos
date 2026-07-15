@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useXAgentStore } from "@/store/xagent";
 import AutomationManager from "@/components/agent/AutomationManager";
 import {
   PRIMARY_AREAS,
-  UTILITY_TABS,
+  PROFILE_TABS,
+  advancedMeta,
   firstTabOfArea,
+  highlightAreaForTab,
+  isAdvancedTab,
+  isProfileTab,
   isUtilityTab,
+  labelForTab,
   normalizeTabId,
+  profileMeta,
   resolveAreaForTab,
   seedTargetForTab,
   subTabsOfArea,
@@ -18,30 +24,26 @@ import Sidebar from "./Sidebar";
 import TopStrip from "./TopStrip";
 import CommandPalette from "./CommandPalette";
 import MobileNav from "./MobileNav";
+import SubNav from "@/components/ui/SubNav";
 import { renderScreen } from "./screenRegistry";
-
-const COLLAPSE_KEY = "cemos-ui-collapsed";
 
 type AppShellProps = {
   /** Standalone /dashboard/* routes seed their tab once on mount. */
   initialTab?: string;
 };
 
+/**
+ * Uygulama kabuğu (05 §A1) — 3 birincil alan + Toolbox (utility) + Profil menü.
+ * Collapse yok (06 §7). Aktif tab dört sınıftan biri: birincil alan sekmesi,
+ * REDESIGNED-ADVANCED araştırma ekranı, Toolbox, veya Profil yüzeyi.
+ */
 export default function AppShell({ initialTab }: AppShellProps) {
   const activeTab = useXAgentStore((s) => s.activeTab);
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
 
-  const [collapsed, setCollapsed] = useState(false);
   const lastTabByArea = useRef<Partial<Record<PrimaryAreaId, string>>>({});
-  const lastUtility = useRef<string>("system");
   const seeded = useRef(false);
-
-  // Restore collapse preference (separate key — never touches "xagent-store").
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
-  }, []);
 
   // Standalone route seeding: force the route's tab once. Folded deep-link id'leri
   // (content-radar/repo-radar…) host + alt-görünüme yönlendirilir.
@@ -54,113 +56,107 @@ export default function AppShell({ initialTab }: AppShellProps) {
     }
   }, [initialTab, setActiveTab, setRadarView]);
 
-  // Unknown persisted id (ne birincil alan ne utility) → morning'e düş; shell asla alansız render etmez.
+  // Bilinmeyen persist id (hiçbir sınıfa uymuyor) → morning; shell asla boş render etmez.
   useEffect(() => {
-    if (resolveAreaForTab(activeTab) === null && !isUtilityTab(activeTab)) setActiveTab("morning");
+    const known =
+      resolveAreaForTab(activeTab) !== null ||
+      isAdvancedTab(activeTab) ||
+      isUtilityTab(activeTab) ||
+      isProfileTab(activeTab);
+    if (!known) setActiveTab("morning");
   }, [activeTab, setActiveTab]);
 
   const normalizedTab = normalizeTabId(activeTab);
-  const utilityActive = isUtilityTab(activeTab);
-  const area: PrimaryAreaId | null = utilityActive ? null : resolveAreaForTab(activeTab) ?? "bugun";
-  const areaMeta = area ? PRIMARY_AREAS.find((a) => a.id === area) : null;
-  const utilityMeta = utilityActive ? UTILITY_TABS.find((u) => u.id === normalizedTab) : null;
-  const activeUtility = utilityActive ? normalizedTab : null;
+  const toolboxActive = isUtilityTab(activeTab);
+  const profileActive = isProfileTab(activeTab);
+  const highlightArea = highlightAreaForTab(activeTab);
+  const primaryArea = resolveAreaForTab(activeTab); // yalnız birincil alan üyeleri
+  const advanced = advancedMeta(activeTab);
 
-  // Breadcrumb etiketi: aktif alanın alt sayfaları / Sistem kümesi (yalnız
-  // TopStrip için — sayfa geçişi artık dolu sidebar'da yaşar).
-  const subItems = utilityActive
-    ? UTILITY_TABS.map((t) => ({ id: t.id, label: t.label }))
-    : area
-      ? subTabsOfArea(area)
-      : [];
-  const activeSubLabel = subItems.find((t) => t.id === normalizedTab)?.label;
+  const activeProfileId = profileActive ? normalizedTab : null;
 
-  // Remember the last sub-tab visited per area / utility for nicer switching.
+  // Aktif birincil alanın son ziyaret edilen alt-sekmesini hatırla.
   useEffect(() => {
-    if (area) lastTabByArea.current[area] = normalizedTab;
-    if (utilityActive) lastUtility.current = normalizedTab;
-  }, [area, normalizedTab, utilityActive]);
+    if (primaryArea) lastTabByArea.current[primaryArea] = normalizedTab;
+  }, [primaryArea, normalizedTab]);
+
+  // Workspace alt-navigasyonu: Plan/Kütüphane → alan sekmeleri; Profil → 5 yüzey.
+  const areaSubTabs = primaryArea ? subTabsOfArea(primaryArea) : [];
+  const profileSubTabs = PROFILE_TABS.map((t) => ({ id: t.id, label: t.label }));
+
+  // Breadcrumb (TopStrip).
+  let areaLabel = "Bugün";
+  let subTabLabel: string | undefined;
+  if (profileActive) {
+    areaLabel = "Profil";
+    subTabLabel = profileMeta(activeTab)?.label;
+  } else if (toolboxActive) {
+    areaLabel = "Toolbox";
+  } else if (advanced) {
+    areaLabel = PRIMARY_AREAS.find((a) => a.id === advanced.parentArea)?.label ?? "Plan";
+    subTabLabel = advanced.label;
+  } else if (primaryArea) {
+    areaLabel = PRIMARY_AREAS.find((a) => a.id === primaryArea)?.label ?? "Bugün";
+    subTabLabel = areaSubTabs.length > 1 ? labelForTab(normalizedTab) : undefined;
+  }
 
   const handleSelectArea = (areaId: PrimaryAreaId) => {
-    const target = lastTabByArea.current[areaId] ?? firstTabOfArea(areaId);
-    setActiveTab(target);
-  };
-
-  const handleSelectUtility = (tabId: string) => {
-    // Sidebar "Sistem" alanı → son ziyaret edilen utility sayfası.
-    setActiveTab(tabId === "system" && lastUtility.current ? lastUtility.current : tabId);
-  };
-
-  const toggleCollapse = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
-      }
-      return next;
-    });
+    setActiveTab(lastTabByArea.current[areaId] ?? firstTabOfArea(areaId));
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
-      {/* Full-width kritik uyarı bandı — flex-row'un DIŞINDA. */}
       <AutomationManager />
-
-      {/* Cmd/Ctrl-K komut paleti: klavye-öncelikli ekran atlama. */}
       <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
-        {/* Desktop sidebar — dolu nav: direkt öğeler + grup altı sayfalar */}
         <div className="app-sidebar-desktop">
           <Sidebar
-            activeArea={area}
+            highlightArea={highlightArea}
+            toolboxActive={toolboxActive}
+            profileActive={profileActive}
+            activeProfileId={activeProfileId}
             onSelectArea={handleSelectArea}
-            activeTab={normalizedTab}
-            onSelectTab={setActiveTab}
-            activeUtility={activeUtility}
-            onSelectUtility={handleSelectUtility}
-            collapsed={collapsed}
-            onToggleCollapse={toggleCollapse}
+            onSelectToolbox={() => setActiveTab("toolbox")}
+            onSelectProfileTab={setActiveTab}
           />
         </div>
 
         <div
           className="app-main app-workspace"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
+          style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
         >
-          <TopStrip
-            areaLabel={utilityMeta ? "Sistem" : areaMeta?.label ?? "Bugün"}
-            subTabLabel={activeSubLabel}
-          />
+          <TopStrip areaLabel={areaLabel} subTabLabel={subTabLabel} />
           <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
             <div
               className="app-content"
               style={{
                 width: "100%",
-                margin: 0,
+                maxWidth: "var(--content-max)",
+                marginInline: "auto",
                 padding: "var(--space-page-top) var(--space-page-x) 48px",
                 minWidth: 0,
               }}
             >
+              {profileActive ? (
+                <SubNav items={profileSubTabs} activeId={normalizedTab} onSelect={setActiveTab} />
+              ) : areaSubTabs.length > 1 ? (
+                <SubNav items={areaSubTabs} activeId={normalizedTab} onSelect={setActiveTab} />
+              ) : null}
               {renderScreen(activeTab)}
             </div>
           </main>
         </div>
       </div>
 
-      {/* Mobil: 5 alanlı bottom nav + alt-sayfa sheet (drawer YOK) */}
       <MobileNav
-        activeArea={area}
-        activeUtility={activeUtility}
+        highlightArea={highlightArea}
+        profileActive={profileActive}
         activeTab={normalizedTab}
+        activeProfileId={activeProfileId}
         onSelectArea={handleSelectArea}
         onSelectTab={setActiveTab}
-        onSelectUtility={setActiveTab}
+        onSelectProfileTab={setActiveTab}
       />
     </div>
   );

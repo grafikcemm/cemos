@@ -66,3 +66,15 @@
 
 ### ADR-018 — WCAG kontrast düzeltmesi (gerçek hesap)
 **2026-07-15.** Faz 0 06-spec'teki bazı kontrast değerleri el-hesabı hatalıydı (text-muted 4.6:1 iddia → gerçek 3.39:1; warn chip 3.29:1; ok chip 4.30:1 — 12-16px normal metinde AA-altı). **Düzeltme (gerçek WCAG 2.1 relative-luminance):** `--text-muted` `#8A857D`→**`#726C64`** (bg-base'de **4.80:1** AA); ok chip metni `#256B44` (tint'te **5.50:1**); warn chip metni `#8A5A08` (tint'te **5.05:1**); err chip `#B3261E` (**5.33:1**, korunur). `--text-faint` yalnız dekoratif/disabled — anlam taşıyan metinde KULLANILMAZ. Accent `#A8481F` korunur (bg **5.42:1**, beyaz metin **5.86:1**). Tam tablo `06-DESIGN-SYSTEM-SPEC.md` §2. **Faz 1A:** `theme-tokens.test.ts` gerçek kontrast oranını otomatik doğrular (metin/zemin çiftleri ≥4.5:1).
+
+### ADR-019 — Faz 1B: 3-görevli shell + store v9 + sınıflandırma uygulaması
+**2026-07-15.** IA rebuild kod düzeyinde uygulandı.
+1. **3 birincil alan:** `PRIMARY_AREAS` = Bugün[morning] · Plan[plan-takvim/plan-firsatlar/plan-seriler] · Kütüphane[lib-tumu/lib-ilham/lib-ogrenme]. Alt-navigasyon workspace'te `SubNav` (Plan/Kütüphane çok-sekmeli; Bugün tek-sekme → subnav yok).
+2. **Toolbox = utility, ayrı;** `UTILITY_TABS=[toolbox]`. **costs/system/settings ana navdan Profil menüsüne taşındı** → `PROFILE_TABS` = CemOS'un bildikleri(profile-memory) · Entegrasyonlar(profile-integrations) · Sistem · Maliyet · Ayarlar. Profil = sidebar tetikleyici → yukarı açılan `ProfileMenu` popover (5 yüzey + Çıkış); Profil yüzeyi aktifken workspace'te 5-yüzey `SubNav`.
+3. **Collapse KALDIRILDI** (06 §7: "3 item icon-rail'i hak etmez" + onaylı mockup'larda collapse kontrolü yok). Desktop sidebar sabit 232px; ≤640 bottom-nav'a devreder. Bilinçli sadeleştirme — regresyon değil; gerekirse önemsiz eklenir. `COLLAPSE_KEY`/collapsed state silindi.
+4. **ABSORBED (TAB_ALIASES + v9 migration):** `daily-queue`→morning, `viral/keyword/prompt/pattern-library`→lib-tumu, `learn-dashboard`→lib-ogrenme, `instagram`→plan-seriler. Eski ekran bileşenleri (ViralLibraryTab…) SİLİNMEZ (emeklilik Faz 4) ama registry'den çıkar → kullanıcı erişimi kesilir.
+5. **REDESIGNED-ADVANCED (alias'lanMAZ, v9 dokunmaz):** `news-pool`/`youtube`/`flow-radar`/`discovery-engine`/`source-intelligence` → `ADVANCED_TABS`, `parentArea=plan`. Sidebar'da yok; Cmd+K + deep-link + (Faz 1D) Fırsatlar'dan açılır. Aktifken Plan highlight'lı, breadcrumb "Plan / X", subnav yok.
+6. **Store v9:** yalnız ABSORBED `activeTab` yeni eve taşınır; advanced/utility/profile id'leri pass-through. `XAGENT_STORE_NAME="xagent-store"` const'a alındı (legacy invariant — değeri değişmez, test garantisi).
+7. **Yeni host ekranları (plan-*, lib-*, profile-memory, profile-integrations):** Faz 1B'de dürüst `HostPlaceholder` (05 empty-state; ölü CTA yok). Tam kompozisyon Faz 1D. Eski dashboard kompozisyonu KOPYALANMADI.
+8. **Varsayım:** `lib-ogrenme` her zaman görünür (Öğrenme birinci-sınıf Kütüphane alt-alanı); `NEXT_PUBLIC_LEARN_ENABLED` gate'i Learn ÖZELLİĞİNE taşınır (Faz 1D).
+9. **E2E harness sertleştirme:** cold Next-dev ilk-compile 30s'yi aşabildiğinden `global-setup` warmup GET + retry + 120s timeout ile güçlendirildi.

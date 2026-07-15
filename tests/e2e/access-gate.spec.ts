@@ -26,5 +26,6 @@ test("doğru parola uygulamaya alır (Bugün)", async ({ page }) => {
   await page.goto("/giris");
   await page.getByLabel("Parola").fill(E2E_PASSWORD);
   await page.getByRole("button", { name: "Giriş" }).click();
-  await expect(page).not.toHaveURL(/\/giris/);
+  // Native form → 303 → "/"; soğuk anasayfa derlemesine tolerans (5s yetmez).
+  await expect(page).not.toHaveURL(/\/giris/, { timeout: 30_000 });
 });

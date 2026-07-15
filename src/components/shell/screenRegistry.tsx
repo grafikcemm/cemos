@@ -1,69 +1,80 @@
 "use client";
 
 import { normalizeTabId } from "@/components/nav/navConfig";
-import FlowRadarTab from "@/components/tabs/FlowRadarTab";
-import CostsTab from "@/components/tabs/CostsTab";
-import SettingsTab from "@/components/tabs/SettingsTab";
-import SourceIntelligenceTab from "@/components/tabs/SourceIntelligenceTab";
-import DailyQueueTab from "@/components/tabs/DailyQueueTab";
-import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
 import MorningDashboardTab from "@/components/tabs/MorningDashboardTab";
 import RadarTab from "@/components/tabs/RadarTab";
-import ToolboxTab from "@/components/tabs/ToolboxTab";
+import FlowRadarTab from "@/components/tabs/FlowRadarTab";
+import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
+import SourceIntelligenceTab from "@/components/tabs/SourceIntelligenceTab";
 import YouTubeTab from "@/components/tabs/YouTubeTab";
-import LearnDashboardTab from "@/components/tabs/LearnDashboardTab";
-import ViralLibraryTab from "@/components/tabs/ViralLibraryTab";
-import PromptKutuphanesiTab from "@/components/tabs/PromptKutuphanesiTab";
-import PatternLibraryTab from "@/components/tabs/PatternLibraryTab";
-import KeywordLibraryTab from "@/components/tabs/KeywordLibraryTab";
-import InstagramTab from "@/components/tabs/InstagramTab";
+import ToolboxTab from "@/components/tabs/ToolboxTab";
+import CostsTab from "@/components/tabs/CostsTab";
 import SystemTab from "@/components/tabs/SystemTab";
+import SettingsTab from "@/components/tabs/SettingsTab";
+import {
+  PlanTakvimHost,
+  PlanFirsatlarHost,
+  PlanSerilerHost,
+  LibTumuHost,
+  LibIlhamHost,
+  LibOgrenmeHost,
+  ProfileMemoryHost,
+  ProfileIntegrationsHost,
+} from "@/components/host/hostScreens";
 
 /**
- * Maps a (possibly legacy-aliased) activeTab id to its screen component.
- * Shared by the app shell and the standalone /dashboard/* routes.
+ * (Alias normalize edilmiş) activeTab id → ekran bileşeni. Shell + standalone
+ * /dashboard/* rotaları paylaşır.
  *
- * IA v2: `news-pool` = Haberler host (Haberler/Repo); Kütüphane host dağıldı —
- * viral-library (Twitter) + prompt-library/pattern-library/keyword-library
- * (Kütüphane) bağımsız ekranlar. Kaldırılan sekmeler (instagram, ai-rankings,
- * training-center, weekly-learning-report, content-intel) TAB_ALIASES ile
- * canlı ekranlara normalize edilir → ayrı case'leri yok.
+ * IA (rebuild): 3 birincil alan host'ları + 5 REDESIGNED-ADVANCED araştırma
+ * ekranı + Toolbox (utility) + Profil yüzeyleri. ABSORBED ekranlar (daily-queue,
+ * viral/keyword/prompt/pattern-library, learn-dashboard, instagram) TAB_ALIASES
+ * ile yeni evlerine normalize edilir → ayrı case'leri yok. Yeni host'ların tam
+ * kompozisyonu Faz 1D (şimdilik dürüst placeholder).
  */
 export function renderScreen(activeTab: string): React.ReactNode {
   const id = normalizeTabId(activeTab);
   switch (id) {
+    // ── Bugün ──
     case "morning":
       return <MorningDashboardTab />;
-    case "daily-queue":
-      return <DailyQueueTab />;
+    // ── Plan ──
+    case "plan-takvim":
+      return <PlanTakvimHost />;
+    case "plan-firsatlar":
+      return <PlanFirsatlarHost />;
+    case "plan-seriler":
+      return <PlanSerilerHost />;
+    // ── Kütüphane ──
+    case "lib-tumu":
+      return <LibTumuHost />;
+    case "lib-ilham":
+      return <LibIlhamHost />;
+    case "lib-ogrenme":
+      return <LibOgrenmeHost />;
+    // ── REDESIGNED-ADVANCED (araştırma detayı) ──
     case "news-pool":
       return <RadarTab />;
+    case "youtube":
+      return <YouTubeTab />;
     case "flow-radar":
       return <FlowRadarTab />;
     case "discovery-engine":
       return <DiscoveryEngineTab />;
     case "source-intelligence":
       return <SourceIntelligenceTab />;
-    case "viral-library":
-      return <ViralLibraryTab />;
-    case "keyword-library":
-      return <KeywordLibraryTab />;
-    case "prompt-library":
-      return <PromptKutuphanesiTab />;
-    case "pattern-library":
-      return <PatternLibraryTab />;
-    case "instagram":
-      return <InstagramTab />;
-    case "youtube":
-      return <YouTubeTab />;
-    case "learn-dashboard":
-      return <LearnDashboardTab />;
+    // ── Toolbox (utility) ──
     case "toolbox":
       return <ToolboxTab />;
-    case "costs":
-      return <CostsTab />;
+    // ── Profil yüzeyleri ──
+    case "profile-memory":
+      return <ProfileMemoryHost />;
+    case "profile-integrations":
+      return <ProfileIntegrationsHost />;
     case "system":
       return <SystemTab />;
+    case "costs":
+      return <CostsTab />;
     case "settings":
       return <SettingsTab />;
     default:

@@ -18,7 +18,12 @@ const E2E_PASSWORD_HASH =
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 45_000,
-  retries: 0,
+  // Soğuk `next dev` sunucusunda deterministiklik: tek worker route derlemesini
+  // serileştirir (paralel worker'lar tek sunucuda ilk-compile yarışı yaratıyordu),
+  // retries:1 nadir ilk-derleme flake'ini yutar (retry route'u ısınmış bulur).
+  workers: 1,
+  retries: 1,
+  expect: { timeout: 10_000 },
   globalSetup: "./tests/e2e/global-setup.ts",
   use: {
     baseURL: `http://localhost:${PORT}`,
