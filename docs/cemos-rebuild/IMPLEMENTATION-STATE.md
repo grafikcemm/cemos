@@ -4,7 +4,9 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0/P0/1A/1B/1B.5 ✅ + **Faz 1C ✅ TAMAM** (çekirdek `bbda80c` + referans shell `dabb0bf` + readiness-wiring & desktop review UI `ba0068b`). Sıradaki: **Faz 1D** — ama önce **Faz 1D öncesi görsel onay kapısı** (ADR-021, tek kapı; onay gelmeden 1D'ye geçilmez).
+- **Faz:** Faz 0/P0/1A/1B/1B.5/1C ✅ + **Faz 1C.1 ✅ TAMAM** (referans görsel sadakat + DB migration). Commit'ler: `dabb0bf` shell + `ba0068b` readiness/UI + `c3d8e1f` docs + `chore(db)` AuthAttempt + `feat(design)` shell-type-icon + `feat(design)` card + `docs` 1C.1. Sıradaki: **Faz 1D** — ama önce **görsel onay kapısı** (ADR-021/022; onay gelmeden 1D yok).
+- **DB (ADR-022, kullanıcı yetkisiyle UYGULANDI):** `QueueItem.threadSegments` + `AuthAttempt` additive DDL canlı Neon'a `prisma db execute` ile (db-push origin, migrate deploy uygulanamaz; idempotent IF NOT EXISTS, non-destructive). daily-queue gerçek istek **200** (500 gitti), 2 ready draft. Read-only doğrulandı.
+- **Tipografi (ADR-022):** Plus Jakarta Sans (Inter kalktı) + AppIcon tek-ikon primitive + özgün CemOS wordmark. Kanıt: `shots/cemos-rebuild/faz1c1-fidelity/`.
 - **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
 - **Commit'ler:** `2cd7b24` Faz 0 · `fb90f33` faz1a · `c964979` handoff · `b68e32a` faz1b · `adae802`+`1146aec` handoff/1C-map · `feat(theme)` faz1b.5 dark.
 - **Tema (ADR-020, kullanıcı 2026-07-15):** **desktop-only + tek tema DARK EDITORIAL** (light kararı supersede; terracotta korunur). Desktop kabul: 1024/1280/1440/1920, **1024–1920 taşma yok**; mobil best-effort. X API ödemesi ONAYLANMADI (Faz 1E intent-only).

@@ -108,3 +108,28 @@
 - İnsan onayı kalite/policy kapısını SESSİZCE bypass etmez; kullanıcı metni düzenleyerek ready yapar. Kozmetik `edited !== original` edit-gate'i KALDIRILDI; `markManualPublished` yayın anında `editedContent ?? content` üzerinde readiness'i yeniden koşar.
 
 **USER-DB-ACTION (BLOCKED-EXTERNAL değil):** `QueueItem.threadSegments` additive migration'ı (`prisma/migrations/20260716000000_add_thread_segments`) üretildi + `migrate diff` ile additive kanıtlandı ama canlı DB'ye **UYGULANMADI** (kısıt: prisma db push yok). Sonuç: daily-queue gerçek istekte "column does not exist" → 500; Bugün ekranı **graceful ErrorState** gösterir (sessizce gizlenmez). Kullanıcı migration'ı uygulayınca (dev/prod DB'ye `prisma migrate deploy` veya eşdeğeri) gerçek veri akar. Kart tonları mock-preview ile canlı doğrulandı (`shots/faz1c-cards`).
+
+### ADR-022 — Faz 1C.1: referans görsel sadakat + DB migration uygulaması
+**2026-07-15 (kullanıcı: mevcut tasarım referansa yeterince benzemiyordu — DOĞRU kabul edildi; ayrıca additive DB migration yetkisi verildi).** ADR-021 yönünü sadakatle uygulayan dilim; Faz 1D'den önce.
+
+**Gap matrix (referans → önceki CemOS → değişiklik):**
+| Alan | Referans | Önceki | Değişiklik |
+|---|---|---|---|
+| Wordmark | Belirgin lockup + mark | Terracotta kare + basit X | Özgün rounded C-arc+node mark + "Cem"/"OS" accent wordmark |
+| Font | Geometrik yuvarlak sans | Inter | Plus Jakarta Sans (next/font, variable, latin-ext) |
+| İkon | Tek tutarlı outline aile | Ham Lucide, karışık boyut | AppIcon primitive (tek optik boyut/stroke/hizalama) |
+| Aktif nav | Nötr grafit slab | Nötr ama dar | Ferah slab (.cx-nav-item, CSS :hover) |
+| Hesap kartı | Avatar+ad+rol | Monogram düz | Gradient monogram, işlenmiş kart |
+| Kart | Divider + meta ritim | Düz | Başlık/gövde ince ayraç |
+
+**Bilinçli KOPYALANMAYAN (CemOS kimliği korunur):** Rebaid logo/wordmark/metin, "Need help"/Blog/Contact kartları, sahte chart/KPI/dekoratif avatar, influencer satırı, dil-toggle. Referans = yapı/his; marka/içerik değil.
+
+**Font:** Plus Jakarta Sans (variable, latin-ext = TR glyph İıŞşĞğÇçÖöÜü). `--font-inter`→`--font-app-sans`; Newsreader app-yüzeyinde SIFIR; IBM Plex Mono (teknik string) korunur. Computed font-family + gerçek glyph render canlı doğrulandı.
+
+**İkon:** tek aile = Lucide + `AppIcon` primitive (sm15/md18/lg20, stroke 1.75, aktif=accent-text). Yeni bağımlılık (phosphor) EKLENMEDİ — disiplinli Lucide referans kalitesini karşıladı; `fonts-icons.test` tek-aile kilidi (phosphor/heroicons/react-icons importu = 0).
+
+**Sidebar:** ortak CSS sınıfları (`.cx-sidebar/.cx-nav-item/.cx-account-card`, CSS `:hover` — JS hover kalktı); özgün mark; işlenmiş hesap kartı; nötr slab nav; dikey ritim + grup ayırıcı.
+
+**DB (kullanıcı yetkisiyle uygulandı; additive-only, non-destructive):** Canlı Neon DB `db push` origin (`_prisma_migrations` YOK, `migration_lock.toml`=sqlite → provider-uyumsuz; `migrate deploy` uygulanamaz). Additive DDL (`ADD COLUMN`/`CREATE TABLE`/`CREATE INDEX`, hepsi IF NOT EXISTS) `prisma db execute` ile uygulandı — idempotent, DROP/TRUNCATE/ALTER TYPE yok. `QueueItem.threadSegments` YENİ (→ daily-queue 500 gitti, gerçek istek 200 + 2 taslak, readiness/whyToday dolu) + `AuthAttempt` zaten vardı (no-op). Read-only doğrulandı (kolon + tablo + indexler). Migration geçmişini postgres'e baseline'lamak (potansiyel destructive) YAPILMADI — ayrı kullanıcı kararı.
+
+**Doğrulama/gate:** 1024/1280/1440/1920 taşma 0; 0 console error; gerçek veri. Kanıt `shots/cemos-rebuild/faz1c1-fidelity/` (01-08; 01/02 gerçek veri, 08 fixture harness — gerçek kanıt değil). typecheck · unit 1316 · lint 0 · build · e2e 27.
