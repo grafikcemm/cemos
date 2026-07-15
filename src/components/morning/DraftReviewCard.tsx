@@ -309,6 +309,8 @@ export default function DraftReviewCard({
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       {headerRow}
       {whyRow}
+      {/* Referans: başlık/meta ile gövde arası ince ayraç. */}
+      <div aria-hidden style={{ height: 1, background: "var(--sf-border)", opacity: 0.85 }} />
       {reasonsBlock}
       {contentBlock}
       {imageBlock}

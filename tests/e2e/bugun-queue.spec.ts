@@ -134,8 +134,8 @@ test.describe("Bugün karar kuyruğu (düzeltilmiş sözleşme)", () => {
     await expect(page.getByText("Doğrulandı").first()).toBeVisible();
   });
 
-  test("desktop 1280 ve 1440'ta yatay taşma yok", async ({ page }) => {
-    for (const w of [1280, 1440]) {
+  test("desktop 1024–1920 yatay taşma yok", async ({ page }) => {
+    for (const w of [1024, 1280, 1440, 1920]) {
       await page.setViewportSize({ width: w, height: 900 });
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
