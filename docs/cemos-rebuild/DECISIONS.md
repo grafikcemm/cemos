@@ -1,0 +1,68 @@
+# DECISIONS — CemOS Rebuild (append-only ADR)
+
+> Her karar: bağlam → karar → gerekçe → kanıt/kaynak. Append-only; bir karar değişirse yeni ADR eklenir, eski SUPERSEDED işaretlenir. Tarih formatı mutlak.
+
+---
+
+### ADR-001 — Branch: `feature/cemos-rebuild`
+**2026-07-15.** Mevcut `feature/ui-dark-redesign` HEAD (`f8b72b8`) üzerinden yeni branch açıldı. Push YOK. **Gerekçe:** dark-redesign primitive'leri + baseline'ı temel almak; kullanıcı onayı olmadan yayına çıkmamak. **Kanıt:** `git checkout -b` çıktısı "Switched to a new branch".
+
+### ADR-002 — Untracked dosya kaderi
+**2026-07-15.** `docs/CEMOS-CLAUDE-CODE-MASTER-REBUILD-PROMPT.md` Faz 0 doküman commit'ine dahil edilir. `shots/` kanıt galerisi olarak **untracked bırakılır**; kullanıcı izni olmadan `.gitignore` değiştirilmez. **Gerekçe:** master prompt bağlayıcı kaynak, versiyonlanmalı; ekran görüntüleri büyük binary, repo'yu şişirir ama kanıt olarak diskte kalmalı.
+
+### ADR-003 — Açık editorial tema, token isimleri stabil
+**2026-07-15.** Varsayılan tema koyu dashboard'dan **açık editorial**'e geçer (master prompt emri). `globals.css` token DEĞERLERİ flip edilir, token İSİMLERİ korunur → 30 primitive kırılmadan çalışır. **Gerekçe:** isim-stabil swap, component başına refactor riskini ortadan kaldırır. **Kanıt:** `src/components/ui/` 30 primitive tümü `var(--token)` tüketiyor (keşif).
+
+### ADR-004 — Vurgu rengi: tasarım onay kapısında dondurulur
+**2026-07-15.** Turuncu (`#ff5538` ailesi) yalnız İLK HİPOTEZ; kesin karar değil. Faz 0 tasarım araştırması 3 accent adayı + WCAG AA kontrast tablosu üretir; kullanıcı tasarım onay kapısında dondurur. **Gerekçe:** kullanıcı v2/v3 geri bildiriminde "turuncuyu önceden verilmiş karar sayma" dedi. **Durum:** design research sonucu 06 spec'e işlenecek; kullanıcı seçecek.
+
+### ADR-005 — IA: 3 görev (Bugün/Plan/Kütüphane) + Toolbox + Profil
+**2026-07-15.** Ana nav 3 göreve iner; Toolbox hızlı utility; Sistem/Maliyet/Ayarlar/Memory/Entegrasyonlar Profil menüsünde. Legacy motor adları (Haber/YouTube/Viral Radar/Keşif) alt-nav'dan çıkar → Plan/Fırsatlar'ı besleyen arka plan. **Gerekçe:** master prompt "ana nav yalnız görev göstersin"; canlı denetim ~16-item sidebar'ı doğruladı (karmaşıklık kanıtı). **Kanıt:** `shots/cemos-rebuild/baseline/prod-1280-morning-styled.jpeg`.
+
+### ADR-006 — Legacy ekran: iki sınıf (ABSORBED / REDESIGNED-ADVANCED), üçüncüsü yok
+**2026-07-15.** Kullanıcı-erişilebilir HİÇBİR ekran legacy kompozisyonla kalamaz. Her ekran ya ABSORBED (erişimden çıkar, id alias'la yeni eve) ya REDESIGNED-ADVANCED (araştırma detayı, tam yeniden tasarlanır). "Minimum token uyumu" ara sınıfı YASAK. **Gerekçe:** kullanıcı v3 geri bildirimi — "erişilebilir ekran = uygulamanın parçası, legacy kalamaz". Nihai tablo: `04-COMPLETE-UI-REDESIGN-PLAN.md`.
+
+### ADR-007 — Store migration v9: yalnız ABSORBED id'ler taşınır
+**2026-07-15.** `migrations.ts`'e additive v9. YALNIZ ABSORBED `activeTab` değerleri yeni evlere migrate edilir. REDESIGNED-ADVANCED id'ler (`news-pool`,`youtube`,`flow-radar`,`discovery-engine`,`source-intelligence`) DEĞİŞMEZ — persist `youtube` yeni YouTube araştırma ekranını açar. `"xagent-store"` anahtarı DEĞİŞMEZ (rename = kullanıcı state kaybı). **Gerekçe:** kullanıcı düzeltmesi — advanced ID'leri migrate etmek onları erişilemez/yanlış-açar yapardı. **Kanıt:** `xagent.ts:358` activeTab persist; `migrations.ts` v8 mevcut.
+
+### ADR-008 — Readiness sözleşmesi: `ready/needs_edit/blocked`, fail-closed, persist EDİLMEZ
+**2026-07-15.** Zorunlu kozmetik edit-gate (`publishService.ts:97-104`) kaldırılır; yerine readiness. Persist edilmez; yayın anında `editedContent ?? content` üzerinden YENİDEN hesaplanır. `judged=false`/skor eksik → ASLA ready (fail-closed → needs_edit). `blocked` yalnız güvenlik/ciddi doğruluk/kaynaksız somut iddia/policy; stil kusuru blocked yapmaz. Soru-CTA/emoji kuralları hesap-bazlı (`accounts.ts`), global yasak yok. **Gerekçe:** master prompt + kullanıcı fail-closed düzeltmesi. `applyQualityGate` SARILIR, değiştirilmez.
+
+### ADR-009 — Yabancı sızıntı: oran + allowlist (kelime-özel değil)
+**2026-07-15.** "Trajectory" gibi sızıntılar için kelime-özel kontrol YAZILMAZ; Türkçe-dışı token oranı + marka/teknik terim allowlist'i (`AI`, `prompt`, ürün adları). **Gerekçe:** kullanıcı düzeltmesi — tek kelime kontrolü kırılgan, genellenebilir tespit gerekir. **Kanıt:** canlı taslakta "yörüngedir" (Trajectory çevirisi) gözlendi.
+
+### ADR-010 — Thread: `threadSegments` typed alan Faz 1C'de, fail-closed
+**2026-07-15.** `QueueItem.threadSegments` typed additive JSON alanı + basit segment editörü **Faz 1C'de** eklenir. Yapısal segment verisi olmayan thread taslağı fail-closed `needs_edit`; metindeki `1/` kanıt sayılmaz. **Faz 2 tekrar typed alan EKLEMEZ** — yalnız üretim hattı segment üretimi + backfill + kalibrasyon. **Gerekçe:** kullanıcı "belirsiz bırakma, seçenek seç" → seçenek 1 (alanı Faz 1C'ye al). Kullanıcının son yorumu bu düzeltmeyi bağladı.
+
+### ADR-011 — Publish state machine: additive `PublishAttempt`, intent ≠ published
+**2026-07-15.** Mevcut `PublishLog` prepared için ZORLANMAZ (success default true, publishedAt now, queueItemId yok → günlük limit sorgularını kirletir). Additive `PublishAttempt` modeli (prepared|succeeded|failed, adapter, idempotencyKey, contentHash, readinessPolicyVersion, readinessSnapshotJson, externalId, `@@unique([accountId,adapter,idempotencyKey])`). Intent = yalnız `PublishAttempt(prepared)`; PublishLog+PublishedPost yalnız manuel "Paylaşıldı" onayı VEYA API başarısı (aynı transaction). Ağ çağrısı transaction dışında; idempotent reconciliation. **Gerekçe:** kullanıcı düzeltmesi — intent açmak yayın başarısı değildir; PublishLog modeli prepared'a uygun değil. **Kanıt:** `prisma/schema.prisma` PublishLog (success bool, publishedAt now).
+
+### ADR-012 — Doğrulama ≠ fact-check: 5 durum
+**2026-07-15.** UI doğrulama durumu ayrık: `verified | partially_verified | source_available | unverified | stale`. `SourcePost.scannedAt` iddia doğrulama tarihi olarak GÖSTERİLMEZ. "fact-check tamamlandı" dili yalnız `verified`. **Gerekçe:** kullanıcı düzeltmesi — kaynak varlığı ≠ doğruluk kontrolü.
+
+### ADR-013 — Auth: `proxy.ts` + ayrı hash+secret + HMAC'li kalıcı throttling
+**2026-07-15.** Next 16 middleware = `proxy.ts` (yerel doc doğrulandı). `ACCESS_PASSWORD_HASH` (scrypt) ≠ `SESSION_SECRET` (cookie HMAC). Throttling: DB-backed atomik sayaç, ham IP saklanmaz (`HMAC(ip, SESSION_SECRET)`), güvenilir Vercel forwarding zincirinden IP, TTL+sweep, IP-sınır + global saldırı penceresi, başarıda sıfırlama. Prod'da env eksikse fail-closed. sameOriginGuard CSRF olarak kalır — **same-origin ≠ authentication**. **Gerekçe:** master prompt P0 + kullanıcı sertleştirme düzeltmesi; canlı denetim auth'suz erişimi doğruladı. **Kanıt:** `node_modules/next/dist/docs/.../proxy.md`; `shots/cemos-rebuild/baseline/`.
+**[USER-ACTION]** Vercel Firewall/WAF (rate-limit) operasyonel öneri — kod-üstü ek katman.
+
+### ADR-014 — 3 katmanlı sağlık
+**2026-07-15.** `healthService` → altyapı (DB/cron/API/credential) + pipeline tazeliği (haber/failed-backlog/staleness/son-üretim) + bugünkü hazırlık (hazır içerik/karar-bekleyen). "Kuyruk tamamlandı" ≠ sağlıksız. Topbar yalnız kullanıcı-müdahalesi-gereken. **Gerekçe:** kullanıcı düzeltmesi — canlı "Sağlıklı" ile gerçek backlog karışabilir; tamamlanma ≠ üretim-hiç-olmadı.
+
+### ADR-015 — X API: REQUIRES-USER-PAYMENT-APPROVAL (teknik FEASIBLE)
+**2026-07-15.** Resmî developer.x.com/docs.x.com araştırması: `POST /2/tweets` OAuth2 PKCE user-context ile fizibil; scope `tweet.read tweet.write users.read offline.access`; rate limit 100/15dk-per-user (bağlayıcı değil); politika insan-onaylı özgün postu izin veriyor. **ENGEL:** yeni geliştiriciye free tier YOK; pay-per-use kredisi gerçek ödeme gerektiriyor. **Maliyet senaryosu** (resmî orandan türetildi — $0.015/post, **link'li $0.20/post**, okuma $0.005/post; 5-8 post/gün × 30 gün): %0 link **$2.25–3.60/ay** · %50 link **$16.13–25.80/ay** · %100 link **$30–48/ay**. Ek: okuma maliyeti, media/metadata işlemleri (resmî tabloda ayrı kalem yok — açık), retry ihtimali; fiyatlar değişebilir → güncel fiyat **Developer Console**'dan doğrulanır. Bu "yeni ücretli servis" dur-kuralına girer → Ali Cem onayı olmadan gerçek entegrasyon BAŞLAMAZ. **Açık mühendislik riskleri (blocker değil, tasarlanacak):** (1) sunucu-taraf idempotency YOK → client-side dedup; (2) belgesiz duplicate-content 403 penceresi. **Kanıt:** [docs.x.com/x-api/getting-started/pricing](https://docs.x.com/x-api/getting-started/pricing), [create-post](https://docs.x.com/x-api/posts/create-post), [OAuth2 PKCE](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code), [rate-limits](https://docs.x.com/x-api/fundamentals/rate-limits) (erişim 2026-07-15). Detay: `03-DELIVERY-ROADMAP.md` + `02-AGENT-MEMORY-DATA-ARCHITECTURE.md` publish bölümü.
+**Sonuç:** Faz 1E'de adapter CONTRACT + intent fallback tamamlanır; gerçek `XApiPublishAdapter` yalnız kullanıcı maliyet onayı sonrası. Onaya kadar `BLOCKED-EXTERNAL`.
+
+### ADR-016 — Dinamik hesap kaynağı: Faz 2'ye ertelenir (Faz 1 minimal)
+**2026-07-15.** Hesaplar `src/lib/accounts.ts`'te hardcoded (literal union `grafikcem|maskulenkod`). Master prompt "DB/config'den dinamik oku" istiyor. **Karar:** Faz 1'de UI hesap filtreleri `Account` DB tablosundan okunabilir (mevcut model), fakat persona/mode source-of-truth Faz 2'ye kadar TS profillerinde kalır (literal cast genişletilir, hardcode 2-hesap varsayımı UI'dan kalkar). **Gerekçe:** tam dinamikleştirme veri-modeli işi; Faz 1 çekirdeği bloklamamalı. **Risk:** `publishService.ts:156` literal cast — Faz 1'de genişletilir.
+
+### ADR-017 — Tasarım onayı + bağlayıcı kullanıcı kararları (Faz 0 kapısı)
+**2026-07-15.** Kullanıcı (Ali Cem) tasarım yönünü ONAYLADI. Bağlayıcı kararlar:
+1. **Accent = Terracotta/Rust `#A8481F`** (indigo/plum elendi). Açık zeminde ve beyaz metinle AA geçer.
+2. **X API ödemesi ONAYLANMADI.** Faz 1E gerçek X API çağrısı YAPMAZ — yalnız `PublishAdapter` contract + `PublishAttempt` state machine + `IntentPublishAdapter` + dürüst intent fallback tamamlanır. `XApiPublishAdapter` gerçek bağlantı **BLOCKED-EXTERNAL** kalır.
+3. **Publish CTA (mevcut ürün durumu):** ready kartın birincil CTA'sı **"X'te aç"** (intent) — "Onayla ve yayınla" GÖSTERİLMEZ. Intent açıldıktan sonra kart durumu **`publish_prepared`**; kullanıcı geri döndüğünde ayrı **"Paylaşıldı olarak işaretle"** eylemi. Bu manuel onay olmadan PublishLog/PublishedPost/`manual_published` YAZILMAZ. "Onayla ve yayınla" spec'te yalnız **gerçek API bağlı** koşullu varyant; blocked-external mockup'ında görünmez.
+4. **Dil:** "X'e otomatik yayın" → "**CemOS içinden doğrudan yayın**" (her yerde). CemOS'ta otomatik yayın YOKTUR.
+5. **Doğrulama:** kart ve drawer aynı QueueItem için birebir aynı 5-durum (`verified`/`partially_verified`/`source_available`/`unverified`/`stale`); "kaynak mevcut" ≠ "iddia doğrulandı".
+6. **WCAG:** kontrast tabloları gerçek WCAG formülüyle yeniden hesaplandı (ADR-018); token contrast testi Faz 1A kapsamında.
+7. **Kısıt:** push/deploy/production migration/ücretli servis YOK. Phase 0 belgeleri + master prompt `feature/cemos-rebuild`'e commit edilir; `shots/` untracked kalır. Faz 1A→1F sırayla, her dilim ayrı commit + test/typecheck/lint (UI'da +build/playwright/console).
+
+### ADR-018 — WCAG kontrast düzeltmesi (gerçek hesap)
+**2026-07-15.** Faz 0 06-spec'teki bazı kontrast değerleri el-hesabı hatalıydı (text-muted 4.6:1 iddia → gerçek 3.39:1; warn chip 3.29:1; ok chip 4.30:1 — 12-16px normal metinde AA-altı). **Düzeltme (gerçek WCAG 2.1 relative-luminance):** `--text-muted` `#8A857D`→**`#726C64`** (bg-base'de **4.80:1** AA); ok chip metni `#256B44` (tint'te **5.50:1**); warn chip metni `#8A5A08` (tint'te **5.05:1**); err chip `#B3261E` (**5.33:1**, korunur). `--text-faint` yalnız dekoratif/disabled — anlam taşıyan metinde KULLANILMAZ. Accent `#A8481F` korunur (bg **5.42:1**, beyaz metin **5.86:1**). Tam tablo `06-DESIGN-SYSTEM-SPEC.md` §2. **Faz 1A:** `theme-tokens.test.ts` gerçek kontrast oranını otomatik doğrular (metin/zemin çiftleri ≥4.5:1).
