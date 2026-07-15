@@ -102,6 +102,28 @@ FINAL-IMPLEMENTATION-PLAN §1C + master prompt Faz 1C. Özet:
 
 Gate: test/typecheck/lint + build/playwright/1280·390/console-0. Ayrı commit + bu dosyayı güncelle.
 
+### Faz 1C kod haritası (keşif ajanı çıktısı — turnkey base)
+
+**Veri zinciri:** `MorningDashboardTab` → `useDailyQueueData` hook (`src/components/morning/useDailyQueueData.ts`) → `GET /api/growth/daily-queue` (`src/app/api/growth/daily-queue/route.ts`) → `ReviewQueue` → `DraftReviewCard` (+ `OperatorReadinessGate`, `MorningHeroStats`). PATCH `src/app/api/growth/daily-queue/[id]/route.ts` (`{content}` kaydet · `{status:"manual_published"}` → `publishService.markManualPublished`).
+- Route her item'e `scoresParsed` ekler (route.ts:105-143): `judged` (telemetry.judged), `turkishNaturalness`, `sourceFaithfulness`, `riskScore`, `hookStrengthScore`, `personaMatchScore`, `noveltyScore`, `leaks`, `leakCount`, `ctaPresent`, `payoff`, `publishScore`, `isEstimatedScore`.
+- Client `MorningDraft`/`MorningDraftScores` tipi `useDailyQueueData.ts:7-36` (route'un ALT KÜMESİ).
+
+**QueueItem (`prisma/schema.prisma:103-133`):** `content`, `editedContent?`, `status String @default("new")` (ENUM DEĞİL; new/draft/needs_edit/approved/scheduled/rejected/published/manual_published), `scores String` (JSON — `judged` yalnız `telemetry.judged`; ayrı judged kolonu YOK), `lintReport String?`, `candidatesJson`, `sourcePostId?`, `newsItemId?`, `draftType @default("TWEET")`. **`threadSegments` YOK** → additive eklenecek (Zod-typed JSON String kolon; migrate diff kanıtı, apply YOK).
+
+**Kaldırılacak edit-gate:** server `publishService.ts:97-104` (`markManualPublished` → `edited===original||!edited` ise `throw "edit_required"`); literal cast `:156` (`as "grafikcem"|"maskulenkod"`); UI `DraftReviewCard.tsx:115` (`isEdited`), `:166` (`if(!isEdited)return`), `:398` (`disabled`), `:417-421` (uyarı metni). `extractGateNotes` (:32-44) `lintReport.issues[code==="quality_gate"]` okur.
+
+**`applyQualityGate` (`src/lib/services/scoreSignals.ts:68-90`):** `new|needs_edit`; tetik = high leak / (judged && turkishNaturalness<`TURKISH_NATURALNESS_MIN=55`) / lint `banned_phrase|question_cta`. `SubSignals` (:10-20). Yazım `draftService.ts:254-346` (status:needs_edit→:308, scores JSON→:311-342). `Leak` (`leak-detector.ts:29-34` kind/severity low|med|high). Lint kodları (`heuristics.ts`): banned_phrase/question_cta/char_limit/emoji_density/hashtag_density/sales_smell.
+
+**Hesap politikaları (`accounts.ts:40-56`):** yapısal emoji/soru-CTA alanı YOK — free-text `toneRules/formatRules/forbiddenRules`. grafikcem: emoji YASAK + soru-CTA yasak (:83-84,88-89); maskulenkod: emoji kuralı yok. Makine karşılığı lint `question_cta`/`emoji_density`. `AccountHandle="grafikcem"|"maskulenkod"`; `effectiveMaxChars`/`resolveFormatTier` mevcut.
+
+**Doğrulama verisi:** `SourcePost.scannedAt` VAR (tarama zamanı — fact-check DEĞİL) `schema:98`. `NewsItem.sourceVerification` (single_source|official_only|editorial_confirmed|multi_source_confirmed) `:393` + `whyPeopleCare` `:389`. `classifySourceVerification` (`src/lib/news/sourceVerification.ts:99-116`). **whyToday/partially_verified/factCheck HİÇ YOK** (grep 0) → sıfırdan.
+
+**Türkçe util:** `src/lib/utils/textSimilarity.ts` → `normalizeTurkish` (ğüşıöç→gusioc, punct strip), `calculateJaccard/Levenshtein`, `isNearDuplicate`. Dil-tespit util YOK.
+
+**Mevcut readiness:** `operatorReadinessService` (`src/lib/services/operatorReadinessService.ts`) = INFRA/pipeline readiness ("bugün üretebilir mi") — per-draft readiness'ten AYRI. Yeni `readinessService.ts` (per-draft) isim çakışması YOK.
+
+**Yeni `readinessService.ts` tasarımı (pure, self-contained input — QueueItem'dan adapte edilir):** `state: ready|needs_edit|blocked`; text=`editedContent?.trim()||content.trim()`; persist YOK. **BLOCK** (öncelikli): over-maxChars · `riskScore>=RISK_BLOCK_MIN(75, provisional)` · kaynaksız somut istatistik iddiası (`%`/`$₺`/`\d+ kat|milyon|milyar|bin`/`(19|20)\d{2}` VE !hasSource) · security lint kodu. **NEEDS_EDIT:** !judged (fail-closed) · turkishNaturalness null/legacy · judged&&<55 · high leak · yabancı-dil sızıntısı (İngilizce fonksiyon-kelime sayısı≥2, allowlist'li — kelime-özel hack YOK) · lint banned_phrase|question_cta · grafikcem&&emoji(`\p{Extended_Pictographic}`) · thread&&!threadSegments (yapısal; "1/" kanıt DEĞİL) · segment char/limit ihlali · status==="needs_edit". Aksi → **ready**. Eşikler **provisional** — canlı queue verisiyle DONDURULACAK (risk#2; OpenRouter-402 canlı üretime bağlı → o kalibrasyon dış-bağımlı). Fixtures `__fixtures__/badDrafts.ts` (6: yabancı-sızıntı/soru-CTA/emoji/kaynaksız-iddia/yapısız-thread/düşük-Türkçe) hiçbiri ready; iyi fixture ready → `readinessService.regression.test.ts`.
+
 ## Tekrar edilmemesi gereken başarısız denemeler
 
 - Playwright MCP `file://` engelli → mockup'lar için yerel HTTP sunucu (`scratchpad/serve.js`, port 4599) kullanıldı.
