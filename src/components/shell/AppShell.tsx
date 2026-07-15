@@ -25,7 +25,22 @@ import TopStrip from "./TopStrip";
 import CommandPalette from "./CommandPalette";
 import MobileNav from "./MobileNav";
 import SubNav from "@/components/ui/SubNav";
+import PageHeader from "@/components/ui/PageHeader";
 import { renderScreen } from "./screenRegistry";
+
+/**
+ * Plan/Kütüphane host'larının açıklamaları — başlık shell WorkspaceHeader'da
+ * (referans sıra: hero başlık → segmented subnav → gövde). hostScreens ile aynı
+ * metin (bare host gövdeyi, shell başlığı sağlar; tek kaynak burada).
+ */
+const HOST_SUBTITLES: Record<string, string> = {
+  "plan-takvim": "Aylık yayın yerleşimi ve seçilen fırsattan üretilen reels senaryosu.",
+  "plan-firsatlar": "Editoryal seçilmiş içerik fırsatları — rakip, trend, haber ve sektör sinyalleri.",
+  "plan-seriler": "Carousel ve Reels seri DNA'sı — görsel düzen, caption ve hook kalıpları.",
+  "lib-tumu": "Viral örnekler, prompt, pattern ve anahtar kelime kaynaklarında birleşik arama.",
+  "lib-ilham": "Panolar ve rakip içerik analizi.",
+  "lib-ogrenme": "Öğrenme içerikleri — Gelen kutusu, öğreniliyor, hazır ve bugünkü tekrar.",
+};
 
 type AppShellProps = {
   /** Standalone /dashboard/* routes seed their tab once on mount. */
@@ -112,6 +127,11 @@ export default function AppShell({ initialTab }: AppShellProps) {
       ? "var(--content-wide)"
       : "var(--content-standard)";
 
+  // Referans WorkspaceHeader (ADR-021): Plan/Kütüphane host'larında büyük başlık
+  // shell'de (bare host gövde-only) → hero başlık → segmented subnav → gövde.
+  // Bugün/Toolbox/Profil/advanced kendi başlığını taşır (Bugün Faz 1C-e'de).
+  const shellHeader = primaryArea === "plan" || primaryArea === "kutuphane";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
       <AutomationManager />
@@ -146,6 +166,13 @@ export default function AppShell({ initialTab }: AppShellProps) {
                 minWidth: 0,
               }}
             >
+              {shellHeader && (
+                <PageHeader
+                  size="hero"
+                  title={labelForTab(normalizedTab)}
+                  subtitle={HOST_SUBTITLES[normalizedTab]}
+                />
+              )}
               {profileActive ? (
                 <SubNav items={profileSubTabs} activeId={normalizedTab} onSelect={setActiveTab} />
               ) : areaSubTabs.length > 1 ? (

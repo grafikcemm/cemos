@@ -168,3 +168,41 @@ describe("WCAG AA kontrast (gerçek hesap — dark)", () => {
     expect(ratio).toBeLessThan(4.5);
   });
 });
+
+/* ── Kontrollü açık-ada yüzeyleri (ADR-021: ivory/peach karar kartları) ──────
+   Bunlar bilinçli AÇIK adalar (dark-kilit dışı). Üstlerindeki koyu metin gerçek
+   WCAG ≥4.5:1 sağlamalı; ve adaların kendisi AÇIK kalmalı (birinin yanlışlıkla
+   koyulaştırıp metni görünmez yapmasını engelle). */
+describe("inverse/peach açık-ada — gerçek WCAG + açık-ada kilidi", () => {
+  const css = readFileSync(GLOBALS, "utf8");
+  const t = (name: string) => parseToken(css, name);
+
+  const pairs: Array<[string, string, string]> = [
+    ["inverse-text / inverse-surface", "inverse-text", "inverse-surface"],
+    ["inverse-muted / inverse-surface", "inverse-muted", "inverse-surface"],
+    ["inverse-text / inverse-surface-2", "inverse-text", "inverse-surface-2"],
+    ["peach-text / peach-surface", "peach-text", "peach-surface"],
+    ["peach-muted / peach-surface", "peach-muted", "peach-surface"],
+    ["peach-text / peach-surface-2", "peach-text", "peach-surface-2"],
+    // accent solid (küçük detay/ikincil) açık ada üstünde de okunur olmalı
+    ["accent / inverse-surface", "accent", "inverse-surface"],
+  ];
+
+  for (const [label, fg, bg] of pairs) {
+    it(`${label} ≥ 4.5:1`, () => {
+      const ratio = contrast(t(fg), t(bg));
+      expect(ratio, `${label} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it("adalar AÇIK kalmalı (relLum yüksek) — dark-kilit istisnası, bilinçli", () => {
+    for (const island of ["inverse-surface", "inverse-surface-2", "peach-surface", "peach-surface-2"]) {
+      expect(relLum(t(island)), `${island} açık ada olmalı`).toBeGreaterThan(0.5);
+    }
+  });
+
+  it("ada metni KOYU (relLum düşük) — açık ada üstünde okunur", () => {
+    expect(relLum(t("inverse-text")), "inverse-text koyu").toBeLessThan(0.1);
+    expect(relLum(t("peach-text")), "peach-text koyu").toBeLessThan(0.1);
+  });
+});

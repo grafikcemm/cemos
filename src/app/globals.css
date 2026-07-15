@@ -70,6 +70,24 @@
   --yellow: var(--status-warn); /* legacy alias → warning */
   --green: var(--status-ok); /* legacy alias → success */
 
+  /* ── Kontrollü açık-ada yüzeyleri (referans ADR-021: koyu kanvasta ivory/peach
+     KARAR kartları). YALNIZ karar/karşılaştırma odağı — sayfayı light'a çevirme,
+     her kartı beyaz yapma. Gerçek WCAG (theme-tokens.test): koyu metin açık ada
+     üstünde ≥4.5:1; bunlar bilinçli açık ADA (dark-kilit dışı). ──────────────── */
+  --inverse-surface: #f2ece1; /* sıcak ivory ada — ready "Sıradaki" kartı */
+  --inverse-surface-2: #e8dfd0; /* ada içi gömük satır (meta/kaynak şeridi) */
+  --inverse-text: #221f1a; /* ada üstü ana metin (near-black warm) */
+  --inverse-muted: #635c51; /* ada üstü ikincil metin (≥4.5:1) */
+  --inverse-border: #dbd1bf; /* ada içi ince ayraç */
+  --peach-surface: #f6dcc6; /* peach ada — needs_edit dikkat kartı */
+  --peach-surface-2: #f0cdb0; /* peach gömük satır */
+  --peach-text: #5a3315; /* peach üstü ana metin (koyu kahve) */
+  --peach-muted: #6f4d2f; /* peach üstü ikincil metin (≥4.5:1) */
+  --peach-border: #e7bf9d; /* peach ince ayraç */
+
+  /* ── Shell geometrisi (referans ADR-021) ────────────────────────────────── */
+  --sidebar-w: 244px; /* near-black rail genişliği (referans 232–252) */
+
   /* ── Chart palette — dark: açık terracotta + nötr; dekoratif çoklu-renk YOK  */
   --chart-1: #d2703f; /* accent terracotta (dark: açık) */
   --chart-2: #918b82; /* nötr gri */
@@ -199,6 +217,18 @@
   --color-xred: #e5595e;
   --color-xblue: #e4865e;
   --color-xyellow: #c88a2e;
+
+  /* Kontrollü açık-ada yüzeyleri → Tailwind (bg-inverse-surface, text-peach-text…) */
+  --color-inverse-surface: #f2ece1;
+  --color-inverse-surface-2: #e8dfd0;
+  --color-inverse-text: #221f1a;
+  --color-inverse-muted: #635c51;
+  --color-inverse-border: #dbd1bf;
+  --color-peach-surface: #f6dcc6;
+  --color-peach-surface-2: #f0cdb0;
+  --color-peach-text: #5a3315;
+  --color-peach-muted: #6f4d2f;
+  --color-peach-border: #e7bf9d;
 
   --color-chart-1: #d2703f;
   --color-chart-2: #918b82;

@@ -13,6 +13,12 @@ type HostPlaceholderProps = {
   subtitle: string;
   /** Bu yüzeyde neyin yaşayacağı — dürüst, tek cümle. */
   comingContent: string;
+  /**
+   * Başlığı shell (AppShell WorkspaceHeader) sağlıyorsa true — placeholder yalnız
+   * gövdeyi render eder (çift başlık olmaz). Referans sıra: shell hero başlık →
+   * segmented subnav → bu gövde.
+   */
+  bare?: boolean;
 };
 
 /**
@@ -21,9 +27,9 @@ type HostPlaceholderProps = {
  * işlev yok — yalnız ne geleceğini söyler. Eski dashboard kompozisyonu
  * KOPYALANMAZ (kullanıcı-erişilebilir legacy kompozisyon Faz 1 sonunda sıfır).
  */
-export default function HostPlaceholder({ eyebrow, title, subtitle, comingContent }: HostPlaceholderProps) {
+export default function HostPlaceholder({ eyebrow, title, subtitle, comingContent, bare = false }: HostPlaceholderProps) {
   return (
-    <PageScaffold header={<PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />}>
+    <PageScaffold header={bare ? null : <PageHeader eyebrow={eyebrow} title={title} subtitle={subtitle} />}>
       <div
         data-testid="host-placeholder"
         style={{

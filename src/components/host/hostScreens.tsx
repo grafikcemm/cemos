@@ -5,11 +5,15 @@ import HostPlaceholder from "./HostPlaceholder";
 /**
  * Faz 1B yeni-ev iskele ekranları. nav/store/shell bunlara bağlanır; tam
  * kompozisyon Faz 1D'de (05-SCREEN-BY-SCREEN-SPEC). Her biri dürüst placeholder.
+ * Plan/Kütüphane host'ları `bare` — başlığı shell (AppShell WorkspaceHeader)
+ * sağlar (referans sıra: hero başlık → segmented subnav → gövde). Profil
+ * host'ları kendi başlığını taşır (shell başlık sağlamaz).
  */
 
 export function PlanTakvimHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Plan"
       title="Takvim"
       subtitle="Aylık yayın yerleşimi ve seçilen fırsattan üretilen reels senaryosu."
@@ -21,6 +25,7 @@ export function PlanTakvimHost() {
 export function PlanFirsatlarHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Plan"
       title="Fırsatlar"
       subtitle="Editoryal seçilmiş içerik fırsatları — rakip, trend, haber ve sektör sinyalleri."
@@ -32,6 +37,7 @@ export function PlanFirsatlarHost() {
 export function PlanSerilerHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Plan"
       title="Seriler"
       subtitle="Carousel ve Reels seri DNA'sı — görsel düzen, caption ve hook kalıpları."
@@ -43,6 +49,7 @@ export function PlanSerilerHost() {
 export function LibTumuHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Kütüphane"
       title="Tümü"
       subtitle="Viral örnekler, prompt, pattern ve anahtar kelime kaynaklarında birleşik arama."
@@ -54,6 +61,7 @@ export function LibTumuHost() {
 export function LibIlhamHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Kütüphane"
       title="İlham"
       subtitle="Panolar ve rakip içerik analizi."
@@ -65,6 +73,7 @@ export function LibIlhamHost() {
 export function LibOgrenmeHost() {
   return (
     <HostPlaceholder
+      bare
       eyebrow="Kütüphane"
       title="Öğrenme"
       subtitle="Öğrenme içerikleri — Gelen kutusu, öğreniliyor, hazır ve bugünkü tekrar."
