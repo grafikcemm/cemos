@@ -838,3 +838,15 @@ Kütüphane  Tümü  İlham  [Öğrenme]      [+ Kaynak ekle]
 - **Klavye:** recovery CTA otomatik odak; Enter; env NAME kopyala (değer yok).
 - **Responsive:** her boyut; ≤640 tam-genişlik, CTA thumb-erişilebilir alt.
 - **Kabul kriterleri:** (1) net Türkçe neden (jargon değil); (2) **tek** recovery yolu; (3) sessiz no-op YOK — engel her zaman görünür; (4) X API = BLOCKED-EXTERNAL + maliyet nedeni (ADR-015), onaysız gerçek publish başlamaz; (5) yalnız env NAME, secret değeri asla ekranda/logda.
+
+## Bugün karar kartı — referans + düzeltilmiş sözleşme (ADR-021, Faz 1C-e)
+
+> Uygulanan hâl (`DraftReviewCard` + `DraftDetailDrawer` + `ThreadSegmentEditor`). Referans ADR-021: kontrollü ivory/peach açık-ada karar kartları koyu kanvasta.
+
+- **Ton = readiness** (`data-readiness`): **ready → ivory `InverseCard`** · **needs_edit → peach `PeachCard`** · **blocked → koyu hata-tint `Surface`** · published → sönük koyu + yeşil "Paylaşıldı". Kuyruk satırları koyu + readiness noktası.
+- **Kart kompozisyonu:** üst satır ("Sıradaki" + @hesap + X·format + readiness rozeti) → "Neden bugün?" satırı (5-durum doğrulama çipi + tazelik) → (needs_edit/blocked) Türkçe neden listesi → içerik (okunur blok; tıkla→düzenle textarea) → aksiyonlar.
+- **Yayın sözleşmesi (bağlayıcı):** **ready** → birincil **intent-only "X'te aç"** (ADR-017; pencere açmak yayın DEĞİL) + ikincil Düzenle/Kaydet/Kopyala/Görsel üret/Detay + **"Paylaşıldı"** (manuel onay). **needs_edit** → birincil **"Düzenle"**; X'te aç/Paylaşıldı YOK; nedenler görünür. **blocked** → intent/publish YOK; engelleyen neden görünür. **"Onayla ve yayınla" ve "AI çıktısını değiştirmeden yayınlayamazsın" YOK** (kozmetik edit-gate kaldırıldı). A/E/J/K.
+- **Detay drawer** (koyu side panel 420px): Neden bugün (doğrulama + reason), Kaynak (`scannedAt` = **"tarandı"**, fact-check DEĞİL; kaynak mevcut ≠ iddia doğrulandı), ayrışık kalite sinyalleri (tek viral skor YOK), readiness nedenleri, üretim izi (model/açı/pattern **katlanmış**). Kart ile **AYNI** hesaplanmış sonuç.
+- **Thread segment editörü** (desktop): segment kartları (numara + textarea + char/280) — ekle/böl(imleçte)/birleştir(üstteki)/sırala(↑↓)/sil; kaydet → `serializeThreadSegments` → PATCH `threadSegments`. Yapısal segment = readiness'in thread doğrulaması ("1/" metni kanıt DEĞİL).
+- **Durumlar:** loading = skeleton; empty = "Bugün için taslak yok" + Üret; error = graceful ErrorState (**canlı DB threadSegments migration'ı beklerken bu gösteriliyor** — USER-DB-ACTION, ADR-021); success = kart tonu readiness.
+- **Kabul:** (1) ton=readiness + `data-readiness`; (2) needs_edit/blocked yayınlanamaz; (3) intent-only (PublishedPost yaratmaz); (4) kart/drawer aynı doğrulama; (5) 1280/1440 taşma yok; (6) A/E/J/K. E2E: `bugun-queue.spec.ts` (hermetik route-mock).

@@ -4,7 +4,7 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0/P0/1A/1B/1B.5 ✅ + **Faz 1C ÇEKİRDEK ✅** (readiness/threadSegments/whyToday — commit `bbda80c`). Sıradaki: **Faz 1C-d/e** (publishService readiness + desktop DraftReviewCard bağlama).
+- **Faz:** Faz 0/P0/1A/1B/1B.5 ✅ + **Faz 1C ✅ TAMAM** (çekirdek `bbda80c` + referans shell `dabb0bf` + readiness-wiring & desktop review UI `ba0068b`). Sıradaki: **Faz 1D** — ama önce **Faz 1D öncesi görsel onay kapısı** (ADR-021, tek kapı; onay gelmeden 1D'ye geçilmez).
 - **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
 - **Commit'ler:** `2cd7b24` Faz 0 · `fb90f33` faz1a · `c964979` handoff · `b68e32a` faz1b · `adae802`+`1146aec` handoff/1C-map · `feat(theme)` faz1b.5 dark.
 - **Tema (ADR-020, kullanıcı 2026-07-15):** **desktop-only + tek tema DARK EDITORIAL** (light kararı supersede; terracotta korunur). Desktop kabul: 1024/1280/1440/1920, **1024–1920 taşma yok**; mobil best-effort. X API ödemesi ONAYLANMADI (Faz 1E intent-only).
@@ -131,21 +131,21 @@ Gate: test/typecheck/lint + build/playwright/1280·390/console-0. Ayrı commit +
 
 **Yeni `readinessService.ts` tasarımı (pure, self-contained input — QueueItem'dan adapte edilir):** `state: ready|needs_edit|blocked`; text=`editedContent?.trim()||content.trim()`; persist YOK. **BLOCK** (öncelikli): over-maxChars · `riskScore>=RISK_BLOCK_MIN(75, provisional)` · kaynaksız somut istatistik iddiası (`%`/`$₺`/`\d+ kat|milyon|milyar|bin`/`(19|20)\d{2}` VE !hasSource) · security lint kodu. **NEEDS_EDIT:** !judged (fail-closed) · turkishNaturalness null/legacy · judged&&<55 · high leak · yabancı-dil sızıntısı (İngilizce fonksiyon-kelime sayısı≥2, allowlist'li — kelime-özel hack YOK) · lint banned_phrase|question_cta · grafikcem&&emoji(`\p{Extended_Pictographic}`) · thread&&!threadSegments (yapısal; "1/" kanıt DEĞİL) · segment char/limit ihlali · status==="needs_edit". Aksi → **ready**. Eşikler **provisional** — canlı queue verisiyle DONDURULACAK (risk#2; OpenRouter-402 canlı üretime bağlı → o kalibrasyon dış-bağımlı). Fixtures `__fixtures__/badDrafts.ts` (6: yabancı-sızıntı/soru-CTA/emoji/kaynaksız-iddia/yapısız-thread/düşük-Türkçe) hiçbiri ready; iyi fixture ready → `readinessService.regression.test.ts`.
 
-### Faz 1C ÇEKİRDEK tamam (bbda80c) — kalan d/e turnkey
+### Faz 1C TAMAM — dabb0bf (referans shell) + ba0068b (readiness wiring + desktop review UI)
 
-**Tamam (pure, testli):** `readinessService.ts` (20 test, `assessReadiness(ReadinessInput)→{state,reasons}`, `READINESS_POLICY_VERSION`), `__fixtures__/readinessDrafts.ts` (`baseDraft`/`goodDraft`/`badDrafts`), `threadSegments.ts` (Zod `parse/serializeThreadSegments`, 4 test), `whyToday.ts` (`whyToday(input)→{verification,isClaimVerified,reason,sourceAgeHours}` + `verificationLabel`, 11 test). Additive `QueueItem.threadSegments String?` + migration `20260716000000_add_thread_segments` (ADD COLUMN nullable, migrate-diff kanıtlı, **UYGULANMADI** — [USER] `db push`/`migrate deploy`).
+**Çekirdek (bbda80c, pure):** `readinessService`/`threadSegments`/`whyToday` (+fixtures) — 35 test. Değişmedi, bağlandı.
 
-**Kalan — Faz 1C-d (publishService → readiness):**
-- `src/lib/services/publishService.ts:97-104` edit-gate (`edited===original||!edited → throw "edited"`) KALDIR → `markManualPublished` içinde yayın anında `assessReadiness` RE-RUN. `blocked` → throw + route 422 Türkçe neden; `needs_edit` → izin ama uyarı (manuel onay operatörün; intent-only akış). `:156` cast korunur.
-- **Adapter QueueItem→ReadinessInput:** `scores` JSON parse (route.ts:74-79 gibi) → `judged`(telemetry.judged), `turkishNaturalness`, `riskScore`, `sourceFaithfulness`, `leaks`; `lintReport` parse → `lintIssues`; `hasSource`=`!!(sourcePostId||newsItemId)`; `threadSegments`=`parseThreadSegments(item.threadSegments)`; `maxChars`=`effectiveMaxChars(account)`. Ortak yardımcı `readinessFromQueueItem(item)` yaz (route + publishService paylaşır).
-- Route `daily-queue/route.ts` payload'ına `readiness` (assessReadiness sonucu) + `whyToday` (newsItem/sourcePost'tan) EKLE — kart+drawer aynı sonucu okur.
+**Referans hizalama (dabb0bf, ADR-021):** inverse/peach açık-ada token'ları (+@theme mirror, gerçek WCAG, açık-ada kilidi); `Surface`/`InverseCard`/`PeachCard` primitive (ton renkleri `--sf-*` ile çocuklara); Sidebar hesap bağlam kartı + **nötr grafit aktif nav** (terracotta yalnız ikon); segmented pill SubNav; `PageHeader size="hero"`; AppShell Plan/Kütüphane hero başlık→subnav→gövde. Canlı 1280 (shots/faz1c-refA).
 
-**Kalan — Faz 1C-e (desktop DraftReviewCard + drawer + segment editor):**
-- `DraftReviewCard.tsx` YENİDEN (desktop): UI edit-gate (`:115 isEdited`, `:166`, `:398 disabled`, `:417-421`) SİL; readiness state rozeti (ready/needs_edit/blocked) + `verificationLabel` 5-durum çipi (kart+drawer AYNI); **CTA intent-only** "X'te aç" (ADR-017; "Onayla ve yayınla" YOK); blocked → publish kapalı+neden; A/E/J/K; `data-readiness`.
-- Detay **drawer** (desktop side panel): kaynak+doğrulama durumu/tarihi (scannedAt "tarandı" olarak, fact-check DEĞİL), SubSignals, alternatif hook, whyToday.reason, audit izi.
-- **Segment editor** (desktop): thread için ekle/böl/birleştir/sırala → `serializeThreadSegments` → PATCH `{threadSegments}`. `[id]/route.ts` UpdateQueueItemSchema'ya `threadSegments` ekle.
-- `MorningDashboardTab`/`ReviewQueue`/`OperatorReadinessGate` yeni sisteme; `useDailyQueueData` payload genişler.
-- E2E: readiness spec + `bugun-queue.spec.ts` (desktop 1280/1440); mobil 390 YOK (ADR-020). Gate: test/typecheck/lint/build/playwright + desktop görsel.
+**Readiness wiring (ba0068b, 1C-d):** `readinessAdapter.ts` (saf `readinessInputFromQueueItem`/`assessQueueItemReadiness`, savunmacı default'lar, +11 test); `publishService.markManualPublished` **düzeltilmiş sözleşme** — kozmetik `edited!==original` edit-gate KALKTI → yayın anında `editedContent ?? content` üzerinde `assessReadiness` RE-RUN: `blocked`→`readiness_blocked`(422), `needs_edit`→`edit_required`(422), `ready`→yayın (düzenleme ŞART değil); "edited" öğrenme sinyali yalnız gerçekten değiştiyse. daily-queue GET payload += `readiness`+`readinessInput`(client canlı)+`whyToday` (sourcePost/newsItem include); `[id]` PATCH += `threadSegments`(Zod) + readiness→422 Türkçe neden; mark-published route aynı eşleme.
+
+**Desktop review UI (ba0068b, 1C-e):** `DraftReviewCard` ton=readiness (ivory ready/peach needs_edit/koyu blocked, `data-readiness`) + **intent-only "X'te aç"** + "Paylaşıldı"(yalnız ready) + canlı readiness; UI edit-gate + "değiştirmeden yayınlayamazsın" KALKTI; A/E/J/K. `ThreadSegmentEditor` (ekle/böl/birleştir/sırala + char count → `serializeThreadSegments` → PATCH). `DraftDetailDrawer` (koyu side panel: whyToday/doğrulama/kaynak scannedAt="tarandı"/ayrışık sinyaller/readiness/model katlanmış; kart ile AYNI sonuç). `readinessMeta.ts`; ReviewQueue readiness noktaları; `useDailyQueueData` (+`saveSegments`, kaydetmede canlı readiness yeniden-hesap). E2E `bugun-queue.spec.ts` (hermetik route-mock, DB-bağımsız, 5 test) + eski kozmetik edit-gate E2E'si kaldırıldı.
+
+**Gate:** typecheck ✓ · unit **1308/1308** ✓ · lint 0 error ✓ · build ✓ · **e2e 26/26** ✓. Kart tonları mock-preview ile canlı doğrulandı (shots/faz1c-cards: ready ivory / needs_edit peach / blocked / thread editör / drawer / gerçek Bugün DB-blocker ErrorState).
+
+**⚠ USER-DB-ACTION (uygulanmadı, kısıt — BLOCKED-EXTERNAL değil):** `QueueItem.threadSegments` kolonu canlı DB'de YOK → daily-queue gerçek istekte "column does not exist" 500 (Bugün graceful ErrorState, sessizce gizlenmez). Kullanıcı additive migration'ı uygulamalı: **`npx prisma migrate deploy`** (veya dev'de eşdeğeri) → gerçek veri akar, Bugün kartları canlı render olur.
+
+**Sıradaki: Faz 1D ÖNCESİ GÖRSEL ONAY KAPISI (ADR-021, tek kapı).** Kullanıcıya gerçek uygulamadan shell/sidebar-account/Plan-Kütüphane + kart mock-preview'ları sunulur; soru: "referans yapı/his yeterince yakalandı mı; bu archetype ile Faz 1D'ye devam?" **Onay gelmeden Faz 1D'ye geçilmez.** (Faz 1D: 6 host + 5 advanced araştırma yüzeyi archetype'a taşınır.)
 
 ## Tekrar edilmemesi gereken başarısız denemeler
 

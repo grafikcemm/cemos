@@ -129,3 +129,13 @@ Faz 1A: `src/components` genelinde literal hex/rgba grep (`#0`,`#1`,`#2`,`rgba(2
 - ~~Accent kullanıcı onayı~~ → **KAPANDI: Terracotta `#A8481F` seçildi (ADR-017).**
 - ~~Kontrast el-hesabı~~ → **KAPANDI: gerçek WCAG 2.1 relative-luminance ile yeniden hesaplandı (ADR-018); §2b/2c/2d tablolar gerçek oranları taşır; Faz 1A token testi otomatik doğrular.**
 - Türkçe glyph per-weight doğrulama (Inter/Newsreader Google Fonts specimen) — Faz 1A font entegrasyonunda.
+
+## 13. Referans hizalama (ADR-021, 2026-07-15) — bağlayıcı ekleme
+
+> Kullanıcı-sağlanan desktop dashboard referansı (bkz. DECISIONS ADR-021). Aşağıdakiler §1-11'i **somutlaştırır** (dark editorial korunur). Kaynak-of-truth = ADR-021.
+
+- **Kontrollü açık-ada token'ları (globals.css :root + @theme mirror):** `--inverse-surface #f2ece1` · `--inverse-surface-2 #e8dfd0` · `--inverse-text #221f1a` · `--inverse-muted #635c51` · `--inverse-border #dbd1bf` · `--peach-surface #f6dcc6` · `--peach-surface-2 #f0cdb0` · `--peach-text #5a3315` · `--peach-muted #6f4d2f` · `--peach-border #e7bf9d`. Gerçek WCAG (`theme-tokens.test`): ada üstü koyu metin ≥4.5:1, adalar relLum>0.5 (dark-kilit istisnası). `--sidebar-w 244`.
+- **`Surface` primitive** (`components/ui/Surface.tsx`): `tone="inverse|peach|blocked|default"`; ton renkleri kök'e `--sf-fg/--sf-muted/--sf-sunken/--sf-border` olarak basılır → çocuklar tonu bilmeden token tüketir. `InverseCard`/`PeachCard` sarmalayıcı. Hardcoded hex YOK. **Kural:** açık ada YALNIZ karar/karşılaştırma odağı (ready kart=ivory, needs_edit=peach); kuyruk/ikincil koyu; sayfa light'a çevrilmez.
+- **Sidebar:** logo → **hesap bağlam kartı** (`sidebar-account`: avatar + @handle + "Aktif hesap" + `account-switcher`) → Bugün/Plan/Kütüphane. **Aktif nav = nötr grafit dolgu** (`bg-elevated`, `text-primary`); terracotta yalnız ikon vurgusu (`accent-text`) — satır boyanmaz. Genişlik `--sidebar-w`.
+- **SubNav = segmented pill rail:** koyu gömük rail (`bg-sunken`, radius-pill) + aktif kapsül (`bg-elevated` + hafif gölge); terracotta yalnız aktif ayrıntı. İkon opsiyonel.
+- **PageHeader `size="hero"`** (~28px, açıklama başlık altında) = referans workspace başlığı. AppShell Plan/Kütüphane host'larında: **hero başlık → segmented subnav → gövde** (host `bare`, çift başlık yok). TopStrip slim kalır (breadcrumb ikincil + arama + sağlık sağ üstte).

@@ -90,3 +90,21 @@
 7. **Desktop destek sözleşmesi:** birincil 1280/1440/1920; minimum graceful 1024; **1024–1920 yatay taşma yok**. Eski "1280+390" ve "320–1440" kriterleri bununla değiştirildi (docs güncellendi).
 8. **MobileNav + responsive kod** silinmedi — "best-effort / mevcut compatibility". Mobil başarısızlığı desktop ürününün tamamlanmasını engellemez; yeni 390 screenshot/mobil-özel component üretilmez. 05 spec mobil wireframe'leri tarihsel tasarım kaydı (implementasyon zorunluluğu değil).
 9. **`theme-tokens.test.ts`** dark'a güncellendi: gerçek WCAG (metin ≥4.5:1, focus ≥3:1), dark-tema-kilidi (yüzey relLum düşük / metin yüksek — açık-temaya dönüş engeli), açık-tema literal regression bans (#f7f6f2…), mor/neon/glow bans korunur. Salt-hex listesi değil — kontrast hesabı gerçek.
+
+### ADR-021 — Kullanıcı-sağlanan desktop dashboard referansı = CemOS'un bağlayıcı görsel yapısı
+**2026-07-15 (kullanıcı kararı, Faz 1C öncesi).** Kaynak görsel: `C:\Users\alice\Desktop\8712256020b90f2075e851cdbe1c0b83.jpg` (Rebaid dashboard). ADR-020 dark editorial yönünü **somutlaştırır** (supersede etmez); shell geometrisi + yüzey hiyerarşisi bu referansa yakından hizalanır.
+1. **Yapı yakından uygulanır; marka/içerik KOPYALANMAZ.** Rebaid logosu, "Need help" kartı, sahte chart/KPI/avatar üretilmez. CemOS'un gerçek görevleri aynı tasarım sistemine yerleşir.
+2. **Shell:** near-black rail (`bg-rail #0D0F12`, `--sidebar-w` 244) + sıcak grafit workspace (`bg-workspace`, float + border, büyük yüzey farkı). İçerik keskin ortalı beyaz panel gibi görünmez.
+3. **Sidebar:** logo → **hesap bağlam kartı** (avatar + @handle + "Aktif hesap" + kanal değiştirici) → Bugün/Plan/Kütüphane. **Aktif nav = nötr grafit dolgu** (`bg-elevated`); terracotta yalnız ikon/indicator vurgusu (satırı boyamaz). Toolbox ayrı utility; Profil dipte.
+4. **Workspace header:** büyük sayfa başlığı (`PageHeader size="hero"` ~28px, açıklama altında) → segmented pill subnav → gövde. Breadcrumb TopStrip'te ikincil; arama/Cmd-K + sağlık sağ üstte (küçük).
+5. **SubNav:** segmented pill rail (koyu gömük rail + açık grafit aktif kapsül; terracotta yalnız aktif ayrıntı).
+6. **Kontrollü açık-ada yüzeyleri:** koyu kanvasta ivory (`--inverse-*`) + peach (`--peach-*`) KARAR kartları. Yeni token ailesi (globals.css + @theme mirror), gerçek WCAG (theme-tokens.test): ivory/peach üstünde koyu metin ≥4.5:1, adalar açık kalır (dark-kilit istisnası). **Kullanım:** ready DraftReviewCard = ivory; needs_edit = peach; blocked = koyu hata-tint; kuyruk/ikincil = koyu. Her kart ivory YAPILMAZ, sayfa light'a çevrilmez. `Surface`/`InverseCard`/`PeachCard` primitive'i (ton renkleri `--sf-*` CSS var ile çocuklara akar); hardcoded hex yok.
+7. **Bugün ekranı Faz 1D için design archetype'tır** — tüm yüzeyler bu dile taşınacak.
+
+**Yayın sözleşmesi düzeltmesi (bağlayıcı, IMPLEMENTATION-STATE'in "needs_edit → izin ama uyarı" yorumu YANLIŞTI — uygulanmadı):**
+- **ready:** intent açılabilir + manuel "Paylaşıldı" onayı yapılabilir (düzenleme ŞART değil).
+- **needs_edit:** yayınlanamaz; "Düzenle" ana CTA; intent oluşturulmaz; PublishLog/PublishedPost oluşmaz; servis `edit_required` + nedenler döner.
+- **blocked:** yayınlanamaz; intent yok; servis `readiness_blocked`; route 422 + Türkçe nedenler.
+- İnsan onayı kalite/policy kapısını SESSİZCE bypass etmez; kullanıcı metni düzenleyerek ready yapar. Kozmetik `edited !== original` edit-gate'i KALDIRILDI; `markManualPublished` yayın anında `editedContent ?? content` üzerinde readiness'i yeniden koşar.
+
+**USER-DB-ACTION (BLOCKED-EXTERNAL değil):** `QueueItem.threadSegments` additive migration'ı (`prisma/migrations/20260716000000_add_thread_segments`) üretildi + `migrate diff` ile additive kanıtlandı ama canlı DB'ye **UYGULANMADI** (kısıt: prisma db push yok). Sonuç: daily-queue gerçek istekte "column does not exist" → 500; Bugün ekranı **graceful ErrorState** gösterir (sessizce gizlenmez). Kullanıcı migration'ı uygulayınca (dev/prod DB'ye `prisma migrate deploy` veya eşdeğeri) gerçek veri akar. Kart tonları mock-preview ile canlı doğrulandı (`shots/faz1c-cards`).
