@@ -17,7 +17,8 @@ import SerilerTab from "@/components/plan/SerilerTab";
 import LibTumuTab from "@/components/library/LibTumuTab";
 import LibIlhamTab from "@/components/library/LibIlhamTab";
 import LibOgrenmeTab from "@/components/library/LibOgrenmeTab";
-import { ProfileMemoryHost, ProfileIntegrationsHost } from "@/components/host/hostScreens";
+import ProfileMemoryTab from "@/components/profile/ProfileMemoryTab";
+import ProfileIntegrationsTab from "@/components/profile/ProfileIntegrationsTab";
 
 /**
  * (Alias normalize edilmiş) activeTab id → ekran bileşeni. Shell + standalone
@@ -65,9 +66,9 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <ToolboxTab />;
     // ── Profil yüzeyleri ──
     case "profile-memory":
-      return <ProfileMemoryHost />;
+      return <ProfileMemoryTab />;
     case "profile-integrations":
-      return <ProfileIntegrationsHost />;
+      return <ProfileIntegrationsTab />;
     case "system":
       return <SystemTab />;
     case "costs":

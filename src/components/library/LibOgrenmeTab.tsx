@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GraduationCap, Plus, RefreshCw, CalendarClock, AlertTriangle } from "lucide-react";
+import { GraduationCap, Plus, RefreshCw, CalendarClock, AlertTriangle, Layers, Brain } from "lucide-react";
 import {
   Card,
   MetricGrid,
@@ -173,9 +173,9 @@ export default function LibOgrenmeTab() {
       <MetricGrid
         columns={3}
         items={[
-          { label: "Hazır paket", value: data?.readyPacks ?? 0 },
-          { label: "Bugün tekrar", value: data?.dueToday ?? 0 },
-          { label: "Ort. mastery", value: data?.avgMastery ?? 0 },
+          { label: "Hazır paket", value: data?.readyPacks ?? 0, icon: <Layers size={16} strokeWidth={1.8} /> },
+          { label: "Bugün tekrar", value: data?.dueToday ?? 0, icon: <CalendarClock size={16} strokeWidth={1.8} /> },
+          { label: "Ort. mastery", value: data?.avgMastery ?? 0, icon: <Brain size={16} strokeWidth={1.8} /> },
         ]}
       />
 
