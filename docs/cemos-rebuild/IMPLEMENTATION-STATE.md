@@ -4,10 +4,19 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0 ✅ + **Phase 0 düzeltmeleri ✅ + Faz 1A ✅ TAMAMLANDI.** Sıradaki: **Faz 1B** (shell/sidebar + store v9).
+- **Faz:** Faz 0 ✅ + Phase 0 düzeltmeleri ✅ + Faz 1A ✅ + **Faz 1B ✅ TAMAMLANDI.** Sıradaki: **Faz 1C** (Bugün + gerçek readiness + threadSegments + whyToday + 5-durum doğrulama).
 - **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
-- **Commit'ler:** `2cd7b24` docs(rebuild) Faz 0 · `fb90f33` feat(faz1a) auth + açık editorial design system.
-- **Tasarım onayı (ADR-017):** Kullanıcı onayladı — Terracotta accent; X API ödemesi ONAYLANMADI (Faz 1E intent-only, XApi BLOCKED-EXTERNAL). Phase 0 düzeltmeleri (A-F: WCAG kontrast, publish CTA intent-only, doğrulama tutarlılığı, maliyet tablosu, doc temizlik, mockup) uygulandı.
+- **Commit'ler:** `2cd7b24` docs(rebuild) Faz 0 · `fb90f33` feat(faz1a) auth+design system · `c964979` handoff · `b68e32a` feat(faz1b) 3-görevli shell + store v9.
+- **Tasarım onayı (ADR-017):** Kullanıcı onayladı — Terracotta accent; X API ödemesi ONAYLANMADI (Faz 1E intent-only, XApi BLOCKED-EXTERNAL). Phase 0 düzeltmeleri (A-F) uygulandı.
+
+### Faz 1B tamamlanan (commit b68e32a) — ADR-019
+- **Yeni IA:** `navConfig` = PRIMARY_AREAS(bugun/plan/kutuphane) + ADVANCED_TABS(5, parentArea=plan) + UTILITY_TABS(toolbox) + PROFILE_TABS(5) + AREA_ALIASES + güncellenmiş TAB_ALIASES. Yardımcılar: `highlightAreaForTab`, `resolveAreaForTab`, `isAdvanced/Utility/ProfileTab`, `advanced/profileMeta`, `labelForTab`, `subTabsOfArea`, `allNavigableTabs`.
+- **Shell:** `Sidebar` dar 232px (collapse KALDIRILDI), `ProfileMenu.tsx` (YENİ, yukarı popover 5 yüzey+Çıkış), `MobileNav` 3+1 + Profil sheet, `AppShell` mod modeli + workspace `SubNav` (Plan/Kütüphane + Profil) + 960px + breadcrumb, `screenRegistry` yeni host id'leri.
+- **Host iskeleleri:** `host/HostPlaceholder.tsx` + `host/hostScreens.tsx` (plan-*/lib-*/profile-memory/profile-integrations — dürüst placeholder, Faz 1D doldurur). `lib/auth/clientLogout.ts`.
+- **Store:** v9 migration (yalnız ABSORBED activeTab taşınır; advanced/utility/profil pass-through), `XAGENT_STORE_NAME` const (invariant "xagent-store").
+- **Doğrulama:** typecheck ✓ · lint 0 err ✓ · unit **1240/1240** ✓ · build ✓ · e2e **22/22** ✓ · gerçek app 1280/390 faithful (Bugün/Plan/Profil menü/mobil 3+1), 320-1440 taşma **0**, console **0 error** (`shots/cemos-rebuild/faz1b/` — bugun-1280, plan-1280, profilmenu-1280, bugun-390).
+- **E2E harness sertleştirme:** `global-setup` warmup+retry (soğuk compile), `playwright.config` workers:1/retries:1/expect 10s, Ctrl+K hydration guard. Nav helper (`helpers/nav.ts`) sınıf-bazlı yeniden yazıldı.
+- **ABSORBED ekran dosyaları SİLİNMEDİ** (ViralLibraryTab, DailyQueueTab, KeywordLibraryTab, PromptKutuphanesiTab, PatternLibraryTab, InstagramTab, LearnDashboardTab) — registry'den çıktı, kullanıcı erişimi kesildi; emeklilik Faz 4. Faz 1D `lib-tumu`/`plan-seriler` bunların işlevini birleştirecek.
 
 ### Faz 1A tamamlanan (commit fb90f33)
 - **Auth:** `src/proxy.ts` (Next 16 gate), `src/lib/auth/session.ts`+`throttle.ts` (+test), `src/app/giris` (native form→303), `src/app/api/auth/{login,logout}`, `ACCESS_PASSWORD_HASH`+`SESSION_SECRET` (requiredSecrets+.env.example), `scripts/hash-access-password.ts`, `AuthAttempt` Prisma modeli (additive).
@@ -80,9 +89,18 @@ Doğrulanan (görsel incelendi): 01, 06, 08, 11, 12 — hepsi açık editorial, 
 5. Türkçe glyph per-weight (Inter/Newsreader), üretim hex canlı kontrast re-verify.
 6. Accent kullanıcı kararı (terracotta vs indigo) — onay kapısı.
 
-## Sonraki kesin iş
+## Sonraki kesin iş — Faz 1C (Bugün + gerçek readiness)
 
-**Tasarım onay kapısı:** Kullanıcıya mockup paketi + accent önerisi + X API ödeme kararı sunulur. Onay gelirse **Faz 1A** (auth + design system) başlar. Onaysız Faz 1'e geçilmez.
+FINAL-IMPLEMENTATION-PLAN §1C + master prompt Faz 1C. Özet:
+1. **Kuyruk zinciri teyidi:** hangi route `MorningDashboardTab`'i besliyor koddan doğrula (`/api/growth/daily-queue`).
+2. **`readinessService.ts` (pure):** her çağrı `editedContent ?? content`; persist EDİLMEZ; judged=false/skor eksik/legacy → ASLA ready; `ready|needs_edit|blocked`; blocked YALNIZ ciddi doğruluk/güvenlik/policy/kaynaksız-somut-iddia; stil → needs_edit; hesap-bazlı soru-CTA/emoji; Türkçe-dışı token oranı + allowlist (kelime-özel Trajectory hack'i YOK).
+3. **`threadSegments` additive (QueueItem, Zod typed):** basit segment editörü; yapısal segmentsiz thread fail-closed; metindeki "1/" kanıt SAYILMAZ.
+4. **`whyToday.ts` + 5-durum doğrulama:** verified/partially_verified/source_available/unverified/stale; kart ve drawer AYNI sonucu gösterir; `SourcePost.scannedAt` fact-check tarihi DEĞİL.
+5. **`publishService`:** yayın anında readiness re-run; eski zorunlu kozmetik edit-gate KALDIR; needs_edit→edit_required; blocked→422 Türkçe neden.
+6. **UI:** yeni DraftReviewCard + detay drawer; ReviewQueue/MorningDashboardTab/OperatorReadinessGate yeni sisteme; **intent-only CTA dili korunur** ("X'te aç", ADR-017).
+7. **Fixtures:** 6 kötü taslak (yabancı sızıntı/soru-CTA/emoji/kaynaksız-iddia/yapısız-thread/düşük-Türkçe) ready OLAMAZ; iyi fixture ready. Additive Prisma migration `prisma migrate diff` ile destructive-değil kanıtı (production'a UYGULAMA).
+
+Gate: test/typecheck/lint + build/playwright/1280·390/console-0. Ayrı commit + bu dosyayı güncelle.
 
 ## Tekrar edilmemesi gereken başarısız denemeler
 
