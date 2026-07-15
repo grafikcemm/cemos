@@ -4,7 +4,7 @@
 
 ## Aktif durum
 
-- **Faz:** Faz 0 ✅ + P0 ✅ + Faz 1A ✅ + Faz 1B ✅ + **Faz 1B.5 (desktop dark editorial) ✅ TAMAMLANDI.** Sıradaki: **Faz 1C** (desktop-only UI).
+- **Faz:** Faz 0/P0/1A/1B/1B.5 ✅ + **Faz 1C ÇEKİRDEK ✅** (readiness/threadSegments/whyToday — commit `bbda80c`). Sıradaki: **Faz 1C-d/e** (publishService readiness + desktop DraftReviewCard bağlama).
 - **Branch:** `feature/cemos-rebuild` (`feature/ui-dark-redesign` HEAD `f8b72b8`'den). **Push YOK.**
 - **Commit'ler:** `2cd7b24` Faz 0 · `fb90f33` faz1a · `c964979` handoff · `b68e32a` faz1b · `adae802`+`1146aec` handoff/1C-map · `feat(theme)` faz1b.5 dark.
 - **Tema (ADR-020, kullanıcı 2026-07-15):** **desktop-only + tek tema DARK EDITORIAL** (light kararı supersede; terracotta korunur). Desktop kabul: 1024/1280/1440/1920, **1024–1920 taşma yok**; mobil best-effort. X API ödemesi ONAYLANMADI (Faz 1E intent-only).
@@ -130,6 +130,22 @@ Gate: test/typecheck/lint + build/playwright/1280·390/console-0. Ayrı commit +
 **Mevcut readiness:** `operatorReadinessService` (`src/lib/services/operatorReadinessService.ts`) = INFRA/pipeline readiness ("bugün üretebilir mi") — per-draft readiness'ten AYRI. Yeni `readinessService.ts` (per-draft) isim çakışması YOK.
 
 **Yeni `readinessService.ts` tasarımı (pure, self-contained input — QueueItem'dan adapte edilir):** `state: ready|needs_edit|blocked`; text=`editedContent?.trim()||content.trim()`; persist YOK. **BLOCK** (öncelikli): over-maxChars · `riskScore>=RISK_BLOCK_MIN(75, provisional)` · kaynaksız somut istatistik iddiası (`%`/`$₺`/`\d+ kat|milyon|milyar|bin`/`(19|20)\d{2}` VE !hasSource) · security lint kodu. **NEEDS_EDIT:** !judged (fail-closed) · turkishNaturalness null/legacy · judged&&<55 · high leak · yabancı-dil sızıntısı (İngilizce fonksiyon-kelime sayısı≥2, allowlist'li — kelime-özel hack YOK) · lint banned_phrase|question_cta · grafikcem&&emoji(`\p{Extended_Pictographic}`) · thread&&!threadSegments (yapısal; "1/" kanıt DEĞİL) · segment char/limit ihlali · status==="needs_edit". Aksi → **ready**. Eşikler **provisional** — canlı queue verisiyle DONDURULACAK (risk#2; OpenRouter-402 canlı üretime bağlı → o kalibrasyon dış-bağımlı). Fixtures `__fixtures__/badDrafts.ts` (6: yabancı-sızıntı/soru-CTA/emoji/kaynaksız-iddia/yapısız-thread/düşük-Türkçe) hiçbiri ready; iyi fixture ready → `readinessService.regression.test.ts`.
+
+### Faz 1C ÇEKİRDEK tamam (bbda80c) — kalan d/e turnkey
+
+**Tamam (pure, testli):** `readinessService.ts` (20 test, `assessReadiness(ReadinessInput)→{state,reasons}`, `READINESS_POLICY_VERSION`), `__fixtures__/readinessDrafts.ts` (`baseDraft`/`goodDraft`/`badDrafts`), `threadSegments.ts` (Zod `parse/serializeThreadSegments`, 4 test), `whyToday.ts` (`whyToday(input)→{verification,isClaimVerified,reason,sourceAgeHours}` + `verificationLabel`, 11 test). Additive `QueueItem.threadSegments String?` + migration `20260716000000_add_thread_segments` (ADD COLUMN nullable, migrate-diff kanıtlı, **UYGULANMADI** — [USER] `db push`/`migrate deploy`).
+
+**Kalan — Faz 1C-d (publishService → readiness):**
+- `src/lib/services/publishService.ts:97-104` edit-gate (`edited===original||!edited → throw "edited"`) KALDIR → `markManualPublished` içinde yayın anında `assessReadiness` RE-RUN. `blocked` → throw + route 422 Türkçe neden; `needs_edit` → izin ama uyarı (manuel onay operatörün; intent-only akış). `:156` cast korunur.
+- **Adapter QueueItem→ReadinessInput:** `scores` JSON parse (route.ts:74-79 gibi) → `judged`(telemetry.judged), `turkishNaturalness`, `riskScore`, `sourceFaithfulness`, `leaks`; `lintReport` parse → `lintIssues`; `hasSource`=`!!(sourcePostId||newsItemId)`; `threadSegments`=`parseThreadSegments(item.threadSegments)`; `maxChars`=`effectiveMaxChars(account)`. Ortak yardımcı `readinessFromQueueItem(item)` yaz (route + publishService paylaşır).
+- Route `daily-queue/route.ts` payload'ına `readiness` (assessReadiness sonucu) + `whyToday` (newsItem/sourcePost'tan) EKLE — kart+drawer aynı sonucu okur.
+
+**Kalan — Faz 1C-e (desktop DraftReviewCard + drawer + segment editor):**
+- `DraftReviewCard.tsx` YENİDEN (desktop): UI edit-gate (`:115 isEdited`, `:166`, `:398 disabled`, `:417-421`) SİL; readiness state rozeti (ready/needs_edit/blocked) + `verificationLabel` 5-durum çipi (kart+drawer AYNI); **CTA intent-only** "X'te aç" (ADR-017; "Onayla ve yayınla" YOK); blocked → publish kapalı+neden; A/E/J/K; `data-readiness`.
+- Detay **drawer** (desktop side panel): kaynak+doğrulama durumu/tarihi (scannedAt "tarandı" olarak, fact-check DEĞİL), SubSignals, alternatif hook, whyToday.reason, audit izi.
+- **Segment editor** (desktop): thread için ekle/böl/birleştir/sırala → `serializeThreadSegments` → PATCH `{threadSegments}`. `[id]/route.ts` UpdateQueueItemSchema'ya `threadSegments` ekle.
+- `MorningDashboardTab`/`ReviewQueue`/`OperatorReadinessGate` yeni sisteme; `useDailyQueueData` payload genişler.
+- E2E: readiness spec + `bugun-queue.spec.ts` (desktop 1280/1440); mobil 390 YOK (ADR-020). Gate: test/typecheck/lint/build/playwright + desktop görsel.
 
 ## Tekrar edilmemesi gereken başarısız denemeler
 
