@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Brain, Plug, Activity, DollarSign, Settings, LogOut, type LucideIcon } from "lucide-react";
 import { PROFILE_TABS } from "@/components/nav/navConfig";
+import AppIcon from "@/components/ui/AppIcon";
 import { logoutAndRedirect, confirmLogout } from "@/lib/auth/clientLogout";
 
 const ITEM_ICONS: Record<string, LucideIcon> = {
@@ -84,7 +85,7 @@ export default function ProfileMenu({ activeId, onSelect, onClose }: ProfileMenu
                 if (!active) e.currentTarget.style.background = "transparent";
               }}
             >
-              <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
+              <AppIcon icon={Icon} size="sm" />
               <span>{tab.label}</span>
             </button>
           );
@@ -105,7 +106,7 @@ export default function ProfileMenu({ activeId, onSelect, onClose }: ProfileMenu
             e.currentTarget.style.background = "transparent";
           }}
         >
-          <LogOut size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
+          <AppIcon icon={LogOut} size="sm" />
           <span>{loggingOut ? "Çıkılıyor…" : "Çıkış"}</span>
         </button>
       </div>

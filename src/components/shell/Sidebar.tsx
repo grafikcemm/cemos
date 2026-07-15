@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useXAgentStore, type Channel } from "@/store/xagent";
 import { PRIMARY_AREAS, type PrimaryAreaId } from "@/components/nav/navConfig";
+import AppIcon from "@/components/ui/AppIcon";
 import ProfileMenu from "./ProfileMenu";
 
 const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
@@ -26,26 +27,21 @@ const AREA_ICONS: Record<string, LucideIcon> = {
 };
 
 type SidebarProps = {
-  /** Yanacak birincil alan (advanced ekran → araştırma ebeveyni Plan). */
   highlightArea: PrimaryAreaId | null;
-  /** Toolbox aktif mi? */
   toolboxActive: boolean;
-  /** Bir Profil yüzeyi aktif mi? */
   profileActive: boolean;
-  /** Aktif Profil yüzeyi id'si (ProfileMenu vurgusu için) — değilse null. */
   activeProfileId: string | null;
   onSelectArea: (areaId: PrimaryAreaId) => void;
   onSelectToolbox: () => void;
   onSelectProfileTab: (tabId: string) => void;
-  /** Mobil: navigasyon sonrası sheet/drawer kapatma (desktop'ta kullanılmaz). */
   onNavigate?: () => void;
 };
 
 /**
- * Referans-hizalı dar sidebar (ADR-021, 05 §A2): near-black rail → marka →
- * hesap bağlam kartı (aktif kanal + değiştir) → Bugün/Plan/Kütüphane (nötr grafit
- * aktif dolgu, terracotta yalnız ikon/indicator vurgusu) → Toolbox → Profil.
- * **Collapse YOK** (06 §7). ≤640'ta bottom-nav'a devreder (`.app-sidebar-desktop`).
+ * Referans-sadakat sidebar (ADR-021): near-black rail → özgün CemOS lockup →
+ * işlenmiş hesap bağlam kartı → Bugün/Plan/Kütüphane (nötr grafit slab, terracotta
+ * yalnız ikon vurgusu) → ayırıcı → Toolbox → Profil. Ortak CSS sınıfları (inline
+ * style + JS hover yerine). Tüm ikonlar AppIcon (tek optik boyut/stroke).
  */
 export default function Sidebar({
   highlightArea,
@@ -67,110 +63,50 @@ export default function Sidebar({
   };
 
   return (
-    <aside
-      className="app-sidebar"
-      style={{
-        width: "var(--sidebar-w)",
-        flexShrink: 0,
-        height: "100vh",
-        position: "sticky",
-        top: 0,
-        background: "var(--bg-rail)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 50,
-      }}
-    >
-      {/* Marka */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          padding: "18px 20px 14px",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "var(--radius-sm)",
-            background: "var(--accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M7 7L12 12M12 12L17 7M12 12L7 17M12 12L17 17"
-              stroke="var(--accent-fg)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
+    <aside className="cx-sidebar app-sidebar">
+      {/* Marka lockup — özgün CemOS mark (rounded C-arc + node) + wordmark. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "18px 18px 14px", flexShrink: 0 }}>
+        <BrandMark />
         <span
           className="font-display"
-          style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+          style={{ fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1 }}
         >
-          CemOS
+          <span style={{ color: "var(--text-primary)" }}>Cem</span>
+          <span style={{ color: "var(--accent-text)" }}>OS</span>
         </span>
       </div>
 
-      {/* Hesap bağlam kartı (referans: logo altında belirgin kart) */}
-      <div style={{ padding: "0 12px 8px", flexShrink: 0 }}>
+      {/* Hesap bağlam kartı */}
+      <div style={{ padding: "0 12px 6px", flexShrink: 0 }}>
         <AccountCard channel={activeChannel} onSelect={setActiveChannel} />
       </div>
 
-      {/* Birincil alanlar + Toolbox */}
-      <nav
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          padding: "6px 12px 14px",
-          flex: 1,
-          overflowY: "auto",
-        }}
-      >
-        {PRIMARY_AREAS.map((area) => {
-          const Icon = AREA_ICONS[area.icon] ?? Compass;
-          return (
-            <NavButton
-              key={area.id}
-              testid={`sidebar-area-${area.id}`}
-              label={area.label}
-              icon={<Icon size={17} strokeWidth={2} />}
-              active={highlightArea === area.id && !toolboxActive && !profileActive}
-              onClick={() => go(() => onSelectArea(area.id))}
-            />
-          );
-        })}
+      {/* Ana nav + Toolbox */}
+      <nav className="cx-sidebar-scroll">
+        {PRIMARY_AREAS.map((area) => (
+          <NavItem
+            key={area.id}
+            testid={`sidebar-area-${area.id}`}
+            label={area.label}
+            icon={AREA_ICONS[area.icon] ?? Compass}
+            active={highlightArea === area.id && !toolboxActive && !profileActive}
+            onClick={() => go(() => onSelectArea(area.id))}
+          />
+        ))}
 
-        <div aria-hidden style={{ height: 1, background: "var(--border-faint)", margin: "10px 4px" }} />
+        <div className="cx-divider" aria-hidden />
 
-        <NavButton
+        <NavItem
           testid="sidebar-toolbox"
           label="Toolbox"
-          icon={<Wrench size={17} strokeWidth={2} />}
+          icon={Wrench}
           active={toolboxActive}
           onClick={() => go(onSelectToolbox)}
         />
       </nav>
 
-      {/* Dip: Profil tetikleyici */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          padding: 12,
-          borderTop: "1px solid var(--border-faint)",
-          flexShrink: 0,
-        }}
-      >
+      {/* Dip: Profil */}
+      <div style={{ padding: 12, borderTop: "1px solid var(--border-faint)", flexShrink: 0 }}>
         <div style={{ position: "relative" }}>
           <button
             data-testid="sidebar-profile"
@@ -178,42 +114,11 @@ export default function Sidebar({
             aria-haspopup="menu"
             aria-expanded={profileOpen}
             aria-current={profileActive ? "page" : undefined}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              width: "100%",
-              height: 36,
-              padding: "0 12px",
-              borderRadius: "var(--radius-sm)",
-              border: "none",
-              background: profileActive ? "var(--bg-elevated)" : "transparent",
-              color: profileActive ? "var(--text-primary)" : "var(--text-muted)",
-              fontSize: "var(--text-sm)",
-              fontWeight: 500,
-              fontFamily: "inherit",
-              cursor: "pointer",
-            }}
-            onMouseEnter={(e) => {
-              if (!profileActive) {
-                e.currentTarget.style.background = "var(--bg-hover)";
-                e.currentTarget.style.color = "var(--text-primary)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!profileActive) {
-                e.currentTarget.style.background = "transparent";
-                e.currentTarget.style.color = "var(--text-muted)";
-              }
-            }}
+            className="cx-nav-item"
           >
-            <CircleUserRound
-              size={17}
-              strokeWidth={2}
-              style={{ flexShrink: 0, color: profileActive ? "var(--accent-text)" : "inherit" }}
-            />
-            <span style={{ flex: 1, textAlign: "left" }}>Profil</span>
-            <ChevronDown size={14} strokeWidth={2} style={{ flexShrink: 0, opacity: 0.7 }} />
+            <AppIcon icon={CircleUserRound} size="md" active={profileActive} />
+            <span className="cx-nav-label">Profil</span>
+            <AppIcon icon={ChevronDown} size="sm" style={{ opacity: 0.6 }} />
           </button>
 
           {profileOpen && (
@@ -232,11 +137,59 @@ export default function Sidebar({
   );
 }
 
-/**
- * Hesap bağlam kartı — aktif kanalı avatar + @handle ile gösterir; tıklayınca
- * kanal değiştirici açılır (grafikcem ↔ maskulenkod). Referanstaki account
- * context kartının CemOS eşleşmesi (anlamsız "Admin account" kopyalanmaz).
- */
+/** Özgün CemOS mark — rounded terracotta tile + beyaz "C-arc + node" glyph
+ *  (basit X kaldırıldı). Geometrik, sade; glow yok. */
+function BrandMark() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 9,
+        background: "linear-gradient(150deg, var(--accent-hover), var(--accent-active))",
+        display: "grid",
+        placeItems: "center",
+        flexShrink: 0,
+        boxShadow: "var(--highlight-top)",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+        <path
+          d="M22.6 10.4a8.6 8.6 0 1 0 0 11.2"
+          stroke="var(--accent-fg)"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+        />
+        <circle cx="20.4" cy="16" r="2.8" fill="var(--accent-fg)" />
+      </svg>
+    </span>
+  );
+}
+
+function NavItem({
+  testid,
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  testid: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button data-testid={testid} onClick={onClick} aria-current={active ? "page" : undefined} className="cx-nav-item">
+      <AppIcon icon={icon} size="md" active={active} />
+      <span className="cx-nav-label">{label}</span>
+    </button>
+  );
+}
+
+/** İşlenmiş hesap bağlam kartı — monogram (gradient tile) + @handle + "Aktif
+ *  hesap" + kanal değiştirici. Sahte stok foto YOK; kaliteli monogram. */
 function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Channel) => void }) {
   const [open, setOpen] = useState(false);
   const initial = channel.charAt(0).toUpperCase();
@@ -249,46 +202,17 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Aktif hesap: @${channel} — değiştir`}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          width: "100%",
-          padding: "8px 10px",
-          borderRadius: "var(--radius-md)",
-          border: "1px solid var(--border-faint)",
-          background: "var(--bg-surface)",
-          cursor: "pointer",
-          fontFamily: "inherit",
-          textAlign: "left",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-faint)")}
+        className="cx-account-card"
       >
-        <span
-          aria-hidden
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: "var(--radius-pill)",
-            background: "var(--accent-dark)",
-            color: "var(--accent-text)",
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-            fontSize: "var(--text-sm)",
-            fontWeight: 600,
-          }}
-        >
-          {initial}
-        </span>
+        <span className="cx-account-avatar">{initial}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span
             style={{
               display: "block",
               fontSize: "var(--text-sm)",
-              fontWeight: 500,
+              fontWeight: 600,
               color: "var(--text-primary)",
+              letterSpacing: "-0.01em",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -296,11 +220,11 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
           >
             @{channel}
           </span>
-          <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+          <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 1 }}>
             Aktif hesap
           </span>
         </span>
-        <ChevronsUpDown size={14} strokeWidth={2} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+        <AppIcon icon={ChevronsUpDown} size="sm" color="var(--text-muted)" />
       </button>
 
       {open && (
@@ -320,10 +244,10 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
               border: "1px solid var(--border-strong)",
               borderRadius: "var(--radius-md)",
               boxShadow: "var(--shadow-modal)",
-              padding: 6,
+              padding: 5,
               display: "flex",
               flexDirection: "column",
-              gap: 1,
+              gap: 2,
             }}
           >
             {CHANNELS.map((ch) => {
@@ -338,32 +262,14 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
                     setOpen(false);
                   }}
                   aria-current={active ? "true" : undefined}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    minHeight: 34,
-                    padding: "0 8px",
-                    borderRadius: "var(--radius-sm)",
-                    border: "none",
-                    background: active ? "var(--bg-hover)" : "transparent",
-                    color: "var(--text-primary)",
-                    fontSize: "var(--text-sm)",
-                    fontWeight: active ? 500 : 400,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!active) e.currentTarget.style.background = "var(--bg-hover)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!active) e.currentTarget.style.background = "transparent";
-                  }}
+                  className="cx-nav-item"
+                  style={{ height: 36 }}
                 >
-                  <span style={{ flex: 1 }}>@{ch}</span>
-                  {active && <Check size={14} strokeWidth={2.4} style={{ color: "var(--accent-text)" }} />}
+                  <span className="cx-account-avatar" style={{ width: 22, height: 22, fontSize: "var(--text-2xs)", borderRadius: 7 }}>
+                    {ch.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="cx-nav-label" style={{ color: "var(--text-primary)" }}>@{ch}</span>
+                  {active && <AppIcon icon={Check} size="sm" color="var(--accent-text)" />}
                 </button>
               );
             })}
@@ -371,65 +277,5 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
         </>
       )}
     </div>
-  );
-}
-
-function NavButton({
-  testid,
-  label,
-  icon,
-  active,
-  onClick,
-}: {
-  testid: string;
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      data-testid={testid}
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        width: "100%",
-        height: 38,
-        padding: "0 12px",
-        borderRadius: "var(--radius-sm)",
-        border: "none",
-        // Referans: aktif = nötr grafit dolgu (terracotta satırı boyamaz).
-        background: active ? "var(--bg-elevated)" : "transparent",
-        color: active ? "var(--text-primary)" : "var(--text-muted)",
-        fontSize: "var(--text-sm)",
-        fontWeight: 500,
-        fontFamily: "inherit",
-        cursor: "pointer",
-        textAlign: "left",
-        flexShrink: 0,
-        transition: "background 0.15s, color 0.15s",
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "var(--bg-hover)";
-          e.currentTarget.style.color = "var(--text-primary)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = "var(--text-muted)";
-        }
-      }}
-    >
-      {/* Terracotta yalnız ikon vurgusu (küçük accent), satır dolgusu nötr. */}
-      <span style={{ display: "inline-flex", flexShrink: 0, color: active ? "var(--accent-text)" : "inherit" }}>
-        {icon}
-      </span>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
-    </button>
   );
 }

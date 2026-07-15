@@ -18,6 +18,17 @@ test("sidebar yalnız 3 görev + Toolbox + Profil gösterir (legacy motor adı y
   }
 });
 
+test("hesap bağlam kartı kanal değiştiriciyi açar ve kanal değiştirir", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("sidebar-account").click();
+  const switcher = page.getByTestId("account-switcher");
+  await expect(switcher).toBeVisible();
+  await expect(switcher.getByTestId("account-option-grafikcem")).toBeVisible();
+  await expect(switcher.getByTestId("account-option-maskulenkod")).toBeVisible();
+  await switcher.getByTestId("account-option-maskulenkod").click();
+  await expect(page.getByTestId("sidebar-account")).toContainText("@maskulenkod");
+});
+
 test("Plan alanı subnav ile açılır ve Fırsatlar'a geçer", async ({ page }) => {
   await page.goto("/");
   await page.getByTestId("sidebar-area-plan").click();
