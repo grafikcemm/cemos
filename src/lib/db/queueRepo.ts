@@ -14,6 +14,8 @@ export type CreateQueueItemInput = {
   scores?: string;
   lintReport?: string;
   candidatesJson?: string;
+  /** Phase 2D: thread'in canonical publication payload'ı (serializeThreadSegments JSON). */
+  threadSegments?: string;
   lastError?: string;
   approvedAt?: Date;
   // News→draft bridge + visual content provenance.
@@ -35,6 +37,7 @@ export type UpdateQueueItemInput = Partial<
     | "approvedAt"
     | "scores"
     | "generatedImageUrl"
+    | "threadSegments"
   >
 >;
 

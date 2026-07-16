@@ -11,11 +11,21 @@ import { queueRepo } from "@/lib/db/queueRepo";
 import { accountProfiles } from "@/lib/accounts";
 import { detectLeaks, conceptKeywordsFrom } from "@/lib/growth-engine/leak-detector";
 import { normalizeNextMove } from "@/lib/ai/next-move";
+import {
+  canonicalThreadPayload,
+  effectiveThreadSegmentLimit,
+  serializeThreadSegments,
+  validateThreadSegments,
+} from "@/lib/growth-engine/threadSegments";
 import type { RankedCandidate } from "@/lib/ai/prompts";
 import type { QueueItem } from "@/generated/prisma/client";
 
-/** Sibling roles assigned in rank order after the winner. */
-const PACKAGE_ROLES = ["thread", "quote_bait", "reply_angle"] as const;
+/**
+ * Phase 2D (ADR-033): "thread" packageRole YALNIZ gerçekten geçerli yapısal
+ * segment taşıyan adaya verilir (o zaman draftType=THREAD + threadSegments
+ * persist edilir). Segmentsiz aday asla "thread" diye etiketlenmez.
+ */
+const NON_THREAD_ROLES = ["quote_bait", "reply_angle"] as const;
 
 export type AtomizeInput = {
   accountHandle: string;
@@ -69,13 +79,24 @@ export const atomizeService = {
       })
       .slice(0, maxSiblings);
 
+    const segmentLimit = effectiveThreadSegmentLimit(profile?.maxChars ?? 280);
     let created = 0;
-    for (let i = 0; i < siblings.length; i++) {
-      const c = siblings[i];
-      const role = PACKAGE_ROLES[i] ?? "variant";
+    let nonThreadRoleIdx = 0;
+    for (const c of siblings) {
+      // Geçerli yapısal thread adayı → gerçek THREAD sibling (canonical content
+      // segmentlerden türetilir). Aksi halde sıradaki non-thread rol.
+      const isValidThread =
+        Array.isArray(c.threadSegments) &&
+        c.threadSegments.length > 0 &&
+        validateThreadSegments(c.threadSegments, segmentLimit).ok;
+      const role = isValidThread
+        ? "thread"
+        : NON_THREAD_ROLES[nonThreadRoleIdx++] ?? "variant";
+      const thread = isValidThread ? canonicalThreadPayload(c.threadSegments!) : null;
+      const content = thread ? thread.content : c.content;
       const payoff = normalizeNextMove(c.payoff);
       const leaks = detectLeaks({
-        content: c.content,
+        content,
         mode: c.mode,
         payoff,
         hookStrength: input.judged && c.hookStrength > 0 ? c.hookStrength : undefined,
@@ -87,13 +108,14 @@ export const atomizeService = {
       await queueRepo.create({
         accountId: mainQueueItem.accountId,
         sourcePostId: mainQueueItem.sourcePostId ?? undefined,
-        content: c.content,
-        draftType: mainQueueItem.draftType,
+        content,
+        draftType: thread ? "THREAD" : "TWEET",
         mode: c.mode || mainQueueItem.mode,
+        threadSegments: thread ? serializeThreadSegments(thread.segments) : undefined,
         estimatedCostUsd: 0, // reused candidate — no new LLM spend
         usedMock: false,
         scores: JSON.stringify({
-          content: c.content,
+          content,
           mode: c.mode,
           personaMatch: c.accountFit,
           hookStrength: c.hookStrength,

@@ -5,7 +5,7 @@ import { generationRunRepo } from "@/lib/db/generationRunRepo";
 import { usageService } from "@/lib/services/usageService";
 import { resolveFormatTier, effectiveMaxChars, selectMode, isKnownMode } from "@/lib/accounts";
 import { getRuntimeProfile } from "@/lib/accounts/profileRepository";
-import { runDraftPipeline } from "@/lib/ai/draft-pipeline";
+import { runDraftPipeline, rankedToScore } from "@/lib/ai/draft-pipeline";
 import { classifyOpenRouterError } from "@/lib/ai/openrouter";
 import { buildGroundingContext } from "@/lib/ai/grounding";
 import { createMockBenchmark } from "@/lib/ai/mock-benchmark";
@@ -16,7 +16,16 @@ import { extractSubSignals, applyQualityGate } from "@/lib/services/scoreSignals
 import { isEval14Enabled, runBatchedJudge14, type Judge14Result } from "@/lib/eval/batchedJudge";
 import { atomizeService } from "@/lib/services/atomizeService";
 import { voiceProfileRepo } from "@/lib/db/voiceProfileRepo";
-import type { BenchmarkResult, DraftVoice } from "@/lib/ai/prompts";
+import { runDeterministicHeuristics } from "@/lib/safety/heuristics";
+import {
+  canonicalThreadPayload,
+  effectiveThreadSegmentLimit,
+  serializeThreadSegments,
+  validateThreadSegments,
+  type ThreadSegment,
+} from "@/lib/growth-engine/threadSegments";
+import type { BenchmarkResult, DraftVoice, RankedCandidate } from "@/lib/ai/prompts";
+import type { LintReport } from "@/lib/services/qualityLintService";
 import type { QueueItem } from "@/generated/prisma/client";
 
 /** Winner viralPotential at/above which a strong signal is worth atomizing. */
@@ -64,6 +73,56 @@ function fitToMaxChars(text: string, maxChars: number): string {
   );
   if (sentenceEnd > 80) return clipped.slice(0, sentenceEnd + 1);
   return `${clipped.trimEnd()}...`;
+}
+
+/** Aday thread doğasında mı (mod veya yapısal segment)? */
+function isThreadCandidate(c: { mode?: string; threadSegments?: { text: string }[] | null }): boolean {
+  if ((c.mode ?? "").toLowerCase() === "thread") return true;
+  return Array.isArray(c.threadSegments) && c.threadSegments.length > 0;
+}
+
+/** Aday, segment sınırında GEÇERLİ yapısal thread taşıyor mu? */
+function hasValidThreadSegments(
+  c: { threadSegments?: { text: string }[] | null },
+  segmentLimit: number
+): boolean {
+  if (!c.threadSegments || c.threadSegments.length === 0) return false;
+  return validateThreadSegments(c.threadSegments, segmentLimit).ok;
+}
+
+/**
+ * Phase 2D thread lint (ADR-033): deterministik safety kontrolleri SEGMENT
+ * BAZINDA koşar (char limit = effectiveThreadSegmentLimit; birleşik metin tek
+ * account-maxChars sınırıyla kesilmez/bloklanmaz). Segment başına ayrı ücretli
+ * LLM lint çağrısı YAPILMAZ (maliyet invariant'ı) — LLM mikro-pass thread'de
+ * bilinçli atlanır. `half_sentence_end` segmentlerde uygulanmaz: thread hook'u
+ * ':' ile bitip listeye bağlanabilir; segment tek başına tweet değildir.
+ */
+function lintThreadSegments(
+  segments: ThreadSegment[],
+  segmentLimit: number,
+  accountHandle: string,
+  sourceText?: string
+): LintReport {
+  const issues: LintReport["issues"] = [];
+  segments.forEach((seg, i) => {
+    const res = runDeterministicHeuristics(seg.text, "TWEET", segmentLimit, accountHandle, sourceText);
+    for (const issue of res.issues) {
+      if (issue.code === "half_sentence_end" || issue.code === "below_min_chars") continue;
+      issues.push({ ...issue, message: `Segment ${i + 1}: ${issue.message}` });
+    }
+  });
+  const blockers = issues.filter((i) => i.severity === "blocker").map((i) => i.message);
+  const warnings = issues.filter((i) => i.severity === "warning").map((i) => i.message);
+  return {
+    passed: blockers.length === 0,
+    blockers,
+    warnings,
+    issues,
+    cleanedText: null,
+    checkedAt: new Date().toISOString(),
+    source: { deterministic: true, llm: false },
+  };
 }
 
 export type GenerateDraftInput = {
@@ -117,17 +176,40 @@ export const draftService = {
 
     let sourceText = input.sourceTweet ?? "";
     let sourceType: string | undefined;
+    let sourceModeIsThread = false;
     const sourcePostId = input.sourcePostId;
 
     if (sourcePostId) {
-      const sp = await sourcePostRepo.findById(sourcePostId);
+      const sp = await sourcePostRepo.findByIdWithSourceMode(sourcePostId);
       if (sp) {
         if (!sourceText) sourceText = sp.text;
         sourceType = sp.sourceType;
+        // Phase 2D: Source.mode=thread kaynak → gerçek thread isteği (caller'ın
+        // körlemesine geçirdiği draftType:"TWEET" thread niyetini ezemez).
+        sourceModeIsThread = (sp.source?.mode ?? "").toLowerCase() === "thread";
       }
     }
 
     if (!sourceText) throw new Error("sourceTweet veya sourcePostId gerekli");
+
+    // ── Phase 2D format niyeti (ADR-033) ────────────────────────────────────
+    //  thread: draftType=THREAD / mode=thread / kaynak modu thread → thread ZORUNLU.
+    //  tweet : çağıran bilinen NON-thread bir modu açıkça sabitledi → thread'e
+    //          yükseltme YASAK (thread kazanan uzun içerik TWEET diye persist edilmez).
+    //  auto  : körlemesine "TWEET" default'u dahil geri kalan her şey — kazanan
+    //          geçerli thread ise draftType=THREAD olarak persist edilir.
+    const wantsThread =
+      (input.draftType ?? "").toUpperCase() === "THREAD" ||
+      (input.mode ?? "").toLowerCase() === "thread" ||
+      sourceModeIsThread;
+    const explicitTweetLock =
+      !wantsThread && Boolean(input.mode) && isKnownMode(profile, input.mode);
+    const formatIntent: "thread" | "tweet" | "auto" = wantsThread
+      ? "thread"
+      : explicitTweetLock
+        ? "tweet"
+        : "auto";
+    const segmentLimit = effectiveThreadSegmentLimit(profile.maxChars);
 
     const compactSource =
       sourceText.length > 900 ? `${sourceText.slice(0, 900)}...` : sourceText;
@@ -171,6 +253,9 @@ export const draftService = {
         deadlineMs: input.deadlineMs,
         accountId: account.id,
         voice,
+        // Phase 2D: istenen format writer'a AÇIKÇA gider (thread'de yapısal
+        // threadSegments zorunlu; tweet'te yasak; auto'da thread açısında dolu).
+        format: { intent: formatIntent, segmentLimit },
       });
     } catch (err) {
       pipelineError = err instanceof Error ? err.message : String(err);
@@ -178,30 +263,109 @@ export const draftService = {
       console.warn("[draftService] pipeline failed, degrading to mock:", pipelineError);
       pipelineResult = { ...createMockBenchmark(profile), sourceInput, rankedCandidates: [] };
     }
-    // ── Single source of truth for format/length: honor the WINNING draft's own
-    //    mode — the multi-angle writer + judge already picked the strongest angle
-    //    for this source. An explicit caller `input.mode` wins; else the validated
-    //    winner mode; else a deliberate source-aware selection. NEVER the accidental
+    const blockedResult = (reason: string): GenerateDraftResult => ({
+      blocked: true,
+      reason,
+      generated: "",
+      estimatedCostUsd: pipelineResult.estimatedCostUsd ?? 0,
+      usedMock: pipelineResult.usedMock ?? false,
+      candidates: pipelineResult.rankedCandidates ?? [],
+      timings: {
+        writerMs: pipelineResult.timings?.writerMs ?? 0,
+        judgeMs: pipelineResult.timings?.judgeMs ?? 0,
+        lintMs: 0,
+        totalMs: Date.now() - totalStart,
+      },
+    });
+
+    // ── Phase 2D aday seçimi (ADR-033): canonical içerik provenance'lı writer
+    //    adayından gelir; sahte tek-segment/mock thread ASLA yazılmaz. ──
+    if (formatIntent === "thread" && (pipelineResult.threadRequestUnsatisfied || pipelineResult.usedMock)) {
+      return blockedResult("thread_generation_invalid");
+    }
+
+    const ranked: RankedCandidate[] = pipelineResult.rankedCandidates ?? [];
+    let chosen: RankedCandidate | null = ranked[0] ?? null;
+    let threadSelection: string | undefined;
+
+    if (formatIntent === "thread") {
+      chosen = ranked.find((c) => hasValidThreadSegments(c, segmentLimit)) ?? null;
+      if (!chosen) return blockedResult("thread_generation_invalid");
+      if (chosen !== ranked[0]) threadSelection = "thread_candidate_not_winner";
+    } else if (formatIntent === "tweet") {
+      if (ranked.length > 0) {
+        chosen = ranked.find((c) => !isThreadCandidate(c)) ?? null;
+        // Explicit TWEET kilidi: thread kazanan uzun içerik TWEET diye persist
+        // EDİLMEZ; thread dışı aday yoksa dürüst blocked.
+        if (!chosen) return blockedResult("no_non_thread_candidate");
+        if (chosen !== ranked[0]) threadSelection = "tweet_intent_skipped_thread_winner";
+      }
+    } else if (chosen && isThreadCandidate(chosen)) {
+      if (hasValidThreadSegments(chosen, segmentLimit)) {
+        // Auto üretimde thread kazandı → draftType THREAD olarak persist edilir.
+        threadSelection = "auto_thread_winner";
+      } else {
+        // Geçersiz thread adayı: sessiz truncation/sahte thread yerine geçerli
+        // non-thread adaya düş (trace'te görünür); o da yoksa dürüst blocked.
+        const alt = ranked.find((c) => !isThreadCandidate(c)) ?? null;
+        if (!alt) return blockedResult("thread_generation_invalid");
+        chosen = alt;
+        threadSelection = "invalid_thread_winner_used_non_thread";
+      }
+    }
+
+    // Kazanan skor kaydı = seçilen aday (mock yolunda ranked boş → pipeline winner).
+    const winnerScore = chosen ? rankedToScore(chosen) : pipelineResult.winner;
+    const isThreadFinal =
+      formatIntent === "thread" || threadSelection === "auto_thread_winner";
+
+    // ── Single source of truth for format/length: honor the CHOSEN draft's own
+    //    mode. An explicit caller `input.mode` wins; else the validated chosen
+    //    mode; else a deliberate source-aware selection. NEVER the accidental
     //    `micro`(140) tier that silently truncated every draft (DH-002). ──
     // Stable per-source seed so the fallback rotation actually varies by source.
     const modeSeed = (input.sourcePostId ?? sourceText)
       .split("")
       .reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) | 0, 0);
-    const selectedMode =
-      (isKnownMode(profile, input.mode) ? input.mode! : undefined) ??
-      (isKnownMode(profile, pipelineResult.winner?.mode) ? pipelineResult.winner.mode : undefined) ??
-      selectMode(profile, { sourceType, seed: modeSeed }).id;
+
+    let selectedMode: string;
+    let generated: string;
+    let threadPayload: { segments: ThreadSegment[]; content: string } | null = null;
+    if (isThreadFinal) {
+      // Canonical content DOĞRULANMIŞ segmentlerden türetilir; birleşik metin
+      // fitToMaxChars ile KESİLMEZ (sessiz truncation yasak — segment sınırı
+      // zaten doğrulandı).
+      threadPayload = canonicalThreadPayload(chosen!.threadSegments!);
+      generated = threadPayload.content;
+      selectedMode = isKnownMode(profile, "thread")
+        ? "thread"
+        : (isKnownMode(profile, input.mode) ? input.mode! : "thread");
+    } else {
+      selectedMode =
+        (isKnownMode(profile, input.mode) ? input.mode! : undefined) ??
+        (isKnownMode(profile, winnerScore?.mode) ? winnerScore.mode : undefined) ??
+        selectMode(profile, { sourceType, seed: modeSeed }).id;
+      generated = ""; // fitToMaxChars tier hesaplandıktan sonra (aşağıda).
+    }
     const tier = resolveFormatTier(profile, selectedMode);
     const tierMaxChars = effectiveMaxChars(profile, tier);
-    let generated = fitToMaxChars(pipelineResult.winner.content, tierMaxChars);
+    if (!isThreadFinal) {
+      generated = fitToMaxChars(winnerScore.content, tierMaxChars);
+    }
 
-    const draftType = input.draftType ?? "TWEET";
+    // mode=thread + draftType=TWEET tarihî uyumsuzluğu burada kapanır: thread
+    // sonucu HER ZAMAN draftType=THREAD; tweet sonucu asla "thread" etiketi almaz.
+    // (thread niyeti ya THREAD üretti ya yukarıda blocked döndü — burada
+    //  isThreadFinal=false iken input.draftType THREAD olamaz.)
+    const draftType = isThreadFinal ? "THREAD" : (input.draftType ?? "TWEET");
     const lintStart = Date.now();
-    const lintReport = await qualityLintService.lint(generated, draftType, tierMaxChars, {
-      accountHandle: input.accountHandle,
-      sourceText,
-      minChars: tier.minChars,
-    });
+    const lintReport: LintReport = isThreadFinal
+      ? lintThreadSegments(threadPayload!.segments, segmentLimit, input.accountHandle, sourceText)
+      : await qualityLintService.lint(generated, draftType, tierMaxChars, {
+          accountHandle: input.accountHandle,
+          sourceText,
+          minChars: tier.minChars,
+        });
     const lintMs = Date.now() - lintStart;
 
     if (lintReport.cleanedText && lintReport.passed) {
@@ -237,7 +401,7 @@ export const draftService = {
     //    paths leave it at 0, so we pass undefined there to avoid false weak_hook.
     // Persisted mode == the mode the tier was derived from → label and length agree.
     const draftMode = selectedMode;
-    const payoff = pipelineResult.winner.payoff;
+    const payoff = winnerScore.payoff;
     const judgeModel = pipelineResult.modelUsed?.judge;
     const judged =
       typeof judgeModel === "string" && judgeModel !== "off" && judgeModel !== "skipped";
@@ -245,14 +409,14 @@ export const draftService = {
       content: generated,
       mode: draftMode,
       payoff,
-      hookStrength: judged ? pipelineResult.winner.hookStrength : undefined,
+      hookStrength: judged ? winnerScore.hookStrength : undefined,
       knownPillars: profile.modes.map((m) => m.id),
       conceptKeywords: conceptKeywordsFrom(profile.concept),
       requireConcreteAnchor: input.accountHandle === "grafikcem",
     });
 
     // ── Sprint 1 ayrışık alt-sinyaller: 8 anahtar + leaks[] HER ZAMAN dolu. ──
-    const subSignals = extractSubSignals(pipelineResult.winner, leaks);
+    const subSignals = extractSubSignals(winnerScore, leaks);
 
     // ── Bloklayıcı kalite kapısı (item 8): yüksek-şiddet leak / cap-altı Türkçe
     //    doğallık / yasak-klişe → `active` OLAMAZ; needs_edit + Türkçe neden.
@@ -298,6 +462,9 @@ export const draftService = {
       }
     }
 
+    // scores JSON'a segment dizisi KOPYALANMAZ — canonical yer QueueItem.threadSegments.
+    const { threadSegments: _winnerSegments, ...winnerForScores } = winnerScore;
+
     const queueItem = await queueRepo.create({
       accountId: account.id,
       sourcePostId: sourcePostId,
@@ -306,11 +473,13 @@ export const draftService = {
       content: generated,
       draftType,
       mode: draftMode,
+      // Phase 2D: thread'in canonical publication payload'ı TEK create içinde.
+      threadSegments: threadPayload ? serializeThreadSegments(threadPayload.segments) : undefined,
       status: qualityGate.status === "needs_edit" ? "needs_edit" : undefined,
       estimatedCostUsd: (pipelineResult.estimatedCostUsd ?? 0) + (eval14?.costUsd ?? 0),
       usedMock: pipelineResult.usedMock ?? false,
       scores: JSON.stringify({
-        ...pipelineResult.winner,
+        ...winnerForScores,
         // Ayrışık alt-sinyal sözleşmesi: 8 anahtar + payoff + leaks garanti.
         ...subSignals,
         modelUsed: pipelineResult.modelUsed,
@@ -345,6 +514,19 @@ export const draftService = {
           candidateCount: (pipelineResult.rankedCandidates ?? []).length,
           judged,
           writerFallback: pipelineResult.modelUsed?.writerFallbackUsed ?? false,
+          // Phase 2D (ADR-033): format niyeti + thread seçim izi görünürdür —
+          // thread fallback'i sessiz olamaz.
+          formatIntent,
+          ...(threadSelection ? { threadSelection } : {}),
+          ...(threadPayload
+            ? {
+                segmentCount: threadPayload.segments.length,
+                segmentCharsMin: Math.min(...threadPayload.segments.map((s) => s.text.length)),
+                segmentCharsMax: Math.max(...threadPayload.segments.map((s) => s.text.length)),
+                segmentLimit,
+                totalChars: threadPayload.content.length,
+              }
+            : {}),
         },
       }),
       lintReport: JSON.stringify(lintReport),
@@ -384,7 +566,7 @@ export const draftService = {
       input.atomize &&
       judged &&
       candidates.length >= 2 &&
-      pipelineResult.winner.viralPotential >= ATOMIZE_VIRAL_THRESHOLD
+      winnerScore.viralPotential >= ATOMIZE_VIRAL_THRESHOLD
     ) {
       try {
         const pkg = await atomizeService.atomizePackage({

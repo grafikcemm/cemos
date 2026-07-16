@@ -80,9 +80,44 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       });
     }
 
-    const content = (result.winner?.content ?? "").trim();
+    // Phase 2D (ADR-033): bu akış EXPLICIT TWEET yazar (kapsam bilinçli dar) —
+    // thread kazanan uzun içerik TWEET diye persist EDİLMEZ; thread-dışı en iyi
+    // aday seçilir, hiç yoksa dürüst hata (fırsat pending kalır).
+    const isThreadCandidate = (c: { mode?: string; threadSegments?: { text: string }[] | null }) =>
+      (c.mode ?? "").toLowerCase() === "thread" ||
+      (Array.isArray(c.threadSegments) && c.threadSegments.length > 0);
+    const winnerIsThread = result.winner ? isThreadCandidate(result.winner) : false;
+    const nonThreadAlt = winnerIsThread
+      ? (result.rankedCandidates ?? []).find((c) => !isThreadCandidate(c)) ?? null
+      : null;
+    const chosenScores = nonThreadAlt
+      ? {
+          personaMatch: nonThreadAlt.accountFit,
+          turkishNaturalness: nonThreadAlt.turkishNaturalness,
+          hookStrength: nonThreadAlt.hookStrength,
+          clarity: Math.round((nonThreadAlt.hookStrength + nonThreadAlt.turkishNaturalness) / 2),
+          novelty: nonThreadAlt.noveltyScore ?? 0,
+          risk: nonThreadAlt.risk,
+          sourceFaithfulness: nonThreadAlt.sourceFaithfulness,
+        }
+      : {
+          personaMatch: result.winner.personaMatch,
+          turkishNaturalness: result.winner.turkishNaturalness,
+          hookStrength: result.winner.hookStrength,
+          clarity: result.winner.clarity,
+          novelty: result.winner.novelty,
+          risk: result.winner.risk,
+          sourceFaithfulness: result.winner.sourceFaithfulness,
+        };
+    const content = ((winnerIsThread ? nonThreadAlt?.content : result.winner?.content) ?? "").trim();
     if (!content) {
-      return fail("Üretim boş içerik döndürdü — fırsat bekliyor.", 502, { code: "generation_failed" });
+      return fail(
+        winnerIsThread
+          ? "Üretim yalnız thread adayı döndürdü — bu akış tek tweet yazar; fırsat bekliyor, yeniden dene."
+          : "Üretim boş içerik döndürdü — fırsat bekliyor.",
+        502,
+        { code: "generation_failed" }
+      );
     }
 
     // Atomik: consume claim ÖNCE (yarışı kaybeden QueueItem YAZMAZ — duplicate
@@ -105,13 +140,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
             sourceKind: handoff.sourceKind,
             sourceId: handoff.sourceId,
             judged: true,
-            personaMatchScore: result.winner.personaMatch,
-            turkishNaturalness: result.winner.turkishNaturalness,
-            hookStrengthScore: result.winner.hookStrength,
-            clarityScore: result.winner.clarity,
-            noveltyScore: result.winner.novelty,
-            riskScore: result.winner.risk,
-            sourceFaithfulness: result.winner.sourceFaithfulness,
+            personaMatchScore: chosenScores.personaMatch,
+            turkishNaturalness: chosenScores.turkishNaturalness,
+            hookStrengthScore: chosenScores.hookStrength,
+            clarityScore: chosenScores.clarity,
+            noveltyScore: chosenScores.novelty,
+            riskScore: chosenScores.risk,
+            sourceFaithfulness: chosenScores.sourceFaithfulness,
+            ...(nonThreadAlt ? { threadSelection: "tweet_intent_skipped_thread_winner" } : {}),
           }),
           candidatesJson: JSON.stringify(result.rankedCandidates ?? []),
         },

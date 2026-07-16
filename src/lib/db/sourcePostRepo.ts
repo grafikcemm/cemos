@@ -103,6 +103,19 @@ export const sourcePostRepo = {
     return prisma.sourcePost.findUnique({ where: { id } });
   },
 
+  /**
+   * Phase 2D: kaynak modu (Source.mode) taşıyan okuma — mode="thread"/"THREAD"
+   * olan kaynaktan gelen post üretimde GERÇEK thread isteğine dönüşür.
+   */
+  findByIdWithSourceMode(
+    id: string
+  ): Promise<(SourcePost & { source: { mode: string } | null }) | null> {
+    return prisma.sourcePost.findUnique({
+      where: { id },
+      include: { source: { select: { mode: true } } },
+    }) as Promise<(SourcePost & { source: { mode: string } | null }) | null>;
+  },
+
   markUsed(id: string): Promise<SourcePost> {
     return prisma.sourcePost.update({ where: { id }, data: { status: "used" } });
   },

@@ -22,7 +22,7 @@ vi.mock("@/lib/db/sourceRepo", () => ({
   },
 }));
 vi.mock("@/lib/db/sourcePostRepo", () => ({
-  sourcePostRepo: { upsertByTweetId: vi.fn(), findById: vi.fn(), markUsed: vi.fn() },
+  sourcePostRepo: { upsertByTweetId: vi.fn(), findById: vi.fn(), findByIdWithSourceMode: vi.fn(), markUsed: vi.fn(), markBlocked: vi.fn() },
 }));
 vi.mock("@/lib/db/scanRunRepo", () => ({
   scanRunRepo: { create: vi.fn(), finish: vi.fn() },
@@ -63,7 +63,8 @@ vi.mock("@/lib/socialdata", () => ({
   meetsThreshold: vi.fn(),
   calculateCost: vi.fn(),
 }));
-vi.mock("@/lib/ai/draft-pipeline", () => ({
+vi.mock("@/lib/ai/draft-pipeline", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/ai/draft-pipeline")>()),
   runDraftPipeline: vi.fn(),
 }));
 vi.mock("@/lib/db/client", () => ({
@@ -377,12 +378,12 @@ describe("draftService.generateDraft", () => {
 
   it("marks SourcePost as used when sourcePostId is provided", async () => {
     vi.mocked(accountRepo.findByHandle).mockResolvedValue(mockAccount);
-    vi.mocked(sourcePostRepo.findById).mockResolvedValue({
+    vi.mocked(sourcePostRepo.findByIdWithSourceMode).mockResolvedValue({
       id: "sp_001", accountId: "acc_001", sourceId: "src_001", tweetId: "t_001",
       text: "kaynak metin", likeCount: 100, retweetCount: 20, viewCount: 1000,
       viralScore: 70, url: "https://x.com/t/1", opportunityScore: 0.7,
       status: "new", publishedAt: null, scannedAt: new Date(),
-    } as unknown as Awaited<ReturnType<typeof sourcePostRepo.findById>>);
+    } as unknown as Awaited<ReturnType<typeof sourcePostRepo.findByIdWithSourceMode>>);
     vi.mocked(queueRepo.create).mockResolvedValue({ ...mockQueueItem, sourcePostId: "sp_001" });
     vi.mocked(sourcePostRepo.markUsed).mockResolvedValue({ id: "sp_001" } as never);
 
