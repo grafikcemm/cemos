@@ -14,6 +14,7 @@ import {
   Input,
   Textarea,
 } from "@/components/ui";
+import SeriesHandoffBand, { SeriesCandidateTopics } from "./SeriesHandoffBand";
 import { useAccounts } from "./useAccounts";
 
 /**
@@ -127,6 +128,8 @@ export default function SerilerTab() {
   const [editOpen, setEditOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
+  // Fırsat aktarımı bağlanınca aday-konu listesi tazelensin (ADR-028).
+  const [handoffVersion, setHandoffVersion] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -236,16 +239,27 @@ export default function SerilerTab() {
   }
   if ((series ?? []).length === 0) {
     return (
-      <EmptyState
-        icon={<Dna size={22} strokeWidth={1.8} />}
-        title="Henüz seri yok"
-        description="İlk seri DNA'sını ekleyerek başla. Meta izni yoksa DNA'yı manuel de girebilirsin — kapak formülü, slide arketipleri ve tekrar yasakları elle tanımlanır."
-        action={
-          <Button variant="primary" onClick={seed} loading={busy} iconLeft={<Sprout size={15} strokeWidth={2} />}>
-            Best AI Tools serisini ekle
-          </Button>
-        }
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
+        {/* Bekleyen seri aktarımı varsa dürüst not: uygun seri yok, fırsat bekliyor. */}
+        <SeriesHandoffBand
+          accountId={accounts[0]?.id}
+          seriesOptions={[]}
+          onAttached={() => {
+            setHandoffVersion((v) => v + 1);
+            void load();
+          }}
+        />
+        <EmptyState
+          icon={<Dna size={22} strokeWidth={1.8} />}
+          title="Henüz seri yok"
+          description="İlk seri DNA'sını ekleyerek başla. Meta izni yoksa DNA'yı manuel de girebilirsin — kapak formülü, slide arketipleri ve tekrar yasakları elle tanımlanır."
+          action={
+            <Button variant="primary" onClick={seed} loading={busy} iconLeft={<Sprout size={15} strokeWidth={2} />}>
+              Best AI Tools serisini ekle
+            </Button>
+          }
+        />
+      </div>
     );
   }
 
@@ -256,6 +270,17 @@ export default function SerilerTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
+      {/* Fırsattan gelen bekleyen seri aktarımları (ADR-028): kullanıcı hedef
+          seriyi seçip onaylayınca kalıcı ilişki kurulur. */}
+      <SeriesHandoffBand
+        accountId={accounts[0]?.id}
+        seriesOptions={(series ?? []).map((s) => ({ seriesKey: s.seriesKey, name: s.name }))}
+        onAttached={() => {
+          setHandoffVersion((v) => v + 1);
+          void load();
+        }}
+      />
+
       {/* Seri seçici + ekle (toolbar, nav değil) */}
       <Card variant="quiet" padded>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -442,6 +467,15 @@ export default function SerilerTab() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Fırsattan gelen aday konular — kalıcı ilişki (consumed handoff) */}
+      {selected && (
+        <SeriesCandidateTopics
+          key={`${selected.seriesKey}-${handoffVersion}`}
+          accountId={accounts[0]?.id}
+          seriesKey={selected.seriesKey}
+        />
       )}
 
       {/* Düzenleme drawer'ı */}

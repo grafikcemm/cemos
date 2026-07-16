@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
+import PlanHandoffBand from "./PlanHandoffBand";
 import { useAccounts } from "./useAccounts";
 import {
   monthMatrix,
@@ -330,6 +331,18 @@ export default function TakvimTab() {
           </div>
         </div>
       </Card>
+
+      {/* Fırsattan gelen bekleyen plan aktarımları (ADR-028) — reload-persist */}
+      {accountId && (
+        <PlanHandoffBand
+          accountId={accountId}
+          year={year}
+          month1={month1}
+          monthStr={monthStr}
+          onPlaced={load}
+          onNeedPlan={() => setBuilderOpen(true)}
+        />
+      )}
 
       {staleFlags.length > 0 && (
         <StaleNotice

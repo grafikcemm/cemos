@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Inbox, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import DraftReviewCard from "./DraftReviewCard";
@@ -15,6 +15,8 @@ type Props = {
   onToast: (text: string, type: "success" | "error") => void;
   /** Veri parent'ta (MorningDashboardTab) yüklenir — sayaç satırıyla paylaşılır. */
   queue: ReturnType<typeof useDailyQueueData>;
+  /** Dış odak tohumu (ADR-028): fırsattan üretilen taslak kuyruğa gelince ona odaklan. */
+  focusSeed?: string | null;
 };
 
 const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"];
@@ -27,10 +29,14 @@ const isDone = (d: MorningDraft) =>
  * olarak açılır; kalanlar kompakt kuyruk satırlarıdır. Satıra tıklamak odağı
  * o taslağa taşır. J kısayolu sıradaki bekleyene atlar.
  */
-export default function ReviewQueue({ onToast, queue }: Props) {
+export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
   const { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished } = queue;
   const [generating, setGenerating] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focusSeed) setFocusId(focusSeed);
+  }, [focusSeed]);
 
   const ordered = ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h));
   const pending = ordered.filter((d) => !isDone(d));

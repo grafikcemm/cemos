@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import OperatorReadinessGate from "../gate/OperatorReadinessGate";
 import MorningHeroStats from "../morning/MorningHeroStats";
+import OpportunityHandoffBand from "../morning/OpportunityHandoffBand";
 import ReviewQueue from "../morning/ReviewQueue";
 import DigestSection from "../morning/DigestSection";
 import NewsHighlights from "../morning/NewsHighlights";
@@ -25,6 +26,16 @@ export default function MorningDashboardTab() {
   const toast = useToast();
   const queue = useDailyQueueData();
   const [highlightsOpen, setHighlightsOpen] = useState(false);
+  // Fırsattan üretilen taslak kuyruğa gelince odak ona taşınır (ADR-028).
+  const [focusSeed, setFocusSeed] = useState<string | null>(null);
+
+  const handleGenerated = useCallback(
+    async (queueItemId: string) => {
+      await queue.fetchDrafts();
+      setFocusSeed(queueItemId);
+    },
+    [queue],
+  );
 
   const showToast = useCallback(
     (text: string, type: "success" | "error") => {
@@ -41,7 +52,9 @@ export default function MorningDashboardTab() {
 
       <OperatorReadinessGate />
 
-      <ReviewQueue onToast={showToast} queue={queue} />
+      <OpportunityHandoffBand onGenerated={handleGenerated} />
+
+      <ReviewQueue onToast={showToast} queue={queue} focusSeed={focusSeed} />
 
       {/* "Tepki vermeye değer" — fold altı, varsayılan katlanmış (item 3). */}
       <section style={{ marginTop: "var(--space-6)" }}>

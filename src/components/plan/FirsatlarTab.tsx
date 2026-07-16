@@ -1,21 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles, Newspaper, TrendingUp, Users, Search, ArrowUpRight } from "lucide-react";
-import { EntityCard, EmptyState, ErrorState, Badge, Button, Skeleton, BlockedExternalState } from "@/components/ui";
+import { EntityCard, EmptyState, ErrorState, Badge, Button, Skeleton, BlockedExternalState, Select } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
 import { OPPORTUNITY_SEGMENTS, type Opportunity, type OpportunitySourceKind } from "@/lib/services/opportunityCuration";
+import { createHandoffFromOpportunity, type HandoffDto } from "@/components/handoff/useHandoffs";
 import { useOpportunities } from "./useOpportunities";
+import { useAccounts } from "./useAccounts";
 
 /**
  * Plan / Fırsatlar (05 §C2) — ham motor sonuçlarını birkaç editoryal fırsata
  * indirger; her fırsat "neden şimdi" + platform önerisi + ileri eylem taşır.
  * Bare host: başlık + SubNav shell'de. Gövde-only.
  *
- * Eylem köprüleri (1D): İçerik üret → Bugün · Plana ekle → Takvim · Seriye ekle →
- * Seriler · Ham araştır → ilgili advanced ekran. Hedef yüzeye YÖNLENDİRİR + toast
- * (görünür, gerçek etki; sessiz no-op değil). Otomatik ön-doldurma Faz 2.
+ * Eylem köprüleri (Faz 2A, ADR-028): İçerik üret / Plana ekle / Seriye ekle
+ * artık SERVER-persisted typed OpportunityHandoff yaratır (aktif hesap açık
+ * bağlanır), SONRA hedef yüzeye gider — hedef yüzey bekleyen aktarımı
+ * "Fırsattan geldi" bandında gösterir; reload sonrası kaybolmaz. Kayıt
+ * başarısızsa navigasyon YAPILMAZ (sessiz kayıp yok). Ham araştır → advanced.
  */
 
 const ICONS: Record<OpportunitySourceKind, React.ReactNode> = {
@@ -59,7 +63,14 @@ export default function FirsatlarTab() {
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
   const { opportunities, notes, loading, allFailed, reload } = useOpportunities();
+  const { accounts } = useAccounts();
   const [segment, setSegment] = useState("all");
+  const [accountId, setAccountId] = useState("");
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
+  }, [accounts, accountId]);
 
   const visible = useMemo(() => {
     const all = opportunities ?? [];
@@ -73,9 +84,29 @@ export default function FirsatlarTab() {
     toast.info(`Ham araştırma açıldı — "${o.title.slice(0, 40)}".`);
   };
 
-  const bridge = (dest: string, label: string, o: Opportunity) => {
-    setActiveTab(dest);
-    toast.info(`${label} açıldı — fırsat: "${o.title.slice(0, 36)}".`);
+  // Gerçek typed handoff (ADR-028): önce server'a kalıcı kayıt, sonra hedef
+  // yüzey. Kayıt düşerse NAVİGE EDİLMEZ — kullanıcı hatayı görür.
+  const bridge = async (dest: string, label: string, action: HandoffDto["action"], o: Opportunity) => {
+    if (!accountId) {
+      toast.error("Aktif hesap yüklenemedi — aktarım kaydedilemez.");
+      return;
+    }
+    setBusyKey(`${action}-${o.id}`);
+    try {
+      const r = await createHandoffFromOpportunity(o, accountId, action);
+      if (!r.ok) {
+        toast.error(r.error ?? "Aktarım kaydedilemedi.");
+        return;
+      }
+      setActiveTab(dest);
+      toast.success(
+        r.reused
+          ? `${label} açıldı — bu fırsat zaten aktarımda bekliyor.`
+          : `${label} açıldı — fırsat aktarıldı: "${o.title.slice(0, 36)}".`
+      );
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   if (loading) {
@@ -134,7 +165,18 @@ export default function FirsatlarTab() {
             );
           })}
         </div>
-        <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>buzz × uyum × tazelik sıralı</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {accounts.length > 0 && (
+            <Select
+              aria-label="Aktif hesap"
+              options={accounts.map((a) => ({ value: a.id, label: `@${a.handle}` }))}
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              data-testid="opp-account-select"
+            />
+          )}
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>buzz × uyum × tazelik sıralı</span>
+        </div>
       </div>
 
       {/* Kısmi motor hataları/engelleri (bütünü bozmaz) */}
@@ -206,15 +248,33 @@ export default function FirsatlarTab() {
             }
             actions={
               <>
-                <Button size="sm" variant="primary" onClick={() => bridge("morning", "Bugün", o)} data-testid={`opp-generate-${o.id}`}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  loading={busyKey === `generate-${o.id}`}
+                  onClick={() => bridge("morning", "Bugün", "generate", o)}
+                  data-testid={`opp-generate-${o.id}`}
+                >
                   İçerik üret
                 </Button>
                 {o.source === "radar" ? (
-                  <Button size="sm" variant="secondary" onClick={() => bridge("plan-seriler", "Seriler", o)}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busyKey === `series-${o.id}`}
+                    onClick={() => bridge("plan-seriler", "Seriler", "series", o)}
+                    data-testid={`opp-series-${o.id}`}
+                  >
                     Seriye ekle
                   </Button>
                 ) : (
-                  <Button size="sm" variant="secondary" onClick={() => bridge("plan-takvim", "Takvim", o)}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    loading={busyKey === `plan-${o.id}`}
+                    onClick={() => bridge("plan-takvim", "Takvim", "plan", o)}
+                    data-testid={`opp-plan-${o.id}`}
+                  >
                     Plana ekle
                   </Button>
                 )}
