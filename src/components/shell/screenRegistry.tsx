@@ -3,9 +3,9 @@
 import { normalizeTabId } from "@/components/nav/navConfig";
 import MorningDashboardTab from "@/components/tabs/MorningDashboardTab";
 import RadarTab from "@/components/tabs/RadarTab";
-import FlowRadarTab from "@/components/tabs/FlowRadarTab";
+import ViralRadarScreen from "@/components/research/ViralRadarScreen";
 import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
-import SourceIntelligenceTab from "@/components/tabs/SourceIntelligenceTab";
+import SourceIntelScreen from "@/components/research/SourceIntelScreen";
 import YouTubeTab from "@/components/tabs/YouTubeTab";
 import ToolboxTab from "@/components/tabs/ToolboxTab";
 import CostsTab from "@/components/tabs/CostsTab";
@@ -56,11 +56,11 @@ export function renderScreen(activeTab: string): React.ReactNode {
     case "youtube":
       return <YouTubeTab />;
     case "flow-radar":
-      return <FlowRadarTab />;
+      return <ViralRadarScreen />;
     case "discovery-engine":
       return <DiscoveryEngineTab />;
     case "source-intelligence":
-      return <SourceIntelligenceTab />;
+      return <SourceIntelScreen />;
     // ── Toolbox (utility) ──
     case "toolbox":
       return <ToolboxTab />;
