@@ -127,7 +127,9 @@ export function SeriesCandidateTopics({ accountId, seriesKey }: { accountId?: st
   if (items.length === 0) return null;
 
   return (
-    <Card variant="quiet" padded data-testid="series-candidate-topics">
+    // Card data-* forward etmez — testid sarmalayıcı div'de.
+    <div data-testid="series-candidate-topics">
+      <Card variant="quiet" padded>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span className="eyebrow" style={{ color: "var(--text-muted)" }}>
           Fırsattan gelen aday konular
@@ -142,6 +144,7 @@ export function SeriesCandidateTopics({ accountId, seriesKey }: { accountId?: st
           ))}
         </div>
       </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
