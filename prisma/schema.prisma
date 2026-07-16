@@ -30,6 +30,7 @@ model Account {
   generationRuns       GenerationRun[]
   usageLogs            UsageLog[]
   publishLogs          PublishLog[]
+  publishAttempts      PublishAttempt[]
   viralPatterns        ViralPattern[]
   trainingExamples     TrainingExample[]
   feedbackEvents       FeedbackEvent[]
@@ -133,7 +134,8 @@ model QueueItem {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  generationRun GenerationRun?
+  generationRun   GenerationRun?
+  publishAttempts PublishAttempt[]
 }
 
 model Schedule {
@@ -208,6 +210,33 @@ model PublishLog {
   errorMessage String?
   payload      String    @default("{}")
   createdAt    DateTime  @default(now())
+}
+
+// Faz 1E (ADR-025): yayın denemesi state machine kaydı. Intent penceresi açmak
+// YALNIZ prepared satırı yaratır — PublishLog/PublishedPost ancak succeeded
+// geçişinin transaction'ı içinde oluşur. Additive-only.
+model PublishAttempt {
+  id                     String    @id @default(cuid())
+  queueItemId            String
+  queueItem              QueueItem @relation(fields: [queueItemId], references: [id])
+  accountId              String
+  account                Account   @relation(fields: [accountId], references: [id])
+  adapter                String // "intent" | "x_api"
+  state                  String // "prepared" | "succeeded" | "failed"
+  idempotencyKey         String
+  contentHash            String
+  readinessPolicyVersion String
+  readinessSnapshotJson  String    @default("{}")
+  externalId             String?
+  errorCode              String?
+  errorMessage           String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  completedAt            DateTime?
+
+  @@unique([accountId, adapter, idempotencyKey])
+  @@index([queueItemId, state])
+  @@index([accountId, state])
 }
 
 // Growth Intelligence Engine models
