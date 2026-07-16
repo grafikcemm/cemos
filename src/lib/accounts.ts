@@ -1,3 +1,16 @@
+/**
+ * Phase 2C (ADR-031): Bu modül artık RUNTIME source of truth DEĞİLDİR.
+ * Runtime otoritesi DB'dir (`Account` + `StyleProfile`,
+ * `@/lib/accounts/profileRepository` üzerinden okunur). Buradaki
+ * `accountProfiles` üç rolde yaşamaya devam eder:
+ *   1. DB seed/backfill kaynağı (prisma/seed.ts),
+ *   2. test fixture'ı,
+ *   3. DB'ye ULAŞILAMADIĞINDA (bağlantı hatası) tohumlu iki hesap için
+ *      işaretli (degraded) kullanılabilirlik fallback'i.
+ * `AccountHandle` literal union'ı yalnız bootstrap sabitlerinin
+ * (Record anahtarları) tipidir — güvenlik sınırı DEĞİLDİR; trust-boundary
+ * doğrulaması `assertKnownAccountHandleDb` (DB, fail-closed) ile yapılır.
+ */
 export type AccountHandle = "grafikcem" | "maskulenkod";
 
 /**
@@ -38,11 +51,16 @@ export type AccountMode = {
 };
 
 export type AccountProfile = {
-  handle: AccountHandle;
+  /**
+   * Profil nesnelerinde handle GENİŞ tiptir (string): runtime profilleri artık
+   * DB'den gelir ve yeni hesap handle'ları derleme zamanında bilinemez.
+   * Bootstrap Record'ların anahtarı yine `AccountHandle` literal'idir.
+   */
+  handle: string;
   xHandle: string;
   persona: string;
   concept: string;
-  language: "Turkish";
+  language: string;
   maxChars: number;
   defaultDraftCount: number;
   autonomy: string;
