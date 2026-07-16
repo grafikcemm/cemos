@@ -82,23 +82,35 @@ const scheduleDefaults: Record<string, "daily" | "monday"> = {
 
 };
 
+// Phase 2C (ADR-031): Account artık runtime source of truth — bootstrap TS
+// profilinin kalan alanları da DB'ye yazılır. Mevcut iki hesap "active" olarak
+// backfill edilir; yeni hesaplar UI/DB üzerinden "draft" doğar.
+const DISPLAY_NAMES: Record<string, string> = {
+  grafikcem: "GrafikCem",
+  maskulenkod: "MaskulenKod",
+};
+
 async function main() {
   for (const profile of Object.values(accountProfiles)) {
+    const profileFields = {
+      xHandle: profile.xHandle,
+      persona: profile.persona,
+      concept: profile.concept,
+      maxChars: profile.maxChars,
+      displayName: DISPLAY_NAMES[profile.handle] ?? profile.handle,
+      language: profile.language,
+      autonomy: profile.autonomy,
+      defaultDraftCount: profile.defaultDraftCount,
+      formatsJson: JSON.stringify(profile.formats),
+      benchmarkInput: profile.benchmarkInput,
+      profileStatus: "active",
+      isActive: true,
+      profileUpdatedAt: new Date(),
+    };
     const account = await prisma.account.upsert({
       where: { handle: profile.handle },
-      create: {
-        handle: profile.handle,
-        xHandle: profile.xHandle,
-        persona: profile.persona,
-        concept: profile.concept,
-        maxChars: profile.maxChars,
-      },
-      update: {
-        xHandle: profile.xHandle,
-        persona: profile.persona,
-        concept: profile.concept,
-        maxChars: profile.maxChars,
-      },
+      create: { handle: profile.handle, ...profileFields },
+      update: profileFields,
     });
 
     await prisma.styleProfile.upsert({

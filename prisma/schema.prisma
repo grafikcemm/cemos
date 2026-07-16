@@ -21,6 +21,23 @@ model Account {
   platform  String   @default("x")
   createdAt DateTime @default(now())
 
+  // ── Phase 2C (ADR-031): Account = runtime source of truth. Kural listeleri
+  // StyleProfile'da (toneRules/formatRules/forbiddenRules/modes, seed'li JSON);
+  // buradaki alanlar TS accountProfiles'ın kalan profil verisini taşır. Hepsi
+  // additive + default'lu — eski satırlar migration sonrası geçerli kalır.
+  displayName       String    @default("")
+  language          String    @default("Turkish")
+  autonomy          String    @default("")
+  defaultDraftCount Int       @default(3)
+  // FormatTierId[] JSON — üretimde izinli uzunluk tier'ları.
+  formatsJson       String    @default("[]")
+  benchmarkInput    String    @default("")
+  // "active" → üretime girebilir; "draft"/"configuration_required" → fail-closed.
+  profileStatus     String    @default("draft")
+  isActive          Boolean   @default(true)
+  profileVersion    Int       @default(1)
+  profileUpdatedAt  DateTime?
+
   styleProfile         StyleProfile?
   sources              Source[]
   sourcePosts          SourcePost[]
@@ -33,10 +50,36 @@ model Account {
   publishAttempts      PublishAttempt[]
   viralPatterns        ViralPattern[]
   trainingExamples     TrainingExample[]
-  feedbackEvents       FeedbackEvent[]
   evalTests            EvalTest[]
+  feedbackEvents       FeedbackEvent[]
   contentOpportunities ContentOpportunity[]
   opportunityHandoffs  OpportunityHandoff[]
+  platformBindings     AccountPlatformBinding[]
+}
+
+// ── Phase 2C (ADR-032): CemOS hesabı ↔ dış platform bağlantısı eşlemesi.
+// Credential/token SAKLANMAZ (tokenlar Composio/Meta tarafında kalır; secret'lar
+// env/IntegrationCredential'da). Yalnız bağlantı kimliği + durum + sync metadata.
+model AccountPlatformBinding {
+  id                   String    @id @default(cuid())
+  accountId            String
+  account              Account   @relation(fields: [accountId], references: [id])
+  platform             String // "instagram"
+  provider             String // "composio" | "meta"
+  externalAccountId    String    @default("") // Composio connected account id / IG user id (secret değil)
+  externalHandle       String    @default("") // bağlı IG username
+  connectionStatus     String    @default("unverified") // unverified | connected | degraded | blocked
+  toolkitVersion       String    @default("")
+  lastVerifiedAt       DateTime?
+  lastSuccessfulSyncAt DateTime?
+  lastErrorClass       String    @default("")
+  lastSyncSummaryJson  String    @default("{}")
+  metadataJson         String    @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([accountId, platform, provider])
+  @@index([platform, provider])
 }
 
 model StyleProfile {
