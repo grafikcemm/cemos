@@ -37,6 +37,15 @@ export type MorningNewsItem = {
   sourceVerification: string | null;
 } | null;
 
+/** Faz 1E (ADR-025): server kaynaklı intent hazırlık durumu — reload'a dayanır. */
+export type MorningPublishAttempt = {
+  id: string;
+  state: string; // "prepared" | "succeeded" | "failed"
+  contentHash: string;
+  /** İçerik hazırlıktan sonra değişti — eski hazırlık stale, yeniden "X'te aç". */
+  staleForCurrentContent: boolean;
+} | null;
+
 export type MorningDraft = {
   id: string;
   accountId: string;
@@ -60,6 +69,8 @@ export type MorningDraft = {
   whyToday?: WhyTodayResult;
   /** Faz 1C — yapısal thread segmentleri (JSON string; yoksa null). */
   threadSegments?: string | null;
+  /** Faz 1E — intent hazırlık durumu (server kaynağı; optimistic state bunun yerine geçmez). */
+  publishAttempt?: MorningPublishAttempt;
   sourcePostId?: string | null;
   newsItemId?: string | null;
   sourcePost?: MorningSourcePost;
@@ -134,7 +145,22 @@ export function useDailyQueueData() {
       );
       if (data.success) {
         setDrafts((prev) =>
-          prev.map((d) => (d.id === id ? recompute({ ...d, editedContent: content }, { editedContent: content }) : d))
+          prev.map((d) =>
+            d.id === id
+              ? recompute(
+                  {
+                    ...d,
+                    editedContent: content,
+                    // İçerik değişti → mevcut hazırlık stale (sunucu contentHash
+                    // ile zaten reddeder; UI da dürüst davranır).
+                    publishAttempt: d.publishAttempt
+                      ? { ...d.publishAttempt, staleForCurrentContent: true }
+                      : d.publishAttempt,
+                  },
+                  { editedContent: content }
+                )
+              : d
+          )
         );
         return true;
       }
@@ -171,9 +197,50 @@ export function useDailyQueueData() {
     }
   }, []);
 
-  const markPublished = useCallback(async (id: string): Promise<boolean> => {
+  /**
+   * Faz 1E: "X'te aç" hazırlığı — server PublishAttempt(prepared) yaratır.
+   * Başarıda draft'ın publishAttempt'i server yanıtından güncellenir (optimistic
+   * state gerçek server state'in yerine geçmez).
+   */
+  const prepareIntent = useCallback(
+    async (id: string): Promise<{ ok: boolean; intentUrl?: string; error?: string }> => {
+      try {
+        const data = await fetchJson<{
+          success: boolean;
+          error?: string;
+          intentUrl?: string;
+          attempt?: { id: string; state: string; contentHash: string };
+        }>(`/api/queue/${id}/prepare-intent`, { method: "POST" });
+        if (data.success && data.intentUrl && data.attempt) {
+          const attempt = data.attempt;
+          setDrafts((prev) =>
+            prev.map((d) =>
+              d.id === id
+                ? {
+                    ...d,
+                    publishAttempt: {
+                      id: attempt.id,
+                      state: attempt.state,
+                      contentHash: attempt.contentHash,
+                      staleForCurrentContent: false,
+                    },
+                  }
+                : d
+            )
+          );
+          return { ok: true, intentUrl: data.intentUrl };
+        }
+        return { ok: false, error: data.error || "Hazırlık başarısız." };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : "Hazırlık başarısız." };
+      }
+    },
+    []
+  );
+
+  const markPublished = useCallback(async (id: string): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const data = await fetchJson<{ success: boolean }>(
+      const data = await fetchJson<{ success: boolean; error?: string }>(
         `/api/growth/daily-queue/${id}`,
         {
           method: "PATCH",
@@ -183,15 +250,23 @@ export function useDailyQueueData() {
       );
       if (data.success) {
         setDrafts((prev) =>
-          prev.map((d) => (d.id === id ? { ...d, status: "manual_published" } : d))
+          prev.map((d) =>
+            d.id === id
+              ? {
+                  ...d,
+                  status: "manual_published",
+                  publishAttempt: d.publishAttempt ? { ...d.publishAttempt, state: "succeeded" } : d.publishAttempt,
+                }
+              : d
+          )
         );
-        return true;
+        return { ok: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { ok: false, error: data.error || "İşaretleme başarısız." };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : "İşaretleme başarısız." };
     }
   }, []);
 
-  return { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, markPublished };
+  return { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished };
 }

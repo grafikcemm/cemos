@@ -26,7 +26,9 @@ type Props = {
   draft: MorningDraft;
   onSave: (id: string, content: string) => Promise<boolean>;
   onSaveSegments: (id: string, segmentsJson: string | null) => Promise<boolean>;
-  onMarkPublished: (id: string) => Promise<boolean>;
+  /** Faz 1E: server-side PublishAttempt(prepared) + intent URL. */
+  onPrepareIntent: (id: string) => Promise<{ ok: boolean; intentUrl?: string; error?: string }>;
+  onMarkPublished: (id: string) => Promise<{ ok: boolean; error?: string }>;
   onToast: (text: string, type: "success" | "error") => void;
   /** Kuyruktaki İLK bekleyen kart — "SIRADAKİ" işareti + A/E/J/K kısayolları. */
   isNextUp?: boolean;
@@ -47,6 +49,7 @@ export default function DraftReviewCard({
   draft,
   onSave,
   onSaveSegments,
+  onPrepareIntent,
   onMarkPublished,
   onToast,
   isNextUp = false,
@@ -59,10 +62,16 @@ export default function DraftReviewCard({
   const [imgLoading, setImgLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(draft.generatedImageUrl ?? null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // §8D: "Paylaşıldı olarak işaretle" yalnız X intent'i açıldıktan (publish_prepared)
-  // sonra belirginleşir — gerçek paylaşım sırasını taklit eder.
-  const [publishPrepared, setPublishPrepared] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Faz 1E (ADR-025): prepared durumu SERVER kaynağından türer (PublishAttempt).
+  // Reload sonrası korunur; içerik hazırlıktan sonra değiştiyse stale sayılır
+  // (yeniden "X'te aç" gerekir). Geçici optimistic state bunun yerine geçmez.
+  const publishPrepared =
+    !!draft.publishAttempt &&
+    draft.publishAttempt.state === "prepared" &&
+    !draft.publishAttempt.staleForCurrentContent;
 
   const isThread = draft.draftType.toUpperCase() === "THREAD";
   const isPublished = draft.status === "manual_published" || draft.status === "published";
@@ -94,12 +103,32 @@ export default function DraftReviewCard({
     onToast(ok ? "Metin panoya kopyalandı." : "Kopyalama başarısız.", ok ? "success" : "error");
   };
 
-  // Intent-only (ADR-017): pencere açmak yayın DEĞİL. Yalnız ready'de sunulur.
-  // Açılınca publish_prepared → "Paylaşıldı olarak işaretle" belirginleşir (§8D).
-  const handleOpenX = () => {
-    const url = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    setPublishPrepared(true);
+  // Intent-only (ADR-017 + ADR-025): pencere açmak yayın DEĞİL — server-side
+  // PublishAttempt(prepared) kalıcı olarak oluşur, sonra pencere X intent'ine
+  // yönlendirilir. Popup-blocker güvenli: pencere kullanıcı gesture'ında
+  // SENKRON açılır; prepare başarısızsa kapatılır + Türkçe hata gösterilir.
+  // Server kaydı oluşmadan yalnız client state prepared SAYILMAZ.
+  const handleOpenX = async () => {
+    if (preparing) return;
+    setPreparing(true);
+    const win = window.open("about:blank", "_blank");
+    if (win) win.opener = null;
+    try {
+      // Kaydedilmemiş düzenleme varsa önce kaydet — hazırlık güncel metinle yapılır.
+      if (isDirty) {
+        const saved = await onSave(draft.id, text);
+        if (!saved) throw new Error("Taslak kaydedilemedi — X'te açılmadı.");
+      }
+      const res = await onPrepareIntent(draft.id);
+      if (!res.ok || !res.intentUrl) throw new Error(res.error || "Hazırlık başarısız.");
+      if (win) win.location.href = res.intentUrl;
+      else window.open(res.intentUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      win?.close();
+      onToast(err instanceof Error ? err.message : "Hazırlık başarısız.", "error");
+    } finally {
+      setPreparing(false);
+    }
   };
 
   const handleGenerateImage = async () => {
@@ -124,17 +153,25 @@ export default function DraftReviewCard({
     }
   };
 
-  // Manuel "Paylaşıldı" onayı — sunucu yayın-anı readiness'i yeniden koşar;
-  // ready değilse typed hata + nedenler döner (kart zaten göstermiyor).
+  // Manuel "Paylaşıldı" onayı — server state machine (prepared attempt ŞART,
+  // contentHash eşleşmeli, readiness yayın anında yeniden koşar; atomik +
+  // idempotent). Başarısızlıkta server'ın Türkçe, eyleme dönük mesajı gösterilir.
   const handleMarkPublished = async () => {
     if (state !== "ready") {
       onToast("Taslak yayına hazır değil — önce düzenle.", "error");
       return;
     }
+    if (!publishPrepared) {
+      onToast("Hazırlık bulunamadı — önce 'X'te aç' ile hazırla.", "error");
+      return;
+    }
     setPublishing(true);
-    const ok = await onMarkPublished(draft.id);
+    const res = await onMarkPublished(draft.id);
     setPublishing(false);
-    onToast(ok ? "Manuel paylaşıldı olarak işaretlendi." : "İşaretleme başarısız.", ok ? "success" : "error");
+    onToast(
+      res.ok ? "Manuel paylaşıldı olarak işaretlendi." : res.error || "İşaretleme başarısız.",
+      res.ok ? "success" : "error"
+    );
   };
 
   const enterEdit = () => {
@@ -298,8 +335,14 @@ export default function DraftReviewCard({
   const actions = !isPublished && (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       {state === "ready" ? (
-        <button type="button" onClick={handleOpenX} data-testid="cta-open-x" style={primaryBtn}>
-          <ExternalLink size={14} strokeWidth={2} /> X&apos;te aç
+        <button
+          type="button"
+          onClick={handleOpenX}
+          disabled={preparing}
+          data-testid="cta-open-x"
+          style={primaryBtn}
+        >
+          <ExternalLink size={14} strokeWidth={2} /> {preparing ? "Hazırlanıyor…" : "X'te aç"}
         </button>
       ) : !isThread ? (
         <button type="button" onClick={enterEdit} data-testid="cta-edit" style={primaryBtn}>

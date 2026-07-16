@@ -64,6 +64,14 @@ export async function GET(req: NextRequest) {
 
     const nowMs = Date.now();
 
+    // Faz 1E (ADR-025): taslak başına en güncel intent hazırlığı — UI
+    // "Paylaşıldı olarak işaretle" durumunu server kaynağından besler (reload
+    // sonrası korunur); staleForCurrentContent içerik-değişti işaretidir.
+    const { publishAttemptService } = await import("@/lib/publish/publishAttemptService");
+    const attemptMap = await publishAttemptService.latestIntentAttempts(
+      rawItems.map((i) => ({ id: i.id, content: i.content, editedContent: i.editedContent })),
+    );
+
     const { getLocalDayBounds } = await import("@/lib/utils/date");
     const { start: startOfToday, end: endOfToday } = getLocalDayBounds("Europe/Istanbul");
 
@@ -132,10 +140,22 @@ export async function GET(req: NextRequest) {
         nowMs,
       });
 
+      const attempt = attemptMap.get(item.id);
+
       return {
         ...item,
         accountHandle: accHandle,
         displayName: acc?.xHandle || acc?.handle || "unknown",
+        // Faz 1E: intent hazırlık durumu (yoksa null) — prepared + güncel metinle
+        // eşleşiyorsa UI "Paylaşıldı olarak işaretle"yi gösterir.
+        publishAttempt: attempt
+          ? {
+              id: attempt.id,
+              state: attempt.state,
+              contentHash: attempt.contentHash,
+              staleForCurrentContent: attempt.staleForCurrentContent,
+            }
+          : null,
         readiness,
         // Client canlı readiness için: düzenlerken editedContent'i değiştirip
         // assessReadiness'i YENİDEN koşar (aynı saf fonksiyon → kart/sunucu tutarlı).
