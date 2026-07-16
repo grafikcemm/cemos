@@ -48,6 +48,7 @@ import {
   KanbanBoard,
   KanbanCard,
   type KanbanTone,
+  MetricStrip,
 } from "@/components/ui";
 
 type YtVideo = {
@@ -433,27 +434,14 @@ function FeedSection({
   return (
     <>
       {/* Sessiz metrik şeridi (hero KPI kutuları kaldırıldı — arketip: quiet inline) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 20,
-          marginBottom: "var(--space-4)",
-        }}
-      >
-        {[
-          { label: "akıştaki fırsat", value: loading ? "—" : videos.length },
-          { label: "sıcak ≥3×", value: loading ? "—" : hotCount },
-          { label: "yükselen 1.5–3×", value: loading ? "—" : risingCount },
-        ].map((m) => (
-          <span key={m.label} style={{ display: "inline-flex", alignItems: "baseline", gap: 6 }}>
-            <span className="tnum" style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
-              {m.value}
-            </span>
-            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{m.label}</span>
-          </span>
-        ))}
+      <div style={{ marginBottom: "var(--space-4)" }}>
+        <MetricStrip
+          items={[
+            { label: "akıştaki fırsat", value: loading ? "—" : videos.length },
+            { label: "sıcak ≥3×", value: loading ? "—" : hotCount },
+            { label: "yükselen 1.5–3×", value: loading ? "—" : risingCount },
+          ]}
+        />
       </div>
 
       {/* Filtre control-bar */}

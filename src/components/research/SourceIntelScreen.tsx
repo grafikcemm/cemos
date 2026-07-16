@@ -9,10 +9,7 @@ import {
   Pencil,
   Archive,
   Radar,
-  Target,
-  TrendingUp,
   ShieldAlert,
-  CircleDot,
   Heart,
   Repeat2,
   Eye,
@@ -21,7 +18,8 @@ import {
 } from "lucide-react";
 import {
   PageHeader,
-  MetricGrid,
+  MetricStrip,
+  type MetricStripItem,
   FilterBar,
   Card,
   SectionHeader,
@@ -482,11 +480,11 @@ export default function SourceIntelScreen() {
     setActivePost(null);
   };
 
-  const metricItems = [
-    { label: "Aktif kaynak", value: summary.activeSources, icon: <Target size={15} strokeWidth={1.9} /> },
-    { label: "Taranan post", value: summary.totalSourcePosts, icon: <CircleDot size={15} strokeWidth={1.9} /> },
-    { label: "Yüksek fırsat", value: summary.highOpportunityPosts, icon: <TrendingUp size={15} strokeWidth={1.9} /> },
-    { label: "Yüksek risk", value: summary.highRiskPosts, icon: <ShieldAlert size={15} strokeWidth={1.9} /> },
+  const metricItems: MetricStripItem[] = [
+    { label: "aktif kaynak", value: summary.activeSources },
+    { label: "taranan post", value: summary.totalSourcePosts },
+    { label: "yüksek fırsat", value: summary.highOpportunityPosts, tone: "ok" },
+    { label: "yüksek risk", value: summary.highRiskPosts, tone: "danger" },
   ];
 
   const panelUrl = safeExternalUrl(activePost?.url);
@@ -508,7 +506,7 @@ export default function SourceIntelScreen() {
       />
 
       {/* Sessiz metrikler — hero StatCard değil */}
-      <MetricGrid items={metricItems} columns={4} />
+      <MetricStrip items={metricItems} data-testid="sis-metrics" />
 
       <FilterBar
         values={values}

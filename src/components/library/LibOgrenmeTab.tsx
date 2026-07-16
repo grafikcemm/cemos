@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GraduationCap, Plus, RefreshCw, CalendarClock, AlertTriangle, Layers, Brain } from "lucide-react";
+import { GraduationCap, Plus, RefreshCw, CalendarClock, AlertTriangle } from "lucide-react";
 import {
   Card,
-  MetricGrid,
+  MetricStrip,
   EmptyState,
   ErrorState,
   Badge,
@@ -169,13 +169,13 @@ export default function LibOgrenmeTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
-      {/* Sessiz metrik şeridi */}
-      <MetricGrid
-        columns={3}
+      {/* Sessiz metrik şeridi — dashboard KPI bloğu değil */}
+      <MetricStrip
+        data-testid="learn-metrics"
         items={[
-          { label: "Hazır paket", value: data?.readyPacks ?? 0, icon: <Layers size={16} strokeWidth={1.8} /> },
-          { label: "Bugün tekrar", value: data?.dueToday ?? 0, icon: <CalendarClock size={16} strokeWidth={1.8} /> },
-          { label: "Ort. mastery", value: data?.avgMastery ?? 0, icon: <Brain size={16} strokeWidth={1.8} /> },
+          { label: "hazır paket", value: data?.readyPacks ?? 0 },
+          { label: "bugün tekrar", value: data?.dueToday ?? 0, tone: (data?.dueToday ?? 0) > 0 ? "accent" : "default" },
+          { label: "ort. mastery", value: data?.avgMastery ?? 0 },
         ]}
       />
 

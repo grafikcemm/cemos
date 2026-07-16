@@ -30,6 +30,7 @@ export default function ErrorState({
 }: ErrorStateProps) {
   return (
     <div
+      data-state="error"
       style={{
         background: "color-mix(in srgb, var(--danger) 7%, var(--bg-surface))",
         border: "1px solid color-mix(in srgb, var(--danger) 35%, transparent)",

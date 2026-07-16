@@ -24,7 +24,7 @@ export default function Skeleton({ width = "100%", height = 14, lines, style }: 
 
   if (lines && lines > 1) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, ...style }}>
+      <div data-skeleton="" style={{ display: "flex", flexDirection: "column", gap: 8, ...style }}>
         {Array.from({ length: lines }).map((_, i) => (
           <div key={i} style={block(i === lines - 1 ? "60%" : "100%", height)} />
         ))}
@@ -34,7 +34,7 @@ export default function Skeleton({ width = "100%", height = 14, lines, style }: 
   }
 
   return (
-    <div style={{ ...block(width, height), ...style }}>
+    <div data-skeleton="" style={{ ...block(width, height), ...style }}>
       <style>{SHIMMER_KEYFRAMES}</style>
     </div>
   );

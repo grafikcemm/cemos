@@ -18,6 +18,7 @@ type EmptyStateProps = {
 export default function EmptyState({ icon, title, description, action, compact = false }: EmptyStateProps) {
   return (
     <div
+      data-state="empty"
       style={{
         display: "flex",
         flexDirection: "column",

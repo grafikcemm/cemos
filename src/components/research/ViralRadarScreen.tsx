@@ -4,9 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, typ
 import {
   Radar,
   RefreshCw,
-  TrendingUp,
-  ShieldAlert,
-  Gauge,
   Heart,
   Repeat2,
   Eye,
@@ -19,7 +16,8 @@ import {
 } from "lucide-react";
 import {
   PageHeader,
-  MetricGrid,
+  MetricStrip,
+  type MetricStripItem,
   FilterBar,
   EntityCard,
   AvatarTile,
@@ -534,19 +532,11 @@ export default function ViralRadarScreen() {
   }, [list, now]);
   const isStale = staleHours !== null && staleHours >= STALE_HOURS;
 
-  const metricItems = [
-    { label: "Toplam aday", value: sv(summary?.totalCandidates), icon: <Radar size={16} strokeWidth={2} /> },
-    {
-      label: "Yüksek fırsat ≥75",
-      value: <span style={{ color: "var(--status-ok-text)" }}>{sv(summary?.highOpportunity)}</span>,
-      icon: <TrendingUp size={16} strokeWidth={2} />,
-    },
-    {
-      label: "Yüksek risk ≥70",
-      value: <span style={{ color: "var(--status-error)" }}>{sv(summary?.highRisk)}</span>,
-      icon: <ShieldAlert size={16} strokeWidth={2} />,
-    },
-    { label: "Ort. fırsat", value: avgLabel, icon: <Gauge size={16} strokeWidth={2} /> },
+  const metricItems: MetricStripItem[] = [
+    { label: "Toplam aday", value: sv(summary?.totalCandidates) },
+    { label: "yüksek fırsat ≥75", value: sv(summary?.highOpportunity), tone: "ok" },
+    { label: "yüksek risk ≥70", value: sv(summary?.highRisk), tone: "danger" },
+    { label: "ort. fırsat", value: avgLabel },
   ];
 
   /* ── Render ─────────────────────────────────────────────────────────────── */
@@ -594,7 +584,7 @@ export default function ViralRadarScreen() {
       </div>
 
       {/* Sessiz metrik şeridi — hero KPI kutuları değil */}
-      <MetricGrid columns={4} items={metricItems} />
+      <MetricStrip items={metricItems} data-testid="radar-metrics" />
 
       <FilterBar
         fields={[

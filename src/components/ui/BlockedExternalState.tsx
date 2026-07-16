@@ -38,6 +38,7 @@ export default function BlockedExternalState({
   return (
     <div
       role="status"
+      data-state="blocked"
       style={{
         display: "flex",
         alignItems: "flex-start",

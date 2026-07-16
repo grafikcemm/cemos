@@ -14,6 +14,7 @@ export { KanbanBoard, KanbanCard, type KanbanColumnDef, type KanbanTone } from "
 export { default as Input } from "./Input";
 export { default as MetricCard } from "./MetricCard";
 export { default as MetricGrid } from "./MetricGrid";
+export { default as MetricStrip, type MetricStripItem, type MetricStripTone } from "./MetricStrip";
 export { default as ModeSelector } from "./ModeSelector";
 export { default as PageHeader } from "./PageHeader";
 export { default as PageScaffold } from "./PageScaffold";

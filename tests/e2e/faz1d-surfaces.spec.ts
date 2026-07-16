@@ -128,6 +128,50 @@ test.describe("Erişim + taşma sözleşmeleri", () => {
   });
 });
 
+test.describe("Settled-state sözleşmesi (Faz 1D.1)", () => {
+  // Loading state makul sürede KALKMALI ve yerine semantik bir success/empty/
+  // error/blocked göstergesi gelmeli. Yalnız networkidle'a veya skeleton'ın
+  // "bir an görünmesine" güvenilmez — kalkması doğrulanır.
+  const SETTLE_TIMEOUT = 30_000;
+
+  const SURFACES: { tab: string; anchor: string }[] = [
+    { tab: "plan-takvim", anchor: "takvim-view-month" },
+    { tab: "plan-firsatlar", anchor: "opp-segment-all" },
+    { tab: "lib-tumu", anchor: "lib-search" },
+    { tab: "profile-integrations", anchor: "integration-row-openrouter" },
+    { tab: "flow-radar", anchor: "radar-metrics" },
+    { tab: "source-intelligence", anchor: "sis-metrics" },
+  ];
+
+  for (const { tab, anchor } of SURFACES) {
+    test(`${tab}: skeleton makul sürede kalkar, settled göstergesi kalır`, async ({ page }) => {
+      await page.goto("/");
+      await selectTab(page, tab);
+      await expect(page.getByTestId(anchor)).toBeVisible({ timeout: SETTLE_TIMEOUT });
+      // Çekirdek regresyon: hiçbir skeleton sonsuza dek kalmaz.
+      await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
+    });
+  }
+
+  test("lib-tumu: settled sonuç ya satır ya dürüst empty/error state", async ({ page }) => {
+    await page.goto("/");
+    await selectTab(page, "lib-tumu");
+    await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
+    const row = page.locator('[data-testid^="lib-row-"]').first();
+    const state = page.locator("[data-state]").first();
+    await expect(row.or(state)).toBeVisible();
+  });
+
+  test("lib-ogrenme: settled sonuç metrik şeridi ya blocked-external", async ({ page }) => {
+    await page.goto("/");
+    await selectTab(page, "lib-ogrenme");
+    await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
+    const metrics = page.getByTestId("learn-metrics");
+    const blocked = page.locator('[data-state="blocked"]').first();
+    await expect(metrics.or(blocked)).toBeVisible();
+  });
+});
+
 test.describe("Advanced araştırma ekranları (Cmd+K, yeniden tasarlandı)", () => {
   test("Viral Radar: pipeline + sessiz metrik (8-KPI hero yok); placeholder yok", async ({ page }) => {
     await page.goto("/");

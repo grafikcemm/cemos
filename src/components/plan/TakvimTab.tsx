@@ -84,7 +84,7 @@ const READINESS_META: Record<DossierRow["finalReadiness"], { label: string; vari
 export default function TakvimTab() {
   const toast = useToast();
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
-  const { accounts } = useAccounts();
+  const { accounts, loading: accountsLoading, failed: accountsFailed, reload: reloadAccounts } = useAccounts();
 
   const today = useMemo(() => new Date(), []);
   const [accountId, setAccountId] = useState("");
@@ -110,6 +110,15 @@ export default function TakvimTab() {
   useEffect(() => {
     if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
   }, [accounts, accountId]);
+
+  // Sonsuz-skeleton koruması (Faz 1D.1): hesap listesi düştü ya da boş döndüyse
+  // load() hiç koşamaz — loading'i kapat ve dürüst hata/boş duruma geç.
+  useEffect(() => {
+    if (!accountsLoading && (accountsFailed || accounts.length === 0)) {
+      setLoading(false);
+      if (accountsFailed) setFailed(true);
+    }
+  }, [accountsLoading, accountsFailed, accounts.length]);
 
   const handle = accounts.find((a) => a.id === accountId)?.handle ?? "";
   const monthStr = `${year}-${pad(month1)}`;
@@ -345,7 +354,16 @@ export default function TakvimTab() {
           <Skeleton lines={6} />
         </Card>
       ) : failed ? (
-        <ErrorState title="Plan yüklenemedi" description="Takvim verisi getirilemedi. Yeniden dene." onRetry={load} />
+        <ErrorState
+          title="Plan yüklenemedi"
+          description="Takvim verisi getirilemedi. Yeniden dene."
+          onRetry={() => {
+            setFailed(false);
+            setLoading(true);
+            if (accountsFailed || accounts.length === 0) reloadAccounts();
+            else load();
+          }}
+        />
       ) : allItems.length === 0 ? (
         <EmptyState
           icon={<CalendarPlus size={22} strokeWidth={1.8} />}
