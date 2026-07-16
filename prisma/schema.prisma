@@ -36,6 +36,7 @@ model Account {
   feedbackEvents       FeedbackEvent[]
   evalTests            EvalTest[]
   contentOpportunities ContentOpportunity[]
+  opportunityHandoffs  OpportunityHandoff[]
 }
 
 model StyleProfile {
@@ -237,6 +238,43 @@ model PublishAttempt {
   @@unique([accountId, adapter, idempotencyKey])
   @@index([queueItemId, state])
   @@index([accountId, state])
+}
+
+// Fırsat → hedef yüzey kalıcı aktarımı (ADR-028, Faz 2A).
+// "Hazırlanmış ama henüz tüketilmemiş" cross-surface işi hiçbir mevcut model
+// temsil etmiyordu (Idea = içerik tohumu, ContentOpportunity = haber-tweet
+// fikri) — küçük additive workflow modeli. Kaynak verinin kendisi kopyalanmaz;
+// sourceKind+sourceId orijinaline işaret eder; seed metni LLM'e giderken
+// wrapUntrustedData zorunludur.
+model OpportunityHandoff {
+  id                String    @id @default(cuid())
+  accountId         String
+  account           Account   @relation(fields: [accountId], references: [id])
+  action            String // "generate" | "plan" | "series"
+  status            String    @default("pending") // pending | consumed | cancelled
+  sourceKind        String // "news" | "youtube" | "radar" | "discovery"
+  sourceId          String
+  sourcePlatform    String    @default("")
+  title             String
+  topicSeed         String    @default("")
+  whyNow            String    @default("")
+  whyNowDetail      String    @default("")
+  rawTab            String    @default("")
+  suggestedPlatform String    @default("X")
+  score             Int       @default(0)
+  curationMethod    String    @default("deterministic") // deterministic | agent
+  payloadJson       String    @default("{}") // schemaVersion'lı ekstra alanlar (Zod ile okunur)
+  fingerprint       String
+  resultQueueItemId String?
+  resultRef         String? // consume sonucu (slot id / seriesKey)
+  blockedReason     String?
+  consumedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([accountId, action, fingerprint])
+  @@index([accountId, action, status])
+  @@index([status, createdAt])
 }
 
 // Growth Intelligence Engine models
