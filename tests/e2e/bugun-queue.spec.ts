@@ -129,7 +129,22 @@ test.describe("Bugün karar kuyruğu (düzeltilmiş sözleşme)", () => {
     await expect(card.getByTestId("cta-generate-image")).toHaveCount(0);
   });
 
-  test("ready kart (§8D): X'te aç → 'Paylaşıldı olarak işaretle' belirir (publish_prepared)", async ({ page }) => {
+  test("ready kart (§8D+ADR-025): X'te aç → server prepare → 'Paylaşıldı olarak işaretle' belirir", async ({ page }) => {
+    // Faz 1E: prepared artık SERVER kaydıdır (PublishAttempt) — hermetik mock.
+    // Server kaydı oluşmadan yalnız client state prepared SAYILMAZ; bu test
+    // prepare route'u başarı dönmeden butonun BELİRMEDİĞİNİ de kanıtlar.
+    let prepareCalled = 0;
+    await page.route("**/api/queue/*/prepare-intent", (route) => {
+      prepareCalled++;
+      return route.fulfill({
+        json: {
+          success: true,
+          attempt: { id: "att-e2e-1", state: "prepared", contentHash: "hash-e2e" },
+          intentUrl: "https://x.com/intent/post?text=test",
+          reused: false,
+        },
+      });
+    });
     // window.open'ı gerçek popup açmaması için no-op'la (intent penceresi test-dışı).
     await page.evaluate(() => {
       window.open = () => null;
@@ -139,6 +154,23 @@ test.describe("Bugün karar kuyruğu (düzeltilmiş sözleşme)", () => {
     await card.getByTestId("cta-open-x").click();
     await expect(card.getByTestId("cta-mark-published")).toBeVisible();
     await expect(card.getByTestId("cta-mark-published")).toContainText("Paylaşıldı olarak işaretle");
+    expect(prepareCalled).toBe(1);
+  });
+
+  test("ready kart (ADR-025): server prepare BAŞARISIZSA 'Paylaşıldı' belirmez + Türkçe hata", async ({ page }) => {
+    await page.route("**/api/queue/*/prepare-intent", (route) =>
+      route.fulfill({
+        status: 422,
+        json: { success: false, error: "Taslak artık yayınlanmaya hazır değil — önce düzenle.", code: "edit_required" },
+      }),
+    );
+    await page.evaluate(() => {
+      window.open = () => null;
+    });
+    const card = page.getByTestId("draft-review-card").first();
+    await card.getByTestId("cta-open-x").click();
+    await expect(page.getByText(/yayınlanmaya hazır değil/)).toBeVisible();
+    await expect(card.getByTestId("cta-mark-published")).toHaveCount(0);
   });
 
   test("taşma menüsü (§8D): açılır, klavye erişilebilir, Escape kapatır", async ({ page }) => {
