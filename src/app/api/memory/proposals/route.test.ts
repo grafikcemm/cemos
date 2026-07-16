@@ -52,15 +52,24 @@ describe("/api/memory/proposals", () => {
     expect(json.proposals).toHaveLength(1);
   });
 
-  it("POST approve servisi çağırır", async () => {
-    const res = await POST(postReq({ action: "approve", factId: "p1" }));
+  it("POST approve servisi hesap bağlamıyla çağırır (Faz 2B)", async () => {
+    const res = await POST(postReq({ action: "approve", factId: "p1", accountHandle: "grafikcem" }));
     expect(res.status).toBe(200);
-    expect(approveFact).toHaveBeenCalledWith("p1");
+    expect(approveFact).toHaveBeenCalledWith("p1", "operator", { expectedAccountHandle: "grafikcem" });
+  });
+
+  it("POST adopt = operatorAssertion (kanıt eşiğini açık sahiplenme aşar)", async () => {
+    const res = await POST(postReq({ action: "adopt", factId: "p1", accountHandle: "grafikcem" }));
+    expect(res.status).toBe(200);
+    expect(approveFact).toHaveBeenCalledWith("p1", "operator", {
+      expectedAccountHandle: "grafikcem",
+      operatorAssertion: true,
+    });
   });
 
   it("POST rollback servisi çağırır", async () => {
     await POST(postReq({ action: "rollback", factId: "f9" }));
-    expect(rollbackFact).toHaveBeenCalledWith("f9");
+    expect(rollbackFact).toHaveBeenCalledWith("f9", { expectedAccountHandle: undefined });
   });
 
   it("POST geçersiz aksiyon 400", async () => {
