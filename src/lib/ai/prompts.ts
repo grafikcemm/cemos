@@ -19,6 +19,12 @@ export type DraftWithAngle = {
   imagePrompt?: string;
   /** İçeriğin okuyucuda tetiklediği tek somut sonraki hareket (payoff). */
   payoff?: NextMove;
+  /**
+   * Phase 2D (ADR-033): thread modunda ZORUNLU yapısal segmentler; non-thread
+   * taslakta null. Canonical content doğrulanmış segmentlerden türetilir —
+   * content alanı thread'lerde source-of-truth DEĞİLDİR.
+   */
+  threadSegments?: { text: string }[] | null;
 };
 
 export type RankedCandidate = {
@@ -36,6 +42,15 @@ export type RankedCandidate = {
   reason: string;
   /** Yargıcın taşıdığı sonraki hareket sinyali (writer'dan gelir). */
   payoff?: NextMove;
+  /**
+   * Phase 2D provenance: bu adayın writer drafts dizisindeki 0-tabanlı indeksi.
+   * Judge skoru bu indeksin taslağına bağlanır; canonical content/mode/segments
+   * writer adayından alınır (judge'ın yeniden yazdığı metin otorite değildir).
+   * Eski persist edilmiş candidatesJson kayıtlarında alan yoktur — opsiyonel.
+   */
+  sourceDraftIndex?: number;
+  /** Phase 2D: writer adayından taşınan yapısal thread segmentleri (additive). */
+  threadSegments?: { text: string }[] | null;
 };
 
 export type DraftScore = {
@@ -54,6 +69,8 @@ export type DraftScore = {
   reason: string;
   /** Kazananla birlikte persist edilen sonraki hareket (payoff) sinyali. */
   payoff?: NextMove;
+  /** Phase 2D: kazananın yapısal thread segmentleri (thread değilse null/yok). */
+  threadSegments?: { text: string }[] | null;
 };
 
 export type BenchmarkResult = {
@@ -75,6 +92,12 @@ export type BenchmarkResult = {
   publishDecision: "queue" | "hold" | "reject";
   estimatedCostUsd: number;
   usedMock: boolean;
+  /**
+   * Phase 2D: explicit thread isteği repair sonrası bile geçerli segment
+   * üretemedi — çağıran QueueItem YAZMADAN typed blocked sonucu üretmeli
+   * (sahte tek-segment/mock thread yasak).
+   */
+  threadRequestUnsatisfied?: boolean;
   timings?: {
     writerMs: number;
     judgeMs: number;
@@ -245,7 +268,51 @@ function buildVoiceBlock(voice: DraftVoice | undefined): string[] {
   ];
 }
 
-export function buildDraftSystemPrompt(profile: AccountProfile, voice?: DraftVoice) {
+/**
+ * Phase 2D (ADR-033) — çağıranın istediği format açıkça writer'a geçer.
+ *  - "thread": her taslak yapısal thread OLMAK ZORUNDA (threadSegments dolu).
+ *  - "tweet": thread üretme; threadSegments null.
+ *  - "auto": thread açısında threadSegments doldur, diğerlerinde null.
+ */
+export type RequestedDraftFormat = {
+  intent: "thread" | "tweet" | "auto";
+  /** Segment başına sert karakter sınırı (effectiveThreadSegmentLimit). */
+  segmentLimit: number;
+};
+
+function buildThreadFormatBlock(format: RequestedDraftFormat | undefined): string[] {
+  const limit = format?.segmentLimit ?? 280;
+  if (format?.intent === "thread") {
+    return [
+      "",
+      "İSTENEN FORMAT: THREAD (zorunlu).",
+      "- HER taslak yapısal bir thread olmalı ve 'threadSegments' alanı DOLU dönmeli: [{\"text\": \"...\"}, ...].",
+      "- Hedef 5-8 segment. Her segment kendi başına anlaşılır olmalı.",
+      `- Her segment EN FAZLA ${limit} karakter.`,
+      "- Segment 1 = güçlü hook. Orta segmentler = somut değer/adım/araç/kanıt. Son segment = payoff/kapanış.",
+      "- 'content' alanına segment metinlerinin boş satırla birleşimini yaz; otorite threadSegments'tir.",
+      "- Segment metnine '1/', '2/' gibi numara ÖN EKİ koyma — sıra dizinin sırasıdır.",
+    ];
+  }
+  if (format?.intent === "tweet") {
+    return [
+      "",
+      "İSTENEN FORMAT: TEK TWEET. Thread üretme; her taslakta 'threadSegments' null olsun.",
+    ];
+  }
+  return [
+    "",
+    "THREAD ÇIKTISI: yalnız thread açısında/modunda 'threadSegments' alanını doldur",
+    `([{\"text\": \"...\"}, ...], hedef 5-8 segment, her segment ≤ ${limit} karakter, segment 1 hook, son segment payoff).`,
+    "Thread olmayan taslaklarda threadSegments null olsun. Segment metnine numara ön eki koyma.",
+  ];
+}
+
+export function buildDraftSystemPrompt(
+  profile: AccountProfile,
+  voice?: DraftVoice,
+  format?: RequestedDraftFormat
+) {
   const competitorContext = getCompetitorPromptContext(profile.handle);
   const angles = getAnglesForAccount(profile.handle);
   const rules = ACCOUNT_WRITING_RULES[profile.handle] ?? [];
@@ -331,6 +398,7 @@ export function buildDraftSystemPrompt(profile: AccountProfile, voice?: DraftVoi
     "- Klişe soru-CTA ile payoff yaratma; payoff metnin gücünden doğmalı (sert tek cümle / kaydedilesi döküm).",
     "",
     "GÖRSEL MODLAR (visual_drop / stat / taktik_kirilim): mode bu modlardan biriyse, metne ek olarak 'imagePrompt' alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk). Diğer modlarda imagePrompt boş bırak.",
+    ...buildThreadFormatBlock(format),
     "",
     UNTRUSTED_DATA_NOTICE,
     "",
@@ -338,7 +406,11 @@ export function buildDraftSystemPrompt(profile: AccountProfile, voice?: DraftVoi
   ].join("\n");
 }
 
-export function buildDraftUserPrompt(profile: AccountProfile, sourceInput: string) {
+export function buildDraftUserPrompt(
+  profile: AccountProfile,
+  sourceInput: string,
+  format?: RequestedDraftFormat
+) {
   const angles = getAnglesForAccount(profile.handle);
 
   return JSON.stringify({
@@ -346,15 +418,19 @@ export function buildDraftUserPrompt(profile: AccountProfile, sourceInput: strin
     account: profile.xHandle,
     sourceInput: wrapUntrustedData(sourceInput),
     angleCount: angles.length,
+    // Phase 2D: istenen format açık sözleşmedir (sistem prompt'unda detay).
+    requestedFormat: format?.intent ?? "auto",
+    segmentCharLimit: format?.segmentLimit ?? 280,
     outputSchema: {
       drafts: angles.map((a, i) => ({
-        content: "Türkçe tweet metni",
+        content: "Türkçe tweet metni (thread'de segmentlerin birleşimi)",
         mode: profile.modes[i % profile.modes.length]?.id ?? "default",
         angle: `angle_${i + 1}`,
         hookType: "statement | question | stat | contrast | confession",
         reason: "Kısa Türkçe açıklama",
         payoff: "save | reply | follow | quote | profile_visit | none",
         imagePrompt: "(yalnızca görsel modlarda) İngilizce image-gen promptu, aksi halde boş",
+        threadSegments: "thread ise [{\"text\": \"segment metni\"}, ...]; değilse null",
       })),
     },
   });
@@ -392,6 +468,11 @@ export function buildJudgeSystemPrompt(profile: AccountProfile) {
     "- hold: Kaynak belirsiz, ton riskli, skor sınırda veya payoff zayıf/none",
     "- reject: Persona uyumsuz, güvensiz iddia, düşük kalite",
     "",
+    "KAYNAK BAĞLAMA (kritik — Phase 2D):",
+    "- Her aday için 'sourceDraftIndex' döndür: değerlendirdiğin taslağın drafts dizisindeki 0-tabanlı indeksi.",
+    "- Taslak METNİNİ DEĞİŞTİRME/YENİDEN YAZMA — sen skorlar ve sıralarsın; canonical içerik writer taslağından alınır.",
+    "- Aynı indeksi iki farklı adaya verme.",
+    "",
     UNTRUSTED_DATA_NOTICE,
     "",
     "En iyi 3 taslağı sıralayarak döndür. Sadece JSON. Markdown yok.",
@@ -407,10 +488,13 @@ export function buildJudgeUserPrompt(profile: AccountProfile, sourceInput: strin
     persona: profile.persona,
     sourceInput: wrapUntrustedData(sourceInput),
     competitorContext: { niche: competitorContext.nicheDescription },
-    drafts,
+    // Phase 2D provenance: her taslak deterministik indeksle sunulur; judge
+    // sourceDraftIndex ile geri bağlar (content yeniden yazımı otorite değildir).
+    drafts: drafts.map((d, i) => ({ sourceDraftIndex: i, ...d })),
     outputSchema: {
       rankedCandidates: [
         {
+          sourceDraftIndex: 0,
           content: "aynı içerik",
           mode: "aynı mod",
           angle: "hangi açı",
