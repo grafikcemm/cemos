@@ -92,13 +92,31 @@ export default function TopStrip({ areaLabel, subTabLabel }: TopStripProps) {
  * warning/unavailable AYNI kaynaktan (SystemHealthProvider); Bugün tiki de aynı.
  */
 function SystemStatusButton() {
-  const { result, todayCost, refresh } = useSystemHealth();
+  const { result, contracts, todayCost, refresh } = useSystemHealth();
   const [open, setOpen] = useState(false);
 
-  const dot = healthDotColor(result);
-  const label = result.label;
-  const chipColor =
-    result.state === "warning"
+  // Faz 1F (ADR-026): topbar YALNIZ en yüksek öncelikli actionable durumu
+  // gösterir. "Kuyruk tamamlandı" ve "günlük hedef tamam" SORUN DEĞİLDİR
+  // (level none → sessiz chip); ilgisiz sorunlar tek sayaca ezilmez.
+  const topbar = result.state === "healthy" || result.state === "warning" ? contracts?.topbar : null;
+
+  const dot = topbar
+    ? topbar.level === "error"
+      ? "var(--status-error)"
+      : topbar.level === "warn"
+        ? "var(--status-warn)"
+        : topbar.level === "action"
+          ? "var(--accent)"
+          : "var(--status-ok)"
+    : healthDotColor(result);
+  const label = topbar ? topbar.label : result.label;
+  const chipColor = topbar
+    ? topbar.level === "error"
+      ? "var(--status-error)"
+      : topbar.level === "warn"
+        ? "var(--status-warn)"
+        : "var(--text-secondary)"
+    : result.state === "warning"
       ? result.hasError
         ? "var(--status-error)"
         : "var(--status-warn)"

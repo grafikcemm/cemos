@@ -8,6 +8,7 @@ import {
   type SystemHealthResult,
   type WorkerMode,
 } from "@/lib/services/systemHealth";
+import type { SystemHealthContracts } from "@/lib/health/healthContracts";
 
 /**
  * Sistem sağlığı — TEK fetch + TEK türetilmiş state (§8C). Topbar chip, Bugün
@@ -17,6 +18,8 @@ import {
 
 type SystemHealthContextValue = {
   result: SystemHealthResult;
+  /** Faz 1F (ADR-026): üç sözleşme + topbar sinyali — topbar/Sistem AYNI fetch'i tüketir. */
+  contracts: SystemHealthContracts | null;
   todayCost: number | null;
   workerMode: WorkerMode;
   refresh: () => void;
@@ -26,6 +29,7 @@ const CHECKING: SystemHealthResult = { state: "checking", problems: [], label: "
 
 const SystemHealthContext = createContext<SystemHealthContextValue>({
   result: CHECKING,
+  contracts: null,
   todayCost: null,
   workerMode: "unknown",
   refresh: () => {},
@@ -33,6 +37,7 @@ const SystemHealthContext = createContext<SystemHealthContextValue>({
 
 export function SystemHealthProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<HealthPayload | null>(null);
+  const [contracts, setContracts] = useState<SystemHealthContracts | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [todayCost, setTodayCost] = useState<number | null>(null);
@@ -41,10 +46,13 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      const healthRes = await fetchJson<HealthPayload>("/api/health");
+      const healthRes = await fetchJson<HealthPayload & { contracts?: SystemHealthContracts | null }>(
+        "/api/health",
+      );
       const costsRes = await fetchJson<{ today?: { totalUsd?: number } }>("/api/costs").catch(() => null);
       if (!mounted.current) return;
       setHealth(healthRes ?? null);
+      setContracts(healthRes?.contracts ?? null);
       setWorkerMode(healthRes?.worker?.mode ?? "unknown");
       setLoaded(true);
       setFetchError(false);
@@ -70,7 +78,7 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
   const result = deriveSystemHealth({ loaded, fetchError, health });
 
   return (
-    <SystemHealthContext.Provider value={{ result, todayCost, workerMode, refresh: load }}>
+    <SystemHealthContext.Provider value={{ result, contracts, todayCost, workerMode, refresh: load }}>
       {children}
     </SystemHealthContext.Provider>
   );
