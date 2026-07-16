@@ -42,7 +42,9 @@
 | OpenRouter kredisi | Faz 2 canlı eval | kredi |
 
 ## Faz 2-5 iskelet
-- **Faz 2 — Hafıza + agent orchestration:** config-driven registry (typed contract+eval), memory governance + "CemOS'un bildikleri", edit-diff/red/onay/performans öğrenme, dinamik hesap, thread üretim hattı (segment üretimi+backfill+kalibrasyon; typed alan Faz 1C'de), trace/cost gözlemlenebilirlik. Gerçek veriden önce deterministic fixture/eval.
+- **Faz 2 — Hafıza + agent orchestration** (dilim haritası + envanter: `07-PHASE2-PLAN.md`):
+  - **2A ✅ KAPANDI (2026-07-16, ADR-027/028):** config-driven agent/skill registry (12 rol + curator; deklaratif metadata ↔ server-side adapter ayrımı; fail-fast doğrulama; typed executor: succeeded/deterministic_fallback/blocked_external/failed_validation/failed_execution/timed_out) + PipelineTrace additive agent metadata (yeni tablo yok, tek-çağrı-tek-UsageLog korunur) + kalıcı `OpportunityHandoff` (üç Fırsatlar eylemi server-persisted, idempotent, reload-persist; blocked-external'da sahte taslak yok). Deterministik fixture/eval paketi dahil; canlı ücretli çağrı YAPILMADI.
+  - **2B–2E (sonra):** memory governance + öğrenme sinyalleri (2B) · dinamik hesap kaynağı (2C) · thread üretim hattı + backfill + kalibrasyon (2D) · eval/observability kapanışı + canlı kürasyon aktivasyonu (2E; OpenRouter kredisi mevcut — kullanıcı onayı bekliyor).
 - **Faz 3 — Plan + IG + Reels:** Carousel/Caption/Hashtag DNA→prompt+UI, rakip sinyal→seçilmiş fırsat, aylık plan gerçek dossier kartları, site doğrulama/staleness/risk görünür, Meta fallback (CSV/URL/screenshot/manuel).
 - **Faz 4 — Kütüphane + Learn + Obsidian:** Boards/ContentItem birleşik, ilham capture+yapısal analiz, Learn UI + NotebookLM/manuel transcript, Obsidian GitHub/local export uçtan uca, zihin haritası/atomik not/task/review, ABSORBED ekran emekliliği (compatibility kanıtı).
 - **Faz 5 — Gerçek entegrasyon + kalibrasyon:** X publish (ödeme onayı sonrası, insan onaylı), Meta engagement sync, içerik seçim/kalite metrikleri gerçek sonuçla, legacy UI temizlik.

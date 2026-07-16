@@ -102,6 +102,7 @@ model PublishAttempt {
 - Reels evidence gate `computeReadiness` (PURE, kod-karar) + publish readiness (fail-closed) — iki "LLM değil kod karar verir" invariant'ı korunur.
 
 ## 7. Faz 2+ iskelet
-- Faz 2: config-driven agent/skill registry (typed contract + eval fixture), memory governance + "CemOS'un bildikleri" derinleşmesi, edit-diff/red/onay/performans öğrenme sinyalleri, dinamik hesap kaynağı, thread üretim hattı (segment üretimi + backfill; `threadSegments` Faz 1C'de eklendi), X publish kalibrasyonu (onay sonrası), trace/cost gözlemlenebilirlik.
+- **Faz 2A ✅ UYGULANDI (ADR-027/028, 2026-07-16):** §1'deki 12-rol eşlemesi kod düzeyinde `src/lib/agents/registry/`'ye alındı (deklaratif tanım + server-side adapter allowlist + fail-fast doğrulama + typed executor + additive trace metadata) ve Fırsatlar aktarımları kalıcı `OpportunityHandoff` modeline bağlandı. Envanter + dilim haritası: `07-PHASE2-PLAN.md`.
+- Faz 2B–2E: memory governance + "CemOS'un bildikleri" derinleşmesi, edit-diff/red/onay/performans öğrenme sinyalleri, dinamik hesap kaynağı, thread üretim hattı (segment üretimi + backfill; `threadSegments` Faz 1C'de eklendi), X publish kalibrasyonu (onay sonrası), eval/observability kapanışı + canlı kürasyon aktivasyonu.
 - Faz 3: Reels dossier/plan + DNA editör + Meta sync/fallback.
 - Faz 4: İlham capture + yapısal analiz + Learn/Obsidian uçtan uca + ABSORBED ekran emekliliği.
