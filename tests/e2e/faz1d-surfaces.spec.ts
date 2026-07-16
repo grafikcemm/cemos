@@ -79,7 +79,8 @@ test.describe("Profil yüzeyleri gerçek", () => {
     await page.goto("/");
     await selectTab(page, "profile-memory");
     await expect(page.getByTestId("memory-add")).toBeVisible();
-    await expect(page.getByText(/onaylanmadan taslakları etkilemez/)).toBeVisible();
+    // Faz 2B: bağlayıcı sözleşme cümlesi kaynaklı görünümün alt başlığında.
+    await expect(page.getByText(/onaylanmadan hiçbir öneri taslakları etkilemez/)).toBeVisible();
     await expect(page.getByTestId("host-placeholder")).toHaveCount(0);
   });
 
