@@ -177,6 +177,12 @@ export const AGENT_EVAL_FIXTURES: AgentEvalFixture[] = [
     input: { action: "consolidate_memory", handles: ["grafikcem"], deadlineMs: 30_000 },
   },
   {
+    id: "curator-knowledge-reconcile",
+    agentId: "knowledge-curator",
+    description: "Deterministik sinyal reconciliation girişi (LLM'siz)",
+    input: { action: "reconcile_signals", lookbackDays: 14 },
+  },
+  {
     id: "curation-basic",
     agentId: "opportunity-curator",
     description: "6 aday, karışık kaynak — deterministik sıralama sabit",

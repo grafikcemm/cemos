@@ -176,15 +176,21 @@ export const AGENT_ADAPTERS: Record<string, AgentAdapter> = {
     memoryWritesUsed: ["knowledge", "identity"],
     async run(input) {
       const parsed = input as {
-        action: "advance_job" | "consolidate_memory";
+        action: "advance_job" | "consolidate_memory" | "reconcile_signals";
         jobId?: string;
         handles?: string[];
         deadlineMs?: number;
+        lookbackDays?: number;
       };
       if (parsed.action === "advance_job") {
         if (!parsed.jobId) throw new Error("jobId gerekli (action=advance_job)");
         const { advanceJob } = await import("@/lib/learning/pipeline/orchestrator");
         return summarize(await advanceJob(parsed.jobId, { deadlineMs: parsed.deadlineMs ?? 120_000 }));
+      }
+      if (parsed.action === "reconcile_signals") {
+        // Faz 2B (ADR-029): LLM'SİZ deterministik sinyal reconciliation'ı.
+        const { reconcileFeedbackSignals } = await import("@/lib/memory/signalBridge");
+        return summarize(await reconcileFeedbackSignals({ lookbackDays: parsed.lookbackDays }));
       }
       const { runMemoryConsolidation } = await import("@/lib/memory/consolidation");
       return summarize(

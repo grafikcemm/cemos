@@ -199,6 +199,20 @@ async function runLearn(handleParam: string | null) {
     voiceProfiles = out;
   }
 
+  // Memory signal reconciliation (Faz 2B, ADR-029): LLM'SİZ — immediate
+  // ingestion'ın kaçırdığı FeedbackEvent'leri deftere/proposal'a tamamlar;
+  // unique constraint sayesinde tekrar koşmak güvenli. Aynı haftalık slot,
+  // yeni cron YOK. Fail-open, cron'u bozmaz.
+  let memorySignalReconciliation: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { reconcileFeedbackSignals } = await import("@/lib/memory/signalBridge");
+      memorySignalReconciliation = await reconcileFeedbackSignals();
+    } catch (err) {
+      memorySignalReconciliation = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // Memory consolidation (Sprint 3 — FINAL-MEMORY-SPEC §6.6): haftalık,
   // Pazartesi, aynı slot (yeni cron YOK). Extraction bütçe-kapılı fail-closed;
   // decay/staleness/contradiction sweep LLM'siz. Fail-open, cron'u bozmaz.
@@ -268,10 +282,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, dnaDistillation, patternPromotion },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memoryConsolidation, dnaDistillation, patternPromotion };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

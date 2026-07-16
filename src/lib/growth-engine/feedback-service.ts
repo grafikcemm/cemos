@@ -254,6 +254,28 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   const feedbackInput = buildFeedbackEventInput(fb);
   const feedbackEvent = await feedbackEventRepo.create(feedbackInput);
 
+  // 4a. Faz 2B (ADR-029) — deterministik memory sinyal köprüsü: tanımlı tag /
+  // gerçek operatör reason'ı idempotent kanıt+proposal'a işlenir (LLM'siz).
+  // Best-effort: memory tarafındaki hata ESAS feedback kaydını kaybettirmez;
+  // haftalık reconciliation kaçanı tamamlar.
+  try {
+    const { ingestFeedbackSignal } = await import("@/lib/memory/signalBridge");
+    await ingestFeedbackSignal(
+      {
+        id: feedbackEvent.id,
+        feedbackType: fb.feedbackType,
+        reason: feedbackInput.reason ?? "",
+        editedContent: fb.editedContent ?? "",
+        originalContent: fb.originalContent ?? null,
+        editDistance: computeNormalizedEditDistance(fb.originalContent ?? "", fb.editedContent ?? ""),
+        createdAt: feedbackEvent.createdAt,
+      },
+      fb.accountHandle
+    );
+  } catch (err) {
+    warnings.push(`memory_ingest_failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+  }
+
   // 4b. Faz D.2 — close the pattern-learning loop: re-weight the viral patterns
   // that grounded this draft by the feedback label. Best-effort; never blocks.
   if (fb.queueItemId) {

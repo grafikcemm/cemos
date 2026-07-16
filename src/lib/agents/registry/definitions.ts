@@ -300,18 +300,20 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
   },
   {
     id: "knowledge-curator",
-    version: "1.0.0",
-    policyVersion: "2A",
+    version: "1.1.0",
+    policyVersion: "2B",
     displayName: "Knowledge Curator",
-    purpose: "Learn pipeline ilerletme + hafıza konsolidasyonu (advanceJob / runMemoryConsolidation).",
+    purpose:
+      "Learn pipeline ilerletme + hafıza konsolidasyonu + deterministik sinyal reconciliation'ı (advanceJob / runMemoryConsolidation / reconcileFeedbackSignals).",
     triggers: ["cron:learn", "ui:ogrenme"],
     adapterId: "knowledge-advance",
     executionMode: "hybrid",
     inputSchema: z.object({
-      action: z.enum(["advance_job", "consolidate_memory"]),
+      action: z.enum(["advance_job", "consolidate_memory", "reconcile_signals"]),
       jobId: z.string().optional(),
       handles: z.array(z.string()).optional(),
       deadlineMs: z.number().int().positive().optional(),
+      lookbackDays: z.number().int().min(1).max(60).optional(),
     }),
     outputSchema: summaryOutput,
     allowedCapabilities: ["db:read", "db:write:learn", "llm:generate", "memory:read", "memory:write:identity"],
@@ -324,7 +326,7 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     memoryWriteScopes: ["knowledge", "identity"],
     provenance: "self_judge",
     tracePolicy: "always",
-    evalFixtureIds: ["curator-knowledge-basic"],
+    evalFixtureIds: ["curator-knowledge-basic", "curator-knowledge-reconcile"],
     status: "enabled",
   },
   {
