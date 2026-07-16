@@ -3,6 +3,10 @@ import { publishService } from "./publishService";
 import { prisma } from "@/lib/db/client";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 
+// Faz 1E (ADR-025): markManualPublished publish state machine'ine taşındı —
+// geçiş/idempotency/transaction testleri src/lib/publish/publishAttemptService
+// .test.ts'te. Burada yalnız yayın-öncesi kapılar (validatePublishable) kaldı.
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     queueItem: {
@@ -25,21 +29,6 @@ vi.mock("@/lib/services/qualityLintService", () => ({
     lint: vi.fn(),
   },
 }));
-
-vi.mock("@/lib/db/performanceRepo", () => ({
-  performanceRepo: { createPublished: vi.fn(() => Promise.resolve({ id: "pp-1" })) },
-}));
-
-vi.mock("@/lib/growth-engine/feedback-service", () => ({
-  processFeedback: vi.fn(() => Promise.resolve()),
-}));
-
-vi.mock("@/lib/services/imageService", () => ({
-  imageService: { generateForQueueItem: vi.fn(() => Promise.resolve(null)) },
-}));
-
-import { performanceRepo } from "@/lib/db/performanceRepo";
-import { processFeedback } from "@/lib/growth-engine/feedback-service";
 
 describe("publishService", () => {
   const mockQueueItem = {
@@ -110,84 +99,5 @@ describe("publishService", () => {
     } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
 
     await expect(publishService.validatePublishable("qi_1")).rejects.toThrow("empty_content");
-  });
-
-  describe("markManualPublished (yayın-anı readiness — düzeltilmiş sözleşme)", () => {
-    // Ready = judged + TR doğallık ≥55 + risk düşük + sızıntı yok + sınır içi.
-    const readyScores = JSON.stringify({
-      telemetry: { judged: true },
-      turkishNaturalness: 82,
-      riskScore: 15,
-      sourceFaithfulness: 88,
-      leaks: [],
-    });
-    const readyItem = {
-      ...mockQueueItem,
-      status: "scheduled",
-      content: "Temiz taslak — sahada test ettigim araci anlattim.",
-      editedContent: null,
-      mode: "default",
-      draftType: "TWEET",
-      scores: readyScores,
-      lintReport: null,
-      threadSegments: null,
-      sourcePostId: null,
-      newsItemId: null,
-      account: { id: "acc_1", handle: "grafikcem", maxChars: 280 },
-    };
-
-    function mockPublishWrites() {
-      vi.mocked(prisma.publishLog.create).mockResolvedValue({ id: "log_1" } as never);
-      vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_1", generatedImageUrl: null } as never);
-      vi.mocked(prisma.usageLog.create).mockResolvedValue({} as never);
-    }
-
-    it("needs_edit taslak (judged=false) → edit_required, yayın YOK", async () => {
-      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
-        ...readyItem,
-        scores: "{}", // judged=false → fail-closed needs_edit
-      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
-
-      await expect(publishService.markManualPublished("qi_1")).rejects.toThrow("edit_required");
-      expect(performanceRepo.createPublished).not.toHaveBeenCalled();
-    });
-
-    it("blocked taslak (karakter sınırı aşımı) → readiness_blocked, yayın YOK", async () => {
-      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
-        ...readyItem,
-        content: "x".repeat(300), // 300 > 280 → over_char_limit block
-        editedContent: null,
-      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
-
-      await expect(publishService.markManualPublished("qi_1")).rejects.toThrow("readiness_blocked");
-      expect(performanceRepo.createPublished).not.toHaveBeenCalled();
-    });
-
-    it("ready taslak DÜZENLEME OLMADAN yayınlanır (kozmetik edit-gate kalktı)", async () => {
-      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(
-        readyItem as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>
-      );
-      mockPublishWrites();
-
-      const res = await publishService.markManualPublished("qi_1");
-      expect(res.log.id).toBe("log_1");
-      // Düzenlenmemiş ready çıktı → sahte "edited" öğrenme sinyali ÜRETİLMEZ.
-      expect(processFeedback).not.toHaveBeenCalled();
-    });
-
-    it("düzenlenmiş ready taslak → PublishedPost provenance + 'edited' öğrenme sinyali", async () => {
-      vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
-        ...readyItem,
-        editedContent: "Temiz taslak — kendi sesimle yeniden yazdim, araci sahada test ettim.",
-      } as unknown as Awaited<ReturnType<typeof prisma.queueItem.findUnique>>);
-      mockPublishWrites();
-
-      await publishService.markManualPublished("qi_1");
-
-      expect(performanceRepo.createPublished).toHaveBeenCalledWith(
-        expect.objectContaining({ accountId: "acc_1", platform: "x", draftQueueItemId: "qi_1" })
-      );
-      expect(processFeedback).toHaveBeenCalledWith(expect.objectContaining({ feedbackType: "edited" }));
-    });
   });
 });

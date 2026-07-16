@@ -93,13 +93,22 @@ vi.mock("@/lib/growth-engine/feedback-service", () => ({
   processFeedback: vi.fn(() => Promise.resolve({ success: true, feedbackEventId: "evt-123" }))
 }));
 
-vi.mock("@/lib/services/publishService", () => ({
-  publishService: {
-    markManualPublished: vi.fn((id: string) => {
+// Faz 1E: manuel onay publish state machine'inden geçer (ADR-025).
+vi.mock("@/lib/publish/publishAttemptService", () => ({
+  publishAttemptService: {
+    confirmManualPublish: vi.fn((id: string) => {
       const existing = mockQueueItems.find((i) => i.id === id);
-      return Promise.resolve({ log: null, item: { ...existing, status: "manual_published", publishedAt: new Date() } });
-    })
-  }
+      return Promise.resolve({
+        alreadyPublished: false,
+        attempt: { id: "att-1", state: "succeeded" },
+        log: { id: "log-1" },
+        item: { ...existing, status: "manual_published", publishedAt: new Date() },
+        generatedImageUrl: null,
+      });
+    }),
+    prepareIntent: vi.fn(),
+    latestIntentAttempts: vi.fn(() => Promise.resolve(new Map())),
+  },
 }));
 
 vi.mock("@/lib/growth-engine/draft-critic", () => ({

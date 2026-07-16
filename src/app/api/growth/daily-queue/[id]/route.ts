@@ -80,13 +80,17 @@ export async function PATCH(
     // 5. Validate status and map draft to new
     if (status !== undefined) {
       if (status === "manual_published") {
+        // Faz 1E (ADR-025): doğrudan yayın-state yazımı YOK — state machine'e
+        // yönlendir. prepared intent attempt yoksa 422 (hazırlık bulunamadı);
+        // içerik değiştiyse contentHash eşleşmez → 422 (yeniden X'te aç).
         if (Object.keys(updates).length > 0) {
           await queueRepo.update(id, updates);
         }
-        const { publishService } = await import("@/lib/services/publishService");
-        const publishedResult = await publishService.markManualPublished(id);
+        const { publishAttemptService } = await import("@/lib/publish/publishAttemptService");
+        const publishedResult = await publishAttemptService.confirmManualPublish(id);
         return ok({
           item: publishedResult.item,
+          alreadyPublished: publishedResult.alreadyPublished,
         });
       }
 
@@ -105,14 +109,15 @@ export async function PATCH(
       item: updatedItem,
     });
   } catch (err) {
+    // Faz 1E: typed publish state machine hataları (PublishFlowError) Türkçe,
+    // eyleme dönük mesaja çevrilir (prepare_not_found/content_changed/... dahil).
+    const { PublishFlowError } = await import("@/lib/publish/contract");
+    if (err instanceof PublishFlowError) {
+      const { publishErrorResponse } = await import("@/lib/publish/routeErrors");
+      const { status: httpStatus, error, code, reasons } = publishErrorResponse(err);
+      return fail(error, httpStatus, { code, reasons });
+    }
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue update.";
-    const reasons = (err as { reasons?: { code: string; message: string }[] })?.reasons;
-    if (msg === "readiness_blocked") {
-      return fail("Taslak yayınlanamaz — önce engelleyen sorunları gider.", 422, { code: msg, reasons });
-    }
-    if (msg === "edit_required") {
-      return fail("Taslak yayına hazır değil — önce düzenle.", 422, { code: msg, reasons });
-    }
     if (msg === "invalid_status") return fail("Durum geçersiz.", 409, { code: msg });
     if (msg === "queue_item_not_found") return fail("Taslak bulunamadı.", 404, { code: msg });
     return fail(msg, 500);

@@ -1,31 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { publishService } from "@/lib/services/publishService";
+import type { NextRequest } from "next/server";
+import { publishAttemptService } from "@/lib/publish/publishAttemptService";
+import { publishErrorResponse } from "@/lib/publish/routeErrors";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail } from "@/lib/utils/apiResponse";
 
+/**
+ * Faz 1E (ADR-025): manuel "Paylaşıldı" onayı — publish state machine üzerinden.
+ * prepared intent attempt ŞART (yoksa 422 "hazırlık bulunamadı"); contentHash
+ * güncel metinle eşleşmeli; tüm yayın yazımları tek transaction; tekrarlanan
+ * onay idempotent (duplicate PublishLog/PublishedPost/UsageLog yok).
+ */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
-    if (!id) return NextResponse.json({ success: false, error: "id gerekli" }, { status: 400 });
+    if (!id) return fail("id gerekli", 400);
 
-    const { log } = await publishService.markManualPublished(id);
-    return NextResponse.json({ success: true, logId: log.id });
+    const result = await publishAttemptService.confirmManualPublish(id);
+    return ok({
+      alreadyPublished: result.alreadyPublished,
+      logId: result.log?.id ?? null,
+      attemptId: result.attempt.id,
+      generatedImageUrl: result.generatedImageUrl,
+    });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Hata";
-    const reasons = (err as { reasons?: { code: string; message: string }[] })?.reasons;
-    const status =
-      msg === "queue_item_not_found" ? 404
-      : msg === "invalid_status" ? 409
-      : msg === "edit_required" || msg === "readiness_blocked" ? 422
-      : 500;
-    const error =
-      msg === "readiness_blocked"
-        ? "Taslak yayınlanamaz — önce engelleyen sorunları gider."
-        : msg === "edit_required"
-          ? "Taslak yayına hazır değil — önce düzenle."
-          : msg;
-    return NextResponse.json({ success: false, error, code: msg, reasons }, { status });
+    const { status, error, code, reasons } = publishErrorResponse(err);
+    return fail(error, status, { code, reasons });
   }
 }

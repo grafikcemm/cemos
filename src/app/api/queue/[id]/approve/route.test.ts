@@ -4,14 +4,14 @@ import { POST as approvePost } from "./route";
 import { POST as rejectPost } from "../reject/route";
 import { POST as markPublishedPost } from "../mark-published/route";
 import { scheduleService } from "@/lib/services/scheduleService";
-import { publishService } from "@/lib/services/publishService";
+import { publishAttemptService } from "@/lib/publish/publishAttemptService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 vi.mock("@/lib/services/scheduleService", () => ({
   scheduleService: { approve: vi.fn(), reject: vi.fn() },
 }));
-vi.mock("@/lib/services/publishService", () => ({
-  publishService: { markManualPublished: vi.fn() },
+vi.mock("@/lib/publish/publishAttemptService", () => ({
+  publishAttemptService: { confirmManualPublish: vi.fn(), prepareIntent: vi.fn() },
 }));
 vi.mock("@/lib/utils/sameOriginGuard", () => ({ isOperatorOrCronAuthorized: vi.fn(() => true) }));
 
@@ -55,11 +55,11 @@ describe("queue mutation guard", () => {
   });
 
   describe("POST /api/queue/[id]/mark-published", () => {
-    it("yetkisiz istek 403 — markManualPublished çağrılmaz (lookup'tan önce)", async () => {
+    it("yetkisiz istek 403 — confirmManualPublish çağrılmaz (lookup'tan önce)", async () => {
       vi.mocked(isOperatorOrCronAuthorized).mockReturnValue(false);
       const res = await markPublishedPost(makeReq("mark-published"), makeCtx());
       expect(res.status).toBe(403);
-      expect(publishService.markManualPublished).not.toHaveBeenCalled();
+      expect(publishAttemptService.confirmManualPublish).not.toHaveBeenCalled();
     });
   });
 });
