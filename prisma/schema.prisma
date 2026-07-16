@@ -1405,11 +1405,41 @@ model MemoryFact {
   createdBy         String // "operator" | "consolidation" | "feedback_pipeline"
   approvedBy        String? // identity promotion'da zorunlu
   decayHalfLifeDays Int? // perf-leaning fact'lerde; identity'de null (≈∞)
+  // ADR-029: ifade kimliği (account+type+fold'lanmış statement hash'i).
+  // Nullable UNIQUE — eşzamanlı aynı sinyalin iki proposal üretmesini DB
+  // düzeyinde keser (P2002 kaybeden mevcut satıra corroborate olur). Eski
+  // satırlar null kalır (backfill YOK); corroborate anında fırsatçı doldurulur.
+  canonicalKey      String?   @unique
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  evidence MemoryEvidence[]
+
   @@index([accountHandle, status])
   @@index([type, status])
+}
+
+// ADR-029: MemoryEvidence — kaynaklı kanıt defteri. MemoryFact.evidenceCount
+// artık bu defterin distinct-satır ÖZETİDİR (defteri olan fact'te). Aynı
+// olayın retry'ı kanıt sayısını artıramaz (unique). Eski fact'ler için sahte
+// kaynak backfill EDİLMEZ — defteri olmayan kayıt UI'da "eski kayıt · kaynak
+// ayrıntısı yok" olarak dürüst gösterilir. DELETE yok.
+model MemoryEvidence {
+  id           String     @id @default(cuid())
+  memoryFactId String
+  memoryFact   MemoryFact @relation(fields: [memoryFactId], references: [id])
+  sourceType   String // feedback_event | operator_assertion | operator_revision | validated_pattern | legacy_unattributed
+  sourceId     String // kaynak kaydın id'si (ör. FeedbackEvent.id)
+  signalType   String // not_my_tone | hook_weak | too_ai | make_stronger | make_clearer | explicit_reason | operator_add | operator_adopt | operator_revision
+  direction    String // positive | negative | edit | performance | operator
+  excerpt      String     @default("") // güvenli kısa alıntı (servis ≤280 kırpar)
+  metadataJson String     @default("{}") // schemaVersion'lı, Zod ile okunur
+  observedAt   DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  @@unique([memoryFactId, sourceType, sourceId, signalType])
+  @@index([memoryFactId, createdAt])
+  @@index([sourceType, sourceId])
 }
 
 // Per-account identity/procedural yazım DNA'sı (human-gated güncelleme).
