@@ -23,7 +23,8 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
-import { foldTurkish, isKnownAccountHandle } from "@/lib/growth-engine/account-adapter";
+import { foldTurkish } from "@/lib/growth-engine/account-adapter";
+import { isKnownAccountHandleDb } from "@/lib/accounts/profileRepository";
 
 export const MEMORY_FACT_TYPES = ["preference", "semantic", "procedural"] as const;
 export type MemoryFactType = (typeof MEMORY_FACT_TYPES)[number];
@@ -81,10 +82,15 @@ export class MemoryGovernanceError extends Error {
   }
 }
 
-/** AC-7: her read/write öncesi zorunlu scope kontrolü. null = global (nadir). */
-function assertScope(accountHandle: string | null): void {
+/**
+ * AC-7 + ADR-031: her read/write öncesi zorunlu scope kontrolü — DB-otoriteli,
+ * fail-closed (bilinmeyen/inaktif handle ya da DB-erişilemezliği yazma/okuma
+ * yetkisi VERMEZ; tohumlu iki hesap bağlantı kesintisinde bootstrap'tan
+ * doğrulanır). null = global (nadir).
+ */
+async function assertScope(accountHandle: string | null): Promise<void> {
   if (accountHandle === null) return;
-  if (typeof accountHandle !== "string" || !isKnownAccountHandle(accountHandle)) {
+  if (typeof accountHandle !== "string" || !(await isKnownAccountHandleDb(accountHandle))) {
     throw new MemoryScopeError(accountHandle);
   }
 }
@@ -295,7 +301,7 @@ export type ProposeFactResult =
  * approveFact (insan onayı) ister.
  */
 export async function proposeFact(input: ProposeFactInput): Promise<ProposeFactResult> {
-  assertScope(input.accountHandle);
+  await assertScope(input.accountHandle);
   assertIdentityWriteAllowed(input.provenance);
   if (!MEMORY_FACT_TYPES.includes(input.type)) {
     throw new Error(`Geçersiz MemoryFact tipi: ${input.type}`);
@@ -607,7 +613,7 @@ export async function getActiveFacts(
   accountHandle: string,
   type?: MemoryFactType
 ): Promise<Array<{ id: string; type: string; statement: string; sourceProvenance: string; confidence: number }>> {
-  assertScope(accountHandle);
+  await assertScope(accountHandle);
   const rows = await prisma.memoryFact.findMany({
     where: {
       status: "active",
@@ -627,7 +633,7 @@ export async function getActiveFacts(
 
 /** Onay kuyruğu: bekleyen proposal'lar (yeni → eski). */
 export async function listProposals(accountHandle?: string) {
-  if (accountHandle !== undefined) assertScope(accountHandle);
+  if (accountHandle !== undefined) await assertScope(accountHandle);
   return prisma.memoryFact.findMany({
     where: {
       status: "proposed",

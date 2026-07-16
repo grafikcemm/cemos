@@ -18,18 +18,21 @@ export type CompetitorGroup = {
 
 export const competitorGroups = rawCompetitors as Record<AccountHandle, CompetitorGroup>;
 
-export function getCompetitorGroup(account: AccountHandle) {
-  return competitorGroups[account];
+/** Boş grup — tohumlu olmayan (yeni) hesap için fail-soft default (ADR-031). */
+const EMPTY_GROUP: CompetitorGroup = { description: "", source_note: "", accounts: [] };
+
+export function getCompetitorGroup(account: string): CompetitorGroup {
+  return (competitorGroups as Record<string, CompetitorGroup>)[account] ?? EMPTY_GROUP;
 }
 
-export function getHighSignalCompetitors(account: AccountHandle, limit = 8) {
+export function getHighSignalCompetitors(account: string, limit = 8) {
   const group = getCompetitorGroup(account);
   return group.accounts
     .filter((item) => item.avg_engagement.includes("yüksek") || item.avg_engagement.includes("yÃ¼ksek"))
     .slice(0, limit);
 }
 
-export function getCompetitorPromptContext(account: AccountHandle) {
+export function getCompetitorPromptContext(account: string) {
   const group = getCompetitorGroup(account);
   const topAccounts = getHighSignalCompetitors(account, 10);
 
@@ -46,7 +49,7 @@ export function getCompetitorPromptContext(account: AccountHandle) {
   };
 }
 
-export function getCompetitorStats(account: AccountHandle) {
+export function getCompetitorStats(account: string) {
   const group = getCompetitorGroup(account);
   const languages = group.accounts.reduce<Record<string, number>>((acc, item) => {
     acc[item.language] = (acc[item.language] ?? 0) + 1;

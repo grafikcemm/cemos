@@ -1,5 +1,4 @@
-import type { AccountHandle } from "@/lib/accounts";
-import { WATCHED_SOURCES } from "@/lib/sources";
+import { getWatchedSources } from "@/lib/sources";
 import { xConnector } from "@/lib/sources/x";
 import type { NormalizedItem, SourceConnector } from "@/lib/sources/types";
 
@@ -72,9 +71,9 @@ export const xScraperConnector: SourceConnector = {
     // Configured if either the free scraper is enabled or the paid fallback has a key.
     return scraperEnabled() || xConnector.isConfigured();
   },
-  async fetchForAccount(handle: AccountHandle, limit: number): Promise<NormalizedItem[]> {
+  async fetchForAccount(handle: string, limit: number): Promise<NormalizedItem[]> {
     if (scraperEnabled()) {
-      const handles = (WATCHED_SOURCES[handle] ?? []).slice(0, HANDLE_CAP);
+      const handles = getWatchedSources(handle).slice(0, HANDLE_CAP);
       if (handles.length > 0) {
         const perHandle = Math.max(2, Math.ceil(limit / handles.length));
         const settled = await Promise.allSettled(

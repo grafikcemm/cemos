@@ -11,7 +11,6 @@
  */
 
 import type { AccountHandle } from "@/lib/accounts";
-import { isKnownAccountHandle } from "@/lib/growth-engine/account-adapter";
 
 const CONSTITUTIONS: Record<AccountHandle, string> = {
   grafikcem: `# @grafikcem — Ses Anayasası
@@ -32,6 +31,7 @@ const CONSTITUTIONS: Record<AccountHandle, string> = {
 
 /** Tier-1 anayasa metni; bilinmeyen handle → null (fail-soft). */
 export function getVoiceConstitution(handle: string): string | null {
-  if (!isKnownAccountHandle(handle)) return null;
-  return CONSTITUTIONS[handle] ?? null;
+  // Fail-soft: anayasası olmayan (yeni) hesap null alır — başka hesabın
+  // anayasasına ASLA düşülmez (ADR-031).
+  return (CONSTITUTIONS as Record<string, string>)[handle] ?? null;
 }

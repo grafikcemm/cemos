@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import { accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { getRuntimeProfile } from "@/lib/accounts/profileRepository";
 import { draftService } from "@/lib/services/draftService";
 import { discoveryService, type DiscoverySummary } from "@/lib/services/discoveryService";
 import { miningService, type MiningSummary } from "@/lib/services/miningService";
@@ -8,7 +8,7 @@ import { routeItem } from "@/lib/agents/router";
 import { getLocalDayBounds } from "@/lib/utils/date";
 
 export type DailyRunSummary = {
-  handle: AccountHandle;
+  handle: string;
   discovery: DiscoverySummary | null;
   mining: MiningSummary | null;
   dailyMax: number;
@@ -31,7 +31,7 @@ export const pipelineService = {
    * it from `npm run discover` or a thin scheduler hitting /api/cron/daily.
    */
   async runDailyForAccount(
-    handle: AccountHandle,
+    handle: string,
     opts?: {
       discover?: boolean;
       mine?: boolean;
@@ -46,8 +46,9 @@ export const pipelineService = {
       idempotent?: boolean;
     }
   ): Promise<DailyRunSummary> {
-    const profile = accountProfiles[handle];
-    if (!profile) throw new Error(`Profile not found: ${handle}`);
+    // ADR-031: profil otoritesi DB — bilinmeyen/draft/inaktif hesap fail-closed
+    // (AccountProfileError), sessizce başka personaya düşülmez.
+    const profile = await getRuntimeProfile(handle, { requireGenerationReady: true });
 
     const account = await prisma.account.findUnique({
       where: { handle },

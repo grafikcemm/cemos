@@ -1,4 +1,3 @@
-import type { AccountHandle } from "@/lib/accounts";
 
 export type SourceType = "x" | "reddit" | "youtube" | "rss";
 
@@ -33,5 +32,5 @@ export interface SourceConnector {
    * error or when unconfigured, never throw — one provider must not abort the
    * whole discovery run.
    */
-  fetchForAccount(handle: AccountHandle, limit: number): Promise<NormalizedItem[]>;
+  fetchForAccount(handle: string, limit: number): Promise<NormalizedItem[]>;
 }

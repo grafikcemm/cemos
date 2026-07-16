@@ -1,4 +1,4 @@
-import { accountList, type AccountHandle } from "@/lib/accounts";
+import { accountList } from "@/lib/accounts";
 import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 
@@ -9,9 +9,9 @@ import { getBudgetStatus } from "@/lib/config/costGate";
  * that discovered it).
  */
 
-export type AccountFit = { account: AccountHandle; fitScore: number; reason: string };
+export type AccountFit = { account: string; fitScore: number; reason: string };
 export type RouteResult = {
-  best: AccountHandle | null;
+  best: string | null;
   fits: AccountFit[];
   usedLlm: boolean;
 };
@@ -29,7 +29,7 @@ function buildPrompt(): string {
 }
 
 /** Pure: pick best valid fit above a floor. Exported for testing. */
-export function pickBest(fits: AccountFit[], floor = 45): { best: AccountHandle | null; fits: AccountFit[] } {
+export function pickBest(fits: AccountFit[], floor = 45): { best: string | null; fits: AccountFit[] } {
   const valid = fits
     .filter((f) => VALID.has(f.account))
     .map((f) => ({ ...f, fitScore: Math.max(0, Math.min(100, f.fitScore)) }))

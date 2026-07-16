@@ -14,7 +14,9 @@ import { getBudgetStatus } from "@/lib/config/costGate";
 export const operatorReadinessService = {
   async getReadiness() {
     const health = await healthService.getHealth({ deep: false });
-    const targetHandles = ["grafikcem", "maskulenkod"];
+    // ADR-031: hedef hesaplar DB'den (üretim-hazır liste); literal değil.
+    const { listGenerationReadyHandles } = await import("@/lib/accounts/profileRepository");
+    const targetHandles = (await listGenerationReadyHandles()).handles;
 
     const accounts = await prisma.account.findMany({
       where: { handle: { in: targetHandles } },

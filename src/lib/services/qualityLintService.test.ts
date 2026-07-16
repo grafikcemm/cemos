@@ -2,6 +2,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock database/external dependencies
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn(),
   estimateGenerateJsonCeiling: vi.fn(() => 0.01),

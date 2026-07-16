@@ -15,7 +15,7 @@ export type LensSpec = {
   weight: number;
   defaultScore: number;
   /** Per-lens instruction; interpolates the account profile. */
-  buildInstruction: (handle: AccountHandle) => string;
+  buildInstruction: (handle: string) => string;
 };
 
 export type CouncilSpec = {
@@ -47,8 +47,12 @@ export const X_COUNCIL_SPEC: CouncilSpec = {
       weight: 0.3,
       defaultScore: 55,
       buildInstruction: (handle) => {
-        const p = accountProfiles[handle];
-        return `Bu içerik @${handle} personasına ("${p.persona}", konsept: ${p.concept}) ne kadar uyuyor? (0=alakasız, 100=tam ses). Tek cümle gerekçe.`;
+        // Tohumlu hesapta bootstrap persona metni; yeni DB hesabında başka
+        // hesabın personasına DÜŞMEDEN jenerik hesap-sesi sorusu sorulur.
+        const p = accountProfiles[handle as AccountHandle];
+        return p
+          ? `Bu içerik @${handle} personasına ("${p.persona}", konsept: ${p.concept}) ne kadar uyuyor? (0=alakasız, 100=tam ses). Tek cümle gerekçe.`
+          : `Bu içerik @${handle} hesabının kendi sesine ve konseptine ne kadar uyuyor? (0=alakasız, 100=tam ses). Tek cümle gerekçe.`;
       },
     },
     {

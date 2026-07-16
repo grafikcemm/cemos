@@ -483,7 +483,7 @@ function calculatePersonaMatchScore(text: string, profile: ScoringIdentity): num
   const allProfiles = getAllScoringIdentities();
   for (const otherProfile of allProfiles) {
     if (otherProfile.handle === profile.handle) continue;
-    const otherKeywords = ACCOUNT_KEYWORDS[otherProfile.handle];
+    const otherKeywords = ACCOUNT_KEYWORDS[otherProfile.handle as AccountHandle] ?? [];
     const crossHits = countKeywordHits(text, otherKeywords);
     if (crossHits > 2) score -= 20;
   }
@@ -494,7 +494,7 @@ function calculatePersonaMatchScore(text: string, profile: ScoringIdentity): num
   }
 
   // Boost for matching keywords
-  const ownKeywords = ACCOUNT_KEYWORDS[profile.handle];
+  const ownKeywords = ACCOUNT_KEYWORDS[profile.handle as AccountHandle] ?? [];
   const ownHits = countKeywordHits(text, ownKeywords);
   score += Math.min(ownHits * 5, 20);
 

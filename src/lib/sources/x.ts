@@ -1,5 +1,4 @@
-import type { AccountHandle } from "@/lib/accounts";
-import { WATCHED_SOURCES } from "@/lib/sources";
+import { getWatchedSources } from "@/lib/sources";
 import { fetchUserTweets } from "@/lib/socialdata";
 import type { NormalizedItem, SourceConnector } from "@/lib/sources/types";
 
@@ -12,9 +11,9 @@ export const xConnector: SourceConnector = {
   isConfigured(): boolean {
     return Boolean(process.env.SOCIALDATA_API_KEY);
   },
-  async fetchForAccount(handle: AccountHandle, limit: number): Promise<NormalizedItem[]> {
+  async fetchForAccount(handle: string, limit: number): Promise<NormalizedItem[]> {
     if (!this.isConfigured()) return [];
-    const handles = (WATCHED_SOURCES[handle] ?? []).slice(0, 4); // cap cost
+    const handles = getWatchedSources(handle).slice(0, 4); // cap cost
     if (handles.length === 0) return [];
     const perHandle = Math.max(2, Math.ceil(limit / handles.length));
     const settled = await Promise.allSettled(

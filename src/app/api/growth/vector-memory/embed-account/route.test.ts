@@ -4,6 +4,12 @@ import { POST } from "./route";
 import * as vm from "@/lib/growth-engine/vector-memory";
 import { accountRepo } from "@/lib/db/accountRepo";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/utils/sameOriginGuard", () => ({ isOperatorOrCronAuthorized: vi.fn(() => true) }));
 
 vi.mock("@/lib/growth-engine/vector-memory", () => ({
@@ -32,7 +38,8 @@ describe("POST /api/growth/vector-memory/embed-account", () => {
 
     const json = await res.json();
     expect(json.success).toBe(false);
-    expect(json.error).toContain("Validation error");
+    // ADR-031: doğrulama artık şema değil DB-otoriteli guard — mesaj değişti.
+    expect(json.error).toContain("Invalid accountHandle");
   });
 
   it("should return 200 on successful bulk embedding", async () => {

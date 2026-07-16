@@ -4,7 +4,14 @@ import { XAGENT_STORE_VERSION, XAGENT_STORE_NAME, migrateXAgentStore } from "./m
 
 /* ── Types ──────────────────────────────────────────── */
 
-export type Channel = "grafikcem" | "maskulenkod";
+/**
+ * ADR-031: hesap listesi artık DB'den gelir; Channel client'ta GENİŞ tiptir
+ * (string). Client seçimi UX'tir, server otoritesi değildir — her server yolu
+ * handle'ı DB'den ayrıca doğrular. DEFAULT_CHANNELS yalnız bootstrap/ilk-boya
+ * fallback'idir.
+ */
+export type Channel = string;
+export const DEFAULT_CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 export type DraftType = "TWEET" | "QUOTE" | "REPLY";
 export type QueueStatus = "new" | "approved" | "scheduled" | "published" | "rejected";
 export type SourceMode = "ALL" | "TWEET" | "QUOTE" | "REPLY";

@@ -6,6 +6,12 @@ import { engagementLearningService } from "@/lib/services/engagementLearningServ
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { getBudgetStatus } from "@/lib/config/costGate";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/accounts", () => {
   const profiles = {
     grafikcem: { handle: "grafikcem" },

@@ -1,4 +1,3 @@
-import type { AccountHandle } from "@/lib/accounts";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { sourceRepo } from "@/lib/db/sourceRepo";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
@@ -14,7 +13,7 @@ const CONNECTORS: SourceConnector[] = [rssConnector, redditConnector, xScraperCo
 const PER_CONNECTOR_LIMIT = 15;
 
 export type DiscoverySummary = {
-  handle: AccountHandle;
+  handle: string;
   fetched: number;
   afterDedupe: number;
   kept: number;
@@ -51,7 +50,7 @@ export const discoveryService = {
    * SourcePost. Connector failures never abort the run (Promise.allSettled +
    * fail-open connectors).
    */
-  async discoverForAccount(handle: AccountHandle): Promise<DiscoverySummary> {
+  async discoverForAccount(handle: string): Promise<DiscoverySummary> {
     const account = await accountRepo.findByHandle(handle);
     if (!account) throw new Error(`Account not found: ${handle}`);
 

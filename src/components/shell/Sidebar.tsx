@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Sunrise,
   CalendarRange,
@@ -13,13 +13,12 @@ import {
   Compass,
   type LucideIcon,
 } from "lucide-react";
-import { useXAgentStore, type Channel } from "@/store/xagent";
+import { useXAgentStore, DEFAULT_CHANNELS, type Channel } from "@/store/xagent";
 import { PRIMARY_AREAS, type PrimaryAreaId } from "@/components/nav/navConfig";
 import AppIcon from "@/components/ui/AppIcon";
 import Popover from "@/components/ui/Popover";
 import ProfileMenu from "./ProfileMenu";
 
-const CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 
 const AREA_ICONS: Record<string, LucideIcon> = {
   Sunrise,
@@ -194,6 +193,30 @@ function NavItem({
  *  (§8F: non-modal, transparent perde, Escape, focus-return, roving klavye). */
 function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Channel) => void }) {
   const initial = channel.charAt(0).toUpperCase();
+  // ADR-031: hesap listesi DB'den (/api/settings). Fetch başarısız/boşsa
+  // bootstrap DEFAULT_CHANNELS kalır — switcher hiçbir durumda boş kalmaz.
+  const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings");
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        const handles = Array.isArray(json?.accounts)
+          ? (json.accounts as Array<{ handle?: string; isActive?: boolean }>)
+              .filter((a) => typeof a.handle === "string" && a.handle.length > 0 && a.isActive !== false)
+              .map((a) => a.handle as string)
+          : [];
+        if (alive && handles.length > 0) setChannels(handles);
+      } catch {
+        // fail-soft: bootstrap listesi kalır
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <Popover
@@ -232,7 +255,7 @@ function AccountCard({ channel, onSelect }: { channel: Channel; onSelect: (c: Ch
       )}
     >
       {(close) =>
-        CHANNELS.map((ch) => {
+        channels.map((ch) => {
           const active = ch === channel;
           return (
             <button

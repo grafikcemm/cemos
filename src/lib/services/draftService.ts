@@ -3,7 +3,8 @@ import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { generationRunRepo } from "@/lib/db/generationRunRepo";
 import { usageService } from "@/lib/services/usageService";
-import { accountProfiles, resolveFormatTier, effectiveMaxChars, selectMode, isKnownMode } from "@/lib/accounts";
+import { resolveFormatTier, effectiveMaxChars, selectMode, isKnownMode } from "@/lib/accounts";
+import { getRuntimeProfile } from "@/lib/accounts/profileRepository";
 import { runDraftPipeline } from "@/lib/ai/draft-pipeline";
 import { classifyOpenRouterError } from "@/lib/ai/openrouter";
 import { buildGroundingContext } from "@/lib/ai/grounding";
@@ -111,8 +112,8 @@ export const draftService = {
     const account = await accountRepo.findByHandle(input.accountHandle);
     if (!account) throw new Error(`Account not found: ${input.accountHandle}`);
 
-    const profile = accountProfiles[input.accountHandle as keyof typeof accountProfiles];
-    if (!profile) throw new Error(`Profile not found: ${input.accountHandle}`);
+    // ADR-031: profil otoritesi DB — bilinmeyen/draft/inaktif hesap fail-closed.
+    const profile = await getRuntimeProfile(input.accountHandle, { requireGenerationReady: true });
 
     let sourceText = input.sourceTweet ?? "";
     let sourceType: string | undefined;

@@ -11,7 +11,6 @@ import { safeJsonParse } from "@/lib/growth-engine/types";
 import { igInsightSnapshotRepo } from "@/lib/db/igInsightSnapshotRepo";
 import { xEngagement, igEngagement } from "@/lib/learning/engagement-formulas";
 import type { MediaInsightItem } from "@/lib/instagram/insight-pipeline";
-import type { AccountHandle } from "@/lib/accounts";
 
 // Drafts published in this window are candidates for engagement matching.
 const CANDIDATE_WINDOW_DAYS = 14;
@@ -84,7 +83,7 @@ function engagementScore(t: SocialDataTweet): number {
  * Everything is fail-soft and idempotent per queue item.
  */
 export const engagementLearningService = {
-  async syncForAccount(handle: AccountHandle): Promise<EngagementSyncSummary> {
+  async syncForAccount(handle: string): Promise<EngagementSyncSummary> {
     const summary: EngagementSyncSummary = {
       handle,
       candidates: 0,

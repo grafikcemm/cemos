@@ -6,6 +6,12 @@ import { discoveryService } from "@/lib/services/discoveryService";
 import { miningService } from "@/lib/services/miningService";
 import { routeItem } from "@/lib/agents/router";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     account: { findUnique: vi.fn() },

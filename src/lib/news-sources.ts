@@ -31,3 +31,8 @@ export const NEWS_SOURCES: Partial<Record<AccountHandle, NewsSource[]>> = {
 };
 
 export const NEWS_ENABLED_CHANNELS: AccountHandle[] = ["grafikcem"];
+
+/** String-handle erişimi (ADR-031): tohumlu olmayan hesap → boş liste (fail-soft). */
+export function getNewsSources(handle: string): NewsSource[] {
+  return (NEWS_SOURCES as Partial<Record<string, NewsSource[]>>)[handle] ?? [];
+}

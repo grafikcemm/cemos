@@ -4,6 +4,12 @@ import { GET, POST } from "./route";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/accounts", () => {
   const profiles = {
     grafikcem: { handle: "grafikcem" },

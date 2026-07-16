@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountList, accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
@@ -81,10 +81,8 @@ type RunOutcome = {
 async function run(handleParam: string | null, mine: boolean): Promise<RunOutcome> {
   const t0 = Date.now();
   const timeBudgetMs = getTimeBudgetMs();
-  const handles: AccountHandle[] =
-    handleParam && handleParam in accountProfiles
-      ? [handleParam as AccountHandle]
-      : accountList.map((a) => a.handle);
+  // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
+  const { handles, degraded: accountSourceDegraded } = await resolveCronHandles(handleParam);
 
   // Heartbeat-FIRST: even a mid-run timeout leaves proof the cron fired, so the
   // dashboard never again claims "cron çalışmadı" while it actually ran.
@@ -120,6 +118,19 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
+  // Own-account Instagram sync (ADR-032) — Composio/Meta provider köprüsü,
+  // READ-ONLY + LLM'siz + idempotent. Fail-open: yapılandırma yoksa dürüst
+  // errorClass ile boş döner, cron'u asla bozmaz. Yeni cron slotu YOK.
+  let igOwnSync: unknown = null;
+  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { syncInstagramViaBridge } = await import("@/lib/instagram/bridgeSyncService");
+      igOwnSync = await syncInstagramViaBridge();
+    } catch (err) {
+      igOwnSync = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // IG rakip watchlist sync (Sprint 4, CONTENT-ENGINE §3) — business_discovery
   // TEK onaylı okuma, LLM'SİZ (~$0), ≤20 hesap/gün. Fail-open; token yoksa boş.
   let igCompetitorSync: unknown = null;
@@ -151,12 +162,12 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
-  const ok = errors < handles.length;
+  const ok = handles.length === 0 ? true : errors < handles.length;
   if (cronRunId) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { news, contentSync, igCompetitorSync, results },
+      result: { news, contentSync, igOwnSync, igCompetitorSync, results, accountSourceDegraded },
     });
   }
   return { ok, partial, news, results };

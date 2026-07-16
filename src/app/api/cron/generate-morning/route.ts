@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountList } from "@/lib/accounts";
+import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
@@ -25,9 +25,8 @@ type RunOutcome = { ok: boolean; partial: boolean; results: unknown[] };
 async function run(handleParam: string | null): Promise<RunOutcome> {
   const t0 = Date.now();
   const deadlineMs = t0 + getTimeBudgetMs();
-  const handles = handleParam
-    ? accountList.filter((a) => a.handle === handleParam).map((a) => a.handle)
-    : accountList.map((a) => a.handle);
+  // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
+  const { handles } = await resolveCronHandles(handleParam);
 
   // Heartbeat-FIRST: even a killed invocation leaves proof the cron fired.
   let cronRunId: string | null = null;

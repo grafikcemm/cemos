@@ -18,6 +18,12 @@ import type { FeedbackApiInput } from "./types";
 // ---------------------------------------------------------------------------
 // Mock repos and engines
 // ---------------------------------------------------------------------------
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/feedbackEventRepo", () => ({
   feedbackEventRepo: {
     create: vi.fn()

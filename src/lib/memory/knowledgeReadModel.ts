@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import { isKnownAccountHandle } from "@/lib/growth-engine/account-adapter";
+import { isKnownAccountHandleDb } from "@/lib/accounts/profileRepository";
 import {
   MemoryEvidenceMetadataSchema,
   MemoryScopeError,
@@ -162,7 +162,8 @@ function toKnowledgeFact(row: FactRow, feedbackSourceIds: Set<string>): Knowledg
 }
 
 export async function buildKnowledgeReadModel(accountHandle: string): Promise<KnowledgeReadModel> {
-  if (!isKnownAccountHandle(accountHandle)) throw new MemoryScopeError(accountHandle);
+  // ADR-031: scope guard DB-otoriteli fail-closed (bootstrap union değil).
+  if (!(await isKnownAccountHandleDb(accountHandle))) throw new MemoryScopeError(accountHandle);
   const sectionErrors: string[] = [];
 
   // ── Identity katmanı (aktif + bekleyen; global kurallar dahil) ──

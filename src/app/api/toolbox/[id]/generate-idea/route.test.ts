@@ -5,6 +5,12 @@ import { prisma } from "@/lib/db/client";
 import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/client", () => ({
   prisma: { toolboxResource: { findUnique: vi.fn() } },
 }));

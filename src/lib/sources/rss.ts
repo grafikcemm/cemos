@@ -1,5 +1,4 @@
-import type { AccountHandle } from "@/lib/accounts";
-import { NEWS_SOURCES } from "@/lib/news-sources";
+import { getNewsSources } from "@/lib/news-sources";
 import type { NormalizedItem, SourceConnector } from "@/lib/sources/types";
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -95,8 +94,8 @@ export const rssConnector: SourceConnector = {
   isConfigured(): boolean {
     return true; // RSS needs no credentials
   },
-  async fetchForAccount(handle: AccountHandle, limit: number): Promise<NormalizedItem[]> {
-    const feeds = NEWS_SOURCES[handle] ?? [];
+  async fetchForAccount(handle: string, limit: number): Promise<NormalizedItem[]> {
+    const feeds = getNewsSources(handle);
     if (feeds.length === 0) return [];
     const settled = await Promise.allSettled(feeds.map((f) => fetchFeed(f.rssUrl, f.name, f.lang)));
     const all = settled.flatMap((s) => (s.status === "fulfilled" ? s.value : []));

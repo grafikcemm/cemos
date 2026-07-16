@@ -3,6 +3,12 @@ import { operatorReadinessService } from "./operatorReadinessService";
 import { prisma } from "@/lib/db/client";
 import { healthService } from "@/lib/services/healthService";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     account: {

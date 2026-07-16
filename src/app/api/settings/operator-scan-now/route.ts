@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Run targeted and forced worker scan tick
-    const targetHandles = ["grafikcem", "maskulenkod"];
+    // ADR-031: hedef hesaplar DB'den (üretim-hazır liste); literal değil.
+    const { listGenerationReadyHandles } = await import("@/lib/accounts/profileRepository");
+    const targetHandles = (await listGenerationReadyHandles()).handles;
     const scanResult = await workerService.scanTick(new Date(), {
       force: true,
       targetHandles

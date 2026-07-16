@@ -17,7 +17,7 @@ import {
  */
 
 export type ScoringIdentity = {
-  handle: AccountHandle;
+  handle: string;
   persona: string;
   tone: string;
   format: string;
@@ -115,6 +115,12 @@ const FORBIDDEN_TERMS: Record<AccountHandle, string[]> = {
   ].map(foldTurkish),
 };
 
+/**
+ * BOOTSTRAP-uyumluluk guard'ı (ADR-031): handle'ın TOHUMLU literal union'da
+ * olup olmadığını söyler. Heuristik/scoring bağlamlarında tip daraltma için
+ * kalır (fail-soft tüketiciler). GÜVENLİK/trust-boundary doğrulaması için
+ * KULLANILMAZ — orada `assertKnownAccountHandleDb` (DB, fail-closed) geçerlidir.
+ */
 export function isKnownAccountHandle(handle: string): handle is AccountHandle {
   return handle in accountProfiles;
 }
@@ -130,12 +136,52 @@ function toScoringIdentity(profile: LiveAccountProfile): ScoringIdentity {
     viralMechanic: profile.concept,
     maxChars: profile.maxChars,
     forbidden: profile.forbiddenRules,
-    forbiddenTerms: FORBIDDEN_TERMS[profile.handle],
+    // Tohumlu olmayan (yeni DB) hesapta hesap-özel kısa terim eşlemesi henüz
+    // yoktur → paylaşılan kesinlik-slop terimleriyle fail-soft başlar.
+    forbiddenTerms:
+      FORBIDDEN_TERMS[profile.handle as AccountHandle] ?? SHARED_CERTAINTY_TERMS.map(foldTurkish),
     pillarIds: profile.modes.map((m) => m.id),
     concept: profile.concept,
     // Canlı profil kural metinlerinde hashtag yasağı hesap politikasıdır
     // (formatRules "soru-CTA yok" / eski generationRules.noHashtags karşılığı).
     noHashtags: true,
+  };
+}
+
+// ── Phase 2C (ADR-031): DB-otoriteli async resolvers ─────────────────────────
+// Trust boundary + üretim girişi bunları kullanır; aşağıdaki sync fonksiyonlar
+// bootstrap-uyumluluk katmanı olarak kalır (heuristik bağlamlar + fixture).
+
+export {
+  isKnownAccountHandleDb,
+  assertKnownAccountHandleDb,
+  AccountProfileError,
+} from "@/lib/accounts/profileRepository";
+
+/** DB'den doğrulanmış runtime profil → ScoringIdentity. */
+export async function resolveScoringIdentity(handle: string): Promise<ScoringIdentity> {
+  const { getRuntimeProfile } = await import("@/lib/accounts/profileRepository");
+  const runtime = await getRuntimeProfile(handle);
+  return toScoringIdentity(runtime);
+}
+
+/** DB'den doğrulanmış runtime profil → GenerationProfile (üretim-hazır şart). */
+export async function resolveGenerationProfile(handle: string): Promise<GenerationProfile> {
+  const { getRuntimeProfile } = await import("@/lib/accounts/profileRepository");
+  const runtime = await getRuntimeProfile(handle, { requireGenerationReady: true });
+  return {
+    handle: runtime.handle,
+    displayName: runtime.displayName || getDisplayName(runtime.handle),
+    persona: runtime.persona,
+    description: runtime.concept,
+    language: runtime.language,
+    tone: runtime.toneRules.join(" "),
+    format: runtime.formatRules.join(" "),
+    viralMechanic: runtime.concept,
+    forbidden: runtime.forbiddenRules,
+    maxChars: runtime.maxChars,
+    modes: runtime.modes.map(toGenerationMode),
+    generationRules: GENERATION_RULES[runtime.handle as AccountHandle] ?? DEFAULT_GENERATION_RULES,
   };
 }
 
@@ -188,11 +234,11 @@ export type GenerationMode = {
  * Eski account-profiles.ts alan adlarıyla uyumludur (davranış korunur).
  */
 export type GenerationProfile = {
-  handle: AccountHandle;
+  handle: string;
   displayName: string;
   persona: string;
   description: string;
-  language: "Turkish";
+  language: string;
   tone: string;
   format: string;
   viralMechanic: string;
@@ -213,6 +259,15 @@ export type GenerationProfile = {
  * Eski account-profiles.ts generationRules değerleri — davranış birebir
  * korunur (canlı profilde karşılığı olmayan üretim bayrakları burada yaşar).
  */
+/** Tohumlu olmayan hesap için güvenli üretim bayrakları (muhafazakâr default). */
+const DEFAULT_GENERATION_RULES: GenerationProfile["generationRules"] = {
+  requireHook: true,
+  singleTweet: false,
+  requireConcreteAnchor: false,
+  noHashtags: true,
+  allowStructure: true,
+};
+
 const GENERATION_RULES: Record<AccountHandle, GenerationProfile["generationRules"]> = {
   grafikcem: {
     requireHook: true,
@@ -250,7 +305,7 @@ export function getGenerationProfile(handle: string): GenerationProfile {
   const live = accountProfiles[handle];
   return {
     handle: live.handle,
-    displayName: DISPLAY_NAMES[live.handle],
+    displayName: getDisplayName(live.handle),
     persona: live.persona,
     description: live.concept,
     language: "Turkish",
@@ -260,7 +315,7 @@ export function getGenerationProfile(handle: string): GenerationProfile {
     forbidden: live.forbiddenRules,
     maxChars: live.maxChars,
     modes: live.modes.map(toGenerationMode),
-    generationRules: GENERATION_RULES[live.handle],
+    generationRules: GENERATION_RULES[live.handle as AccountHandle] ?? DEFAULT_GENERATION_RULES,
   };
 }
 

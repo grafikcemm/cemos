@@ -49,3 +49,8 @@ export const NICHE_QUERIES: Record<AccountHandle, NicheQueries> = {
   },
 
 };
+
+/** String-handle erişimi (ADR-031): tohumlu olmayan hesap → undefined (fail-soft). */
+export function getNicheQueries(handle: string): NicheQueries | undefined {
+  return (NICHE_QUERIES as Record<string, NicheQueries>)[handle];
+}

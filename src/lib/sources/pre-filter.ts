@@ -1,6 +1,5 @@
-import type { AccountHandle } from "@/lib/accounts";
-import { accountProfiles } from "@/lib/accounts";
-import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
+import { accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { getNicheQueries } from "@/lib/sources/niche-queries";
 import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import type { NormalizedItem } from "@/lib/sources/types";
@@ -10,13 +9,14 @@ type PreFilterResponse = { results?: PreFilterDecision[] };
 
 const MAX_BATCH = 40;
 
-function buildSystemPrompt(handle: AccountHandle): string {
-  const profile = accountProfiles[handle];
-  const keywords = NICHE_QUERIES[handle]?.keywords.join(", ") ?? "";
+function buildSystemPrompt(handle: string): string {
+  // Tohumlu olmayan hesapta konsept jenerik kalır (başka hesabınkine düşmez).
+  const profile = accountProfiles[handle as AccountHandle];
+  const keywords = getNicheQueries(handle)?.keywords.join(", ") ?? "";
   // örn1 "宁滥勿缺 / keep loose, never miss" intent, persona-aware.
   return [
     `Sen keskin bir içerik seçicisin. Görevin @${handle} hesabı için potansiyel taşıyan içeriği KEŞFETMEK, eleme yapmak değil.`,
-    `Hesap konsepti: ${profile.concept}`,
+    `Hesap konsepti: ${profile?.concept ?? "hesap-özel konsept tanımı DB profilinde"}`,
     `İlgili anahtar kelimeler: ${keywords}`,
     `Her içeriği değerlendir. Aşağıdakilerden HERHANGİ BİRİ doğruysa "YES" işaretle:`,
     `1) Güçlü kişisel görüş, duygu veya özgün deneyim içeriyor.`,
@@ -46,7 +46,7 @@ export type PreFilterResult = {
  */
 export async function preFilterBatch(
   items: NormalizedItem[],
-  handle: AccountHandle
+  handle: string
 ): Promise<PreFilterResult> {
   if (items.length === 0) return { kept: [], usedLlm: false };
 

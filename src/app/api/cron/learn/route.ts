@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { accountList, accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { miningService } from "@/lib/services/miningService";
 import { engagementLearningService } from "@/lib/services/engagementLearningService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
@@ -87,10 +87,8 @@ async function pruneOldRecords() {
 async function runLearn(handleParam: string | null) {
   const t0 = Date.now();
   const timeBudgetMs = getTimeBudgetMs();
-  const handles: AccountHandle[] =
-    handleParam && handleParam in accountProfiles
-      ? [handleParam as AccountHandle]
-      : accountList.map((a) => a.handle);
+  // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
+  const { handles } = await resolveCronHandles(handleParam);
 
   // Heartbeat-FIRST, exactly like the daily cron.
   let cronRunId: string | null = null;

@@ -1,14 +1,15 @@
 import type { NextRequest } from "next/server";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engine/account-adapter";
+import { isKnownAccountHandleDb } from "@/lib/accounts/profileRepository";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { BudgetExceededError } from "@/lib/config/costGate";
 import { z } from "zod";
 
 const Schema = z
   .object({
-    accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+    // ADR-031: doğrulama DB-otoriteli (aşağıda), literal enum değil.
+  accountHandle: z.string().min(1),
     sourceContent: z.string().optional(),
     manualIdea: z.string().optional(),
     draftContent: z.string().optional(),
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { accountHandle, sourceContent, manualIdea, draftContent, limitPerGroup } = result.data;
-    if (!validateAccountHandle(accountHandle)) {
+    if (!(await isKnownAccountHandleDb(accountHandle))) {
       return fail("Invalid accountHandle", 400);
     }
 

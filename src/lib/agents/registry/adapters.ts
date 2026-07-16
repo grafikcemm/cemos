@@ -24,13 +24,10 @@ function summarize(output: unknown, costUsd = 0): AgentAdapterRun {
   return { output, costUsd };
 }
 
-/** Handle'ı ADR-016 literal union'ına güvenle daraltır (bilinmeyen → hata). */
-async function assertHandle(handle: string): Promise<import("@/lib/accounts").AccountHandle> {
-  const { isKnownAccountHandle } = await import("@/lib/growth-engine/account-adapter");
-  if (!isKnownAccountHandle(handle)) {
-    throw new Error(`Bilinmeyen hesap handle'ı: ${handle}`);
-  }
-  return handle as import("@/lib/accounts").AccountHandle;
+/** ADR-031: handle doğrulaması DB-otoriteli fail-closed (literal union değil). */
+async function assertHandle(handle: string): Promise<string> {
+  const { assertKnownAccountHandleDb } = await import("@/lib/accounts/profileRepository");
+  return assertKnownAccountHandleDb(handle);
 }
 
 export const AGENT_ADAPTERS: Record<string, AgentAdapter> = {
@@ -76,9 +73,10 @@ export const AGENT_ADAPTERS: Record<string, AgentAdapter> = {
     memoryWritesUsed: [],
     async run(input) {
       const { accountHandle, sourceText } = input as { accountHandle: string; sourceText: string };
-      const { accountProfiles } = await import("@/lib/accounts");
+      const { getRuntimeProfile } = await import("@/lib/accounts/profileRepository");
       const { runDraftPipeline } = await import("@/lib/ai/draft-pipeline");
-      const profile = accountProfiles[await assertHandle(accountHandle)];
+      // ADR-031: profil DB'den — üretim-hazır olmayan hesap fail-closed.
+      const profile = await getRuntimeProfile(accountHandle, { requireGenerationReady: true });
       const result = await runDraftPipeline(profile, sourceText);
       return summarize(result, result.estimatedCostUsd ?? 0);
     },
@@ -102,11 +100,7 @@ export const AGENT_ADAPTERS: Record<string, AgentAdapter> = {
     async run(input) {
       const { text, accountHandle } = input as { text: string; accountHandle: string };
       const { deliberate } = await import("@/lib/agents/council");
-      const { isKnownAccountHandle } = await import("@/lib/growth-engine/account-adapter");
-      if (!isKnownAccountHandle(accountHandle)) {
-        throw new Error(`Bilinmeyen hesap handle'ı: ${accountHandle}`);
-      }
-      return summarize(await deliberate(text, accountHandle as never));
+      return summarize(await deliberate(text, await assertHandle(accountHandle)));
     },
   },
 

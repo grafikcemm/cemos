@@ -1,4 +1,3 @@
-import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engine/account-adapter";
 import { calculateLevenshteinSimilarity } from "@/lib/utils/textSimilarity";
 import {
   extractPattern,
@@ -224,8 +223,10 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   // 1. Zod validation
   const input = FeedbackApiInputSchema.parse(rawInput);
 
-  // 2. Account handle validation
-  if (!validateAccountHandle(input.accountHandle)) {
+  // 2. Account handle doğrulaması DB üzerinden (ADR-031, fail-closed):
+  // bilinmeyen VEYA devre dışı hesap feedback yazamaz — literal union yok.
+  const { isKnownAccountHandleDb } = await import("@/lib/accounts/profileRepository");
+  if (!(await isKnownAccountHandleDb(input.accountHandle))) {
     throw new Error(`Invalid accountHandle: ${input.accountHandle}`);
   }
 

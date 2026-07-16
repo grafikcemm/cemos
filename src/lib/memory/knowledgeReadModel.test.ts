@@ -5,6 +5,12 @@ const feFindMany = vi.fn();
 const accountFindUnique = vi.fn();
 const patternFindMany = vi.fn();
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     memoryFact: { findMany: (...a: unknown[]) => factFindMany(...a) },

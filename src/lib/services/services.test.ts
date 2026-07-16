@@ -1,6 +1,12 @@
  
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/accountRepo", () => ({
   accountRepo: { findByHandle: vi.fn(), findById: vi.fn() },
 }));
@@ -95,6 +101,16 @@ const mockAccount = {
   maxChars: 280,
   platform: "x",
   createdAt: new Date("2024-01-01"),
+  displayName: "GrafikCem",
+  language: "Turkish",
+  autonomy: "",
+  defaultDraftCount: 3,
+  formatsJson: "[]",
+  benchmarkInput: "",
+  profileStatus: "active",
+  isActive: true,
+  profileVersion: 1,
+  profileUpdatedAt: null,
 };
 
 const mockSource = {

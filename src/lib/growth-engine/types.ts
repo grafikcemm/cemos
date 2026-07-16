@@ -243,7 +243,9 @@ export type TrainingLabel = z.infer<typeof TrainingLabel>;
 
 export const FeedbackApiInputSchema = z
   .object({
-    accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+    // ADR-031: literal z.enum kaldırıldı — otorite processFeedback içindeki
+    // DB hesap doğrulamasıdır (fail-closed); şema yalnız şekil doğrular.
+    accountHandle: z.string().min(1),
     accountId: z.string().min(1, "accountId required"),
     feedbackType: FeedbackType,
     originalContent: z.string().optional(),
@@ -506,7 +508,9 @@ export const MemoryLabelSchema = z.enum(["positive", "negative", "edited", "patt
 export type MemoryLabel = z.infer<typeof MemoryLabelSchema>;
 
 export const VectorMemoryInputSchema = z.object({
-  accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+  // ADR-031: hesap DB'de doğrulanır (searchSimilarExamples accountRepo lookup),
+  // literal enum değil.
+  accountHandle: z.string().min(1),
   text: z.string().min(1, "text is required"),
   label: MemoryLabelSchema.optional(),
   sourceType: z.enum(["training_example", "feedback_event", "viral_pattern", "queue_item", "manual"]).optional(),
@@ -546,7 +550,9 @@ export const MemoryContextSchema = z.object({
 export type MemoryContext = z.infer<typeof MemoryContextSchema>;
 
 export const BuildMemoryContextInputSchema = z.object({
-  accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+  // ADR-031: hesap DB'de doğrulanır (buildMemoryContext accountRepo lookup),
+  // literal enum değil.
+  accountHandle: z.string().min(1),
   sourceContent: z.string().optional(),
   manualIdea: z.string().optional(),
   draftContent: z.string().optional(),
