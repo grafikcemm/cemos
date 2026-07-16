@@ -34,7 +34,6 @@ import { useXAgentStore } from "@/store/xagent";
 import {
   PageHeader,
   Card,
-  MetricCard,
   EmptyState,
   ErrorState,
   SectionHeader,
@@ -415,6 +414,7 @@ function FeedSection({
   onDismiss: (videoId: string) => void;
 }) {
   const hotCount = videos.filter((v) => v.outlierScore >= 3).length;
+  const risingCount = videos.filter((v) => v.outlierScore >= 1.5 && v.outlierScore < 3).length;
   const [view, setView] = useState<"grid" | "board">("grid");
 
   // Pano: outlier tier'ına göre fırsat kolonları.
@@ -432,31 +432,28 @@ function FeedSection({
 
   return (
     <>
-      {/* Editöryal stat şeridi */}
+      {/* Sessiz metrik şeridi (hero KPI kutuları kaldırıldı — arketip: quiet inline) */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "var(--space-3)",
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 20,
           marginBottom: "var(--space-4)",
         }}
       >
-        <MetricCard
-          label="Akıştaki fırsat"
-          value={videos.length}
-          icon={<Radar size={16} strokeWidth={1.8} />}
-          accent
-        />
-        <MetricCard
-          label="Sıcak (≥3×)"
-          value={hotCount}
-          icon={<Flame size={16} strokeWidth={1.8} />}
-        />
-        <MetricCard
-          label="Görüntülenen"
-          value={loading ? "—" : videos.length}
-          icon={<Eye size={16} strokeWidth={1.8} />}
-        />
+        {[
+          { label: "akıştaki fırsat", value: loading ? "—" : videos.length },
+          { label: "sıcak ≥3×", value: loading ? "—" : hotCount },
+          { label: "yükselen 1.5–3×", value: loading ? "—" : risingCount },
+        ].map((m) => (
+          <span key={m.label} style={{ display: "inline-flex", alignItems: "baseline", gap: 6 }}>
+            <span className="tnum" style={{ fontSize: "var(--text-md)", fontWeight: 600, color: "var(--text-primary)" }}>
+              {m.value}
+            </span>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>{m.label}</span>
+          </span>
+        ))}
       </div>
 
       {/* Filtre control-bar */}
