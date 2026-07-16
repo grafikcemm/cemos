@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { prisma } from "@/lib/db/client";
+import { getComposioConfig, missingComposioEnvNames } from "@/lib/composio/config";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +18,77 @@ type Group = "core" | "social" | "optional";
 type Status = "connected" | "missing" | "blocked" | "optional";
 type Provider = { key: string; name: string; group: Group; status: Status; envNames: string[]; note?: string };
 
+/** Composio Instagram bağlantısının UI'ye giden durumu (ADR-032; secret YOK). */
+export type ComposioIntegration = {
+  configured: boolean;
+  missingEnvNames: string[];
+  provider: "auto" | "composio" | "meta";
+  accountHandle: string;
+  toolkitVersion: string;
+  readOnly: true;
+  binding: {
+    connectionStatus: string;
+    externalHandle: string;
+    lastVerifiedAt: string | null;
+    lastSuccessfulSyncAt: string | null;
+    lastErrorClass: string;
+    lastSyncSummary: unknown;
+  } | null;
+};
+
 function has(...names: string[]): boolean {
   return names.some((n) => Boolean(process.env[n] && String(process.env[n]).trim().length > 0));
+}
+
+async function readComposioIntegration(): Promise<ComposioIntegration> {
+  const cfg = getComposioConfig();
+  let binding: ComposioIntegration["binding"] = null;
+  try {
+    if (cfg.accountHandle) {
+      const account = await prisma.account.findUnique({
+        where: { handle: cfg.accountHandle },
+        select: { id: true },
+      });
+      if (account) {
+        const row = await prisma.accountPlatformBinding.findUnique({
+          where: {
+            accountId_platform_provider: {
+              accountId: account.id,
+              platform: "instagram",
+              provider: "composio",
+            },
+          },
+        });
+        if (row) {
+          let summary: unknown = null;
+          try {
+            summary = JSON.parse(row.lastSyncSummaryJson);
+          } catch {
+            summary = null;
+          }
+          binding = {
+            connectionStatus: row.connectionStatus,
+            externalHandle: row.externalHandle,
+            lastVerifiedAt: row.lastVerifiedAt ? row.lastVerifiedAt.toISOString() : null,
+            lastSuccessfulSyncAt: row.lastSuccessfulSyncAt ? row.lastSuccessfulSyncAt.toISOString() : null,
+            lastErrorClass: row.lastErrorClass,
+            lastSyncSummary: summary,
+          };
+        }
+      }
+    }
+  } catch {
+    binding = null; // fail-soft: binding okunamazsa panel yalnız env durumunu gösterir
+  }
+  return {
+    configured: cfg.configured,
+    missingEnvNames: missingComposioEnvNames(),
+    provider: cfg.provider,
+    accountHandle: cfg.accountHandle,
+    toolkitVersion: cfg.toolkitVersion,
+    readOnly: true,
+    binding,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -56,12 +127,24 @@ export async function GET(req: NextRequest) {
       note: "Saklanan token'lar için AES-GCM anahtarı.",
     },
     {
+      key: "composio",
+      name: "Composio · Instagram (read-only)",
+      group: "social",
+      status: has("COMPOSIO_CONSUMER_API_KEY") ? "connected" : "missing",
+      envNames: [
+        "COMPOSIO_CONSUMER_API_KEY",
+        "COMPOSIO_INSTAGRAM_CONNECTED_ACCOUNT_ID",
+        "COMPOSIO_INSTAGRAM_ACCOUNT_HANDLE",
+      ],
+      note: "Kendi IG Business/Creator hesabının profil + medya + insight + yorum verisi (MCP, salt-okuma). Token'lar Composio'da kalır.",
+    },
+    {
       key: "meta",
-      name: "Meta / Instagram",
+      name: "Meta / Instagram (direct)",
       group: "social",
       status: has("META_ACCESS_TOKEN") ? "connected" : "missing",
       envNames: ["META_ACCESS_TOKEN", "META_IG_USER_ID"],
-      note: "IG rakip radarı + outlier. instagram_basic + business_discovery izni gerekir.",
+      note: "Fallback read yolu + rakip radarı (business_discovery — Composio ile ÇÖZÜLMEDİ, Meta izni gerekir).",
     },
     {
       key: "xapi",
@@ -113,5 +196,6 @@ export async function GET(req: NextRequest) {
     },
   ];
 
-  return ok({ providers });
+  const composio = await readComposioIntegration();
+  return ok({ providers, composio });
 }
