@@ -10,6 +10,23 @@ export type PipelineTraceStage = {
   ms: number;
   costUsd: number;
   score?: number;
+  // ── Additive registry metadata (ADR-027, Faz 2A) ─────────────────────────
+  // Eski stage kayıtları bu alanları taşımaz — hepsi opsiyonel; parse
+  // değişmeden okunmaya devam eder. Yeni alan eklemek OK, alan silmek YASAK.
+  agentId?: string;
+  agentVersion?: string;
+  adapterId?: string;
+  executionMode?: string;
+  preset?: string;
+  /** Typed executor sonucu (succeeded/deterministic_fallback/blocked_external/...). */
+  outcome?: string;
+  fallbackUsed?: boolean;
+  blockedReason?: string;
+  retryCount?: number;
+  estimatedCostUsd?: number;
+  inputSchemaVersion?: string;
+  outputSchemaVersion?: string;
+  policyVersion?: string;
 };
 
 export type CreatePipelineTraceInput = {
