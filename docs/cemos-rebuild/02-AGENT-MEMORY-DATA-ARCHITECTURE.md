@@ -40,7 +40,7 @@ Master promptun 12 rolü; her biri MEVCUT servise map edilir. "Yeni yazılacak" 
 | Bilgi | `Learn*` modelleri + Obsidian | Faz 4 UI |
 | Negatif | vector-memory negative + `forbiddenPhrases` + BANNED | genişler |
 
-**Governance (korunur):** external asla identity yazamaz (`assertIdentityWriteAllowed`); kimlik/stil değişiklikleri provenance+confidence+≥3-evidence+insan onayı; silme yerine supersede zinciri; `retrieval.ts` rerank. Faz 2: "Benim hakkımda ne biliyorsun?" kaynaklı+düzenlenebilir cevap; edit-diff/red/onay/performans ölçülebilir öğrenme sinyali.
+**Governance (Faz 2B ADR-029/030 ile derinleşti):** external asla identity yazamaz (`assertIdentityWriteAllowed`); **hiçbir öğrenilmiş fact otomatik aktifleşemez** — ≥3 distinct KAYNAKLI kanıt (`MemoryEvidence` defteri, retry-idempotent) yalnız review-ready yapar, aktifleşme insan onayı ister; silme yerine supersede zinciri (revise=yeni sürüm, atomik; rollback atomik); performans dersleri (validated ViralPattern) identity'den AYRI truth store; kaynaklı cevap `GET /api/memory/knowledge` + ProfileMemoryTab; üretimi etkileyen kurallar `scores.groundingMemoryFactIds` influence provenance'ında. Deterministik sinyal köprüsü `signalBridge.ts` (tag→canonical kural; mekanik neden öğrenilmez; editDistance tek başına kural üretmez).
 
 ## 3. Kalite motoru (readiness pipeline) — veri akışı
 

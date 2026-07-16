@@ -7,7 +7,7 @@
 | Dilim | Kapsam | Durum |
 |---|---|---|
 | **2A** | Config-driven agent/skill registry + execution contract + kalıcı fırsat aktarımı (OpportunityHandoff) + trace/cost sözleşmesi | ✅ KAPANDI (7 commit: b300e84…8e251ac; ADR-027/028) |
-| **2B** | Memory governance: MemoryEvidence ledger (distinct-source idempotency), insan-onaylı promotion (learned fact otomatik aktifleşmez — 3 kanıt = yalnız review-ready), deterministik feedback→memory sinyal köprüsü + reconciliation, performans dersleri ↔ identity ayrımı, kaynaklı "CemOS benim hakkımda ne biliyor?" read modeli + Profil Memory derinleşmesi, üretimde kullanılan MemoryFact influence provenance'ı | **BU PASS (kullanıcı onayı 2026-07-16)** |
+| **2B** | Memory governance: MemoryEvidence ledger (distinct-source idempotency), insan-onaylı promotion (learned fact otomatik aktifleşmez — 3 kanıt = yalnız review-ready), deterministik feedback→memory sinyal köprüsü + reconciliation, performans dersleri ↔ identity ayrımı, kaynaklı "CemOS benim hakkımda ne biliyor?" read modeli + Profil Memory derinleşmesi, üretimde kullanılan MemoryFact influence provenance'ı | ✅ KAPANDI (12 commit: 6cd20c2…; ADR-029/030) |
 | **2C** | Dinamik hesap kaynağı (ADR-016 kapanışı): persona/mode source-of-truth TS→DB | sonra |
 | **2D** | Doğrudan thread segment üretimi + backfill + kalite eşik kalibrasyonu (ADR-010: typed alan Faz 1C'de eklendi; ÜRETİM hattı burada) | sonra |
 | **2E** | Phase 2 eval/observability kapanışı: registry eval koşuları, canlı OpenRouter kürasyonu (kredi sonrası), operatorReadiness–todayReadiness birleşim kararı | sonra |
@@ -49,13 +49,15 @@ Kural: aynı işi yapan yeni agent YAZILMAZ; mevcut servise adapter yazılır. *
 
 ## 3. 2B–2E turnkey haritası (implementasyon YOK — keşfedilmiş dosya/servis haritası)
 
-### 2B — Memory governance + öğrenme sinyalleri
-- **Giriş noktaları:** `src/lib/growth-engine/feedback-service.ts` (`processFeedback`, `computeNormalizedEditDistance`, `patternFeedbackDelta`), `src/lib/services/engagementLearningService.ts`, `src/lib/memory/consolidation.ts` (`runMemoryConsolidation`, IDENTITY_WRITERS), `src/lib/memory/memoryFactService.ts` (proposeFact/approveFact/supersede zinciri), `src/lib/memory/retrieval.ts` (rerank).
-- **İş:** edit-diff sinyalinin MemoryFact önerisine köprüsü (≥3-gözlem eşiği korunur); red/onay/performans sinyallerinin ölçülebilir döngüsü; ProfileMemoryTab "kaynaklı cevap" görünümü. Registry Performance Learner + Knowledge Curator adapter'ları 2A'da hazır — 2B akışları bunların üstüne oturur.
+### 2B — Memory governance + öğrenme sinyalleri ✅ UYGULANDI (ADR-029/030)
+- Teslim: `MemoryEvidence` defteri + `canonicalKey` (migration `20260716120000`), insan-onaylı promotion (otomatik aktifleşme kaldırıldı; 3 kanıt = yalnız review-ready; Sahiplen=operator_assertion), atomik approve/rollback/revise, `signalBridge.ts` (deterministik tag→canonical kural + verbatim reason + mekanik-neden filtresi + haftalık reconciliation, yeni cron yok), `knowledgeReadModel.ts` + `GET /api/memory/knowledge`, influence provenance (`scores.groundingMemoryFactIds`), ProfileMemoryTab kaynaklı görünüm. Performans dersleri (validated ViralPattern) identity'den ayrı bölümde.
 
-### 2C — Dinamik hesap kaynağı (ADR-016)
-- **Giriş noktaları:** `src/lib/accounts.ts` (hardcoded literal union), `src/lib/growth-engine/account-adapter.ts`, `Account` Prisma modeli, `src/components/plan/useAccounts.ts` (UI zaten DB'den okuyor).
-- **İş:** persona/mode source-of-truth'un additive DB kolonlarına taşınması; literal cast'lerin (`publishService` kalıntısı publishAttemptService'te) genişletilmesi; registry Account Strategist adapter'ının DB-profili okuması.
+### 2C — Dinamik hesap kaynağı (ADR-016) — TURNKEY HARİTA (implementasyon YOK)
+- **Kaynak gerçeği:** `src/lib/accounts.ts` — `AccountHandle = "grafikcem" | "maskulenkod"` literal union + `accountProfiles` (persona/concept/maxChars/mode'lar) hardcoded TS. `Account` Prisma modeli zaten var (handle/persona/concept/maxChars/platform) ama source-of-truth DEĞİL.
+- **Literal-union tüketicileri (genişletme noktaları):** `growth-engine/account-adapter.ts` (`isKnownAccountHandle` — memory scope guard'ı BUNA dayanır!), `agents/registry/adapters.ts` (`assertHandle`), `pipelineService.runDailyForAccount(handle: AccountHandle)`, `council.deliberate(text, handle: AccountHandle)`, cron'lar (`accountList` iterasyonu), `feedback-service` (`FeedbackApiInputSchema.accountHandle` z.enum!), `signalBridge` (assertScope üzerinden), e2e ACCOUNT_ORDER.
+- **İş sırası önerisi:** (1) `Account` tablosuna additive persona-profil kolonları (modesJson vb.) + seed; (2) `account-adapter`'ı DB-destekli async kaynak + in-process cache'e çevir (isKnownAccountHandle async'leşemez — senkron snapshot/bootstrap deseni gerekir: startup'ta yükle + değişimde invalidate); (3) z.enum → dinamik doğrulama; (4) UI'daki fallback literal listeleri kaldır.
+- **Riskler:** memory scope guard'ı (`assertScope`) ve voice constitutions handle'a bağlı — dinamikleşirken fail-closed kalmalı (bilinmeyen handle YAZAMAZ); Zustand `activeChannel` literal tipi; e2e sabit handle varsayımları; yeni hesap eklerken constitution/DNA boş → grounding graceful boş kalmalı.
+
 
 ### 2D — Thread üretim hattı
 - **Giriş noktaları:** `QueueItem.threadSegments` (typed alan Faz 1C'den beri var), `src/lib/ai/draft-pipeline.ts` (writer şeması thread üretmiyor), readiness thread segment doğrulaması (mevcut, fail-closed), segment editörü (DraftReviewCard).
