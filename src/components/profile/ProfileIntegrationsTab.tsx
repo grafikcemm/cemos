@@ -23,6 +23,49 @@ type Provider = {
   note?: string;
 };
 
+type ComposioBinding = {
+  connectionStatus: string;
+  externalHandle: string;
+  lastVerifiedAt: string | null;
+  lastSuccessfulSyncAt: string | null;
+  lastErrorClass: string;
+  lastSyncSummary: {
+    provider?: string;
+    fallbackUsed?: boolean;
+    fallbackReason?: string | null;
+    mediaFetched?: number;
+    mediaUpserted?: number;
+    commentsUpserted?: number;
+    insightCaptured?: boolean;
+    contentBridged?: number;
+  } | null;
+};
+
+type ComposioInfo = {
+  configured: boolean;
+  missingEnvNames: string[];
+  provider: "auto" | "composio" | "meta";
+  accountHandle: string;
+  toolkitVersion: string;
+  readOnly: true;
+  binding: ComposioBinding | null;
+};
+
+type SyncOutcome = {
+  ok: boolean;
+  provider: string;
+  fallbackUsed: boolean;
+  fallbackReason?: string;
+  mediaFetched: number;
+  mediaUpserted: number;
+  commentsUpserted: number;
+  insightCaptured: boolean;
+  contentBridged: number;
+  error?: string;
+  errorClass?: string;
+  warnings: string[];
+};
+
 type HealthEntry = { configured?: boolean; ok?: boolean; message?: string };
 type Health = {
   openrouter?: HealthEntry;
@@ -67,9 +110,12 @@ export default function ProfileIntegrationsTab() {
   const toast = useToast();
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const [providers, setProviders] = useState<Provider[] | null>(null);
+  const [composio, setComposio] = useState<ComposioInfo | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncOutcome | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +126,7 @@ export default function ProfileIntegrationsTab() {
       const iJson = await iRes.json();
       if (!iJson.success) throw new Error("payload");
       setProviders(iJson.providers ?? []);
+      setComposio(iJson.composio ?? null);
       if (hRes?.ok) setHealth(await hRes.json().catch(() => null));
     } catch {
       setFailed(true);
@@ -87,6 +134,48 @@ export default function ProfileIntegrationsTab() {
       setLoading(false);
     }
   }, []);
+
+  const runInstagramSync = useCallback(async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/instagram/sync", { method: "POST" });
+      const json = await res.json().catch(() => null);
+      const r = json?.result as SyncOutcome | undefined;
+      if (!res.ok || !json?.success || !r) {
+        setSyncResult({
+          ok: false,
+          provider: "none",
+          fallbackUsed: false,
+          mediaFetched: 0,
+          mediaUpserted: 0,
+          commentsUpserted: 0,
+          insightCaptured: false,
+          contentBridged: 0,
+          warnings: [],
+          error: json?.error ?? "Sync isteği başarısız",
+        });
+      } else {
+        setSyncResult(r);
+      }
+      await load();
+    } catch (e) {
+      setSyncResult({
+        ok: false,
+        provider: "none",
+        fallbackUsed: false,
+        mediaFetched: 0,
+        mediaUpserted: 0,
+        commentsUpserted: 0,
+        insightCaptured: false,
+        contentBridged: 0,
+        warnings: [],
+        error: e instanceof Error ? e.message : "Sync isteği başarısız",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  }, [load]);
 
   useEffect(() => {
     load();
@@ -162,6 +251,113 @@ export default function ProfileIntegrationsTab() {
           </Button>
         }
       />
+
+      {composio && (
+        <section data-testid="composio-card" style={{ marginBottom: "var(--stack)" }}>
+          <div className="eyebrow" style={{ color: "var(--text-muted)", marginBottom: 10 }}>
+            Composio · Instagram köprüsü
+          </div>
+          <Card padded>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {(() => {
+                  const st = !composio.configured
+                    ? { label: "yapılandırma gerekli", variant: "muted" as const }
+                    : composio.binding?.connectionStatus === "connected"
+                      ? { label: "bağlı", variant: "success" as const }
+                      : composio.binding?.connectionStatus === "blocked"
+                        ? { label: "engelli", variant: "danger" as const }
+                        : composio.binding?.connectionStatus === "degraded"
+                          ? { label: "sorunlu", variant: "yellow" as const }
+                          : { label: "yapılandırıldı · doğrulanmadı", variant: "yellow" as const };
+                  return (
+                    <span data-testid="composio-status">
+                      <Badge variant={st.variant} size="sm">{st.label}</Badge>
+                    </span>
+                  );
+                })()}
+                <span data-testid="composio-readonly">
+                  <Badge variant="muted" size="sm">salt-okuma</Badge>
+                </span>
+                {composio.binding?.lastSyncSummary?.fallbackUsed && (
+                  <span data-testid="composio-fallback-warning">
+                    <Badge variant="yellow" size="sm">
+                      fallback: Meta ({composio.binding.lastSyncSummary.fallbackReason ?? "composio kullanılamadı"})
+                    </Badge>
+                  </span>
+                )}
+              </div>
+              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                Bağlı IG hesabı:{" "}
+                <strong data-testid="composio-external-handle">
+                  {composio.binding?.externalHandle ? `@${composio.binding.externalHandle}` : "henüz doğrulanmadı"}
+                </strong>
+                {" · "}CemOS hesabı:{" "}
+                <strong data-testid="composio-bound-account">
+                  {composio.accountHandle ? `@${composio.accountHandle}` : "binding yok"}
+                </strong>
+                {" · "}Sağlayıcı modu: <strong>{composio.provider}</strong>
+                {composio.toolkitVersion ? <>{" · "}Toolkit: <strong>{composio.toolkitVersion}</strong></> : null}
+              </p>
+              <p style={{ margin: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }} data-testid="composio-last-sync">
+                Son başarılı sync:{" "}
+                {composio.binding?.lastSuccessfulSyncAt
+                  ? new Date(composio.binding.lastSuccessfulSyncAt).toLocaleString("tr-TR")
+                  : "henüz yok"}
+                {composio.binding?.lastSyncSummary
+                  ? ` · medya ${composio.binding.lastSyncSummary.mediaUpserted ?? 0} · yorum ${composio.binding.lastSyncSummary.commentsUpserted ?? 0} · insight ${composio.binding.lastSyncSummary.insightCaptured ? "✓" : "—"} · içerik köprüsü ${composio.binding.lastSyncSummary.contentBridged ?? 0}`
+                  : ""}
+              </p>
+              {!composio.configured && (
+                <p
+                  data-testid="composio-missing-env"
+                  style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--status-warn-text)", lineHeight: 1.6 }}
+                >
+                  Bağlantı için eksik env: {composio.missingEnvNames.map((n) => n).join(" · ")}. Instagram hesabın
+                  Composio'da zaten bağlı — yalnız server env değerlerinin (gizli değerler buraya yazılmaz)
+                  tanımlanması gerekiyor. Yeni OAuth akışı GEREKMEZ.
+                </p>
+              )}
+              {composio.binding?.lastErrorClass && composio.binding.connectionStatus !== "connected" && (
+                <p style={{ margin: 0, fontSize: "var(--text-2xs)", color: "var(--status-warn-text)" }}>
+                  Son hata sınıfı: {composio.binding.lastErrorClass}
+                </p>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  data-testid="composio-sync"
+                  disabled={syncing}
+                  onClick={runInstagramSync}
+                  iconLeft={<RefreshCw size={14} strokeWidth={2} className={syncing ? "animate-spin" : undefined} />}
+                >
+                  {syncing ? "Senkronize ediliyor…" : "Instagram verilerini senkronize et"}
+                </Button>
+                <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                  Yalnız okuma: profil + medya + insight + yorum. Yayınlama/DM yok.
+                </span>
+              </div>
+              {syncResult && (
+                <p
+                  data-testid="composio-sync-result"
+                  style={{
+                    margin: 0,
+                    fontSize: "var(--text-xs)",
+                    lineHeight: 1.6,
+                    color: syncResult.ok ? "var(--status-ok-text, var(--text-secondary))" : "var(--status-warn-text)",
+                  }}
+                >
+                  {syncResult.ok
+                    ? `Sync tamam (${syncResult.provider}${syncResult.fallbackUsed ? " · fallback" : ""}): medya ${syncResult.mediaUpserted}/${syncResult.mediaFetched}, yorum ${syncResult.commentsUpserted}, insight ${syncResult.insightCaptured ? "✓" : "bugün zaten alınmış"}, içerik köprüsü ${syncResult.contentBridged}.`
+                    : `Sync başarısız${syncResult.errorClass ? ` (${syncResult.errorClass})` : ""}: ${syncResult.error ?? "bilinmeyen hata"}`}
+                  {syncResult.warnings.length > 0 && ` · ${syncResult.warnings.length} uyarı`}
+                </p>
+              )}
+            </div>
+          </Card>
+        </section>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
         {groups.map((g) => {
