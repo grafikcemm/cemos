@@ -49,15 +49,18 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
   await page.goto("/");
   await selectTab(page, "flow-radar");
 
+  // Faz 1D: yeniden tasarlanmış ViralRadarScreen sessiz MetricGrid'i (label
+  // "Toplam aday") başlangıç yüklemesinde de render eder; summary null → "–"
+  // (skeleton yalnız aday listesinde). Sözleşme aynı: yüklenirken sahte 0 yok.
   const totalCard = page
     .locator("div")
-    .filter({ hasText: /^Toplam Aday/ })
+    .filter({ hasText: /^Toplam aday/ })
     .first();
   await expect(totalCard).toBeVisible();
   // While the fetch is gated the widget must show the dash placeholder —
   // never a misleading hard "0".
   await expect(totalCard).toContainText("–");
-  await expect(totalCard).not.toContainText(/Toplam Aday0/);
+  await expect(totalCard).not.toContainText(/Toplam aday0/);
 
   releaseResponse();
   // After the response lands the placeholders resolve to the real numbers.

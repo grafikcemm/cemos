@@ -47,7 +47,8 @@ test("Plan alanı subnav ile açılır ve Fırsatlar'a geçer", async ({ page })
   await expect(page.getByTestId("subnav-tab-plan-takvim")).toBeVisible();
   await page.getByTestId("subnav-tab-plan-firsatlar").click();
   await expect(page.getByRole("banner").getByText("Fırsatlar")).toBeVisible();
-  await expect(page.getByTestId("host-placeholder")).toBeVisible();
+  // Faz 1D: gerçek Fırsatlar yüzeyi (placeholder değil) — segment filtresi görünür.
+  await expect(page.getByTestId("opp-segment-all")).toBeVisible();
 });
 
 test("Kütüphane alanı Tümü host'unu açar", async ({ page }) => {
@@ -56,7 +57,8 @@ test("Kütüphane alanı Tümü host'unu açar", async ({ page }) => {
   await expect(page.getByRole("banner").getByText("Kütüphane", { exact: true })).toBeVisible();
   await expect(page.getByTestId("subnav-tab-lib-tumu")).toBeVisible();
   await expect(page.getByTestId("subnav-tab-lib-ogrenme")).toBeVisible();
-  await expect(page.getByTestId("host-placeholder")).toBeVisible();
+  // Faz 1D: gerçek Kütüphane/Tümü yüzeyi (placeholder değil) — birleşik arama kutusu.
+  await expect(page.getByTestId("lib-search")).toBeVisible();
 });
 
 test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana navda değil)", async ({ page }) => {
