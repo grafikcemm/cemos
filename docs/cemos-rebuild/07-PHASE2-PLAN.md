@@ -6,8 +6,8 @@
 
 | Dilim | Kapsam | Durum |
 |---|---|---|
-| **2A** | Config-driven agent/skill registry + execution contract + kalıcı fırsat aktarımı (OpportunityHandoff) + trace/cost sözleşmesi | **BU PASS** |
-| **2B** | Memory governance derinleşmesi: edit-diff/red/onay/performans öğrenme sinyalleri, "Benim hakkımda ne biliyorsun?" kaynaklı cevap | sonra |
+| **2A** | Config-driven agent/skill registry + execution contract + kalıcı fırsat aktarımı (OpportunityHandoff) + trace/cost sözleşmesi | ✅ KAPANDI (7 commit: b300e84…8e251ac; ADR-027/028) |
+| **2B** | Memory governance: MemoryEvidence ledger (distinct-source idempotency), insan-onaylı promotion (learned fact otomatik aktifleşmez — 3 kanıt = yalnız review-ready), deterministik feedback→memory sinyal köprüsü + reconciliation, performans dersleri ↔ identity ayrımı, kaynaklı "CemOS benim hakkımda ne biliyor?" read modeli + Profil Memory derinleşmesi, üretimde kullanılan MemoryFact influence provenance'ı | **BU PASS (kullanıcı onayı 2026-07-16)** |
 | **2C** | Dinamik hesap kaynağı (ADR-016 kapanışı): persona/mode source-of-truth TS→DB | sonra |
 | **2D** | Doğrudan thread segment üretimi + backfill + kalite eşik kalibrasyonu (ADR-010: typed alan Faz 1C'de eklendi; ÜRETİM hattı burada) | sonra |
 | **2E** | Phase 2 eval/observability kapanışı: registry eval koşuları, canlı OpenRouter kürasyonu (kredi sonrası), operatorReadiness–todayReadiness birleşim kararı | sonra |
