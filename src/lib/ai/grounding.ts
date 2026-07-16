@@ -2,7 +2,7 @@ import type { AccountProfile } from "@/lib/accounts";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
-import { buildIdentityMemoryBlock, rerankMemoryContext } from "@/lib/memory/retrieval";
+import { buildIdentityMemoryContext, rerankMemoryContext } from "@/lib/memory/retrieval";
 
 /**
  * örn2 brand-voice discipline listesi artık tek kaynaktan gelir
@@ -22,6 +22,11 @@ export type GroundingContext = {
   /** IDs of the live viral SourcePosts injected as "what's working now"
    * research context (xpatla-parity). Stored alongside patternIds. */
   sourcePostIds: string[];
+  /** Faz 2B (ADR-030, additive): taslağı GERÇEKTEN etkileyen aktif MemoryFact
+   * id'leri — QueueItem scores JSON'una influence provenance olarak yazılır.
+   * Yalnız active fact girebilir (retrieval yalnız active okur); identity
+   * bloğu düşerse boş kalır → sahte influence kaydı imkânsız. */
+  memoryFactIds: string[];
 };
 
 /**
@@ -39,15 +44,20 @@ export async function buildGroundingContext(
   const parts: string[] = [];
   const patternIds: string[] = [];
   const sourcePostIds: string[] = [];
+  const memoryFactIds: string[] = [];
 
   // 0) Identity hafızası (Sprint 3 — MEMORY-SPEC §5.4): ses anayasası (Tier 1)
   //    + operatör-onaylı aktif MemoryFact kuralları + DNA özeti. Her zaman EN
   //    BAŞTA — kimlik çapası recall örneklerinden önce gelir. Fail-soft.
   try {
-    const identityBlock = await buildIdentityMemoryBlock(profile.handle);
-    if (identityBlock.trim()) parts.push(identityBlock.trim());
+    const identity = await buildIdentityMemoryContext(profile.handle);
+    if (identity.block.trim()) {
+      parts.push(identity.block.trim());
+      // ADR-030: dedupe — aynı fact id iki kez yazılmaz.
+      memoryFactIds.push(...Array.from(new Set(identity.memoryFactIds)));
+    }
   } catch {
-    /* fail-soft */
+    /* fail-soft — blok girmediyse influence de kaydedilmez */
   }
 
   // 1) Mined viral patterns (the externally-learned "training").
@@ -124,7 +134,7 @@ export async function buildGroundingContext(
     );
   }
 
-  return { block: parts.join("\n\n"), patternIds, sourcePostIds };
+  return { block: parts.join("\n\n"), patternIds, sourcePostIds, memoryFactIds };
 }
 
 /** Back-compat string wrapper around {@link buildGroundingContext}. */

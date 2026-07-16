@@ -154,7 +154,7 @@ export const draftService = {
     // ── Phase 3 grounding: prepend mined viral patterns + semantic memory +
     //    brand-voice discipline so the writer is grounded, not generic. Fail-soft. ──
     const groundingCtx = await buildGroundingContext(profile, account.id, sourceText, sourceType).catch(
-      () => ({ block: "", patternIds: [] as string[], sourcePostIds: [] as string[] })
+      () => ({ block: "", patternIds: [] as string[], sourcePostIds: [] as string[], memoryFactIds: [] as string[] })
     );
     const grounding = groundingCtx.block;
     const groundedInput = grounding ? `${grounding}\n\n--- KAYNAK ---\n${sourceInput}` : sourceInput;
@@ -316,6 +316,12 @@ export const draftService = {
         // Engagement learning loop re-weights exactly these patterns later.
         groundingPatternIds: groundingCtx.patternIds,
         groundingSourcePostIds: groundingCtx.sourcePostIds,
+        // Faz 2B (ADR-030, additive): taslağı GERÇEKTEN etkileyen aktif
+        // MemoryFact id'leri — "bu taslakta şu onaylı kuralları kullandım".
+        // Yalnız active id girer (retrieval yalnız active okur); grounding
+        // düştüyse boş dizi; dedupe grounding'de. Eski scores JSON'ları bu
+        // alan olmadan okunmaya devam eder.
+        groundingMemoryFactIds: groundingCtx.memoryFactIds ?? [],
         // Sprint 9 — 14 alt-skor (EVAL14_ENABLED açıkken dolu; UI sözleşmesi:
         // alan yoksa eski 8-sinyal görünümü aynen sürer).
         ...(eval14

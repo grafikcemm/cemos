@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/db/client", () => ({
-  prisma: {
+vi.mock("@/lib/db/client", () => {
+  const prisma = {
     feedbackEvent: { findMany: vi.fn() },
     memoryFact: {
       findMany: vi.fn(() => Promise.resolve([])),
@@ -10,8 +10,16 @@ vi.mock("@/lib/db/client", () => ({
       update: vi.fn(),
       updateMany: vi.fn(() => Promise.resolve({ count: 0 })),
     },
-  },
-}));
+    // Faz 2B: proposeFact artık kanıt defteri + transaction kullanır.
+    memoryEvidence: {
+      findUnique: vi.fn(() => Promise.resolve(null)),
+      create: vi.fn(() => Promise.resolve({ id: "ev" })),
+      count: vi.fn(() => Promise.resolve(0)),
+    },
+    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
+  };
+  return { prisma };
+});
 vi.mock("@/lib/db/accountRepo", () => ({
   accountRepo: { findByHandle: vi.fn() },
 }));

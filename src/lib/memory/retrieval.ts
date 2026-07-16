@@ -25,10 +25,14 @@ function safeJsonArray(raw: string | null | undefined): string[] {
   }
 }
 
-/** Aktif identity kurallarını talimat satırlarına çevirir (en fazla 8). */
-async function buildFactLines(accountHandle: string): Promise<string[]> {
+/** Aktif identity kurallarını talimat satırlarına çevirir (en fazla 8) + kullanılan id'ler. */
+async function buildFactLines(accountHandle: string): Promise<{ lines: string[]; factIds: string[] }> {
   const facts = await getActiveFacts(accountHandle);
-  return facts.slice(0, 8).map((f) => `- [${f.type}] ${f.statement}`);
+  const used = facts.slice(0, 8);
+  return {
+    lines: used.map((f) => `- [${f.type}] ${f.statement}`),
+    factIds: used.map((f) => f.id),
+  };
 }
 
 /** CaptionDna/HashtagDna kısa özeti — satır varsa eklenir, yoksa atlanır. */
@@ -115,37 +119,67 @@ export async function rerankMemoryContext(
   }
 }
 
+/** Faz 2B (ADR-030): identity bloğu + üretimi GERÇEKTEN etkileyen kaynaklar. */
+export type IdentityMemoryContext = {
+  block: string;
+  /** Bloğa giren AKTİF MemoryFact id'leri (yalnız active — proposal/superseded imkânsız). */
+  memoryFactIds: string[];
+  policyVersion: string;
+  /** Blokta kullanılan DNA/profil referansları (belgeleyici). */
+  dnaRefs: string[];
+};
+
+export const IDENTITY_MEMORY_POLICY_VERSION = "2B";
+
 /**
- * Identity hafıza bloğu — grounding'in EN BAŞINA eklenir (§5.4 sıralaması).
- * Boş string = enjekte edilecek içerik yok.
+ * Identity hafıza bağlamı — grounding'in EN BAŞINA eklenir (§5.4 sıralaması).
+ * Typed dönüş: kullanılan fact id'leri influence provenance'a akar (ADR-030).
  */
-export async function buildIdentityMemoryBlock(accountHandle: string): Promise<string> {
+export async function buildIdentityMemoryContext(accountHandle: string): Promise<IdentityMemoryContext> {
   const parts: string[] = [];
+  const dnaRefs: string[] = [];
+  let memoryFactIds: string[] = [];
 
   const constitution = getVoiceConstitution(accountHandle);
   if (constitution) {
     parts.push(`=== SES ANAYASASI (değişmez çapa — her kuralı uygula) ===\n${constitution}`);
+    dnaRefs.push(`voice_constitution:${accountHandle}`);
   }
 
   try {
-    const factLines = await buildFactLines(accountHandle);
-    if (factLines.length > 0) {
+    const facts = await buildFactLines(accountHandle);
+    if (facts.lines.length > 0) {
       parts.push(
-        `=== ÖĞRENİLMİŞ KURALLAR (operatör onaylı hafıza) ===\n${factLines.join("\n")}`
+        `=== ÖĞRENİLMİŞ KURALLAR (operatör onaylı hafıza) ===\n${facts.lines.join("\n")}`
       );
+      memoryFactIds = facts.factIds;
     }
   } catch {
-    /* fail-soft */
+    /* fail-soft — üretim başarısızsa sahte influence kaydı da oluşmaz */
   }
 
   try {
     const dnaLines = await buildDnaSummary(accountHandle);
     if (dnaLines.length > 0) {
       parts.push(`=== YAZIM DNA ÖZETİ ===\n${dnaLines.join("\n")}`);
+      dnaRefs.push(`writing_dna:${accountHandle}`);
     }
   } catch {
     /* fail-soft */
   }
 
-  return parts.join("\n\n");
+  return {
+    block: parts.join("\n\n"),
+    memoryFactIds,
+    policyVersion: IDENTITY_MEMORY_POLICY_VERSION,
+    dnaRefs,
+  };
+}
+
+/**
+ * Geriye-uyum sarmalayıcı: eski string sözleşmesi korunur (mevcut çağıranlar
+ * kırılmaz); yeni kod buildIdentityMemoryContext kullanmalı.
+ */
+export async function buildIdentityMemoryBlock(accountHandle: string): Promise<string> {
+  return (await buildIdentityMemoryContext(accountHandle)).block;
 }
