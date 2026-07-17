@@ -298,9 +298,11 @@ export default function InstagramDnaSection({
           {data.binding?.staleSync && (
             <Badge variant="yellow" size="sm">sync bayat</Badge>
           )}
-          <Badge variant={sufficient ? "success" : "yellow"} size="sm" data-testid="ig-dna-sufficiency">
-            {sufficient ? "örneklem yeterli" : "örneklem yetersiz"}
-          </Badge>
+          <span data-testid="ig-dna-sufficiency">
+            <Badge variant={sufficient ? "success" : "yellow"} size="sm">
+              {sufficient ? "örneklem yeterli" : "örneklem yetersiz"}
+            </Badge>
+          </span>
           <Button size="sm" variant="ghost" onClick={load} iconLeft={<RefreshCw size={13} strokeWidth={2} />} aria-label="Gözlemi yenile">
             Yenile
           </Button>
