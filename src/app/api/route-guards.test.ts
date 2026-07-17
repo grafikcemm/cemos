@@ -28,6 +28,7 @@ import { GET as repoRadarGET } from "./repo-radar/route";
 import { GET as evalRunsGET } from "./eval/runs/route";
 import { GET as dnaObservationGET } from "./instagram/dna-observation/route";
 import { POST as dnaApplyPOST } from "./instagram/dna-observation/apply/route";
+import { POST as igContentGeneratePOST } from "./instagram/content/generate/route";
 import { GET as sourcePostsGET } from "./source-posts/route";
 import { GET as reelsDossierGET } from "./reels/dossier/route";
 import { GET as reelsDossierDetailGET } from "./reels/dossier/[id]/route";
@@ -69,6 +70,7 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     // beslenir. operator-scan-now POST'u yaşamaya devam eder.
     ["/api/instagram/dna-observation", dnaObservationGET],
     ["/api/instagram/dna-observation/apply", dnaApplyPOST],
+    ["/api/instagram/content/generate", igContentGeneratePOST],
     ["/api/source-posts", sourcePostsGET],
     ["/api/reels/dossier", reelsDossierGET],
     ["/api/reels/dossier/abc", (req) => reelsDossierDetailGET(req, dummyIdCtx)],

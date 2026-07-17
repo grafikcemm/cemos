@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
 import PlanHandoffBand from "./PlanHandoffBand";
 import { useAccounts } from "./useAccounts";
+import { SlotDossierActions, DossierDetailPanel } from "./TakvimDossierPanels";
 import {
   monthMatrix,
   monthLabel,
@@ -42,7 +43,7 @@ import {
 type Channel = "all" | "x" | "instagram" | "reels";
 type ViewMode = "month" | "week";
 
-type CalItem = {
+export type CalItem = {
   id: string;
   channel: "x" | "reels";
   day: number;
@@ -53,6 +54,10 @@ type CalItem = {
   pillar?: string;
   content?: string;
   scheduledAt?: string;
+  /** Reels slotu için ham ReelPlanSlot id'si + üretim prefill'i (ADR-036 §H). */
+  slotRawId?: string;
+  seriesKey?: string | null;
+  topicHint?: string;
 };
 
 type DossierRow = {
@@ -132,7 +137,7 @@ export default function TakvimTab() {
       const [planRes, queueRes, dosRes] = await Promise.all([
         fetch(`/api/reels/plan?accountId=${encodeURIComponent(accountId)}&month=${monthStr}`),
         handle ? fetch(`/api/queue?account=${encodeURIComponent(handle)}`).catch(() => null) : Promise.resolve(null),
-        fetch("/api/reels/dossier").catch(() => null),
+        fetch(`/api/reels/dossier?accountId=${encodeURIComponent(accountId)}`).catch(() => null),
       ]);
       if (!planRes.ok) throw new Error("http");
       const plan = await planRes.json();
@@ -148,6 +153,9 @@ export default function TakvimTab() {
           dossierId: s.dossierId,
           status: s.status,
           pillar: s.pillar,
+          slotRawId: s.id,
+          seriesKey: s.seriesKey ?? null,
+          topicHint: s.topicHint,
         })),
       );
       setStaleFlags(plan.staleFlags ?? []);
@@ -442,20 +450,26 @@ export default function TakvimTab() {
                   <DrawerField label="Format" value={activeDossier.format} />
                   <DrawerField label="Hook" value={activeDossier.hook} multiline />
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Hazırlık</span>
+                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Site kanıtı</span>
                     <Badge variant={READINESS_META[activeDossier.finalReadiness].variant} size="sm">
                       {READINESS_META[activeDossier.finalReadiness].label}
                     </Badge>
                   </div>
+                  {/* ADR-036 §H: tam detay + editoryal/onay ayrımı — canlı fetch */}
+                  <DossierDetailPanel accountId={accountId} dossierId={activeDossier.id} />
                   <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
-                    Not: araç adlı dossier geçerli site kanıtı olmadan &quot;kontrolleri geçti&quot; görünmez.
+                    Not: araç adlı dossier geçerli site kanıtı olmadan &quot;kontrolleri geçti&quot; görünmez;
+                    site kanıtı editoryal onay DEĞİLDİR.
                   </p>
                 </>
               ) : (
-                <BlockedExternalState
-                  compact
-                  title="Bu slot için dossier üretilmedi"
-                  description={`${active.pillar ? `Sütun: ${active.pillar}. ` : ""}Reels senaryosu henüz hazırlanmadı. Dossier üretimi Reels araştırma akışından yapılır.`}
+                <SlotDossierActions
+                  accountId={accountId}
+                  slot={active}
+                  onDone={() => {
+                    setActive(null);
+                    void load();
+                  }}
                 />
               )
             ) : (

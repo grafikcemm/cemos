@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import SeriesHandoffBand, { SeriesCandidateTopics } from "./SeriesHandoffBand";
 import InstagramDnaSection from "./InstagramDnaSection";
+import CarouselStudio from "./CarouselStudio";
 import { useAccounts } from "./useAccounts";
 
 /**
@@ -131,6 +132,8 @@ export default function SerilerTab() {
   const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
   // Fırsat aktarımı bağlanınca aday-konu listesi tazelensin (ADR-028).
   const [handoffVersion, setHandoffVersion] = useState(0);
+  // ADR-036 §H: aday konudan stüdyoya prefill (Bölüm üret).
+  const [studioPrefill, setStudioPrefill] = useState<{ topic: string; handoffId: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -485,6 +488,24 @@ export default function SerilerTab() {
           key={`${selected.seriesKey}-${handoffVersion}`}
           accountId={accounts[0]?.id}
           seriesKey={selected.seriesKey}
+          onGenerate={(h) => setStudioPrefill({ topic: h.title, handoffId: h.id })}
+        />
+      )}
+
+      {/* Carousel üretim + review stüdyosu (ADR-036 §H) */}
+      {selected && (
+        <CarouselStudio
+          accountId={accounts[0]?.id}
+          series={{
+            id: selected.id,
+            seriesKey: selected.seriesKey,
+            name: selected.name,
+            version: selected.version,
+            promptVersion: selected.promptVersion,
+          }}
+          prefillTopic={studioPrefill?.topic}
+          prefillHandoffId={studioPrefill?.handoffId}
+          onPrefillConsumed={() => setStudioPrefill(null)}
         />
       )}
 

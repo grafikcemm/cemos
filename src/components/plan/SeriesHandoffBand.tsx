@@ -105,7 +105,16 @@ export default function SeriesHandoffBand({ accountId, seriesOptions, onAttached
  * (consumed handoff + resultRef=seriesKey). Sessiz yardımcı kart; boşken
  * hiç görünmez.
  */
-export function SeriesCandidateTopics({ accountId, seriesKey }: { accountId?: string; seriesKey: string }) {
+export function SeriesCandidateTopics({
+  accountId,
+  seriesKey,
+  onGenerate,
+}: {
+  accountId?: string;
+  seriesKey: string;
+  /** ADR-036 §H: aday konudan "Bölüm üret" — stüdyoya prefill aktarır. */
+  onGenerate?: (h: { id: string; title: string }) => void;
+}) {
   const [items, setItems] = useState<HandoffDto[]>([]);
 
   const load = useCallback(async () => {
@@ -138,8 +147,18 @@ export function SeriesCandidateTopics({ accountId, seriesKey }: { accountId?: st
           {items.map((h) => (
             <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <Badge variant="accent" size="sm">{h.suggestedPlatform}</Badge>
-              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{h.title}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: "var(--text-sm)", color: "var(--text-primary)" }}>{h.title}</span>
               {h.whyNow && <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>· {h.whyNow}</span>}
+              {onGenerate && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onGenerate({ id: h.id, title: h.title })}
+                  data-testid={`candidate-generate-${h.id}`}
+                >
+                  Bölüm üret
+                </Button>
+              )}
             </div>
           ))}
         </div>
