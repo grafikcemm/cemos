@@ -95,8 +95,7 @@ export default function CarouselStudio({
       setHandoffId(prefillHandoffId);
       onPrefillConsumed?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillTopic, prefillHandoffId]);
+  }, [prefillTopic, prefillHandoffId, onPrefillConsumed]);
 
   const loadList = useCallback(async () => {
     if (!accountId) return;

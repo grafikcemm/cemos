@@ -63,13 +63,16 @@ Kapanış sınıflandırması: Composio ID/handle mevcut değilse
 "Phase 3A production contract tamamlandı; live Instagram activation
 BLOCKED-EXTERNAL."
 
-## Phase 3B — İnsan onaylı DNA → gerçek carousel/Reels üretimi (SONRAKİ)
+## Phase 3B — İnsan onaylı DNA → gerçek carousel/Reels üretimi ✅ KAPANDI (ADR-036; 2026-07-18)
 
-- `buildCarouselPrompt` çıktısını gerçek üretim akışına bağla: taslak üret →
-  slide/caption edit ekranı → onay → TrainingExample (seriesKey'li) besleme.
-- Reels senaryo üretimi `ReelDossier` sözleşmesi üzerinden (evidence gate aynen).
-- Canlı LLM yalnız Phase 2E kapıları + budget class ile.
-- Yeniden kullanılacak: draftService hattı, readiness, PublishAttempt intent.
+Sınıflandırma: **production contract complete / live generation activation
+BLOCKED-EXTERNAL** (rotation + INSTAGRAM_GENERATION_* env'leri yok — sıfır
+canlı çağrı). Teslim: ayrı ürün kapısı, buildCarouselPrompt'lu strict carousel
+generator, sertleştirilmiş atomik Reels motoru (dinamik VOICE, yarım dossier
+imkânsız), üç-durum editoryal readiness, optimistic-concurrency edit + advisory-
+lock idempotent onay + seriesKey'li TrainingExample döngüsü, Seriler/Takvim
+üretim-review UI'ı, slot-attach sözleşmesi. Yeni migration YOK. Detay: ADR-036 +
+IMPLEMENTATION-STATE.
 
 ## Phase 3C — Rakip/ilham kütüphanesi + yapısal analiz
 
