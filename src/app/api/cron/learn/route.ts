@@ -257,6 +257,30 @@ async function runLearn(handleParam: string | null) {
     patternPromotion = out;
   }
 
+  // Registry contract eval (Faz 2E, ADR-034 §H): haftalık Pazartesi, AYNI slot
+  // (yeni Vercel cron YOK). Deterministik + hermetic + ücretsiz. İdempotency:
+  // bu hafta cron-tetiklemeli registry_contract koşusu varsa atlanır. Fail-open
+  // — eval hatası learn ingestion'ı ASLA bozmaz; canlı/ücretli eval cron'dan
+  // DEFAULT çalışmaz (yalnız manuel CLI + güvenlik kapıları).
+  let registryEval: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { evalRunRepo } = await import("@/lib/db/evalRunRepo");
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const latest = await evalRunRepo.latestRunByKind("registry_contract");
+      const alreadyThisWeek = latest != null && latest.trigger === "cron" && latest.startedAt >= weekAgo;
+      if (alreadyThisWeek) {
+        registryEval = { skipped: "already_ran_this_week", runId: latest.id };
+      } else {
+        const { runRegistryContractEval } = await import("@/lib/eval/registryContractRunner");
+        const res = await runRegistryContractEval({ trigger: "cron" });
+        registryEval = { runId: res.runId, status: res.status, passed: res.passed, failed: res.failed };
+      }
+    } catch (err) {
+      registryEval = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   // News catch-up: drain any translate/analyze leftovers the morning cron's
   // capped news window did not finish. Fail-open, time-budgeted.
   let newsCatchup: unknown = null;
@@ -280,10 +304,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion, registryEval },
     });
   }
-  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion, registryEval };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

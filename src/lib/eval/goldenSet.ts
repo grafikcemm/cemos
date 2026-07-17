@@ -21,7 +21,7 @@ export type GoldenCase = {
   testName: string;
   sourceContent: string;
   expectedBehavior: string;
-  kind: "good_generate" | "good_direct" | "bad_direct";
+  kind: "good_generate" | "good_direct" | "bad_direct" | "thread_contract";
 };
 
 /** Gerçek hesap hook'ları (accounts/profil kürasyonundan) — bilinen-iyi. */
@@ -80,6 +80,48 @@ const GOOD_GENERATE_PASS = "PASS: personamatch >= 60, clarity >= 60, risk <= 35"
 const GOOD_DIRECT_PASS = "MODE: score_direct\nPASS: publish >= 50, risk <= 40";
 const BAD_DIRECT_PASS = "MODE: score_direct\nPASS: publish <= 55 OR risk >= 45";
 
+// Faz 2E (ADR-034 §D): thread sözleşmesi golden case'leri — DETERMINISTIC ve
+// LLM'siz. sourceContent = JSON segment listesi; runner validateThreadSegments
+// ile 280-limit/≥2-segment/boş-segment sözleşmesini doğrular. Kalibrasyon 10/10
+// etiketli örneğe ulaşana kadar skor eşikleri PROVISIONAL kalır — bu case'ler
+// eşik DEĞİL yapısal sözleşme test eder.
+const THREAD_GOOD_PASS = "MODE: thread_contract\nPASS: valid >= 1";
+const THREAD_BAD_PASS = "MODE: thread_contract\nPASS: valid <= 0";
+
+const THREAD_GOOD_SEGMENTS = [
+  "Yeni AI görüntü aracını 3 client işinde denedim — dökümü paylaşıyorum.",
+  "Kurulum: tek komut, preset hazır. İlk çıktı 40 saniyede geldi.",
+  "Stil kilidi: referans görseli sabitleyip sahneyi değiştirmek mümkün.",
+  "Sınır: metin render'ı hâlâ zayıf — logo/tipografi işinde kullanma.",
+  "Sonuç: moodboard ve konsept aşamasında ciddi zaman kazandırıyor.",
+];
+
+const THREAD_BAD_SEGMENTS = [
+  "Hook segmenti normal uzunlukta.",
+  // 281 karakter — segment sınırı ihlali (validator reddetmeli).
+  "x".repeat(281),
+  "Kapanış segmenti.",
+];
+
+function buildThreadContractCases(handle: "grafikcem" | "maskulenkod"): GoldenCase[] {
+  return [
+    {
+      accountHandle: handle,
+      testName: `golden:${handle}:thread-contract-good-1`,
+      sourceContent: JSON.stringify(THREAD_GOOD_SEGMENTS),
+      expectedBehavior: THREAD_GOOD_PASS,
+      kind: "thread_contract",
+    },
+    {
+      accountHandle: handle,
+      testName: `golden:${handle}:thread-contract-bad-1`,
+      sourceContent: JSON.stringify(THREAD_BAD_SEGMENTS),
+      expectedBehavior: THREAD_BAD_PASS,
+      kind: "thread_contract",
+    },
+  ];
+}
+
 export function buildGoldenSeedCases(): GoldenCase[] {
   const cases: GoldenCase[] = [];
   const accounts = ["grafikcem", "maskulenkod"] as const;
@@ -120,6 +162,9 @@ export function buildGoldenSeedCases(): GoldenCase[] {
         kind: "bad_direct",
       });
     });
+
+    // 4) Faz 2E: thread sözleşmesi (deterministik iyi/kötü — LLM'siz).
+    cases.push(...buildThreadContractCases(handle));
   }
 
   return cases;

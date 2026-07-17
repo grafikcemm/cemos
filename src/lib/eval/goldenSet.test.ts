@@ -21,13 +21,18 @@ describe("eval golden set (item 19)", () => {
       expect(forAccount.filter((c) => c.kind === "good_generate").length).toBeGreaterThanOrEqual(4);
       expect(forAccount.filter((c) => c.kind === "good_direct").length).toBeGreaterThanOrEqual(9);
       expect(forAccount.filter((c) => c.kind === "bad_direct").length).toBe(10);
+      // Faz 2E (ADR-034 §D): hesap başına 2 deterministik thread sözleşme vakası.
+      expect(forAccount.filter((c) => c.kind === "thread_contract").length).toBe(2);
     }
   });
 
   it("her vaka PASS satırı taşır; direct vakalar MODE: score_direct işaretli", () => {
     for (const c of cases) {
       expect(c.expectedBehavior, c.testName).toMatch(/PASS:/);
-      if (c.kind !== "good_generate") {
+      // Faz 2E: thread_contract vakaları kendi MODE işaretini taşır.
+      if (c.kind === "thread_contract") {
+        expect(c.expectedBehavior, c.testName).toMatch(/MODE:\s*thread_contract/);
+      } else if (c.kind !== "good_generate") {
         expect(c.expectedBehavior, c.testName).toMatch(/MODE:\s*score_direct/);
       }
     }
