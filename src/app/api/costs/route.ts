@@ -18,18 +18,31 @@ type UsageLogRow = {
   meta: string | null;
 };
 
-function parseMeta(meta: string | null): { purpose: string | null; preset: string | null } {
-  if (!meta) return { purpose: null, preset: null };
+function parseMeta(meta: string | null): { purpose: string | null; preset: string | null; budgetClass: string | null } {
+  if (!meta) return { purpose: null, preset: null, budgetClass: null };
   try {
-    const parsed = JSON.parse(meta) as { purpose?: unknown; preset?: unknown };
+    const parsed = JSON.parse(meta) as { purpose?: unknown; preset?: unknown; budgetClass?: unknown };
     return {
       purpose: typeof parsed.purpose === "string" ? parsed.purpose : null,
       preset: typeof parsed.preset === "string" ? parsed.preset : null,
+      budgetClass: typeof parsed.budgetClass === "string" ? parsed.budgetClass : null,
     };
   } catch {
-    return { purpose: null, preset: null };
+    return { purpose: null, preset: null, budgetClass: null };
   }
 }
+
+/**
+ * Faz 2E (ADR-034 §I): evaluation harcaması ayrı sınıflanır — meta.budgetClass
+ * "evaluation" VEYA purpose "eval_" prefix'i. Production kürasyon harcaması
+ * (research_opportunity_curation) evaluation DEĞİLDİR — ayrı gösterilir.
+ */
+function isEvaluationRow(row: UsageLogRow): boolean {
+  const meta = parseMeta(row.meta);
+  return meta.budgetClass === "evaluation" || (meta.purpose ?? "").startsWith("eval_");
+}
+
+const CURATION_PURPOSE = "research_opportunity_curation";
 
 function parsePurpose(meta: string | null): string | null {
   return parseMeta(meta).purpose;
@@ -168,6 +181,18 @@ export async function GET(req: NextRequest) {
       },
       lineItems,
       budgetStatus,
+      // Faz 2E (ADR-034 §I): evaluation bütçesi/harcaması — production curation
+      // harcamasından AYRI (farklı purpose/budget class).
+      evaluation: {
+        enabled: limits.evalSpendEnabled,
+        monthlyBudgetUsd: limits.evalMonthlyBudgetUsd,
+        monthSpendUsd: round5(logs.filter(isEvaluationRow).reduce((a, l) => a + l.estimatedCostUsd, 0)),
+        curationMonthSpendUsd: round5(
+          orLogs
+            .filter((l) => parseMeta(l.meta).purpose === CURATION_PURPOSE)
+            .reduce((a, l) => a + l.estimatedCostUsd, 0)
+        ),
+      },
       dailySeries,
       limits: {
         dailyTweetBudget: limits.dailyTweetBudget,

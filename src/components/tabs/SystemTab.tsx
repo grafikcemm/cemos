@@ -37,6 +37,52 @@ type KpisResponse = {
   goldenPassPct?: number | null;
 };
 
+// Faz 2E (ADR-034 §I): /api/eval/runs — agent değerlendirme geçmişi.
+type EvalRunSummary = {
+  id: string;
+  status: string;
+  mode: string;
+  startedAt: string;
+  passedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  totalCostUsd: number;
+  errorClass: string | null;
+};
+
+type EvalRunsResponse = {
+  success?: boolean;
+  latest?: Partial<Record<"registry_contract" | "golden_live" | "curator_live" | "thread_smoke", EvalRunSummary | null>>;
+  traceCoverage?: {
+    runsConsidered: number;
+    expected: number;
+    persisted: number;
+    failed: number;
+    skipped: number;
+    coveragePct: number | null;
+  } | null;
+};
+
+const EVAL_STALE_DAYS = 8;
+
+/**
+ * Eval durumu ana uygulama outage'ı DEĞİLDİR — bölüm durumu en fazla "warn"
+ * olur (hiç koşmamış / stale / blocked-external bilgi-uyarı sınıfıdır).
+ */
+function evalSectionMeta(latest: EvalRunSummary | null | undefined): {
+  status: SectionStatus;
+  label: string;
+} {
+  if (!latest) return { status: "warn", label: "hiç koşmadı" };
+  if (latest.status === "blocked_external") return { status: "warn", label: "blocked-external" };
+  const ageDays = (Date.now() - new Date(latest.startedAt).getTime()) / 86_400_000;
+  if (ageDays > EVAL_STALE_DAYS) return { status: "warn", label: "stale" };
+  if (latest.status === "passed") return { status: "ok", label: "geçti" };
+  if (latest.status === "partial") return { status: "warn", label: "kısmi" };
+  if (latest.status === "running") return { status: "warn", label: "koşuyor" };
+  return { status: "warn", label: "başarısız" };
+}
+
 const STATUS_META: Record<SectionStatus, { label: string; color: string }> = {
   ok: { label: "sağlıklı", color: "var(--status-ok)" },
   warn: { label: "uyarı", color: "var(--status-warn)" },
@@ -164,10 +210,15 @@ function InfraRow({ item }: { item: InfraItem }) {
 export default function SystemTab() {
   const { contracts, todayCost, refresh, result } = useSystemHealth();
   const [kpis, setKpis] = useState<KpisResponse | null>(null);
+  const [evalRuns, setEvalRuns] = useState<EvalRunsResponse | null>(null);
 
   const loadKpis = useCallback(async () => {
-    const res = await fetchJson<KpisResponse>("/api/eval/kpis").catch(() => null);
-    setKpis(res?.success ? res : null);
+    const [kpiRes, evalRes] = await Promise.all([
+      fetchJson<KpisResponse>("/api/eval/kpis").catch(() => null),
+      fetchJson<EvalRunsResponse>("/api/eval/runs?limit=10").catch(() => null),
+    ]);
+    setKpis(kpiRes?.success ? kpiRes : null);
+    setEvalRuns(evalRes?.success ? evalRes : null);
   }, []);
 
   useEffect(() => {
@@ -329,6 +380,63 @@ export default function SystemTab() {
             )}
           </div>
         </Section>
+
+        {/* 4. Agent değerlendirmeleri (Faz 2E, ADR-034 §I) — eval durumu ana
+            uygulama outage'ı DEĞİLDİR: bölüm en fazla "uyarı" gösterir. */}
+        {(() => {
+          const registry = evalRuns?.latest?.registry_contract ?? null;
+          const curatorLive = evalRuns?.latest?.curator_live ?? null;
+          const threadSmoke = evalRuns?.latest?.thread_smoke ?? null;
+          const registryMeta = evalSectionMeta(registry);
+          const cov = evalRuns?.traceCoverage ?? null;
+          const liveLabel = (run: EvalRunSummary | null): string => {
+            if (!run) return "hiç koşmadı";
+            if (run.status === "blocked_external") return "blocked-external";
+            return `${run.status} · $${run.totalCostUsd.toFixed(3)}`;
+          };
+          return (
+            <Section title="Agent değerlendirmeleri" status={registryMeta.status}>
+              <div data-testid="agent-eval-section" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                  Deterministic registry contract koşusu hermetic'tir (mock geçişi "canlı doğrulandı" demek
+                  değildir); canlı koşular güvenlik/harcama kapılarına bağlıdır.
+                </div>
+                <MetricStrip
+                  data-testid="agent-eval-metrics"
+                  items={[
+                    {
+                      label: "registry (deterministic)",
+                      value: registry
+                        ? `${registryMeta.label} · ${registry.passedCount}/${registry.passedCount + registry.failedCount + registry.skippedCount}`
+                        : registryMeta.label,
+                      tone: registryMeta.status === "ok" ? "ok" : "warn",
+                    },
+                    {
+                      label: "tazelik",
+                      value: registry ? new Date(registry.startedAt).toLocaleDateString("tr-TR") : "—",
+                    },
+                    { label: "curator canlı", value: liveLabel(curatorLive), tone: curatorLive?.status === "passed" ? "ok" : "default" },
+                    { label: "thread smoke", value: liveLabel(threadSmoke), tone: threadSmoke?.status === "passed" ? "ok" : "default" },
+                    {
+                      label: "gözlenen trace kapsaması",
+                      value:
+                        cov && cov.coveragePct != null
+                          ? `%${cov.coveragePct} (${cov.persisted}/${cov.expected})`
+                          : "veri yok",
+                      tone: cov && cov.failed > 0 ? "warn" : "default",
+                    },
+                  ]}
+                />
+                {(curatorLive?.status === "blocked_external" || threadSmoke?.status === "blocked_external") && (
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--status-warn)" }}>
+                    Canlı eval BLOCKED-EXTERNAL: anahtar rotasyonu + harcama onay env'leri bekleniyor (bu bir
+                    üretim kesintisi değildir).
+                  </div>
+                )}
+              </div>
+            </Section>
+          );
+        })()}
 
         {/* Sessiz maliyet + kalite satırı — hero KPI kartı değil; detay ayrı sekmelerde. */}
         <Section title="Maliyet & kalite" status="ok" link={{ label: "Maliyetler", tab: "costs" }}>

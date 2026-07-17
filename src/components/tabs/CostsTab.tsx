@@ -65,6 +65,13 @@ type CostStats = {
   today: { totalUsd: number; socialDataTweets: number; socialDataUsd: number; openRouterUsd: number };
   month: { totalUsd: number; budgetUsd: number; socialDataUsd: number; openRouterUsd: number };
   lineItems?: LineItems;
+  // Faz 2E (ADR-034 §I): evaluation bütçesi — production curation'dan AYRI.
+  evaluation?: {
+    enabled: boolean;
+    monthlyBudgetUsd: number;
+    monthSpendUsd: number;
+    curationMonthSpendUsd: number;
+  };
   dailySeries: Array<{ date: string; totalUsd: number; socialDataUsd?: number; openRouterUsd?: number }>;
   limits?: CostLimits;
 };
@@ -91,6 +98,7 @@ type LineRow = {
 export default function CostsTab() {
   const [costs, setCosts] = useState<CostStats | null>(null);
   const [kpis, setKpis] = useState<QualityKpis | null>(null);
+  const [lastEvalRun, setLastEvalRun] = useState<{ status: string; totalCostUsd: number; kind: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -106,6 +114,17 @@ export default function CostsTab() {
         if (kRes.ok) {
           const k = await kRes.json();
           if (k.success) setKpis(k as QualityKpis);
+        }
+      } catch {
+        /* fail-soft */
+      }
+      // Faz 2E: son eval koşu maliyeti (fail-soft; yoksa "veri yok" kalır).
+      try {
+        const rRes = await fetch("/api/eval/runs?limit=1");
+        if (rRes.ok) {
+          const r = await rRes.json();
+          const run = r?.success && Array.isArray(r.runs) ? r.runs[0] : null;
+          setLastEvalRun(run ? { status: run.status, totalCostUsd: run.totalCostUsd, kind: run.kind } : null);
         }
       } catch {
         /* fail-soft */
@@ -178,6 +197,7 @@ export default function CostsTab() {
   const dailySeries = costs?.dailySeries ?? [];
   const limits = costs?.limits;
   const lineItems = costs?.lineItems;
+  const evaluation = costs?.evaluation;
 
   const dailyTweetBudget = limits?.dailyTweetBudget ?? 150;
 
@@ -379,6 +399,25 @@ export default function CostsTab() {
             label="Golden set geçiş"
             value={kpis?.goldenPassPct !== null && kpis !== null ? `%${kpis.goldenPassPct}` : "veri yok"}
             suffix={kpis ? `${kpis.goldenScored} vaka` : undefined}
+          />
+          {/* Faz 2E (ADR-034 §I): evaluation bütçesi — production curation'dan AYRI sınıf. */}
+          <QuietStat
+            label="Eval bütçesi (ay)"
+            value={
+              evaluation
+                ? `${fmt(evaluation.monthSpendUsd)} / $${evaluation.monthlyBudgetUsd.toFixed(2)}`
+                : "veri yok"
+            }
+            suffix={evaluation ? (evaluation.enabled ? "açık" : "kapalı") : undefined}
+          />
+          <QuietStat
+            label="Son eval koşusu"
+            value={lastEvalRun ? `${lastEvalRun.status} · ${fmt(lastEvalRun.totalCostUsd)}` : "veri yok"}
+            suffix={lastEvalRun?.kind}
+          />
+          <QuietStat
+            label="Kürasyon harcaması (ay)"
+            value={evaluation ? fmt(evaluation.curationMonthSpendUsd) : "veri yok"}
           />
         </div>
       </Card>
