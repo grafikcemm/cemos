@@ -4,13 +4,16 @@ import { useMemo, useRef, useState } from "react";
 import { ChevronUp, ChevronDown, Scissors, ArrowUpToLine, Trash2, Plus, Save } from "lucide-react";
 import { parseThreadSegments, serializeThreadSegments } from "@/lib/growth-engine/threadSegments";
 
-const SEGMENT_MAX = 280; // tek tweet yumuşak sınırı (uyarı; readiness sert sınırı ayrı)
-
 type Props = {
   /** Kayıtlı segment JSON'ı (yoksa null → content'ten tek segment tohumlanır). */
   segmentsJson: string | null | undefined;
   /** Segment yoksa başlangıç tohumu (birleşik metin). */
   content: string;
+  /**
+   * Phase 2D (ADR-033): segment başına sert sınır — server readiness ile AYNI
+   * primitive'den (effectiveThreadSegmentLimit) gelir; ayrı UI literal'i YOK.
+   */
+  segmentLimit: number;
   disabled?: boolean;
   onSave: (segmentsJson: string | null) => Promise<boolean>;
   onToast: (text: string, type: "success" | "error") => void;
@@ -28,7 +31,7 @@ function seed(segmentsJson: string | null | undefined, content: string): string[
  * böl (imleç konumunda), birleştir (üstekiyle), sil, ekle. Kaydet →
  * serializeThreadSegments → PATCH threadSegments. Ton-uyumlu (--sf-* değişkenleri).
  */
-export default function ThreadSegmentEditor({ segmentsJson, content, disabled, onSave, onToast }: Props) {
+export default function ThreadSegmentEditor({ segmentsJson, content, segmentLimit, disabled, onSave, onToast }: Props) {
   const [segments, setSegments] = useState<string[]>(() => seed(segmentsJson, content));
   const [saving, setSaving] = useState(false);
   const refs = useRef<(HTMLTextAreaElement | null)[]>([]);
@@ -101,7 +104,7 @@ export default function ThreadSegmentEditor({ segmentsJson, content, disabled, o
 
       {segments.map((seg, i) => {
         const len = seg.trim().length;
-        const over = len > SEGMENT_MAX;
+        const over = len > segmentLimit;
         return (
           <div
             key={i}
@@ -136,9 +139,14 @@ export default function ThreadSegmentEditor({ segmentsJson, content, disabled, o
                   <SegBtn label="Segmenti sil" onClick={() => remove(i)} disabled={disabled || segments.length === 1}><Trash2 size={13} strokeWidth={2} /></SegBtn>
                 </div>
                 <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: over ? "var(--status-error)" : "var(--sf-muted)" }}>
-                  {len}/{SEGMENT_MAX}
+                  {len}/{segmentLimit}
                 </span>
               </div>
+              {over && (
+                <span data-testid={`segment-${i}-over-limit`} style={{ fontSize: "var(--text-2xs)", color: "var(--status-error)" }}>
+                  Segment {i + 1} karakter sınırını aşıyor — böl veya kısalt.
+                </span>
+              )}
             </div>
           </div>
         );

@@ -322,3 +322,101 @@ describe("scheduleService", () => {
     });
   });
 });
+
+
+// ─── Phase 2D (ADR-033): thread approve/schedule parity ───────────────────────
+
+const T_SEGS = [
+  { text: "Hook segmenti: arac dokumu geliyor." },
+  { text: "Adim 1: kur ve preset kilitle." },
+  { text: "Payoff: kaydet." },
+];
+const T_JOINED = T_SEGS.map((s) => s.text).join("\n\n");
+
+function threadDbItem(over: Record<string, unknown> = {}) {
+  return {
+    id: "qi_t",
+    accountId: "acc_1",
+    status: "new",
+    content: T_JOINED,
+    editedContent: null,
+    draftType: "THREAD",
+    mode: "thread",
+    scores: JSON.stringify({ telemetry: { judged: true }, turkishNaturalness: 85, riskScore: 10, sourceFaithfulness: 90, leaks: [] }),
+    lintReport: null,
+    threadSegments: JSON.stringify(T_SEGS),
+    sourcePostId: "sp_1",
+    newsItemId: null,
+    scheduledAt: null,
+    approvedAt: null,
+    account: { id: "acc_1", handle: "grafikcem", maxChars: 280, schedule: null },
+    ...over,
+  };
+}
+
+describe("Phase 2D — thread approve/schedule parity", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("approve: toplam birleşik uzunluk 280'i aşsa da segmentler uygunsa KABUL (joined lint koşulmaz)", async () => {
+    expect(T_JOINED.length).toBeGreaterThan(80); // birleşik metin tek tweet değil
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(threadDbItem() as any);
+    vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_t", status: "approved" } as any);
+
+    const res = await scheduleService.approve("qi_t");
+    expect(res.status).toBe("approved");
+    expect(qualityLintService.lint).not.toHaveBeenCalled(); // birleşik lint yolu thread'de kapalı
+  });
+
+  it("approve: tek oversized segment → readiness_not_ready (fail-closed)", async () => {
+    const over = [{ text: "y".repeat(300) }, { text: "kapanis" }];
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(
+      threadDbItem({ threadSegments: JSON.stringify(over), content: over.map((s) => s.text).join("\n\n") }) as any,
+    );
+    await expect(scheduleService.approve("qi_t")).rejects.toThrow("readiness_not_ready");
+    expect(prisma.queueItem.update).not.toHaveBeenCalled();
+  });
+
+  it("approve: segmentsiz (structureless) thread → readiness_not_ready", async () => {
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(threadDbItem({ threadSegments: null }) as any);
+    await expect(scheduleService.approve("qi_t")).rejects.toThrow("readiness_not_ready");
+  });
+
+  it("scheduleDraft: thread birleşik uzunluk 280'i aşsa da segmentler uygunsa kabul; char_limit atılmaz", async () => {
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(threadDbItem() as any);
+    vi.mocked(prisma.publishLog.count).mockResolvedValue(0);
+    vi.mocked(prisma.queueItem.count).mockResolvedValue(0);
+    vi.mocked(prisma.queueItem.update).mockResolvedValue({ id: "qi_t", status: "scheduled" } as any);
+
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    future.setHours(12, 0, 0, 0);
+    future.setDate(future.getDate() + 1);
+    const res = await scheduleService.scheduleDraft("qi_t", future);
+    expect(res.status).toBe("scheduled");
+    expect(qualityLintService.lint).not.toHaveBeenCalled();
+  });
+
+  it("scheduleDraft: readiness ready değilse (judged=false) fail-closed", async () => {
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue(
+      threadDbItem({ scores: JSON.stringify({ telemetry: { judged: false } }) }) as any,
+    );
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await expect(scheduleService.scheduleDraft("qi_t", future)).rejects.toThrow("readiness_not_ready");
+  });
+
+  it("non-thread scheduleDraft char limit davranışı KORUNDU", async () => {
+    vi.mocked(prisma.queueItem.findUnique).mockResolvedValue({
+      id: "qi_1",
+      status: "new",
+      content: "z".repeat(300),
+      editedContent: null,
+      draftType: "TWEET",
+      mode: "ai_news",
+      account: { maxChars: 280, schedule: null },
+    } as any);
+    vi.mocked(qualityLintService.lint).mockResolvedValue({ passed: true, blockers: [], warnings: [], issues: [], checkedAt: "", source: { deterministic: true, llm: false } } as any);
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await expect(scheduleService.scheduleDraft("qi_1", future)).rejects.toThrow("char_limit");
+  });
+});

@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { assessReadiness, type ReadinessResult } from "@/lib/services/readinessService";
+import {
+  effectiveThreadSegmentLimit,
+  isThreadDraft,
+  parseThreadSegments,
+} from "@/lib/growth-engine/threadSegments";
 import { verificationLabel, freshnessWarning } from "@/lib/services/whyToday";
 import Surface, { InverseCard, PeachCard } from "@/components/ui/Surface";
 import Popover from "@/components/ui/Popover";
@@ -73,9 +78,13 @@ export default function DraftReviewCard({
     draft.publishAttempt.state === "prepared" &&
     !draft.publishAttempt.staleForCurrentContent;
 
-  const isThread = draft.draftType.toUpperCase() === "THREAD";
+  // Phase 2D: thread tespiti mode-farkındalı (mode=thread + draftType=TWEET
+  // tarihî kayıtları da thread'dir); segment sınırı server ile AYNI primitive.
+  const isThread = isThreadDraft(draft.draftType, draft.mode);
   const isPublished = draft.status === "manual_published" || draft.status === "published";
   const maxChars = draft.readinessInput?.maxChars ?? 280;
+  const segmentLimit = effectiveThreadSegmentLimit(maxChars);
+  const threadSegments = isThread ? parseThreadSegments(draft.threadSegments ?? null) : null;
   // Kaydet yalnız içerik gerçekten değişince (dirty) veya düzenleme modunda görünür.
   const originalText = norm(draft.editedContent || draft.content || "");
   const isDirty = text !== originalText;
@@ -285,6 +294,7 @@ export default function DraftReviewCard({
     <ThreadSegmentEditor
       segmentsJson={draft.threadSegments}
       content={norm(draft.editedContent || draft.content || "")}
+      segmentLimit={segmentLimit}
       disabled={isPublished}
       onSave={(json) => onSaveSegments(draft.id, json)}
       onToast={onToast}
@@ -328,6 +338,46 @@ export default function DraftReviewCard({
     </div>
   );
 
+  // Phase 2D (ADR-033) — dürüst thread intent açıklaması: X web intent tek
+  // çağrıda çok gönderili zincir OLUŞTURMAZ; yalnız İLK segment açılır. Kalan
+  // segmentler için erişilebilir kopyalama eylemleri; "Paylaşıldı olarak
+  // işaretle" BÜTÜN zincir için manuel kullanıcı beyanıdır. Otomatik reply YOK.
+  const copySegment = async (text: string, no: number) => {
+    const ok = await copyToClipboard(text);
+    onToast(ok ? `Segment ${no} panoya kopyalandı.` : "Kopyalama başarısız.", ok ? "success" : "error");
+  };
+  const threadIntentNote = isThread && !isPublished && publishPrepared && (
+    <div
+      data-testid="thread-intent-note"
+      style={{
+        display: "flex", flexDirection: "column", gap: 8,
+        background: "var(--sf-sunken)", border: "1px solid var(--sf-border)",
+        borderRadius: "var(--radius-md)", padding: "9px 11px",
+        fontSize: "var(--text-xs)", color: "var(--sf-fg)", lineHeight: 1.5,
+      }}
+    >
+      <span>
+        X yalnız ilk segmenti açtı. Kalan segmentleri yanıt olarak paylaş; zincir
+        tamamlanınca thread&apos;i paylaşıldı olarak işaretle.
+      </span>
+      {threadSegments && threadSegments.length > 1 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {threadSegments.slice(1).map((s, i) => (
+            <button
+              key={i}
+              type="button"
+              data-testid={`copy-segment-${i + 2}`}
+              onClick={() => void copySegment(s.text, i + 2)}
+              style={{ ...ghostBtn, height: "var(--control-h-sm)" }}
+            >
+              <Copy size={12} strokeWidth={2} /> Segment {i + 2}&apos;yi kopyala
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   // §8D eylem hiyerarşisi — dinlenirken en fazla 2-3 görünür ana eylem:
   //  primary (ready → X'te aç · aksi → Düzenle) + ikincil Düzenle + taşma menüsü.
   //  Kaydet yalnız dirty; Paylaşıldı yalnız publish_prepared. needs_edit/blocked
@@ -342,7 +392,8 @@ export default function DraftReviewCard({
           data-testid="cta-open-x"
           style={primaryBtn}
         >
-          <ExternalLink size={14} strokeWidth={2} /> {preparing ? "Hazırlanıyor…" : "X'te aç"}
+          <ExternalLink size={14} strokeWidth={2} />{" "}
+          {preparing ? "Hazırlanıyor…" : isThread ? "İlk gönderiyi X'te aç" : "X'te aç"}
         </button>
       ) : !isThread ? (
         <button type="button" onClick={enterEdit} data-testid="cta-edit" style={primaryBtn}>
@@ -456,6 +507,7 @@ export default function DraftReviewCard({
       {freshnessBlock}
       {reasonsBlock}
       {contentBlock}
+      {threadIntentNote}
       {imageBlock}
       {actions}
       {shortcuts}

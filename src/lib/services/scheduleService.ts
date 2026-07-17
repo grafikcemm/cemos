@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/client";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 import { draftService } from "@/lib/services/draftService";
+import { assessQueueItemReadiness } from "@/lib/services/readinessAdapter";
+import { isThreadDraft } from "@/lib/growth-engine/threadSegments";
 
 export function isWithinQuietHours(date: Date, start: number, end: number): boolean {
   if (start === end) return false;
@@ -55,6 +57,26 @@ export const scheduleService = {
     const content = (item.editedContent?.trim() || item.content.trim());
     if (!content) throw new Error("empty_content");
 
+    // Phase 2D (ADR-033): thread onayı canonical segment payload'ı üzerinden —
+    // birleşik metnin tek account-maxChars sınırıyla lint'lenmesi thread için
+    // yanlıştı. Segment/char/safety denetimi readiness'te (segment-bazlı);
+    // ready olmayan thread approve EDİLEMEZ (fail-closed). Non-thread davranışı
+    // DEĞİŞMEDİ.
+    if (isThreadDraft(item.draftType, item.mode)) {
+      const readiness = assessQueueItemReadiness(item, item.account);
+      if (readiness.state !== "ready") {
+        throw new Error("readiness_not_ready");
+      }
+      return prisma.queueItem.update({
+        where: { id: queueItemId },
+        data: {
+          status: "approved",
+          approvedAt: new Date(),
+          lastError: null,
+        },
+      });
+    }
+
     // Recalculate lint to verify no blockers exist
     const maxChars = item.account.maxChars || 280;
     const report = await qualityLintService.lint(content, item.draftType, maxChars, { forceDeterministicOnly: true });
@@ -108,16 +130,28 @@ export const scheduleService = {
       throw new Error("past_date");
     }
 
-    // Guardrail: Lint check
-    const maxChars = item.account.maxChars || 280;
-    const report = await qualityLintService.lint(content, item.draftType, maxChars, { forceDeterministicOnly: true });
-    if (!report.passed) {
-      throw new Error("lint_blocked");
-    }
+    // Phase 2D (ADR-033): thread schedule'ı birleşik toplam uzunlukla REDDEDİLMEZ;
+    // segment-bazlı char/safety denetimi readiness'te — ready değilse fail-closed.
+    // Schedule dış platformda otomatik thread YAYINLAMAZ; yalnız CemOS takvim durumu.
+    const isThread = isThreadDraft(item.draftType, item.mode);
+    let report: Awaited<ReturnType<typeof qualityLintService.lint>> | null = null;
+    if (isThread) {
+      const readiness = assessQueueItemReadiness(item, item.account);
+      if (readiness.state !== "ready") {
+        throw new Error("readiness_not_ready");
+      }
+    } else {
+      // Guardrail: Lint check
+      const maxChars = item.account.maxChars || 280;
+      report = await qualityLintService.lint(content, item.draftType, maxChars, { forceDeterministicOnly: true });
+      if (!report.passed) {
+        throw new Error("lint_blocked");
+      }
 
-    // Guardrail: Max character limit
-    if (content.length > maxChars) {
-      throw new Error("char_limit");
+      // Guardrail: Max character limit
+      if (content.length > maxChars) {
+        throw new Error("char_limit");
+      }
     }
 
     const schedule = item.account.schedule;
@@ -156,7 +190,7 @@ export const scheduleService = {
         status: "scheduled",
         scheduledAt,
         approvedAt: item.approvedAt || new Date(),
-        lintReport: JSON.stringify(report),
+        ...(report ? { lintReport: JSON.stringify(report) } : {}),
         lastError: null,
       },
     });

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { assessReadiness, type ReadinessInput, type ReadinessResult } from "@/lib/services/readinessService";
-import { parseThreadSegments } from "@/lib/growth-engine/threadSegments";
+import { isThreadDraft, joinThreadSegments, parseThreadSegments } from "@/lib/growth-engine/threadSegments";
 import type { WhyTodayResult } from "@/lib/services/whyToday";
 
 /** Sprint 1 ayrışık alt-sinyaller — API scoresParsed'tan (tek sayı YOK). */
@@ -183,11 +183,25 @@ export function useDailyQueueData() {
       );
       if (data.success) {
         setDrafts((prev) =>
-          prev.map((d) =>
-            d.id === id
-              ? recompute({ ...d, threadSegments: segmentsJson }, { threadSegments: parseThreadSegments(segmentsJson) })
-              : d
-          )
+          prev.map((d) => {
+            if (d.id !== id) return d;
+            const segs = parseThreadSegments(segmentsJson);
+            // Phase 2D: server segmentlerle editedContent'i AYNI update'te
+            // senkronlar — client state de aynı canonical birleşimi taşır ve
+            // mevcut hazırlık stale olur (hash segmentlerden türediği için).
+            const joined = segs && isThreadDraft(d.draftType, d.mode) ? joinThreadSegments(segs) : d.editedContent;
+            return recompute(
+              {
+                ...d,
+                threadSegments: segmentsJson,
+                editedContent: joined ?? d.editedContent,
+                publishAttempt: d.publishAttempt
+                  ? { ...d.publishAttempt, staleForCurrentContent: true }
+                  : d.publishAttempt,
+              },
+              { threadSegments: segs, editedContent: joined ?? d.editedContent }
+            );
+          })
         );
         return true;
       }

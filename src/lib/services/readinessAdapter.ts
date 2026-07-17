@@ -23,6 +23,9 @@ export type ReadinessQueueItemLike = {
   editedContent: string | null;
   status: string;
   draftType: string;
+  /** Phase 2D: mode="thread" thread tespitine girer (mode/draftType uyumsuz
+   *  tarihî kayıtlar tek-tweet gibi değerlendirilemez). */
+  mode?: string | null;
   scores: string | null;
   lintReport: string | null;
   threadSegments: string | null;
@@ -99,7 +102,10 @@ export function readinessInputFromQueueItem(
     editedContent: item.editedContent ?? null,
     status: item.status ?? "new",
     draftType: item.draftType ?? "TWEET",
-    accountHandle: account.handle === "maskulenkod" ? "maskulenkod" : "grafikcem",
+    mode: item.mode ?? null,
+    // ADR-031/033: bilinmeyen hesap grafikcem'e MAP EDİLMEZ — handle verbatim
+    // geçer; seed'li hesap politikaları readinessService'te exact eşleşmeyle uygulanır.
+    accountHandle: account.handle || "unknown",
     maxChars: account.maxChars || 280,
     judged: telemetry?.judged === true,
     turkishNaturalness: num(scores.turkishNaturalness),

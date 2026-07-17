@@ -17,6 +17,13 @@
  * (ADR-020 açık risk; OpenRouter-402 canlı üretime bağlı). Fixture-kilitli.
  */
 
+import {
+  effectiveThreadSegmentLimit,
+  isThreadDraft,
+  joinThreadSegments,
+  THREAD_MIN_SEGMENTS,
+} from "@/lib/growth-engine/threadSegments";
+
 export type ReadinessLeak = { kind: string; severity: "low" | "med" | "high"; note: string };
 export type ReadinessLintIssue = { code: string; severity?: string; message: string };
 export type ReadinessSegment = { text: string };
@@ -27,7 +34,11 @@ export type ReadinessInput = {
   status: string;
   /** "TWEET" | "THREAD" | … (case-insensitive) */
   draftType: string;
-  accountHandle: "grafikcem" | "maskulenkod";
+  /** Phase 2D (ADR-031/033): dinamik hesap — bilinmeyen handle grafikcem'e
+   *  MAP EDİLMEZ; seed'li hesap politikaları yalnız EXACT eşleşmede uygulanır. */
+  accountHandle: string;
+  /** Üretim modu — mode="thread" olan taslak draftType'tan bağımsız thread'dir. */
+  mode?: string | null;
   maxChars: number;
   judged: boolean;
   turkishNaturalness: number | null;
@@ -46,8 +57,16 @@ export type ReadinessSeverity = "block" | "edit";
 export type ReadinessReason = { code: string; severity: ReadinessSeverity; message: string };
 export type ReadinessResult = { state: ReadinessState; reasons: ReadinessReason[] };
 
-/** PublishAttempt.readinessSnapshotJson / readinessPolicyVersion için (Faz 1E). */
-export const READINESS_POLICY_VERSION = "1.0.0-provisional";
+/**
+ * PublishAttempt.readinessSnapshotJson / readinessPolicyVersion için (Faz 1E).
+ * Phase 2D (ADR-033) semantik değişimi → 1.1.0: thread tespiti mode-farkındalı,
+ * segment sınırı effectiveThreadSegmentLimit (min(280, maxChars)), thread metni
+ * canonical segmentlerden türetilir, ≥2 segment şartı. Skor eşikleri hâlâ
+ * PROVISIONAL — canlı etiketli örneklem yetersiz (audit 2026-07-16:
+ * calibrationStatus=insufficient_sample). Eski snapshot'lar eski versiyon
+ * damgasıyla okunmaya devam eder (şekil değişmedi).
+ */
+export const READINESS_POLICY_VERSION = "1.1.0-provisional";
 
 // ── Provisional eşikler (canlı kalibrasyon bekliyor) ──────────────────────────
 const TURKISH_NATURALNESS_MIN = 55; // scoreSignals ile aynı
@@ -90,6 +109,21 @@ function currentText(input: ReadinessInput): string {
   return (input.editedContent?.trim() || input.content.trim());
 }
 
+/**
+ * Phase 2D: thread'de içerik kontrollerinin değerlendirdiği metin canonical
+ * SEGMENTLERDEN türetilir — stale QueueItem.content/editedContent güvenlik
+ * kontrollerini bypass edemez. Segment yoksa mevcut metne düşer (o taslak
+ * zaten structureless_thread ile needs_edit olur).
+ */
+function currentThreadText(input: ReadinessInput): string {
+  if (input.threadSegments && input.threadSegments.length > 0) {
+    return joinThreadSegments(
+      input.threadSegments.map((s) => ({ text: s.text }))
+    );
+  }
+  return currentText(input);
+}
+
 /** Türkçe karakterleri KORUYARAK tokenize (transliterasyon YOK → iş≠is). */
 function countForeignTokens(text: string): number {
   const tokens = text.toLowerCase().split(/[^a-zçğıöşü0-9]+/i).filter(Boolean);
@@ -112,8 +146,12 @@ function dedupe(reasons: ReadinessReason[]): ReadinessReason[] {
 }
 
 export function assessReadiness(input: ReadinessInput): ReadinessResult {
-  const text = currentText(input);
-  const isThread = input.draftType.toUpperCase() === "THREAD";
+  // Phase 2D: thread tespiti mode-farkındalı — audit (2026-07-16) canlıdaki 13
+  // thread taslağının TAMAMININ mode=thread + draftType=TWEET olduğunu ve tek
+  // tweet gibi yanlış "ready" geçtiğini gösterdi.
+  const isThread = isThreadDraft(input.draftType, input.mode);
+  const text = isThread ? currentThreadText(input) : currentText(input);
+  const segmentLimit = effectiveThreadSegmentLimit(input.maxChars);
   const blocks: ReadinessReason[] = [];
   const edits: ReadinessReason[] = [];
 
@@ -191,6 +229,8 @@ export function assessReadiness(input: ReadinessInput): ReadinessResult {
     edits.push({ code: "emoji_policy", severity: "edit", message: "@grafikcem emoji kullanmaz — kaldır." });
   }
   // Thread: yapısal segment ŞART; metindeki "1/" numaralandırma kanıt DEĞİL.
+  // Phase 2D: her segment effectiveThreadSegmentLimit (min(280, maxChars)) ile
+  // denetlenir — UI ile AYNI primitive; ayrıca thread ≥2 segment taşımalı.
   if (isThread) {
     if (!input.threadSegments || input.threadSegments.length === 0) {
       edits.push({
@@ -199,15 +239,22 @@ export function assessReadiness(input: ReadinessInput): ReadinessResult {
         message: "Thread ama yapısal segment yok — segmentlere böl ('1/' metni kanıt sayılmaz).",
       });
     } else {
+      if (input.threadSegments.length < THREAD_MIN_SEGMENTS) {
+        edits.push({
+          code: "thread_too_short",
+          severity: "edit",
+          message: `Thread en az ${THREAD_MIN_SEGMENTS} segment taşımalı (şu an ${input.threadSegments.length}).`,
+        });
+      }
       const badIdx = input.threadSegments.findIndex((s) => {
         const t = s.text.trim();
-        return t.length === 0 || t.length > input.maxChars;
+        return t.length === 0 || t.length > segmentLimit;
       });
       if (badIdx >= 0) {
         edits.push({
           code: "thread_segment_invalid",
           severity: "edit",
-          message: `Segment ${badIdx + 1} boş veya karakter sınırını aşıyor.`,
+          message: `Segment ${badIdx + 1} boş veya ${segmentLimit} karakter sınırını aşıyor.`,
         });
       }
     }

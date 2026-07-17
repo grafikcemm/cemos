@@ -4,7 +4,14 @@ import { prisma } from "@/lib/db/client";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { parseThreadSegments, serializeThreadSegments } from "@/lib/growth-engine/threadSegments";
+import {
+  isThreadDraft,
+  joinThreadSegments,
+  normalizeThreadSegments,
+  parseThreadSegments,
+  serializeThreadSegments,
+  THREAD_SCHEMA_MAX_SEGMENTS,
+} from "@/lib/growth-engine/threadSegments";
 
 const UpdateQueueItemSchema = z.object({
   content: z.string().max(10000).optional(),
@@ -51,13 +58,27 @@ export async function PATCH(
     }
 
     // 3b. Yapısal thread segmentleri (Zod-doğrulanmış; null = temizle, fail-closed).
+    //     Phase 2D (ADR-033): boş segment REDDEDİLİR (sessiz temizlik yok); şema
+    //     tavanı uygulanır; thread taslağında segmentler ile güncel birleşik
+    //     metin (editedContent) AYNI update içinde senkron tutulur — generated
+    //     original `content` korunur, kullanıcı düzenlemesi editedContent'e yazılır.
     if (threadSegments !== undefined) {
       if (threadSegments === null) {
         updates.threadSegments = null;
       } else {
         const segs = parseThreadSegments(threadSegments);
         if (!segs) return fail("Geçersiz thread segmentleri.", 400);
-        updates.threadSegments = serializeThreadSegments(segs);
+        if (segs.some((s) => s.text.trim().length === 0)) {
+          return fail("Boş segment kaydedilemez — segmenti doldur veya sil.", 400);
+        }
+        if (segs.length > THREAD_SCHEMA_MAX_SEGMENTS) {
+          return fail(`En fazla ${THREAD_SCHEMA_MAX_SEGMENTS} segment kaydedilebilir.`, 400);
+        }
+        const normalized = normalizeThreadSegments(segs)!;
+        updates.threadSegments = serializeThreadSegments(normalized);
+        if (isThreadDraft(existing.draftType, existing.mode)) {
+          updates.editedContent = joinThreadSegments(normalized);
+        }
       }
     }
 
