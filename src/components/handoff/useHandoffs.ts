@@ -60,7 +60,9 @@ export async function createHandoffFromOpportunity(
         rawTab: o.rawTab,
         suggestedPlatform: o.suggestedPlatform,
         score: o.score,
-        curationMethod: "deterministic",
+        // Faz 2E: yöntem fırsattan taşınır — agent-curated fırsat yanlışlıkla
+        // "deterministic" damgalanamaz; alan yoksa güvenli default korunur.
+        curationMethod: o.curationMethod ?? "deterministic",
       }),
     });
     const json = await res.json();

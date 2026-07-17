@@ -40,7 +40,17 @@ export type OpportunityInput = {
   rawTab: string;
 };
 
-export type Opportunity = OpportunityInput & { score: number };
+export type Opportunity = OpportunityInput & {
+  score: number;
+  /**
+   * Faz 2E (ADR-034 §E): bu fırsatı hangi yöntem sıraladı. "agent" YALNIZ
+   * server-side kürasyonda gerçek model çağrısı başarıyla doğrulandığında
+   * damgalanır; fallback/lokal sonuç her zaman "deterministic".
+   */
+  curationMethod?: "agent" | "deterministic";
+  /** Agent seçiminin tek-cümlelik gerekçe özeti (varsa). */
+  curationReason?: string;
+};
 
 export const OPPORTUNITY_SEGMENTS: { value: string; label: string }[] = [
   { value: "all", label: "Tümü" },

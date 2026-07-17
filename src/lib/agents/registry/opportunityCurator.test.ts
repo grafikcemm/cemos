@@ -20,6 +20,7 @@ function parseFixture(id: string) {
 
 beforeEach(() => {
   delete process.env.ENABLE_AGENT_CURATION;
+  delete process.env.OPENROUTER_KEY_ROTATED_AT;
 });
 
 describe("deterministik kürasyon (güvenli fallback)", () => {
@@ -72,6 +73,17 @@ describe("LLM kürasyon yolu (kapalı — blocked-external)", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const input = parseFixture("curation-basic");
     await expect(runAgentCuration(input)).rejects.toThrow(AgentBlockedError);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("Faz 2E: flag açık ama rotasyon marker'ı yok → openrouter_key_not_rotated; ağ çağrısı YOK", async () => {
+    process.env.ENABLE_AGENT_CURATION = "1";
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const input = parseFixture("curation-basic");
+    await expect(runAgentCuration(input)).rejects.toMatchObject({
+      reason: "openrouter_key_not_rotated",
+    });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });

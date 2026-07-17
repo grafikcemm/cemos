@@ -43,7 +43,13 @@ export default function HandoffBand({ handoff, primary, onCancel, cancelling }: 
         </span>
         <Badge variant="muted" size="sm">{HANDOFF_SOURCE_LABEL[handoff.sourceKind]}</Badge>
         <Badge variant="muted" size="sm">{handoff.suggestedPlatform}</Badge>
-        {handoff.curationMethod === "deterministic" && (
+        {handoff.curationMethod === "agent" ? (
+          <span data-testid="handoff-agent-badge">
+            <Badge variant="accent" size="sm">
+              agent seçimi
+            </Badge>
+          </span>
+        ) : (
           <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>deterministik seçim</span>
         )}
       </div>

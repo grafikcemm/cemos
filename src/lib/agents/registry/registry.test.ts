@@ -87,6 +87,7 @@ beforeEach(() => {
   gatedCalls.length = 0;
   usageLogWrites.length = 0;
   delete process.env.ENABLE_AGENT_CURATION;
+  delete process.env.OPENROUTER_KEY_ROTATED_AT;
 });
 
 describe("registry doğrulaması (fail-fast)", () => {
@@ -321,8 +322,18 @@ describe("executor sözleşmesi", () => {
     expect(getLostTraceCount()).toBe(before + 1);
   });
 
+  it("Faz 2E: rotasyon marker'ı yokken ENABLE=1 bile LLM'e İNMEZ (deterministic fallback)", async () => {
+    process.env.ENABLE_AGENT_CURATION = "1"; // marker YOK
+    const fixture = fixtureById("curation-basic")!;
+    const r = await executeAgent("opportunity-curator", fixture.input, CTX);
+    expect(r.status).toBe("deterministic_fallback");
+    expect(r.blockedReason).toBe("openrouter_key_not_rotated");
+    expect(gatedCalls.length).toBe(0); // ağ/LLM çağrısı yok
+  });
+
   it("tek model çağrısı tek UsageLog (gated primitive sahipliği; executor ikinci kez yazmaz)", async () => {
     process.env.ENABLE_AGENT_CURATION = "1";
+    process.env.OPENROUTER_KEY_ROTATED_AT = "2026-07-17"; // Faz 2E rotasyon kapısı
     const fixture = fixtureById("curation-basic")!;
     const r = await executeAgent("opportunity-curator", fixture.input, CTX);
     expect(r.status).toBe("succeeded");

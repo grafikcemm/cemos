@@ -158,10 +158,61 @@ function mapDiscovery(candidates: RawFlow[]): OpportunityInput[] {
   });
 }
 
+type CurateApiSelection = {
+  sourceId: string;
+  score: number;
+  reasons?: { personaFit?: string } & Record<string, string | undefined>;
+};
+
+type CurateApiResponse = {
+  success: boolean;
+  method: "agent" | "deterministic";
+  fallbackReason?: string | null;
+  selections: CurateApiSelection[];
+};
+
+/**
+ * Server-side kürasyon (ADR-034 §E): registry executor'daki opportunity-curator
+ * POST /api/opportunities/curate üzerinden koşar (LLM istemciden ÇAĞRILMAZ).
+ * Route düşerse null döner — çağıran lokal deterministik yola geçer.
+ */
+async function curateViaServer(
+  inputs: OpportunityInput[]
+): Promise<{ opportunities: Opportunity[]; method: "agent" | "deterministic" } | null> {
+  if (inputs.length === 0) return null;
+  try {
+    const res = await fetch("/api/opportunities/curate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidates: inputs.slice(0, 200), limit: 8, perSourceCap: 4 }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as CurateApiResponse;
+    if (!json.success || !Array.isArray(json.selections) || json.selections.length === 0) return null;
+    const byId = new Map(inputs.map((i) => [i.id, i]));
+    const method = json.method === "agent" ? "agent" : "deterministic";
+    const mapped: Opportunity[] = [];
+    for (const sel of json.selections) {
+      const input = byId.get(sel.sourceId);
+      if (!input) continue; // bağsız id sunulmaz (fail-closed)
+      mapped.push({
+        ...input,
+        score: Math.max(0, Math.min(100, Math.round(sel.score))),
+        curationMethod: method,
+        curationReason: method === "agent" ? sel.reasons?.personaFit : undefined,
+      });
+    }
+    return mapped.length > 0 ? { opportunities: mapped, method } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Fırsat toplayıcı — 4 motoru PARALEL çeker (Promise.all + yut → kısmi hata bütünü
- * bozmaz), OpportunityInput'a eşler, deterministik kürasyon uygular. Her motor
- * hatası/engeli `notes`'ta; tümü düşerse `allFailed`.
+ * bozmaz), OpportunityInput'a eşler, server-side kürasyona gönderir (agent |
+ * deterministic, dürüst etiketli); route düşerse LOKAL deterministik kürasyon
+ * devam eder. Her motor hatası/engeli `notes`'ta; tümü düşerse `allFailed`.
  */
 export function useOpportunities() {
   const [opportunities, setOpportunities] = useState<Opportunity[] | null>(null);
@@ -215,7 +266,12 @@ export function useOpportunities() {
     ]);
 
     setNotes(engineNotes);
-    setOpportunities(curateOpportunities(inputs));
+    const serverCurated = await curateViaServer(inputs);
+    setOpportunities(
+      serverCurated
+        ? serverCurated.opportunities
+        : curateOpportunities(inputs).map((o) => ({ ...o, curationMethod: "deterministic" as const }))
+    );
     setAllFailed(okCount === 0);
     setLoading(false);
   }, []);

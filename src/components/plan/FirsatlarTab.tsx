@@ -223,9 +223,18 @@ export default function FirsatlarTab() {
             avatar={<IconTile source={o.source} />}
             title={o.title}
             badges={
-              <Badge variant={o.badgeTone ?? "muted"} size="sm">
-                {o.badge}
-              </Badge>
+              <>
+                <Badge variant={o.badgeTone ?? "muted"} size="sm">
+                  {o.badge}
+                </Badge>
+                {o.curationMethod === "agent" && (
+                  <span data-testid={`opp-agent-${o.id}`} title={o.curationReason ?? undefined}>
+                    <Badge variant="accent" size="sm">
+                      agent seçimi
+                    </Badge>
+                  </span>
+                )}
+              </>
             }
             body={
               <span>

@@ -108,15 +108,25 @@ export function isAgentCurationEnabled(): boolean {
 }
 
 /**
- * LLM kürasyon yolu — YALNIZ ENABLE_AGENT_CURATION=1 iken çalışır; aksi halde
- * AgentBlockedError (ağ çağrısı YOK). Aktifken: adaylar wrapUntrustedData ile
- * çitlenir, çıktı CuratorOutputSchema + sourceId bağlaması ile doğrulanır.
+ * LLM kürasyon yolu — YALNIZ ENABLE_AGENT_CURATION=1 VE OpenRouter anahtar
+ * rotasyon marker'ı (OPENROUTER_KEY_ROTATED_AT) mevcutken çalışır; aksi halde
+ * AgentBlockedError (ağ çağrısı YOK). Rotasyon kapısı ADR-034 güvenlik
+ * sözleşmesidir: 2C'de sızan anahtar döndürülmeden hiçbir canlı OpenRouter
+ * çağrısı yapılmaz. Aktifken: adaylar wrapUntrustedData ile çitlenir, çıktı
+ * CuratorOutputSchema + sourceId bağlaması ile doğrulanır.
  */
 export async function runAgentCuration(input: CuratorInput): Promise<CuratorOutput> {
   if (!isAgentCurationEnabled()) {
     throw new AgentBlockedError(
       "curation_agent_disabled",
       "LLM kürasyonu kapalı — OpenRouter kredi/izin onayı yok (ENABLE_AGENT_CURATION)."
+    );
+  }
+  const { isOpenRouterKeyRotated } = await import("@/lib/config/liveGates");
+  if (!isOpenRouterKeyRotated()) {
+    throw new AgentBlockedError(
+      "openrouter_key_not_rotated",
+      "OpenRouter anahtarı henüz döndürülmedi (OPENROUTER_KEY_ROTATED_AT yok) — canlı çağrı yasak."
     );
   }
   const { generateJsonGated } = await import("@/lib/ai/generateGated");
