@@ -10,7 +10,7 @@
 | **2B** | Memory governance: MemoryEvidence ledger (distinct-source idempotency), insan-onaylı promotion (learned fact otomatik aktifleşmez — 3 kanıt = yalnız review-ready), deterministik feedback→memory sinyal köprüsü + reconciliation, performans dersleri ↔ identity ayrımı, kaynaklı "CemOS benim hakkımda ne biliyor?" read modeli + Profil Memory derinleşmesi, üretimde kullanılan MemoryFact influence provenance'ı | ✅ KAPANDI (11 commit: 6cd20c2…d0d5e32; ADR-029/030) |
 | **2C** | Dinamik hesap kaynağı (ADR-016 kapanışı): persona/mode source-of-truth TS→DB + Composio Instagram read-only köprüsü | ✅ KAPANDI (10 commit: df7ff5d…; ADR-031/032; canlı Composio smoke BLOCKED-EXTERNAL — consumer key yok) |
 | **2D** | Doğrudan thread segment üretimi + backfill + kalite eşik kalibrasyonu (ADR-010: typed alan Faz 1C'de eklendi; ÜRETİM hattı burada) | ✅ KAPANDI — production contract complete + backfill applied (12); **calibration insufficient_sample/provisional** (ADR-033; canlı model çıktısı test edilmedi — 2E) |
-| **2E** | Phase 2 eval/observability kapanışı: registry eval koşuları, canlı OpenRouter kürasyonu (kredi sonrası), operatorReadiness–todayReadiness birleşim kararı | sonra |
+| **2E** | Phase 2 eval/observability kapanışı: registry eval koşuları, canlı OpenRouter kürasyonu (kredi sonrası), operatorReadiness–todayReadiness birleşim kararı | ✅ PRODUCTION CONTRACT COMPLETE / **LIVE BLOCKED-EXTERNAL** (ADR-034; canlı bölüm OPENROUTER_KEY_ROTATED_AT + spend onayları bekliyor) |
 
 ## 1. Agent envanteri — 12 rol → mevcut kod (2A-A, kod taramasıyla doğrulandı 2026-07-16)
 
@@ -66,9 +66,16 @@ Kural: aynı işi yapan yeni agent YAZILMAZ; mevcut servise adapter yazılır. *
 - Teslim: canonical thread sözleşmesi (`threadSegments` = publication authority; `effectiveThreadSegmentLimit=min(280,maxChars)` tek primitive; `isThreadDraft` mode-farkındalı), writer strict schema + typed `threadSegments` + format niyeti (thread/tweet/auto; sahte mock/tek-segment thread yasak), judge `sourceDraftIndex` provenance (canonical içerik writer'dan; fast/deadline/empty yolları segment korur), final editor thread'de `skipped:thread_segment_contract`, tek-create THREAD persistence + telemetry, entry-point parity (Source.mode/suggestedFormat=thread → gerçek thread isteği; handoff explicit-TWEET kilidi), readiness policy **1.1.0-provisional** (segment-bazlı, stale-content bypass kapalı, bilinmeyen hesap grafikcem'e düşmez), atomik segment+editedContent PATCH, dürüst ilk-segment intent + segment-hash (`content_changed`/stale) + `UsageLog.tweetCount=segmentCount`, schedule/approve thread parity, deterministik backfill (Neon: 12 applied + 1 dürüst untouched; ikinci dry-run 0 = idempotent).
 - **Dürüst kalanlar:** skor eşik kalibrasyonu `insufficient_sample` → PROVISIONAL (kriter: ≥10 pozitif + ≥10 negatif judged etiketli thread); canlı ücretli model thread çıktısı TEST EDİLMEDİ (2E); X API gerçek multi-post publish yok (Faz 1E blocker sözleşmesi).
 
-### 2E — Eval/observability kapanışı
-- **Giriş noktaları:** 2A registry eval fixtures, `src/lib/eval/` (Sprint 7 Eval V1 çekirdeği), CostsTab KPI şeridi, `opportunityCuration` + 2A curator adapter.
-- **İş:** kredi geldiğinde curator adapter'ı canlıya alma (deterministik fallback korunur), registry eval koşularının cron'a bağlanması, operatorReadiness–todayReadiness birleşim kararı (ADR-026'da bilinçli ertelendi), kayıp-trace ölçümü dashboard'u.
+### 2E — Eval/observability kapanışı — ✅ PRODUCTION CONTRACT COMPLETE / LIVE BLOCKED-EXTERNAL (ADR-034, 2026-07-17)
+- Kalıcı EvalRun/EvalCaseResult geçmişi (migration `20260717100000`, Neon'da, idempotent) — EvalTest overwrite'ı artık tek audit kaynağı değil.
+- Hermetic registry contract runner + fixture contract katmanı + CLI; ilk gerçek koşu 16/16 PASS $0 (mode=deterministic etiketi — "canlı doğrulandı" iddiası YOK).
+- Golden runner modernize: hardcoded hesap yok (DB runtime profile), canlı generate yalnız --live+kapılar (aksi BLOCKED), thread_contract deterministik golden vakaları (4/4 PASS).
+- Curator production wiring: POST /api/opportunities/curate (executor üzerinden), çift kapı (ENABLE_AGENT_CURATION + rotasyon marker), dürüst method etiketi + client fallback + gerçek-başarı rozeti.
+- Canonical OperatorActionReadiness: gate tek health fetch'inden; 15sn polling + duplicate sorgular + eski GET endpoint KALKTI; çelişkili status imkânsız.
+- Trace: executor traceStatus + "gözlenen trace kapsaması" (process-local sayaç global KPI DEĞİL — dürüst sınırlama dokümante).
+- Cron: haftalık Pazartesi deterministik eval learn slotunda (yeni cron yok, idempotent, fail-open); canlı eval cron'dan default ÇALIŞMAZ.
+- UI: Sistem "Agent değerlendirmeleri" + Costs evaluation bütçe/harcama/kürasyon ayrımı.
+- **Dürüst kalanlar:** canlı curator/thread/golden-generate smoke BLOCKED-EXTERNAL (rotasyon + spend env'leri); thread eşik kalibrasyonu hâlâ insufficient_sample/PROVISIONAL; Composio IG canlı smoke env bekliyor; Phase 2 "tam canlı doğrulanmış" İLAN EDİLMEDİ.
 
 ## 4. 2A dışı YAPILMAYACAKLAR (bu pass)
 Phase 2B–2E işleri, Phase 3 Reels/DNA/Meta, Phase 4 Obsidian/Learn otomasyonu, gerçek X API publish, canlı ücretli OpenRouter eval/kürasyonu, push, deploy.
