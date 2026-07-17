@@ -11,6 +11,7 @@ import {
   type AgentDefinition,
   type AgentRunResult,
   type AgentRunStatus,
+  type AgentTraceStatus,
 } from "./types";
 
 /**
@@ -39,7 +40,13 @@ export type ExecuteAgentContext = {
 };
 
 let lostTraceCount = 0;
-/** Trace yazımı üretimi bloklamaz ama kaybı sessiz de değildir — ölçülür. */
+/**
+ * Trace yazımı üretimi bloklamaz ama kaybı sessiz de değildir — ölçülür.
+ * DÜRÜST SINIRLAMA (ADR-034): bu sayaç PROCESS-LOCAL'dır; serverless'ta
+ * instance restart'ında sıfırlanır ve cross-instance toplanmaz. Global KPI
+ * olarak KULLANILMAZ — koşu-bazlı gözlem için AgentRunResult.traceStatus ve
+ * EvalCaseResult.traceStatus kullanılır ("observed trace gaps").
+ */
 export function getLostTraceCount(): number {
   return lostTraceCount;
 }
@@ -60,6 +67,7 @@ function baseResult(def: AgentDefinition, status: AgentRunStatus, startedAt: num
     latencyMs: Date.now() - startedAt,
     retryCount: 0,
     costUsd: 0,
+    traceStatus: "skipped_policy",
   };
 }
 
@@ -90,12 +98,16 @@ function isBlocked(e: unknown): { blocked: boolean; reason: string } {
   return { blocked: false, reason: "" };
 }
 
-async function writeTrace(def: AgentDefinition, result: AgentRunResult, ctx: ExecuteAgentContext): Promise<void> {
+async function writeTrace(
+  def: AgentDefinition,
+  result: AgentRunResult,
+  ctx: ExecuteAgentContext
+): Promise<AgentTraceStatus> {
   // tracePolicy "on_llm": deterministik başarıda stage yazılmaz (gürültü değil,
   // maliyet de yok); hata/fallback/blocked HER ZAMAN yazılır (sessiz fail-open yok).
   const uneventfulDeterministic =
     def.tracePolicy === "on_llm" && def.executionMode === "deterministic" && result.status === "succeeded";
-  if (uneventfulDeterministic) return;
+  if (uneventfulDeterministic) return "skipped_policy";
 
   const stage: PipelineTraceStage = {
     stage: def.id,
@@ -128,9 +140,31 @@ async function writeTrace(def: AgentDefinition, result: AgentRunResult, ctx: Exe
       stages: [stage],
       totalCostUsd: result.costUsd,
     });
-  } catch {
-    lostTraceCount += 1; // best-effort ama ölçülebilir (ADR-027)
+    return "persisted";
+  } catch (e) {
+    lostTraceCount += 1; // best-effort ama ölçülebilir (ADR-027; process-local)
+    // Structured log (ADR-034): secret/raw payload YOK — yalnız kimlik + hata sınıfı.
+    console.error(
+      JSON.stringify({
+        event: "trace_write_failed",
+        agentId: def.id,
+        pipelineId: "agent_registry",
+        subjectType: ctx.subjectType,
+        subjectId: ctx.subjectId,
+        errorClass: e instanceof Error ? e.name : "unknown",
+      })
+    );
+    return "failed";
   }
+}
+
+/** Trace'i yazar ve gözlenen sonucu sonuca damgalar (ADR-034). */
+async function finalize<T>(
+  def: AgentDefinition,
+  r: AgentRunResult,
+  ctx: ExecuteAgentContext
+): Promise<AgentRunResult<T>> {
+  return { ...r, traceStatus: await writeTrace(def, r, ctx) } as AgentRunResult<T>;
 }
 
 async function runFallback(
@@ -194,25 +228,23 @@ export async function executeAgent<T = unknown>(
       latencyMs: Date.now() - startedAt,
       retryCount: 0,
       costUsd: 0,
+      traceStatus: "skipped_policy",
     } as AgentRunResult<T>;
   }
 
   if (def.status === "blocked_external") {
     const r = { ...baseResult(def, "blocked_external", startedAt), blockedReason: "entry_blocked_external" };
-    await writeTrace(def, r, ctx);
-    return r as AgentRunResult<T>;
+    return finalize<T>(def, r, ctx);
   }
   if (def.status === "disabled") {
     const r = { ...baseResult(def, "failed_execution", startedAt), errorMessage: "Agent devre dışı (disabled)." };
-    await writeTrace(def, r, ctx);
-    return r as AgentRunResult<T>;
+    return finalize<T>(def, r, ctx);
   }
 
   const adapter = ctx.adapterOverride ?? AGENT_ADAPTERS[def.adapterId];
   if (!adapter) {
     const r = { ...baseResult(def, "failed_execution", startedAt), errorMessage: `Adapter yok: ${def.adapterId}` };
-    await writeTrace(def, r, ctx);
-    return r as AgentRunResult<T>;
+    return finalize<T>(def, r, ctx);
   }
 
   // 3 — capability/memory izinleri: adapter tanımın allowlist'ini aşamaz.
@@ -225,8 +257,7 @@ export async function executeAgent<T = unknown>(
         ? `Capability ihlali: adapter "${adapter.id}" → "${capViolation}"`
         : `Memory-write ihlali: adapter "${adapter.id}" → "${memViolation}"`,
     };
-    await writeTrace(def, r, ctx);
-    return r as AgentRunResult<T>;
+    return finalize<T>(def, r, ctx);
   }
 
   // 2 — input doğrulaması (adapter koşmadan; maliyet 0).
@@ -236,8 +267,7 @@ export async function executeAgent<T = unknown>(
       ...baseResult(def, "failed_validation", startedAt),
       errorMessage: `Girdi şemadan geçmedi: ${inParsed.error.issues[0]?.message ?? "?"}`,
     };
-    await writeTrace(def, r, ctx);
-    return r as AgentRunResult<T>;
+    return finalize<T>(def, r, ctx);
   }
 
   const adapterCtx: AgentAdapterContext = {
@@ -264,8 +294,7 @@ export async function executeAgent<T = unknown>(
         };
         const r = await runFallback(def, adapter, inParsed.data, adapterCtx, invalid, "output_validation_failed");
         const final = { ...r, latencyMs: Date.now() - startedAt };
-        await writeTrace(def, final, ctx);
-        return final as AgentRunResult<T>;
+        return finalize<T>(def, final, ctx);
       }
       const r: AgentRunResult = {
         ...baseResult(def, "succeeded", startedAt),
@@ -273,8 +302,7 @@ export async function executeAgent<T = unknown>(
         retryCount,
         costUsd: run.costUsd,
       };
-      await writeTrace(def, r, ctx);
-      return r as AgentRunResult<T>;
+      return finalize<T>(def, r, ctx);
     } catch (e) {
       // Sıra önemli: blocked (bütçe/dış engel) retry EDİLMEZ → fallback/blocked.
       const b = isBlocked(e);
@@ -282,13 +310,11 @@ export async function executeAgent<T = unknown>(
         const blockedBase = { ...baseResult(def, "blocked_external", startedAt), retryCount };
         const r = await runFallback(def, adapter, inParsed.data, adapterCtx, blockedBase, b.reason);
         const final = { ...r, latencyMs: Date.now() - startedAt };
-        await writeTrace(def, final, ctx);
-        return final as AgentRunResult<T>;
+        return finalize<T>(def, final, ctx);
       }
       if (e instanceof AgentTimeoutError) {
         const r = { ...baseResult(def, "timed_out", startedAt), retryCount, errorMessage: e.message };
-        await writeTrace(def, r, ctx);
-        return r as AgentRunResult<T>;
+        return finalize<T>(def, r, ctx);
       }
       lastError = e; // failed_execution → retry politikası izin verdiği sürece dene
     }
@@ -299,6 +325,5 @@ export async function executeAgent<T = unknown>(
     retryCount,
     errorMessage: lastError instanceof Error ? lastError.message : String(lastError),
   };
-  await writeTrace(def, r, ctx);
-  return r as AgentRunResult<T>;
+  return finalize<T>(def, r, ctx);
 }

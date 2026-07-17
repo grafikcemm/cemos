@@ -135,6 +135,14 @@ export type AgentRunStatus =
   | "failed_execution"
   | "timed_out";
 
+/**
+ * Faz 2E (ADR-034): trace yazımının GÖZLENEN sonucu. Bu, koşu-bazlı dürüst bir
+ * sinyaldir — global/durable "kayıp trace sayacı" İDDİASI DEĞİLDİR (ana DB
+ * erişilemezken aynı DB'ye "yazamadım" kaydı yazılamaz; process-local sayaç
+ * serverless'ta cross-instance toplanamaz).
+ */
+export type AgentTraceStatus = "persisted" | "failed" | "skipped_policy";
+
 export type AgentRunResult<T = unknown> = {
   agentId: string;
   agentVersion: string;
@@ -148,6 +156,8 @@ export type AgentRunResult<T = unknown> = {
   latencyMs: number;
   retryCount: number;
   costUsd: number;
+  /** Bu koşunun trace yazımının gözlenen sonucu (ADR-034). */
+  traceStatus: AgentTraceStatus;
 };
 
 /**

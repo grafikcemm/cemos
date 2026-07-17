@@ -79,4 +79,15 @@ export const pipelineTraceRepo = {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return prisma.pipelineTrace.deleteMany({ where: { createdAt: { lt: cutoff } } });
   },
+
+  /**
+   * Faz 2E (ADR-034 §G): bounded, indeks-dostu aggregate — pipelineId+zaman
+   * penceresi ([pipelineId, createdAt] indeksi). Gün tavanı 90 (retention 30g
+   * zaten pruning'de; tavan sorguyu sınırlar).
+   */
+  countByPipelineSince(pipelineId: string, sinceDays: number): Promise<number> {
+    const days = Math.min(Math.max(sinceDays, 1), 90);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return prisma.pipelineTrace.count({ where: { pipelineId, createdAt: { gte: cutoff } } });
+  },
 };

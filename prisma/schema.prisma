@@ -434,6 +434,8 @@ model PipelineTrace {
 
   @@index([subjectType, subjectId, createdAt])
   @@index([createdAt])
+  // Faz 2E: agent_registry trace kapsama sorguları (pipelineId + zaman) için.
+  @@index([pipelineId, createdAt])
 }
 
 // Serverless cron/scan heartbeat + result log. Written heartbeat-first so even
@@ -1698,4 +1700,56 @@ model AuthAttempt {
   updatedAt   DateTime  @updatedAt
 
   @@index([updatedAt])
+}
+
+// ── Faz 2E (ADR-034): kalıcı eval koşu geçmişi ─────────────────────────────
+// EvalTest'in son-sonucu overwrite etmesi tek audit kaynağı olamaz; her eval
+// koşusu tarihsel olarak adreslenebilir. summaryJson/detailsJson bounded ve
+// sanitize edilir — raw secret, tam prompt veya hassas dış platform payload'u
+// SAKLANMAZ. Additive-only.
+model EvalRun {
+  id            String    @id @default(cuid())
+  kind          String // "registry_contract" | "golden_live" | "curator_live" | "thread_smoke"
+  mode          String // "deterministic" | "live"
+  trigger       String // "manual" | "cron"
+  status        String    @default("running") // "running" | "passed" | "partial" | "failed" | "blocked_external"
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  model         String?
+  preset        String?
+  passedCount   Int       @default(0)
+  failedCount   Int       @default(0)
+  skippedCount  Int       @default(0)
+  totalCostUsd  Float     @default(0)
+  policyVersion String    @default("")
+  summaryJson   String    @default("{}")
+  errorClass    String?
+  createdAt     DateTime  @default(now())
+
+  cases EvalCaseResult[]
+
+  @@index([kind, startedAt])
+  @@index([status, startedAt])
+}
+
+// Koşu içi tek case sonucu. traceStatus, executor'ın trace yazımının GÖZLENEN
+// sonucudur (persisted | failed | skipped_policy | not_applicable) — global
+// "lost trace" sayacı iddiası değildir (bkz. ADR-034 dürüst sınırlama).
+model EvalCaseResult {
+  id          String   @id @default(cuid())
+  runId       String
+  run         EvalRun  @relation(fields: [runId], references: [id])
+  caseKey     String
+  fixtureId   String?
+  agentId     String?
+  status      String // "passed" | "failed" | "skipped" | "blocked_external"
+  score       Float?
+  latencyMs   Int?
+  costUsd     Float    @default(0)
+  traceStatus String   @default("not_applicable")
+  detailsJson String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@unique([runId, caseKey])
+  @@index([agentId, createdAt])
 }
