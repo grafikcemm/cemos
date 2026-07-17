@@ -9,7 +9,7 @@
 | **2A** | Config-driven agent/skill registry + execution contract + kalıcı fırsat aktarımı (OpportunityHandoff) + trace/cost sözleşmesi | ✅ KAPANDI (7 commit: b300e84…8e251ac; ADR-027/028) |
 | **2B** | Memory governance: MemoryEvidence ledger (distinct-source idempotency), insan-onaylı promotion (learned fact otomatik aktifleşmez — 3 kanıt = yalnız review-ready), deterministik feedback→memory sinyal köprüsü + reconciliation, performans dersleri ↔ identity ayrımı, kaynaklı "CemOS benim hakkımda ne biliyor?" read modeli + Profil Memory derinleşmesi, üretimde kullanılan MemoryFact influence provenance'ı | ✅ KAPANDI (11 commit: 6cd20c2…d0d5e32; ADR-029/030) |
 | **2C** | Dinamik hesap kaynağı (ADR-016 kapanışı): persona/mode source-of-truth TS→DB + Composio Instagram read-only köprüsü | ✅ KAPANDI (10 commit: df7ff5d…; ADR-031/032; canlı Composio smoke BLOCKED-EXTERNAL — consumer key yok) |
-| **2D** | Doğrudan thread segment üretimi + backfill + kalite eşik kalibrasyonu (ADR-010: typed alan Faz 1C'de eklendi; ÜRETİM hattı burada) | sonra |
+| **2D** | Doğrudan thread segment üretimi + backfill + kalite eşik kalibrasyonu (ADR-010: typed alan Faz 1C'de eklendi; ÜRETİM hattı burada) | ✅ KAPANDI — production contract complete + backfill applied (12); **calibration insufficient_sample/provisional** (ADR-033; canlı model çıktısı test edilmedi — 2E) |
 | **2E** | Phase 2 eval/observability kapanışı: registry eval koşuları, canlı OpenRouter kürasyonu (kredi sonrası), operatorReadiness–todayReadiness birleşim kararı | sonra |
 
 ## 1. Agent envanteri — 12 rol → mevcut kod (2A-A, kod taramasıyla doğrulandı 2026-07-16)
@@ -62,9 +62,9 @@ Kural: aynı işi yapan yeni agent YAZILMAZ; mevcut servise adapter yazılır. *
 - **Riskler:** memory scope guard'ı (`assertScope`) ve voice constitutions handle'a bağlı — dinamikleşirken fail-closed kalmalı (bilinmeyen handle YAZAMAZ); Zustand `activeChannel` literal tipi; e2e sabit handle varsayımları; yeni hesap eklerken constitution/DNA boş → grounding graceful boş kalmalı.
 
 
-### 2D — Thread üretim hattı
-- **Giriş noktaları:** `QueueItem.threadSegments` (typed alan Faz 1C'den beri var), `src/lib/ai/draft-pipeline.ts` (writer şeması thread üretmiyor), readiness thread segment doğrulaması (mevcut, fail-closed), segment editörü (DraftReviewCard).
-- **İş:** writer şemasına thread çıkışı + mevcut thread taslaklarına backfill + kalite eşik kalibrasyonu (canlı queue verisiyle; ADR-023 §8E stale-eşik notu dahil).
+### 2D — Thread üretim hattı ✅ UYGULANDI (ADR-033)
+- Teslim: canonical thread sözleşmesi (`threadSegments` = publication authority; `effectiveThreadSegmentLimit=min(280,maxChars)` tek primitive; `isThreadDraft` mode-farkındalı), writer strict schema + typed `threadSegments` + format niyeti (thread/tweet/auto; sahte mock/tek-segment thread yasak), judge `sourceDraftIndex` provenance (canonical içerik writer'dan; fast/deadline/empty yolları segment korur), final editor thread'de `skipped:thread_segment_contract`, tek-create THREAD persistence + telemetry, entry-point parity (Source.mode/suggestedFormat=thread → gerçek thread isteği; handoff explicit-TWEET kilidi), readiness policy **1.1.0-provisional** (segment-bazlı, stale-content bypass kapalı, bilinmeyen hesap grafikcem'e düşmez), atomik segment+editedContent PATCH, dürüst ilk-segment intent + segment-hash (`content_changed`/stale) + `UsageLog.tweetCount=segmentCount`, schedule/approve thread parity, deterministik backfill (Neon: 12 applied + 1 dürüst untouched; ikinci dry-run 0 = idempotent).
+- **Dürüst kalanlar:** skor eşik kalibrasyonu `insufficient_sample` → PROVISIONAL (kriter: ≥10 pozitif + ≥10 negatif judged etiketli thread); canlı ücretli model thread çıktısı TEST EDİLMEDİ (2E); X API gerçek multi-post publish yok (Faz 1E blocker sözleşmesi).
 
 ### 2E — Eval/observability kapanışı
 - **Giriş noktaları:** 2A registry eval fixtures, `src/lib/eval/` (Sprint 7 Eval V1 çekirdeği), CostsTab KPI şeridi, `opportunityCuration` + 2A curator adapter.
