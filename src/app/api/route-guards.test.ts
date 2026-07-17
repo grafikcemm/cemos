@@ -29,6 +29,10 @@ import { GET as evalRunsGET } from "./eval/runs/route";
 import { GET as dnaObservationGET } from "./instagram/dna-observation/route";
 import { POST as dnaApplyPOST } from "./instagram/dna-observation/apply/route";
 import { GET as sourcePostsGET } from "./source-posts/route";
+import { GET as reelsDossierGET } from "./reels/dossier/route";
+import { GET as reelsDossierDetailGET } from "./reels/dossier/[id]/route";
+import { POST as reelsDossierApprovePOST } from "./reels/dossier/[id]/approve/route";
+import { POST as reelsSlotAttachPOST } from "./reels/plan/slot/[id]/attach/route";
 import { GET as toolboxGET } from "./toolbox/route";
 import { GET as youtubeVideosGET } from "./youtube/videos/route";
 
@@ -66,6 +70,10 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/instagram/dna-observation", dnaObservationGET],
     ["/api/instagram/dna-observation/apply", dnaApplyPOST],
     ["/api/source-posts", sourcePostsGET],
+    ["/api/reels/dossier", reelsDossierGET],
+    ["/api/reels/dossier/abc", (req) => reelsDossierDetailGET(req, dummyIdCtx)],
+    ["/api/reels/dossier/abc/approve", (req) => reelsDossierApprovePOST(req, dummyIdCtx)],
+    ["/api/reels/plan/slot/abc/attach", (req) => reelsSlotAttachPOST(req, dummyIdCtx)],
     ["/api/toolbox", toolboxGET],
     ["/api/youtube/videos", youtubeVideosGET],
   ];

@@ -59,7 +59,10 @@ export const CreateTrainingExampleSchema = z.object({
   reason: z.string().optional(),
   metricsJson: z.record(z.unknown()).optional(),
   embeddingJson: z.array(z.number()).optional(),
-  platform: z.string().optional()
+  platform: z.string().optional(),
+  // ADR-036 (Faz 3B): seri-bazlı few-shot havuzu — kolon Sprint 4'ten beri
+  // vardı ama create yolu taşımıyordu; getSeriesExamples artık dolu satır görür.
+  seriesKey: z.string().max(120).optional()
 });
 
 export type CreateTrainingExampleInput = z.infer<typeof CreateTrainingExampleSchema>;
