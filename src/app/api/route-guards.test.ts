@@ -26,6 +26,8 @@ import { GET as learnPackGET } from "./learn/packs/[id]/route";
 import { GET as promptLibraryGET } from "./prompt-library/route";
 import { GET as repoRadarGET } from "./repo-radar/route";
 import { GET as evalRunsGET } from "./eval/runs/route";
+import { GET as dnaObservationGET } from "./instagram/dna-observation/route";
+import { POST as dnaApplyPOST } from "./instagram/dna-observation/apply/route";
 import { GET as sourcePostsGET } from "./source-posts/route";
 import { GET as toolboxGET } from "./toolbox/route";
 import { GET as youtubeVideosGET } from "./youtube/videos/route";
@@ -61,6 +63,8 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     // /api/settings/operator-readiness KALDIRILDI (ADR-034 §F): tek tüketicisi
     // OperatorReadinessGate idi; gate artık canonical /api/health contract'ından
     // beslenir. operator-scan-now POST'u yaşamaya devam eder.
+    ["/api/instagram/dna-observation", dnaObservationGET],
+    ["/api/instagram/dna-observation/apply", dnaApplyPOST],
     ["/api/source-posts", sourcePostsGET],
     ["/api/toolbox", toolboxGET],
     ["/api/youtube/videos", youtubeVideosGET],
