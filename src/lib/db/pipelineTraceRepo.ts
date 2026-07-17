@@ -27,6 +27,18 @@ export type PipelineTraceStage = {
   inputSchemaVersion?: string;
   outputSchemaVersion?: string;
   policyVersion?: string;
+  // ── Additive generation provenance (ADR-036, Faz 3B) ─────────────────────
+  // ReelDossier'a kolon EKLEMEDEN üretim provenance'ı taşır (migration'sız;
+  // detay route'u listBySubject ile okur). Hepsi opsiyonel — eski kayıtlar
+  // değişmeden parse edilir.
+  seriesKey?: string;
+  seriesVersion?: number;
+  promptVersion?: string;
+  sourceHandoffId?: string;
+  /** Üretim anındaki canonical içerik hash'i (operatör edit tespiti için). */
+  contentHash?: string;
+  accountId?: string;
+  accountHandle?: string;
 };
 
 export type CreatePipelineTraceInput = {
