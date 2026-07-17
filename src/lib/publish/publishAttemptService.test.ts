@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { publishAttemptService, contentHashOf } from "./publishAttemptService";
+import { publishAttemptService, contentHashOf, canonicalPublicationOf } from "./publishAttemptService";
+import { threadPublicationHashInput } from "@/lib/growth-engine/threadSegments";
 import { PublishFlowError } from "./contract";
 import { xApiPublishAdapter } from "./xApiAdapter";
 import { intentPublishAdapter } from "./intentAdapter";
@@ -328,7 +329,7 @@ describe("latestIntentAttempts (reload persistence + stale işareti)", () => {
     ] as Awaited<ReturnType<typeof prisma.publishAttempt.findMany>>);
 
     const map = await publishAttemptService.latestIntentAttempts([
-      { id: "qi_1", content: READY_TEXT, editedContent: null },
+      { id: "qi_1", content: READY_TEXT, editedContent: null, draftType: "TWEET", mode: "ai_news", threadSegments: null },
     ]);
     expect(map.get("qi_1")?.state).toBe("prepared");
     expect(map.get("qi_1")?.staleForCurrentContent).toBe(false);
@@ -340,7 +341,7 @@ describe("latestIntentAttempts (reload persistence + stale işareti)", () => {
     ] as Awaited<ReturnType<typeof prisma.publishAttempt.findMany>>);
 
     const map = await publishAttemptService.latestIntentAttempts([
-      { id: "qi_1", content: READY_TEXT, editedContent: "Bambaşka bir metin." },
+      { id: "qi_1", content: READY_TEXT, editedContent: "Bambaşka bir metin.", draftType: "TWEET", mode: "ai_news", threadSegments: null },
     ]);
     expect(map.get("qi_1")?.staleForCurrentContent).toBe(true);
   });
@@ -399,5 +400,140 @@ describe("adapters", () => {
 
     const pub = await intentPublishAdapter.publish({ ...input, attemptId: "att_1" });
     expect(pub.ok).toBe(false);
+  });
+});
+
+
+// ─── Phase 2D (ADR-033): dürüst thread intent + canonical segment hash ────────
+
+const THREAD_SEGS = [
+  { text: "Hook: bu araci kimse konusmuyor." },
+  { text: "Adim 1: kurulum tek komut." },
+  { text: "Adim 2: preset kilitle." },
+  { text: "Payoff: kaydet, yarin lazim." },
+];
+const THREAD_JOINED = THREAD_SEGS.map((s) => s.text).join("\n\n");
+const THREAD_HASH = contentHashOf(threadPublicationHashInput(THREAD_SEGS));
+
+const threadItem = {
+  ...readyItem,
+  id: "qi_t",
+  draftType: "THREAD",
+  mode: "thread",
+  content: THREAD_JOINED,
+  threadSegments: JSON.stringify(THREAD_SEGS),
+};
+
+describe("canonicalPublicationOf (Phase 2D)", () => {
+  it("thread: kind=thread_first_segment, intentText=YALNIZ ilk segment, text=birleşim, hash=segment hash'i", () => {
+    const pub = canonicalPublicationOf(threadItem);
+    expect(pub.kind).toBe("thread_first_segment");
+    expect(pub.intentText).toBe(THREAD_SEGS[0].text);
+    expect(pub.text).toBe(THREAD_JOINED);
+    expect(pub.segmentCount).toBe(4);
+    expect(pub.hash).toBe(THREAD_HASH);
+    // Birleşik metnin düz hash'i DEĞİL — segment payload hash'i.
+    expect(pub.hash).not.toBe(contentHashOf(THREAD_JOINED));
+  });
+
+  it("segment SIRASI değişince hash değişir (reorder → stale)", () => {
+    const reordered = { ...threadItem, threadSegments: JSON.stringify([THREAD_SEGS[1], THREAD_SEGS[0], THREAD_SEGS[2], THREAD_SEGS[3]]) };
+    expect(canonicalPublicationOf(reordered).hash).not.toBe(THREAD_HASH);
+  });
+
+  it("non-thread hash davranışı geriye uyumlu: contentHashOf(text)", () => {
+    const pub = canonicalPublicationOf(readyItem);
+    expect(pub.kind).toBe("single");
+    expect(pub.segmentCount).toBe(1);
+    expect(pub.hash).toBe(contentHashOf(READY_TEXT));
+  });
+
+  it("mode=thread + draftType=TWEET (tarihî sınıf) segmentliyse thread sayılır", () => {
+    const pub = canonicalPublicationOf({ ...threadItem, draftType: "TWEET", mode: "thread" });
+    expect(pub.kind).toBe("thread_first_segment");
+  });
+});
+
+describe("prepareIntent — thread (Phase 2D)", () => {
+  it("intent URL YALNIZ ilk segmenti taşır; birleşik thread tek intent'e GÖNDERİLMEZ; intentMode typed", async () => {
+    mockItem(threadItem);
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue(null);
+    tx.publishAttempt.create.mockImplementation(async (args: { data: Record<string, unknown> }) =>
+      preparedAttempt({ ...args.data, id: "att_t" }),
+    );
+
+    const res = await publishAttemptService.prepareIntent("qi_t");
+    expect(res.intentMode).toBe("thread_first_segment");
+    expect(res.segmentCount).toBe(4);
+    expect(res.intentUrl).toBe(`https://x.com/intent/post?text=${encodeURIComponent(THREAD_SEGS[0].text)}`);
+    expect(res.intentUrl).not.toContain(encodeURIComponent("Adim 1"));
+    expect(res.attempt.contentHash).toBe(THREAD_HASH);
+  });
+});
+
+describe("confirmManualPublish — thread (Phase 2D)", () => {
+  it("güncel segment hash'i eşleşir → UsageLog.tweetCount=segmentCount, PublishLog manualThread, content=birleşim", async () => {
+    mockItem(threadItem);
+    vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue(
+      preparedAttempt({ id: "att_t", queueItemId: "qi_t", contentHash: THREAD_HASH }) as never,
+    );
+    tx.queueItem.update.mockResolvedValue({ ...threadItem, status: "manual_published", publishedAt: new Date() });
+
+    const res = await publishAttemptService.confirmManualPublish("qi_t");
+    expect(res.alreadyPublished).toBe(false);
+    expect(tx.usageLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tweetCount: 4 }) }),
+    );
+    const logArgs = tx.publishLog.create.mock.calls[0][0] as { data: { payload: string; content: string } };
+    expect(JSON.parse(logArgs.data.payload)).toMatchObject({ manualThread: true, segmentCount: 4 });
+    expect(logArgs.data.content).toBe(THREAD_JOINED);
+    const ppArgs = tx.publishedPost.create.mock.calls[0][0] as { data: { content: string } };
+    expect(ppArgs.data.content).toBe(THREAD_JOINED);
+  });
+
+  it("segment değişmişse content_changed (eski hazırlık geçersiz)", async () => {
+    const edited = { ...threadItem, threadSegments: JSON.stringify([...THREAD_SEGS, { text: "Yeni ek segment." }]) };
+    mockItem(edited);
+    vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue(
+      preparedAttempt({ id: "att_t", queueItemId: "qi_t", contentHash: THREAD_HASH }) as never,
+    );
+    await expectFlowError(publishAttemptService.confirmManualPublish("qi_t"), "content_changed");
+    expect(tx.publishLog.create).not.toHaveBeenCalled();
+  });
+
+  it("non-thread confirm regresyonu: tweetCount=1, manualThread yok", async () => {
+    mockItem(readyItem);
+    vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue(preparedAttempt() as never);
+    await publishAttemptService.confirmManualPublish("qi_1");
+    expect(tx.usageLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tweetCount: 1 }) }),
+    );
+    const logArgs = tx.publishLog.create.mock.calls[0][0] as { data: { payload: string } };
+    expect(JSON.parse(logArgs.data.payload).manualThread).toBeUndefined();
+  });
+});
+
+describe("latestIntentAttempts — thread stale (Phase 2D)", () => {
+  it("segment düzenlendi/yeniden sıralandı → staleForCurrentContent=true", async () => {
+    vi.mocked(prisma.publishAttempt.findMany).mockResolvedValue([
+      preparedAttempt({ id: "att_t", queueItemId: "qi_t", contentHash: THREAD_HASH }),
+    ] as Awaited<ReturnType<typeof prisma.publishAttempt.findMany>>);
+
+    const reordered = JSON.stringify([THREAD_SEGS[1], THREAD_SEGS[0], THREAD_SEGS[2], THREAD_SEGS[3]]);
+    const map = await publishAttemptService.latestIntentAttempts([
+      { id: "qi_t", content: THREAD_JOINED, editedContent: null, draftType: "THREAD", mode: "thread", threadSegments: reordered },
+    ]);
+    expect(map.get("qi_t")?.staleForCurrentContent).toBe(true);
+  });
+
+  it("aynı segment payload'ı → stale değil", async () => {
+    vi.mocked(prisma.publishAttempt.findMany).mockResolvedValue([
+      preparedAttempt({ id: "att_t", queueItemId: "qi_t", contentHash: THREAD_HASH }),
+    ] as Awaited<ReturnType<typeof prisma.publishAttempt.findMany>>);
+
+    const map = await publishAttemptService.latestIntentAttempts([
+      { id: "qi_t", content: THREAD_JOINED, editedContent: null, draftType: "THREAD", mode: "thread", threadSegments: JSON.stringify(THREAD_SEGS) },
+    ]);
+    expect(map.get("qi_t")?.staleForCurrentContent).toBe(false);
   });
 });

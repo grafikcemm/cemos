@@ -69,7 +69,15 @@ export async function GET(req: NextRequest) {
     // sonrası korunur); staleForCurrentContent içerik-değişti işaretidir.
     const { publishAttemptService } = await import("@/lib/publish/publishAttemptService");
     const attemptMap = await publishAttemptService.latestIntentAttempts(
-      rawItems.map((i) => ({ id: i.id, content: i.content, editedContent: i.editedContent })),
+      rawItems.map((i) => ({
+        id: i.id,
+        content: i.content,
+        editedContent: i.editedContent,
+        // Phase 2D: stale kararı canonical publication hash'i (thread'de segmentler).
+        draftType: i.draftType,
+        mode: i.mode,
+        threadSegments: i.threadSegments,
+      })),
     );
 
     const { getLocalDayBounds } = await import("@/lib/utils/date");

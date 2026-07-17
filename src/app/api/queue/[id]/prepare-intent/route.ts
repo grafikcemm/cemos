@@ -16,7 +16,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params;
     if (!id) return fail("id gerekli", 400);
 
-    const { attempt, intentUrl, reused } = await publishAttemptService.prepareIntent(id);
+    const { attempt, intentUrl, reused, intentMode, segmentCount } =
+      await publishAttemptService.prepareIntent(id);
     return ok({
       attempt: {
         id: attempt.id,
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       },
       intentUrl,
       reused,
+      // Phase 2D (ADR-033): thread'de intent yalniz ILK segmenti acar - typed mod.
+      intentMode,
+      segmentCount,
     });
   } catch (err) {
     const { status, error, code, reasons } = publishErrorResponse(err);

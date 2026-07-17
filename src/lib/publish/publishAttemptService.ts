@@ -4,6 +4,13 @@ import { assessQueueItemReadiness } from "@/lib/services/readinessAdapter";
 import { READINESS_POLICY_VERSION } from "@/lib/services/readinessService";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { imageService } from "@/lib/services/imageService";
+import {
+  isThreadDraft,
+  joinThreadSegments,
+  parseThreadSegments,
+  threadPublicationHashInput,
+  type ThreadSegment,
+} from "@/lib/growth-engine/threadSegments";
 import { intentPublishAdapter } from "./intentAdapter";
 import { PublishFlowError, type ReadinessSnapshot } from "./contract";
 
@@ -29,6 +36,61 @@ export function contentHashOf(text: string): string {
 
 function currentText(item: { content: string; editedContent: string | null }): string {
   return (item.editedContent?.trim() || item.content.trim());
+}
+
+export type PublicationItemLike = {
+  content: string;
+  editedContent: string | null;
+  draftType: string;
+  mode?: string | null;
+  threadSegments: string | null;
+};
+
+export type CanonicalPublication = {
+  /** thread_first_segment: X intent yalnız İLK segmenti açar (dürüst mod). */
+  kind: "single" | "thread_first_segment";
+  /** Yayının TAM metni (thread'de segmentlerin birleşimi). */
+  text: string;
+  /** Intent penceresine giden metin (thread'de yalnız ilk segment). */
+  intentText: string;
+  segments: ThreadSegment[] | null;
+  /** Yayın gönderi sayısı — UsageLog.tweetCount bunu yansıtır (single=1). */
+  segmentCount: number;
+  /** contentHash: thread'de sıra+değer dahil segment hash'i; single'da düz
+   *  metin hash'i (geriye uyumlu — non-thread davranış DEĞİŞMEDİ). */
+  hash: string;
+};
+
+/**
+ * Phase 2D (ADR-033): thread için canonical publication payload threadSegments'tir.
+ * Hash segment SIRASI ve DEĞERLERİNİ kapsar — segment düzenlenince/yeniden
+ * sıralanınca prepared attempt stale olur. Segmentsiz thread taslağı readiness'te
+ * zaten yakalanır (structureless_thread → 422); burada single semantiğine düşer.
+ */
+export function canonicalPublicationOf(item: PublicationItemLike): CanonicalPublication {
+  const segments = isThreadDraft(item.draftType, item.mode)
+    ? parseThreadSegments(item.threadSegments)
+    : null;
+  if (segments && segments.length > 0) {
+    const text = joinThreadSegments(segments);
+    return {
+      kind: "thread_first_segment",
+      text,
+      intentText: segments[0].text.trim(),
+      segments,
+      segmentCount: segments.length,
+      hash: contentHashOf(threadPublicationHashInput(segments)),
+    };
+  }
+  const text = currentText(item);
+  return {
+    kind: "single",
+    text,
+    intentText: text,
+    segments: null,
+    segmentCount: 1,
+    hash: contentHashOf(text),
+  };
 }
 
 function idempotencyKeyFor(queueItemId: string, hash: string): string {
@@ -81,15 +143,17 @@ export const publishAttemptService = {
     if (item.status === "rejected") throw new PublishFlowError("invalid_status");
 
     const snapshot = assertReady(item);
-    const text = currentText(item);
-    const hash = contentHashOf(text);
+    // Phase 2D: thread'de hash = canonical segment payload'ı; intent penceresi
+    // yalnız İLK segmenti açar (X intent tek çağrıda zincir OLUŞTURMAZ — dürüst mod).
+    const pub = canonicalPublicationOf(item);
+    const hash = pub.hash;
     const idempotencyKey = idempotencyKeyFor(queueItemId, hash);
 
     const adapterRes = await intentPublishAdapter.prepare({
       queueItemId,
       accountId: item.accountId,
       accountHandle: item.account.handle,
-      text,
+      text: pub.intentText,
       contentHash: hash,
       idempotencyKey,
       readinessSnapshot: snapshot,
@@ -98,6 +162,8 @@ export const publishAttemptService = {
       throw new PublishFlowError(adapterRes.ok ? "conflict" : adapterRes.code);
     }
     const intentUrl = adapterRes.intentUrl;
+    const intentMode = pub.kind;
+    const segmentCount = pub.segmentCount;
 
     const uniqueWhere = {
       accountId_adapter_idempotencyKey: {
@@ -112,7 +178,7 @@ export const publishAttemptService = {
       if (existing.state === "succeeded") throw new PublishFlowError("already_published");
       if (existing.state === "prepared") {
         // Aynı eylemin retry'ı — idempotent: mevcut hazırlığı dön.
-        return { attempt: existing, intentUrl, reused: true };
+        return { attempt: existing, intentUrl, reused: true, intentMode, segmentCount };
       }
       // failed → aynı metinle yeniden hazırla (taze snapshot).
       const revived = await prisma.publishAttempt.update({
@@ -126,7 +192,7 @@ export const publishAttemptService = {
           readinessSnapshotJson: JSON.stringify(snapshot),
         },
       });
-      return { attempt: revived, intentUrl, reused: false };
+      return { attempt: revived, intentUrl, reused: false, intentMode, segmentCount };
     }
 
     try {
@@ -154,11 +220,12 @@ export const publishAttemptService = {
           },
         });
       });
-      return { attempt, intentUrl, reused: false };
+      return { attempt, intentUrl, reused: false, intentMode, segmentCount };
     } catch (err) {
       // Paralel prepare yarışı: unique çakıştıysa kazananın satırını dön.
       const raced = await prisma.publishAttempt.findUnique({ where: uniqueWhere });
-      if (raced && raced.state === "prepared") return { attempt: raced, intentUrl, reused: true };
+      if (raced && raced.state === "prepared")
+        return { attempt: raced, intentUrl, reused: true, intentMode, segmentCount };
       throw err;
     }
   },
@@ -216,8 +283,11 @@ export const publishAttemptService = {
 
     const original = item.content.trim();
     const edited = item.editedContent?.trim() ?? "";
-    const text = edited || original;
-    if (contentHashOf(text) !== attempt.contentHash) {
+    // Phase 2D: hash karşılaştırması canonical publication üzerinden — thread'de
+    // segment sırası/değeri değiştiyse content_changed (yeniden "X'te aç").
+    const pub = canonicalPublicationOf(item);
+    const text = pub.text;
+    if (pub.hash !== attempt.contentHash) {
       throw new PublishFlowError("content_changed");
     }
 
@@ -254,7 +324,14 @@ export const publishAttemptService = {
             externalId: null,
             success: true,
             scheduledAt: item.scheduledAt,
-            payload: JSON.stringify({ manualPublish: true, publishAttemptId: attempt.id }),
+            payload: JSON.stringify({
+              manualPublish: true,
+              publishAttemptId: attempt.id,
+              // Phase 2D: thread onayı = BÜTÜN zincir için manuel kullanıcı beyanı.
+              ...(pub.kind === "thread_first_segment"
+                ? { manualThread: true, segmentCount: pub.segmentCount }
+                : {}),
+            }),
           },
         });
         await tx.publishedPost.create({
@@ -269,7 +346,8 @@ export const publishAttemptService = {
           data: {
             accountId: item.accountId,
             type: "publish",
-            tweetCount: 1,
+            // Phase 2D: thread onayı zincirdeki gönderi sayısını yansıtır.
+            tweetCount: pub.segmentCount,
             estimatedCostUsd: 0,
             date: now.toISOString().slice(0, 10),
           },
@@ -332,7 +410,7 @@ export const publishAttemptService = {
    * (server kaynağından) besler — reload sonrası korunur.
    */
   async latestIntentAttempts(
-    items: { id: string; content: string; editedContent: string | null }[],
+    items: ({ id: string } & PublicationItemLike)[],
   ): Promise<
     Map<
       string,
@@ -344,20 +422,22 @@ export const publishAttemptService = {
       where: { queueItemId: { in: items.map((i) => i.id) }, adapter: "intent" },
       orderBy: { createdAt: "desc" },
     });
-    const textById = new Map(items.map((i) => [i.id, currentText(i)]));
+    // Phase 2D: stale kararı canonical publication hash'i üzerinden — thread'de
+    // segment düzenlemesi de prepared'ı stale yapar.
+    const hashById = new Map(items.map((i) => [i.id, canonicalPublicationOf(i).hash]));
     const out = new Map<
       string,
       { id: string; state: string; contentHash: string; createdAt: Date; staleForCurrentContent: boolean }
     >();
     for (const row of rows) {
       if (out.has(row.queueItemId)) continue; // desc sıralı → ilk görülen en güncel
-      const text = textById.get(row.queueItemId) ?? "";
+      const currentHash = hashById.get(row.queueItemId) ?? "";
       out.set(row.queueItemId, {
         id: row.id,
         state: row.state,
         contentHash: row.contentHash,
         createdAt: row.createdAt,
-        staleForCurrentContent: contentHashOf(text) !== row.contentHash,
+        staleForCurrentContent: currentHash !== row.contentHash,
       });
     }
     return out;
