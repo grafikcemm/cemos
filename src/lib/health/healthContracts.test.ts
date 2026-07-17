@@ -5,6 +5,7 @@ import {
   derivePipelineFreshness,
   deriveTodayReadiness,
   deriveTopbar,
+  deriveOperatorActionReadiness,
   PIPELINE_FRESH_HOURS,
   type InfrastructureInput,
   type PipelineInput,
@@ -306,5 +307,75 @@ describe("bölüm-bazlı fail-soft", () => {
     expect(c.todayReadiness.status).toBe("unknown");
     expect(c.topbar.level).toBe("none");
     expect(c.topbar.label).toBe("durum belirsiz"); // "sağlıklı" İDDİA edilmez
+  });
+});
+
+/**
+ * Faz 2E (ADR-034 §F) — OperatorActionReadiness canonical girdilerden türetilir;
+ * gate ile Sistem sekmesi aynı gerçekliği okur (çelişkili status imkânsız).
+ */
+describe("deriveOperatorActionReadiness (ADR-034 §F)", () => {
+  it("her şey yolunda + bugün taslak var → ok, canGenerate, eylem önerilmez", () => {
+    const c = deriveHealthContracts({
+      infrastructure: infraInput(),
+      pipeline: { runs: [], news: null, nowMs: NOW },
+      today: { productionRanToday: true, counts: counts({ ready: 3, totalActiveToday: 3 }) },
+    });
+    expect(c.operatorAction.level).toBe("ok");
+    expect(c.operatorAction.canGenerate).toBe(true);
+    expect(c.operatorAction.todayNeedsGeneration).toBe(false);
+    // Çelişki yasağı: todayReadiness eylem fazındayken operatorAction "blocked" OLAMAZ.
+    expect(c.todayReadiness.phase).toBe("ready_available");
+  });
+
+  it("altyapı hatası → blocked + canGenerate=false; blocker metni item'dan gelir", () => {
+    const c = deriveHealthContracts({
+      infrastructure: infraInput({ databaseOk: false }),
+      pipeline: { runs: [], news: null, nowMs: NOW },
+      today: { productionRanToday: true, counts: counts({ ready: 1, totalActiveToday: 1 }) },
+    });
+    expect(c.operatorAction.level).toBe("blocked");
+    expect(c.operatorAction.canGenerate).toBe(false);
+    expect(c.operatorAction.blockers.length).toBeGreaterThan(0);
+    // Topbar da error — iki yüzey aynı canonical durumdan türediği için çelişemez.
+    expect(c.topbar.level).toBe("error");
+  });
+
+  it("bugün üretim koşmadı → todayNeedsGeneration=true ama BLOCKED değil (eylem önerisi)", () => {
+    const c = deriveHealthContracts({
+      infrastructure: infraInput(),
+      pipeline: { runs: [], news: null, nowMs: NOW },
+      today: { productionRanToday: false, counts: counts() },
+    });
+    expect(c.operatorAction.todayNeedsGeneration).toBe(true);
+    expect(c.operatorAction.level).not.toBe("blocked");
+    expect(c.operatorAction.canGenerate).toBe(true);
+  });
+
+  it("queue tamamlandı → gate SESSİZ kalabilir (ok + eylem yok): 'gün tamam' hata değildir", () => {
+    const c = deriveHealthContracts({
+      infrastructure: infraInput(),
+      pipeline: { runs: [], news: null, nowMs: NOW },
+      today: { productionRanToday: true, counts: counts({ publishedToday: 1 }) },
+    });
+    expect(c.todayReadiness.phase).toBe("queue_completed");
+    expect(c.operatorAction.level).toBe("ok");
+    expect(c.operatorAction.todayNeedsGeneration).toBe(false);
+  });
+
+  it("opsiyonel+yapılandırılmamış sağlayıcı uyarısı operatörü kilitlemez", () => {
+    const action = deriveOperatorActionReadiness(
+      {
+        status: "warn",
+        items: [
+          { key: "meta", label: "Meta", status: "warn", optionalUnconfigured: true },
+          { key: "db", label: "DB", status: "ok" },
+        ],
+      },
+      { status: "ok", items: [], news: null },
+      { status: "ok", phase: "ready_available", counts: null, message: "" }
+    );
+    expect(action.level).toBe("ok"); // optionalUnconfigured uyarısı sayılmaz
+    expect(action.canGenerate).toBe(true);
   });
 });

@@ -25,7 +25,7 @@ import { GET as learnJobGET } from "./learn/jobs/[id]/route";
 import { GET as learnPackGET } from "./learn/packs/[id]/route";
 import { GET as promptLibraryGET } from "./prompt-library/route";
 import { GET as repoRadarGET } from "./repo-radar/route";
-import { GET as operatorReadinessGET } from "./settings/operator-readiness/route";
+import { GET as evalRunsGET } from "./eval/runs/route";
 import { GET as sourcePostsGET } from "./source-posts/route";
 import { GET as toolboxGET } from "./toolbox/route";
 import { GET as youtubeVideosGET } from "./youtube/videos/route";
@@ -57,7 +57,10 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/learn/packs/abc", (req) => learnPackGET(req, dummyIdCtx)],
     ["/api/prompt-library", promptLibraryGET],
     ["/api/repo-radar", repoRadarGET],
-    ["/api/settings/operator-readiness", operatorReadinessGET],
+    ["/api/eval/runs", evalRunsGET],
+    // /api/settings/operator-readiness KALDIRILDI (ADR-034 §F): tek tüketicisi
+    // OperatorReadinessGate idi; gate artık canonical /api/health contract'ından
+    // beslenir. operator-scan-now POST'u yaşamaya devam eder.
     ["/api/source-posts", sourcePostsGET],
     ["/api/toolbox", toolboxGET],
     ["/api/youtube/videos", youtubeVideosGET],

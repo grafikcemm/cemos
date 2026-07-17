@@ -379,11 +379,57 @@ export function deriveTopbar(
   return { level: "none", label: "sağlıklı" };
 }
 
+/**
+ * Faz 2E (ADR-034 §F): manuel üretim/eylem uygunluğu — canonical health
+ * girdilerinden TÜRETİLİR. operatorReadinessService'in bağımsız DB
+ * sorgularıyla ürettiği ikinci "hazır/değil" gerçekliği kaldırıldı; gate bu
+ * sözleşmeden beslenir. Kavramlar tek bir anlamsız `ready:boolean`'a
+ * DÜZLEŞTİRİLMEZ: level + canGenerate + todayNeedsGeneration ayrı anlam taşır.
+ */
+export type OperatorActionReadiness = {
+  /** blocked = altyapı kırık; warn = akış/altyapı uyarılı; ok = sessiz. */
+  level: "ok" | "warn" | "blocked";
+  /** Manuel "Bugünkü Taslakları Üret" eylemi çalıştırılabilir mi (altyapı ayakta). */
+  canGenerate: boolean;
+  /** Bugün taslak yok (production_not_run / no_drafts_produced) — eylem önerilir. */
+  todayNeedsGeneration: boolean;
+  blockers: string[];
+  warnings: string[];
+};
+
+export function deriveOperatorActionReadiness(
+  infra: InfrastructureContract,
+  pipeline: PipelineFreshnessContract,
+  today: TodayReadinessContract,
+): OperatorActionReadiness {
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+  for (const item of infra.items) {
+    if (item.status === "error") blockers.push(item.detail ? `${item.label}: ${item.detail}` : item.label);
+    else if (item.status === "warn" && !item.optionalUnconfigured)
+      warnings.push(item.detail ? `${item.label}: ${item.detail}` : item.label);
+  }
+  if (pipeline.status === "warn") {
+    const first = pipeline.items.find((i) => i.state !== "fresh" && i.state !== "unknown");
+    if (first) warnings.push(first.detail ? `${first.label}: ${first.detail}` : `${first.label} gecikmiş`);
+  }
+  const todayNeedsGeneration = today.phase === "production_not_run" || today.phase === "no_drafts_produced";
+  return {
+    level: blockers.length > 0 ? "blocked" : warnings.length > 0 ? "warn" : "ok",
+    canGenerate: blockers.length === 0,
+    todayNeedsGeneration,
+    blockers,
+    warnings,
+  };
+}
+
 export type SystemHealthContracts = {
   infrastructure: InfrastructureContract;
   pipelineFreshness: PipelineFreshnessContract;
   todayReadiness: TodayReadinessContract;
   topbar: TopbarSignal;
+  /** Faz 2E: manuel eylem uygunluğu (yalnız canonical girdilerden türetilir). */
+  operatorAction: OperatorActionReadiness;
 };
 
 export function deriveHealthContracts(inputs: {
@@ -406,5 +452,6 @@ export function deriveHealthContracts(inputs: {
     pipelineFreshness,
     todayReadiness,
     topbar: deriveTopbar(infrastructure, pipelineFreshness, todayReadiness),
+    operatorAction: deriveOperatorActionReadiness(infrastructure, pipelineFreshness, todayReadiness),
   };
 }
