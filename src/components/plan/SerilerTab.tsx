@@ -15,6 +15,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import SeriesHandoffBand, { SeriesCandidateTopics } from "./SeriesHandoffBand";
+import InstagramDnaSection from "./InstagramDnaSection";
 import { useAccounts } from "./useAccounts";
 
 /**
@@ -259,6 +260,8 @@ export default function SerilerTab() {
             </Button>
           }
         />
+        {/* Gözlem hesap-seviyesidir — seri olmasa da görünür (Phase 3A §F). */}
+        <InstagramDnaSection selectedSeries={null} />
       </div>
     );
   }
@@ -468,6 +471,13 @@ export default function SerilerTab() {
           </div>
         </Card>
       )}
+
+      {/* Instagram'da gözlenen DNA (Phase 3A §F) — onaylı DNA'dan ayrı; apply
+          alan-bazlı açık insan onayı. */}
+      <InstagramDnaSection
+        selectedSeries={selected ? { id: selected.id, name: selected.name, version: selected.version } : null}
+        onApplied={() => void load()}
+      />
 
       {/* Fırsattan gelen aday konular — kalıcı ilişki (consumed handoff) */}
       {selected && (
