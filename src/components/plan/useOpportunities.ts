@@ -181,10 +181,13 @@ async function curateViaServer(
 ): Promise<{ opportunities: Opportunity[]; method: "agent" | "deterministic" } | null> {
   if (inputs.length === 0) return null;
   try {
+    // 6 sn tavan: server kürasyonu yavaşsa (Neon cold-start vb.) Fırsatlar
+    // beklemez — lokal deterministik yol devralır (fail-soft, dürüst etiket).
     const res = await fetch("/api/opportunities/curate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ candidates: inputs.slice(0, 200), limit: 8, perSourceCap: 4 }),
+      signal: AbortSignal.timeout(6_000),
     });
     if (!res.ok) return null;
     const json = (await res.json()) as CurateApiResponse;
