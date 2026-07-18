@@ -475,8 +475,9 @@ export default function TakvimTab() {
                   accountId={accountId}
                   slot={active}
                   availableDossiers={Object.values(dossiers)}
+                  // Drawer bilinçli AÇIK kalır: "bağlandı ama hazır değil"
+                  // uyarısı kapanmadan okunabilmeli (ADR-038 §F dürüstlüğü).
                   onDone={() => {
-                    setActive(null);
                     void load();
                   }}
                 />

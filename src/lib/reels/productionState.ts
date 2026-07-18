@@ -81,6 +81,16 @@ export type ProductionStateInput = {
   nowMs: number;
 };
 
+/** Tier-1 sinyalleri — bilinmiyorsa "unknown" KALIR; 451 dışında Türkiye
+ *  erişimi iddia edilmez, keyword'den free-tier türetilmez (Tier-2 ayrı). */
+export type EvidenceSignals = {
+  signupRequired: boolean | "unknown";
+  freeTier: boolean | "unknown";
+  usageLimits: string | "unknown";
+  regionRestricted: boolean | "unknown";
+  lastUpdated: string | "unknown";
+};
+
 export type EvidenceLayer = {
   state: EvidenceLayerState;
   verificationId: string | null;
@@ -92,6 +102,8 @@ export type EvidenceLayer = {
   opens: boolean | null;
   /** Doğrulanan URL, dossier'in primary tool URL'iyle aynı mı (fail-closed). */
   urlMatchesTool: boolean | null;
+  /** Strict-parse edilmiş kanıttan; kanıt yoksa null. */
+  signals: EvidenceSignals | null;
   reasons: string[];
 };
 
@@ -177,6 +189,7 @@ export function computeEvidenceLayer(input: {
     expiry: null,
     opens: null,
     urlMatchesTool: null,
+    signals: null,
   };
   if (!input.toolNamed) {
     return { ...empty, state: "no_tool_required", reasons: [] };
@@ -198,6 +211,15 @@ export function computeEvidenceLayer(input: {
     expiry: iso(row.expiry),
     opens: row.opens,
     urlMatchesTool: input.primaryToolUrl !== null && row.url === input.primaryToolUrl,
+    signals: evidence
+      ? {
+          signupRequired: evidence.signupRequired,
+          freeTier: evidence.freeTier,
+          usageLimits: evidence.usageLimits,
+          regionRestricted: evidence.regionRestricted,
+          lastUpdated: evidence.lastUpdated,
+        }
+      : null,
   };
   if (!evidence) {
     return { ...base, state: "failed", reasons: ["evidence_parse_failed"] };
