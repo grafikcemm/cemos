@@ -3,7 +3,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { addWatchAccount, IG_WATCHLIST_MAX } from "@/lib/instagram/competitor/igCompetitorService";
+import {
+  addWatchAccount,
+  isBusinessDiscoveryReady,
+  IG_WATCHLIST_MAX,
+} from "@/lib/instagram/competitor/igCompetitorService";
 
 /**
  * IG rakip watchlist (Sprint 4 — CONTENT-ENGINE §3). GET: liste; POST: handle
@@ -14,8 +18,13 @@ import { addWatchAccount, IG_WATCHLIST_MAX } from "@/lib/instagram/competitor/ig
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
-    const accounts = await prisma.igWatchAccount.findMany({ orderBy: { addedAt: "desc" } });
-    return ok({ accounts, max: IG_WATCHLIST_MAX });
+    const [accounts, configured] = await Promise.all([
+      prisma.igWatchAccount.findMany({ orderBy: { addedAt: "desc" } }),
+      isBusinessDiscoveryReady(),
+    ]);
+    // Watchlist GLOBALDİR (hesap-scoped değil) — UI "CemOS ortak rakip listesi"
+    // olarak etiketler. `configured=false` → dürüst config-required durumu.
+    return ok({ accounts, max: IG_WATCHLIST_MAX, configured, scope: "global" });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Watchlist alınamadı", 500);
   }

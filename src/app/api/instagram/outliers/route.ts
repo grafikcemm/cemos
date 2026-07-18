@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
     const scores = await prisma.contentOutlierScore.findMany({
       where: {
         metric: "engagement",
-        contentItem: { platform: "instagram" },
+        // Yalnız provider kaynaklı rakip içeriği — manuel capture'lar feed'e girmez.
+        contentItem: { platform: "instagram", sourceType: "external" },
       },
-      orderBy: { multiplier: "desc" },
+      // insufficient skorlar sona: güvenilir çarpanlar önce.
+      orderBy: [{ insufficient: "asc" }, { multiplier: "desc" }],
       take: 30,
       include: {
         contentItem: {
@@ -40,8 +42,11 @@ export async function GET(req: NextRequest) {
       url: s.contentItem.canonicalUrl,
       publishedAt: s.contentItem.publishedAt,
       metrics: s.contentItem.metricsJson,
-      multiplier: s.multiplier,
+      // Yetersiz örneklem / medyan 0 → çarpan güvenilir DEĞİL: null döner.
+      multiplier: s.insufficient ? null : s.multiplier,
       insufficient: s.insufficient,
+      sampleSize: s.sampleSize,
+      computedAt: s.computedAt,
     }));
     return ok({ items });
   } catch (err) {
