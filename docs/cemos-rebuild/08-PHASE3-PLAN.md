@@ -74,12 +74,21 @@ lock idempotent onay + seriesKey'li TrainingExample döngüsü, Seriler/Takvim
 üretim-review UI'ı, slot-attach sözleşmesi. Yeni migration YOK. Detay: ADR-036 +
 IMPLEMENTATION-STATE.
 
-## Phase 3C — Rakip/ilham kütüphanesi + yapısal analiz
+## Phase 3C — Rakip/ilham kütüphanesi + yapısal analiz ✅ KAPANDI (ADR-037; 2026-07-18)
 
-- `IgWatchAccount`/`igCompetitorService` + `ContentItem` üzerinde yapısal analiz
-  (outlier + hook/caption yapısı); Meta business_discovery birincil, manuel
-  ekleme fallback. Scraping YASAK kalır.
-- Kütüphane→İlham yüzeyi mevcut Boards ile birleşir; yeni nav yok.
+Sınıflandırma: **production contract complete / canlı AI uyarlaması
+BLOCKED-EXTERNAL** (rotation + INSTAGRAM_GENERATION_* yok — sıfır OpenRouter).
+Meta business_discovery KANITLA ÇALIŞIYOR çıktı (env mevcut; prod cron
+2026-07-18 06:39Z sync'i; direktifteki "Meta yok" varsayımı yanlıştı — ADR-037).
+Teslim:
+account-scoped ATOMİK ilham capture (canonical IG URL, advisory-lock idempotency,
+orphan'sız tek transaction, manuel metrik `operator_observed` provenance),
+ÜCRETSİZ saf deterministik `analyzeInspirationStructure` (versioned zarf kalıcı;
+"neden çalıştı" yalnız provider kanıtıyla), iki-aşamalı güncel-baseline outlier +
+dürüst insufficient=null + `config_required` watchlist durumu, sertleştirilmiş
+`reverseEngineerToIdea` (ADR-036 kapısı + runtime Zod + 24s idempotency),
+Kütüphane→İlham Inspiration Intelligence UI (yeni nav YOK). Yeni migration YOK.
+Detay: ADR-037 + IMPLEMENTATION-STATE.
 
 ## Phase 3D — Doğrulanmış site/araç → production-grade Reels dossier
 
