@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { assessQueueItemReadiness } from "@/lib/services/readinessAdapter";
+import { getInstagramPlanHealth } from "@/lib/health/planHealthService";
 import {
   deriveHealthContracts,
   type InfrastructureInput,
@@ -205,13 +206,16 @@ export const healthContractService = {
    * sorgulardan türetir. Tek bölümün hatası diğerlerini düşürmez.
    */
   async getContracts(health: HealthPayloadLike): Promise<SystemHealthContracts> {
-    const [infra, pipeline, today] = await Promise.all([
+    const [infra, pipeline, today, instagramPlanning] = await Promise.all([
       Promise.resolve()
         .then(() => infrastructureInput(health))
         .catch(() => null),
       pipelineInput(health).catch(() => null),
       todayInput().catch(() => null),
+      // Instagram plan sağlığı — AYRI ürün sözleşmesi; fail-soft (kendi içinde
+      // unknown döner), infrastructure'ı ETKİLEMEZ.
+      getInstagramPlanHealth().catch(() => null),
     ]);
-    return deriveHealthContracts({ infrastructure: infra, pipeline, today });
+    return deriveHealthContracts({ infrastructure: infra, pipeline, today, instagramPlanning });
   },
 };

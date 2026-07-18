@@ -14,6 +14,8 @@
  * Secret DEĞERLERİ hiçbir sözleşmede yer almaz — yalnız ENV adları.
  */
 
+import type { InstagramPlanHealthContract } from "@/lib/health/planHealthContract";
+
 export type SectionStatus = "ok" | "warn" | "error" | "unknown";
 
 // ── İsimlendirilmiş eşikler (magic number dağıtma) ────────────────────────────
@@ -338,6 +340,7 @@ export function deriveTopbar(
   infra: InfrastructureContract,
   pipeline: PipelineFreshnessContract,
   today: TodayReadinessContract,
+  planHealth?: InstagramPlanHealthContract | null,
 ): TopbarSignal {
   // 1. Altyapı hatası (DB erişilemiyor, gerekli credential, worker durdu) → error.
   if (infra.status === "error") {
@@ -368,7 +371,21 @@ export function deriveTopbar(
   if (today.phase === "ready_available") {
     return { level: "action", label: "Yayına hazır taslak var", detail: today.message };
   }
-  // 5. Her şey yolunda — "kuyruk tamamlandı" bir SORUN DEĞİLDİR.
+  // 5/6. Instagram plan sağlığı — YALNIZ yapılandırılmış + AKTİF plan sorunları.
+  //      Planlama kullanılmıyorsa (configured=false) veya draft/archived ise
+  //      topbar uyarısı ÜRETİLMEZ. Bugün/geride kalan > yaklaşan.
+  if (planHealth && planHealth.configured && planHealth.planStatus === "active") {
+    if (planHealth.overdueIncomplete > 0 || planHealth.todayUnready > 0) {
+      return { level: "warn", label: "Bugünkü plan slotu hazır değil", detail: planHealth.message };
+    }
+    if (planHealth.next7DaysUnready > 0) {
+      return { level: "warn", label: "Yaklaşan plan slotu hazır değil", detail: planHealth.message };
+    }
+    if (planHealth.blockers.length > 0) {
+      return { level: "warn", label: "Plan hard blocker içeriyor", detail: planHealth.message };
+    }
+  }
+  // 7. Her şey yolunda — "kuyruk tamamlandı" bir SORUN DEĞİLDİR.
   if (today.phase === "queue_completed" || today.phase === "target_met") {
     return { level: "none", label: "gün tamam" };
   }
@@ -430,12 +447,15 @@ export type SystemHealthContracts = {
   topbar: TopbarSignal;
   /** Faz 2E: manuel eylem uygunluğu (yalnız canonical girdilerden türetilir). */
   operatorAction: OperatorActionReadiness;
+  /** Phase 3E: Instagram içerik planı — AYRI ürün/görev sözleşmesi (infra DEĞİL). */
+  instagramPlanning: InstagramPlanHealthContract | null;
 };
 
 export function deriveHealthContracts(inputs: {
   infrastructure: InfrastructureInput | null;
   pipeline: PipelineInput | null;
   today: TodayInput | null;
+  instagramPlanning?: InstagramPlanHealthContract | null;
 }): SystemHealthContracts {
   // Bölüm-bazlı fail-soft: girdi toplanamayan bölüm "unknown" olur; diğerleri yaşar.
   const infrastructure = inputs.infrastructure
@@ -447,11 +467,13 @@ export function deriveHealthContracts(inputs: {
   const todayReadiness = inputs.today
     ? deriveTodayReadiness(inputs.today)
     : { status: "unknown" as const, phase: "unknown" as const, counts: null, message: "Bugünün hazırlık verisi alınamadı." };
+  const instagramPlanning = inputs.instagramPlanning ?? null;
   return {
     infrastructure,
     pipelineFreshness,
     todayReadiness,
-    topbar: deriveTopbar(infrastructure, pipelineFreshness, todayReadiness),
+    topbar: deriveTopbar(infrastructure, pipelineFreshness, todayReadiness, instagramPlanning),
     operatorAction: deriveOperatorActionReadiness(infrastructure, pipelineFreshness, todayReadiness),
+    instagramPlanning,
   };
 }
