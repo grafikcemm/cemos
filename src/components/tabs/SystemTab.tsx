@@ -275,7 +275,7 @@ export default function SystemTab() {
     );
   }
 
-  const { infrastructure, pipelineFreshness, todayReadiness } = contracts;
+  const { infrastructure, pipelineFreshness, todayReadiness, instagramPlanning } = contracts;
   const news = pipelineFreshness.news;
   const counts = todayReadiness.counts;
 
@@ -377,6 +377,57 @@ export default function SystemTab() {
                   },
                 ]}
               />
+            )}
+          </div>
+        </Section>
+
+        {/* Instagram içerik planı (Phase 3E, ADR-039 §10) — AYRI ürün/görev
+            sözleşmesi; üç ALTYAPI sözleşmesinden biri DEĞİLDİR. Plan yoksa/optional
+            sistemi kırmızı yapmaz. */}
+        <Section
+          title="Instagram içerik planı"
+          status={instagramPlanning?.status ?? "unknown"}
+          link={{ label: "Takvim", tab: "plan-takvim" }}
+        >
+          <div data-testid="system-instagram-plan" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              Bu, üç altyapı sözleşmesinden AYRI bir ürün/görev sağlığıdır — plan
+              olmaması altyapı hatası değildir. Slot üretim durumu Phase 3D dossier
+              production-state&apos;inden türetilir (ikinci readiness sözlüğü yok).
+            </div>
+            {!instagramPlanning || !instagramPlanning.configured ? (
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
+                {instagramPlanning?.message ?? "Instagram içerik planı yapılandırılmadı (opsiyonel)."}
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", lineHeight: 1.55 }}>
+                  {instagramPlanning.month} · {instagramPlanning.planStatus} — {instagramPlanning.message}
+                </div>
+                <MetricStrip
+                  data-testid="system-instagram-plan-metrics"
+                  items={[
+                    {
+                      label: "yayına hazır",
+                      value: `${instagramPlanning.counts.productionReady}/${instagramPlanning.counts.totalActiveSlots}`,
+                      tone: instagramPlanning.counts.productionReady > 0 ? "ok" : "default",
+                    },
+                    { label: "dossier bekliyor", value: instagramPlanning.counts.withoutDossier, tone: instagramPlanning.counts.withoutDossier > 0 ? "warn" : "default" },
+                    { label: "onay bekliyor", value: instagramPlanning.counts.awaitingApproval, tone: instagramPlanning.counts.awaitingApproval > 0 ? "warn" : "default" },
+                    { label: "kanıt yenile", value: instagramPlanning.counts.evidenceStale, tone: instagramPlanning.counts.evidenceStale > 0 ? "warn" : "default" },
+                    {
+                      label: "yaklaşan risk",
+                      value: instagramPlanning.next7DaysUnready + instagramPlanning.overdueIncomplete,
+                      tone: instagramPlanning.overdueIncomplete > 0 ? "danger" : instagramPlanning.next7DaysUnready > 0 ? "warn" : "default",
+                    },
+                  ]}
+                />
+                {instagramPlanning.nextActionable && (
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
+                    Sonraki: gün {instagramPlanning.nextActionable.dayOfMonth} — {instagramPlanning.nextActionable.reason}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </Section>

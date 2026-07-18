@@ -11,13 +11,14 @@ import {
   ErrorState,
   Skeleton,
   Drawer,
-  Textarea,
   StaleNotice,
   BlockedExternalState,
 } from "@/components/ui";
-import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
 import PlanHandoffBand from "./PlanHandoffBand";
+import PlanBuilder from "./PlanBuilder";
+import PlanHealthStrip from "./PlanHealthStrip";
+import SlotOpsBar from "./SlotOpsBar";
 import { useAccounts } from "./useAccounts";
 import { SlotDossierActions, DossierDetailPanel } from "./TakvimDossierPanels";
 import {
@@ -25,7 +26,6 @@ import {
   monthLabel,
   daysInMonth,
   shiftMonth,
-  postDaysFromFrequency,
   TR_WEEKDAYS,
 } from "@/lib/utils/calendarGrid";
 
@@ -56,6 +56,7 @@ export type CalItem = {
   scheduledAt?: string;
   /** Reels slotu için ham ReelPlanSlot id'si + üretim prefill'i (ADR-036 §H). */
   slotRawId?: string;
+  slotUpdatedAt?: string;
   seriesKey?: string | null;
   topicHint?: string;
 };
@@ -71,10 +72,9 @@ type DossierRow = {
   costUsd: number;
 };
 
-type RawSlot = { id: string; dayOfMonth: number; pillar?: string; seriesKey?: string | null; topicHint?: string; status?: string; dossierId?: string | null };
+type RawSlot = { id: string; dayOfMonth: number; pillar?: string; seriesKey?: string | null; topicHint?: string; status?: string; dossierId?: string | null; updatedAt?: string };
 type RawQueue = { id: string; status: string; scheduledAt?: string | null; content?: string; editedContent?: string | null };
 
-const DEFAULT_PILLARS = ["ai_prompt_reveal", "site_turu", "arac_demo", "palet_reveal"];
 const CHANNEL_LABEL: Record<"x" | "reels", string> = { x: "X", reels: "Reels" };
 
 function pad(n: number): string {
@@ -88,7 +88,6 @@ const READINESS_META: Record<DossierRow["finalReadiness"], { label: string; vari
 };
 
 export default function TakvimTab() {
-  const toast = useToast();
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const { accounts, loading: accountsLoading, failed: accountsFailed, reload: reloadAccounts } = useAccounts();
 
@@ -108,9 +107,8 @@ export default function TakvimTab() {
 
   const [active, setActive] = useState<CalItem | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
-  const [pillarText, setPillarText] = useState(DEFAULT_PILLARS.join("\n"));
-  const [frequency, setFrequency] = useState("3");
-  const [busy, setBusy] = useState(false);
+  const [planStatus, setPlanStatus] = useState<string | null>(null);
+  const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(null);
 
   // Hesap seçilince ilkini kur.
   useEffect(() => {
@@ -149,16 +147,20 @@ export default function TakvimTab() {
           id: `slot-${s.id}`,
           channel: "reels" as const,
           day: s.dayOfMonth,
-          title: s.seriesKey ? `Seri: ${s.seriesKey}` : s.topicHint || s.pillar || "Reels",
+          // Görünen ad: ham seriesKey değil, topicHint/pillar (seri slotu topicHint taşır).
+          title: s.topicHint || s.pillar || "Reels",
           dossierId: s.dossierId,
           status: s.status,
           pillar: s.pillar,
           slotRawId: s.id,
+          slotUpdatedAt: s.updatedAt,
           seriesKey: s.seriesKey ?? null,
           topicHint: s.topicHint,
         })),
       );
       setStaleFlags(plan.staleFlags ?? []);
+      setPlanStatus(plan.plan?.status ?? plan.planStatus ?? null);
+      setPlanUpdatedAt(plan.plan?.updatedAt ?? null);
 
       // Zamanlanmış X taslakları (bu ay).
       let sched: CalItem[] = [];
@@ -222,43 +224,6 @@ export default function TakvimTab() {
     const next = shiftMonth(year, month1, delta);
     setYear(next.year);
     setMonth1(next.month1);
-  };
-
-  const createPlan = async () => {
-    if (!accountId) return;
-    const pillars = pillarText
-      .split("\n")
-      .map((p) => p.trim())
-      .filter(Boolean);
-    if (pillars.length < 3 || pillars.length > 5) {
-      toast.error("3–5 sütun (pillar) gerekli.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/reels/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountId,
-          month: monthStr,
-          postDays: postDaysFromFrequency(Number(frequency), year, month1),
-          pillars,
-        }),
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        toast.success(`Reels planı kuruldu: ${json.slotCount} slot.`);
-        setBuilderOpen(false);
-        await load();
-      } else {
-        toast.error(json.error ?? "Plan kurulamadı.");
-      }
-    } catch {
-      toast.error("Plan kurulamadı (ağ hatası).");
-    } finally {
-      setBusy(false);
-    }
   };
 
   const activeDossier = active?.dossierId ? dossiers[active.dossierId] : null;
@@ -352,6 +317,9 @@ export default function TakvimTab() {
         />
       )}
 
+      {/* Plan sağlığı — canonical /api/health (Sistem ile aynı kaynak) */}
+      {accountId && <PlanHealthStrip viewedMonth={monthStr} />}
+
       {staleFlags.length > 0 && (
         <StaleNotice
           ageLabel={`${staleFlags.length} dossier`}
@@ -362,9 +330,9 @@ export default function TakvimTab() {
       {channel === "instagram" && (
         <BlockedExternalState
           compact
-          title="Instagram yayın planı manuel"
-          description="Instagram zamanlaması Meta izni gerektirir (business_discovery). Şu an IG yayınları CemOS içinden planlanamıyor; Meta üzerinden manuel yürüt."
-          detail="Gerekli: META_ACCESS_TOKEN + instagram_basic / business_discovery izni."
+          title="Instagram yayın/zamanlama CemOS dışında"
+          description="Meta business_discovery ÇALIŞIYOR — rakip/ilham okuması yapılır. Ancak Instagram'a YAYIN/ZAMANLAMA (write) ayrı bir yetenektir ve şu an CemOS içinden desteklenmiyor; yayını manuel yürüt. Reels planı (bu ekranda) IG'ye yayın yapmaz, üretim planıdır."
+          detail="Okuma aktif: META_ACCESS_TOKEN. Yayın için gerekli IG publishing izinleri henüz yok."
         />
       )}
 
@@ -441,6 +409,21 @@ export default function TakvimTab() {
               {active.status && <Badge variant="muted" size="sm">{active.status}</Badge>}
             </div>
 
+            {active.channel === "reels" && active.slotRawId && (
+              <SlotOpsBar
+                accountId={accountId}
+                slotRawId={active.slotRawId}
+                dayOfMonth={active.day}
+                status={active.status ?? "planned"}
+                updatedAt={active.slotUpdatedAt ?? null}
+                daysInMonth={daysInMonth(year, month1)}
+                onChanged={() => {
+                  setActive(null);
+                  void load();
+                }}
+              />
+            )}
+
             {active.channel === "reels" ? (
               activeDossier ? (
                 <>
@@ -492,39 +475,22 @@ export default function TakvimTab() {
         )}
       </Drawer>
 
-      {/* Reels planı oluşturucu drawer (gerçek + düzenlenebilir) */}
-      <Drawer open={builderOpen} onClose={() => setBuilderOpen(false)} title="Aylık reels planı oluştur" width={480}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-            Deterministik montaj: %60 evergreen / %25 seasonal / %15 reactive (±10p). Mevcut &quot;planlı&quot; slotlar
-            yeniden kurulur; işlenmiş (drafted/done) slotlar korunur.
-          </p>
-          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Sütunlar (pillar) — her satıra bir tane, 3–5 arası
-            </span>
-            <Textarea value={pillarText} onChange={(e) => setPillarText(e.target.value)} rows={5} aria-label="Sütunlar" />
-          </label>
-          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Sıklık</span>
-            <Select
-              aria-label="Sıklık"
-              options={[
-                { value: "2", label: "2 günde bir" },
-                { value: "3", label: "3 günde bir" },
-                { value: "4", label: "4 günde bir" },
-              ]}
-              value={frequency}
-              onChange={(e) => setFrequency(e.target.value)}
-            />
-          </label>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 4 }}>
-            <Button variant="primary" onClick={createPlan} loading={busy} data-testid="takvim-plan-create">
-              Planı oluştur ({monthLabel(year, month1)})
-            </Button>
-            <Button variant="ghost" onClick={() => setBuilderOpen(false)}>Vazgeç</Button>
-          </div>
-        </div>
+      {/* Aylık plan builder: önizle → uygula → ayrı aktive et (ADR-039 §11) */}
+      <Drawer open={builderOpen} onClose={() => setBuilderOpen(false)} title="Aylık reels planı" width={520}>
+        {accountId && (
+          <PlanBuilder
+            accountId={accountId}
+            monthStr={monthStr}
+            monthLabel={monthLabel(year, month1)}
+            year={year}
+            month1={month1}
+            planStatus={planStatus}
+            planUpdatedAt={planUpdatedAt}
+            onApplied={() => {
+              void load();
+            }}
+          />
+        )}
       </Drawer>
     </div>
   );
