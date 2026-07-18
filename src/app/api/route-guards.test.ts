@@ -45,6 +45,11 @@ import { GET as boardsGET } from "./boards/route";
 import { GET as boardDetailGET } from "./boards/[id]/route";
 import { GET as contentGET } from "./content/route";
 
+// Phase 3D: dossier re-verify + alternatif zinciri + slot detach.
+import { POST as reelsDossierVerifyPOST } from "./reels/dossier/[id]/verify/route";
+import { POST as reelsDossierAlternativesPOST } from "./reels/dossier/[id]/alternatives/route";
+import { POST as reelsSlotDetachPOST } from "./reels/plan/slot/[id]/detach/route";
+
 function bareReq(path: string): NextRequest {
   return new NextRequest(`http://localhost:3000${path}`);
 }
@@ -92,6 +97,9 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/boards", boardsGET],
     ["/api/boards/abc", (req) => boardDetailGET(req, dummyIdCtx)],
     ["/api/content", contentGET],
+    ["/api/reels/dossier/abc/verify", (req) => reelsDossierVerifyPOST(req, dummyIdCtx)],
+    ["/api/reels/dossier/abc/alternatives", (req) => reelsDossierAlternativesPOST(req, dummyIdCtx)],
+    ["/api/reels/plan/slot/abc/detach", (req) => reelsSlotDetachPOST(req, dummyIdCtx)],
   ];
 
   it.each(cases)("%s → 403 without same-origin header", async (path, handler) => {

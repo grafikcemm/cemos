@@ -52,9 +52,48 @@ const DOSSIER_LIST_ROW = {
   updatedAt: "2026-07-18T09:00:00.000Z",
 };
 
+/** ADR-038 production read model fixture'ı (araçsız dossier). */
+function productionFixture(opts?: { approved?: boolean; creativeReady?: boolean }) {
+  const approved = opts?.approved ?? false;
+  const creativeReady = opts?.creativeReady ?? true;
+  return {
+    version: "production_state.v1",
+    layers: {
+      generation: { state: "complete" },
+      evidence: {
+        state: "no_tool_required",
+        verificationId: null,
+        submittedUrl: null,
+        finalUrl: null,
+        redirectChain: [],
+        checkedAt: null,
+        expiry: null,
+        opens: null,
+        urlMatchesTool: null,
+        signals: null,
+        reasons: [],
+      },
+      alternatives: { items: [], activeCount: 0, parseFailed: false },
+      creative: creativeReady
+        ? { status: "ready_for_review", issues: [] }
+        : { status: "needs_edit", issues: [{ code: "slide_word_limit", message: "Slayt 2 uzun." }] },
+      approval: { approved, trainingExampleId: approved ? "te-1" : null },
+      seriesContract: { state: "valid" },
+      calendar: { attachedSlotCount: 0, slots: [], multiAttached: false },
+    },
+    blockers: approved ? [] : ["awaiting_human_approval"],
+    productionReady: false,
+    overall: approved ? "approved" : creativeReady ? "awaiting_human_approval" : "creative_needs_edit",
+  };
+}
+
 function detailPayload(opts?: { approved?: boolean; creative?: "ready_for_review" | "needs_edit" }) {
   const creative = opts?.creative ?? "ready_for_review";
   return {
+    production: productionFixture({
+      approved: opts?.approved,
+      creativeReady: creative === "ready_for_review",
+    }),
     success: true,
     dossier: {
       id: "d-1",
