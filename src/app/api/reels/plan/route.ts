@@ -3,18 +3,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { staleDossierFlags, PlanValidationError } from "@/lib/reels/plan-assembler";
 import {
-  assembleMonthlyPlan,
-  staleDossierFlags,
-  PlanValidationError,
-} from "@/lib/reels/plan-assembler";
+  computePlanPreview,
+  applyPlan,
+  resolveSeriesForPlan,
+} from "@/lib/reels/planReconcileService";
+import { parsePlanNotes } from "@/lib/reels/planNotes";
 
 /**
- * Aylık Reels planı (Sprint 6 — CONTENT-ENGINE §6). POST: deterministik
- * montaj + persist (accountId+month upsert; yeniden montaj eski slotları
- * değiştirir — plan taslak evresinde). GET: plan + slotlar + bayat-kanıt
- * bayrakları. Ay grid UI'ı Instagram alan ekranıyla gelir (C6/D1: önce
- * dossier listesi).
+ * Aylık Reels planı (Sprint 6 → Phase 3E). GET: plan + slotlar + bayat-kanıt
+ * bayrakları + notesJson zarfı (legacy string[] okunur) + plan status.
+ * POST (legacy convenience): NON-DESTRUCTIVE reconcile'a delege eder — eski
+ * destructive `deleteMany` KALDIRILDI (handoff slotları artık orphan olmaz).
+ * Zengin preview→apply→lifecycle akışı ayrı route'lardadır
+ * (/preview, /apply, /lifecycle).
  */
 
 export async function GET(req: NextRequest) {
@@ -40,7 +43,13 @@ export async function GET(req: NextRequest) {
         })
       : [];
     const staleFlags = staleDossierFlags(dossiers, Date.now());
-    return ok({ plan, staleFlags });
+    const notes = parsePlanNotes(plan.notesJson);
+    return ok({
+      plan,
+      staleFlags,
+      planStatus: plan.status,
+      notes: { warnings: notes.warnings, revision: notes.envelope?.revision ?? null, legacy: notes.legacy },
+    });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Plan alınamadı", 500);
   }
@@ -59,48 +68,63 @@ const CreateSchema = z.object({
         episodesPerMonth: z.number().int().min(1).max(31),
       })
     )
+    .max(8)
     .optional(),
   seasonalTopics: z.array(z.string().max(200)).max(31).optional(),
 });
 
+/**
+ * Legacy convenience: assembler + NON-DESTRUCTIVE reconcile. Server tarafında
+ * preview (fingerprint + expectedUpdatedAt) türetir, apply'a delege eder.
+ * deleteMany YOK → handoff/işlenmiş slotlar korunur. Zengin akış /apply'da.
+ */
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const body = await parseJsonBody(req);
   if (!body.ok) return fail("Geçersiz JSON", 400);
   const parsed = CreateSchema.safeParse(body.data);
   if (!parsed.success) return fail("Geçersiz istek alanları", 400);
+  const { accountId, month, postDays, pillars, series, seasonalTopics } = parsed.data;
 
   try {
-    const assembled = assembleMonthlyPlan(parsed.data);
+    const resolved = await resolveSeriesForPlan(accountId, pillars, series ?? []);
+    if (!resolved.ok) return fail(resolved.message, 422, { code: resolved.code, invalid: resolved.invalid });
+    const planInput = {
+      pillars,
+      postDays,
+      series: resolved.series,
+      seasonalTopics,
+      pastTopics: resolved.pastTopics,
+      bannedRepetition: resolved.bannedRepetition,
+    };
 
-    const plan = await prisma.reelPlan.upsert({
-      where: { accountId_month: { accountId: parsed.data.accountId, month: parsed.data.month } },
-      create: {
-        accountId: parsed.data.accountId,
-        month: parsed.data.month,
-        mixJson: JSON.stringify(assembled.mix),
-        notesJson: JSON.stringify(assembled.warnings),
-      },
-      update: {
-        mixJson: JSON.stringify(assembled.mix),
-        notesJson: JSON.stringify(assembled.warnings),
-      },
+    // Server-side preview → fingerprint + beklenen updatedAt (legacy caller vermiyor).
+    const preview = await computePlanPreview({ accountId, month, plan: planInput });
+    const result = await applyPlan({
+      accountId,
+      month,
+      plan: planInput,
+      fingerprint: preview.fingerprint,
+      expectedUpdatedAt: preview.expectedUpdatedAt,
+      nowIso: new Date().toISOString(),
+      source: "legacy_apply",
     });
-    // Taslak evresinde yeniden montaj = slotları yenile (drafted/done korunmaz
-    // varsayımı YOK: yalnız planned slotlar silinir, işlenmişler kalır).
-    await prisma.reelPlanSlot.deleteMany({ where: { planId: plan.id, status: "planned" } });
-    await prisma.reelPlanSlot.createMany({
-      data: assembled.slots.map((s) => ({
-        planId: plan.id,
-        dayOfMonth: s.dayOfMonth,
-        pillar: s.pillar,
-        mixBucket: s.mixBucket,
-        seriesKey: s.seriesKey,
-        topicHint: s.topicHint,
-      })),
+    if (!result.ok) {
+      const status = result.code === "hard_blocked" ? 422 : 409;
+      return fail(result.message, status, {
+        code: result.code,
+        ...(result.hardBlockers ? { hardBlockers: result.hardBlockers } : {}),
+      });
+    }
+    return ok({
+      planId: result.planId,
+      mix: preview.mix,
+      warnings: result.warnings,
+      slotCount: result.created + result.updated + preview.slotsUnchanged.length,
+      created: result.created,
+      updated: result.updated,
+      skipped: result.skipped,
     });
-
-    return ok({ planId: plan.id, mix: assembled.mix, warnings: assembled.warnings, slotCount: assembled.slots.length });
   } catch (err) {
     if (err instanceof PlanValidationError) return fail(err.message, 400);
     return fail(err instanceof Error ? err.message : "Plan oluşturulamadı", 500);

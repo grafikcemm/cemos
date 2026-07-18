@@ -50,6 +50,11 @@ import { POST as reelsDossierVerifyPOST } from "./reels/dossier/[id]/verify/rout
 import { POST as reelsDossierAlternativesPOST } from "./reels/dossier/[id]/alternatives/route";
 import { POST as reelsSlotDetachPOST } from "./reels/plan/slot/[id]/detach/route";
 
+// Phase 3E: plan preview/apply/lifecycle.
+import { POST as reelsPlanPreviewPOST } from "./reels/plan/preview/route";
+import { POST as reelsPlanApplyPOST } from "./reels/plan/apply/route";
+import { POST as reelsPlanLifecyclePOST } from "./reels/plan/lifecycle/route";
+
 function bareReq(path: string): NextRequest {
   return new NextRequest(`http://localhost:3000${path}`);
 }
@@ -100,6 +105,9 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/reels/dossier/abc/verify", (req) => reelsDossierVerifyPOST(req, dummyIdCtx)],
     ["/api/reels/dossier/abc/alternatives", (req) => reelsDossierAlternativesPOST(req, dummyIdCtx)],
     ["/api/reels/plan/slot/abc/detach", (req) => reelsSlotDetachPOST(req, dummyIdCtx)],
+    ["/api/reels/plan/preview", reelsPlanPreviewPOST],
+    ["/api/reels/plan/apply", reelsPlanApplyPOST],
+    ["/api/reels/plan/lifecycle", reelsPlanLifecyclePOST],
   ];
 
   it.each(cases)("%s → 403 without same-origin header", async (path, handler) => {
