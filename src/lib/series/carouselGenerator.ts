@@ -292,7 +292,7 @@ export async function generateCarouselEpisode(
     evidence = v.evidence;
     verificationId = v.verificationId ?? null;
   }
-  const finalReadiness = computeReadiness({ toolNamed, evidence });
+  const finalReadiness = computeReadiness({ toolNamed, evidence, verificationId });
 
   // 6) Yalnız ONAYLI grounding: identity bloğu (fail-soft) + ≤5 onaylı örnek.
   let voiceLines: string[] = [];

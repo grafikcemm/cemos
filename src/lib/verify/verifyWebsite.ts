@@ -1,5 +1,6 @@
 /**
- * verifyWebsite() — Tier 1 HTTP (Sprint 4, FINAL-CONTENT-ENGINE-SPEC §4.1).
+ * verifyWebsite() — Tier 1 HTTP (Sprint 4, FINAL-CONTENT-ENGINE-SPEC §4.1;
+ * Faz 3D sertleştirmesi ADR-038).
  *
  * Deterministik, LLM'siz, otoriter doğrulayıcı: Reels dossier'inin "araç
  * gerçekten açılıyor mu?" kanıt kaynağı. LLM çıktısı HTTP doğrulamanın yerine
@@ -7,11 +8,17 @@
  *
  *  - Redirect'ler OTOMATİK TAKİP EDİLMEZ: her `Location` hop'u SSRF
  *    guard'ından yeniden geçer, hop ≤ MAX_HOPS.
- *  - robots.txt okunur/uyulur (Disallow eşleşirse doğrulama yapılmaz).
- *  - Render-tier sinyalleri (signup/freeTier/…) bu tier'da 'unknown' (C10:
- *    Playwright escalation ayrı go/no-go).
- *  - Kanıt Zod `VerificationEvidence` olarak doğrulanır; opsiyonel olarak
- *    `WebsiteVerification` satırına yazılır (expiry +30g).
+ *  - robots.txt okunur/uyulur (Disallow eşleşirse doğrulama yapılmaz);
+ *    okuma BOUNDED (ROBOTS_MAX_BYTES) — dev robots dosyası belleği şişiremez.
+ *  - Render-tier sinyalleri (signup/freeTier/…) bu tier'da 'unknown' (Tier-2
+ *    ayrı go/no-go; 451 dışında Türkiye erişimi İDDİA EDİLMEZ).
+ *  - Kanıt Zod `VerificationEvidence` olarak doğrulanır; `persist:true` ile
+ *    `WebsiteVerification` satırına yazılır (expiry +30g). ADR-038: persist
+ *    istenip DB yazımı BAŞARISIZSA sonuç `persistence_failed` olur — yalnız
+ *    bellekteki kanıt named-tool'u asla "ready" yapamaz.
+ *  - Başarısızlık TYPED koddur; ham exception/iç host detayı sızdırılmaz.
+ *  - HTTP 4xx/5xx (404/451 dahil) BAŞARISIZLIK DEĞİLDİR: `opens:false` typed
+ *    kanıttır (site cevap verdi; içerik durumu kanıtın kendisi).
  */
 
 import { z } from "zod";
@@ -22,6 +29,9 @@ export const VERIFY_USER_AGENT = "CemOS-Verify/1.0 (website evidence check)";
 const MAX_HOPS = 5;
 const FETCH_TIMEOUT_MS = 10_000;
 const EVIDENCE_TTL_DAYS = 30;
+const ROBOTS_MAX_BYTES = 64_000;
+/** Aynı URL'in bu pencere içindeki taze snapshot'ı normal üretimde reuse edilir. */
+export const FRESH_REUSE_MS = 24 * 60 * 60 * 1000;
 
 const UnknownOr = <T extends z.ZodTypeAny>(inner: T) => z.union([inner, z.literal("unknown")]);
 
@@ -42,16 +52,44 @@ export const VerificationEvidenceSchema = z.object({
 });
 export type VerificationEvidence = z.infer<typeof VerificationEvidenceSchema>;
 
+/** Typed başarısızlık kodları — UI/route bu kodları gösterir, ham hata asla. */
+export type VerifyFailureCode =
+  | "invalid_url"
+  | "ssrf_blocked"
+  | "redirect_blocked"
+  | "redirect_hop_limit"
+  | "robots_disallowed"
+  | "timeout"
+  | "unreachable"
+  | "persistence_failed"
+  | "unknown_failure";
+
+export const VERIFY_FAILURE_MESSAGE: Record<VerifyFailureCode, string> = {
+  invalid_url: "URL geçersiz.",
+  ssrf_blocked: "SSRF koruması bu hedefi engelledi.",
+  redirect_blocked: "Yönlendirme güvenli şekilde çözülemedi.",
+  redirect_hop_limit: "Yönlendirme zinciri limiti aşıldı.",
+  robots_disallowed: "robots.txt bu sayfanın doğrulanmasına izin vermiyor.",
+  timeout: "Site zaman aşımında yanıt vermedi.",
+  unreachable: "Siteye ulaşılamadı.",
+  persistence_failed: "Kanıt kalıcı olarak kaydedilemedi — doğrulama geçersiz sayıldı.",
+  unknown_failure: "Doğrulama bilinmeyen bir nedenle tamamlanamadı.",
+};
+
 export type VerifyWebsiteResult =
-  | { ok: true; evidence: VerificationEvidence; verificationId?: string }
-  | { ok: false; reason: string };
+  | { ok: true; evidence: VerificationEvidence; verificationId?: string; reused?: boolean }
+  | { ok: false; code: VerifyFailureCode; reason: string };
 
 export type VerifyOptions = {
   fetchImpl?: typeof fetch;
   resolveHost?: ResolveHost;
-  /** true → kanıt WebsiteVerification satırına yazılır. */
+  /** true → kanıt WebsiteVerification satırına yazılır (yazım başarısızsa sonuç da başarısız). */
   persist?: boolean;
 };
+
+function failure(code: VerifyFailureCode): VerifyWebsiteResult {
+  return { ok: false, code, reason: VERIFY_FAILURE_MESSAGE[code] };
+}
 
 async function timedFetch(
   fetchImpl: typeof fetch,
@@ -65,6 +103,40 @@ async function timedFetch(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Response gövdesini en fazla maxBytes okuyup keser (bounded read). */
+async function boundedText(res: Response, maxBytes: number): Promise<string> {
+  const body = res.body;
+  if (!body) return (await res.text()).slice(0, maxBytes);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        total += value.byteLength;
+      }
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      /* zaten kapalı olabilir */
+    }
+  }
+  const joined = new Uint8Array(Math.min(total, maxBytes));
+  let offset = 0;
+  for (const c of chunks) {
+    const room = joined.length - offset;
+    if (room <= 0) break;
+    joined.set(room >= c.byteLength ? c : c.subarray(0, room), offset);
+    offset += Math.min(room, c.byteLength);
+  }
+  return new TextDecoder().decode(joined);
 }
 
 /** Çok basit robots.txt kontrolü: '*' UA'sı için Disallow path eşleşmesi. */
@@ -99,16 +171,23 @@ async function checkRobots(
       headers: { "User-Agent": VERIFY_USER_AGENT },
     });
     if (!res.ok) return false; // robots yok/erişilemez → engel yok say
-    const text = (await res.text()).slice(0, 64_000);
+    const text = await boundedText(res, ROBOTS_MAX_BYTES);
     return isDisallowedByRobots(text, target.pathname || "/");
   } catch {
     return false; // fail-open: robots okunamadıysa doğrulamayı kesme
   }
 }
 
+function isTimeoutError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === "AbortError" || err.name === "TimeoutError" || /abort/i.test(err.message))
+  );
+}
+
 /**
- * Tier-1 HTTP doğrulaması. Ağ hataları/SSRF ihlalleri `{ok:false}` döner —
- * throw etmez (çağıran dossier'i `not_ready` işaretler).
+ * Tier-1 HTTP doğrulaması. Ağ hataları/SSRF ihlalleri typed `{ok:false, code}`
+ * döner — throw etmez, ham hata mesajı sızdırmaz.
  */
 export async function verifyWebsite(
   rawUrl: string,
@@ -116,6 +195,12 @@ export async function verifyWebsite(
 ): Promise<VerifyWebsiteResult> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const redirectChain: string[] = [];
+
+  try {
+    new URL(rawUrl);
+  } catch {
+    return failure("invalid_url");
+  }
 
   let current: string = rawUrl;
   try {
@@ -126,7 +211,7 @@ export async function verifyWebsite(
       if (firstHop) {
         firstHop = false;
         if (await checkRobots(fetchImpl, safe, opts.resolveHost)) {
-          return { ok: false, reason: "robots_disallowed" };
+          return failure("robots_disallowed");
         }
       }
 
@@ -138,10 +223,15 @@ export async function verifyWebsite(
 
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get("location");
-        if (!location) return { ok: false, reason: `redirect_without_location:${res.status}` };
-        const nextUrl = new URL(location, safe).toString();
+        if (!location) return failure("redirect_blocked");
+        let nextUrl: string;
+        try {
+          nextUrl = new URL(location, safe).toString();
+        } catch {
+          return failure("redirect_blocked");
+        }
         redirectChain.push(nextUrl);
-        if (hop === MAX_HOPS) return { ok: false, reason: "redirect_hop_limit" };
+        if (hop === MAX_HOPS) return failure("redirect_hop_limit");
         current = nextUrl; // sonraki hop başta guard'dan geçer
         continue;
       }
@@ -155,6 +245,7 @@ export async function verifyWebsite(
         usageLimits: "unknown",
         exportDownload: "unknown",
         commercialUse: "unknown",
+        // 451 = yasal engel kanıtı; onun DIŞINDA Türkiye erişimi iddia edilmez.
         regionRestricted: res.status === 451 ? true : "unknown",
         lastUpdated: res.headers.get("last-modified") ?? "unknown",
         checkedAt: new Date(),
@@ -177,14 +268,65 @@ export async function verifyWebsite(
           });
           verificationId = row.id;
         } catch {
-          /* kanıt DB'ye yazılamadıysa yine döner (fail-soft persist) */
+          // ADR-038: fail-soft persist KALDIRILDI — kalıcı satır yoksa kanıt yok.
+          return failure("persistence_failed");
         }
       }
       return { ok: true, evidence, verificationId };
     }
-    return { ok: false, reason: "redirect_hop_limit" };
+    return failure("redirect_hop_limit");
   } catch (err) {
-    if (err instanceof SsrfBlockedError) return { ok: false, reason: err.message };
-    return { ok: false, reason: err instanceof Error ? err.message : "fetch_failed" };
+    if (err instanceof SsrfBlockedError) {
+      // Kod bazlı ayrım: URL parse/şema/credential ihlali de SSRF guard'ından gelir.
+      return failure("ssrf_blocked");
+    }
+    if (isTimeoutError(err)) return failure("timeout");
+    if (err instanceof TypeError) return failure("unreachable"); // undici fetch ağ hatası
+    return failure("unknown_failure");
   }
+}
+
+/**
+ * Snapshot reuse'lu doğrulama (ADR-038 §B). WebsiteVerification append-only
+ * kanıt defteridir: eski satır ASLA overwrite edilmez, her canlı doğrulama
+ * yeni satır üretir. `forceRefresh:false` iken aynı `url` için çok taze
+ * (≤ FRESH_REUSE_MS) ve strict-parse edilebilir son snapshot reuse edilir;
+ * bozuk/bayat snapshot fail-closed atlanır ve canlı doğrulamaya düşülür.
+ */
+export async function verifyWebsiteWithReuse(
+  rawUrl: string,
+  opts: VerifyOptions & { forceRefresh?: boolean; nowMs?: number } = {}
+): Promise<VerifyWebsiteResult> {
+  const now = opts.nowMs ?? Date.now();
+  if (!opts.forceRefresh) {
+    try {
+      const row = await prisma.websiteVerification.findFirst({
+        where: { url: rawUrl, checkedAt: { gte: new Date(now - FRESH_REUSE_MS) } },
+        orderBy: { checkedAt: "desc" },
+      });
+      if (row) {
+        const parsed = VerificationEvidenceSchema.safeParse(
+          (() => {
+            try {
+              return JSON.parse(row.evidenceJson);
+            } catch {
+              return null;
+            }
+          })()
+        );
+        const fresh =
+          parsed.success &&
+          new Date(row.expiry).getTime() > now &&
+          parsed.data.finalUrl === row.finalUrl &&
+          parsed.data.opens === row.opens;
+        if (fresh && parsed.success) {
+          return { ok: true, evidence: parsed.data, verificationId: row.id, reused: true };
+        }
+        // Bozuk/uyumsuz snapshot: sessiz reuse YOK — canlı doğrulamaya düş.
+      }
+    } catch {
+      /* reuse okuması başarısızsa canlı doğrulamaya düş */
+    }
+  }
+  return verifyWebsite(rawUrl, { ...opts, persist: true });
 }

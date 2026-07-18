@@ -225,12 +225,12 @@ describe("generateCarouselEpisode", () => {
   });
 
   it("araç adlı + kanıt açılmıyor → blocked_evidence, LLM harcaması YOK", async () => {
-    verifyMock.mockResolvedValue({ ok: false, reason: "site açılmadı" });
+    verifyMock.mockResolvedValue({ ok: false, code: "unreachable", reason: "Siteye ulaşılamadı." });
     const r = await generateCarouselEpisode({
       ...INPUT,
       tool: { name: "Araç", url: "https://ornek-arac.example" },
     });
-    expect(r).toMatchObject({ status: "blocked_evidence", reason: "site açılmadı" });
+    expect(r).toMatchObject({ status: "blocked_evidence", reason: "Siteye ulaşılamadı." });
     expect(runStageMock).not.toHaveBeenCalled();
     expect(dossierCreate).not.toHaveBeenCalled();
   });

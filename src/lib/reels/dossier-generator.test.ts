@@ -153,13 +153,25 @@ afterEach(() => {
 
 describe("computeReadiness — KOD kararı (LLM flip edemez)", () => {
   it("araç yok → ready; kanıt yok/kapalı → not_ready; taze → ready; expiry → needs_verify", () => {
-    expect(computeReadiness({ toolNamed: false, evidence: null })).toBe("ready");
-    expect(computeReadiness({ toolNamed: true, evidence: null })).toBe("not_ready");
-    expect(computeReadiness({ toolNamed: true, evidence: evidence({ opens: false }) })).toBe("not_ready");
-    expect(computeReadiness({ toolNamed: true, evidence: evidence() })).toBe("ready");
+    expect(computeReadiness({ toolNamed: false, evidence: null, verificationId: null })).toBe("ready");
+    expect(computeReadiness({ toolNamed: true, evidence: null, verificationId: null })).toBe("not_ready");
     expect(
-      computeReadiness({ toolNamed: true, evidence: evidence({ expiry: new Date(Date.now() - 86_400_000) }) })
+      computeReadiness({ toolNamed: true, evidence: evidence({ opens: false }), verificationId: "wv-1" })
+    ).toBe("not_ready");
+    expect(computeReadiness({ toolNamed: true, evidence: evidence(), verificationId: "wv-1" })).toBe("ready");
+    expect(
+      computeReadiness({
+        toolNamed: true,
+        evidence: evidence({ expiry: new Date(Date.now() - 86_400_000) }),
+        verificationId: "wv-1",
+      })
     ).toBe("needs_verify");
+  });
+
+  it("ADR-038 invariant: kalıcı satır (verificationId) olmadan kanıt VAR olsa bile not_ready", () => {
+    expect(computeReadiness({ toolNamed: true, evidence: evidence(), verificationId: null })).toBe(
+      "not_ready"
+    );
   });
 });
 
@@ -230,7 +242,7 @@ describe("reelDossierFor — evidence gate + atomik yazım", () => {
   });
 
   it("adversarial sayfa metni readiness'i FLIP EDEMEZ: verify fail → not_ready", async () => {
-    mockVerify.mockResolvedValue({ ok: false, reason: "fetch_failed" });
+    mockVerify.mockResolvedValue({ ok: false, code: "unreachable", reason: "Siteye ulaşılamadı." });
     const r = await reelDossierFor({
       ...INPUT,
       primaryTool: { name: "Sahte", url: "https://fake.example.com" },

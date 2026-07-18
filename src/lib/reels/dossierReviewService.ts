@@ -79,7 +79,12 @@ function evidenceOf(d: ReelDossier): VerificationEvidence | null {
 
 /** Kanıt tazeliği HER OKUMADA yeniden hesaplanır (stored değer bayatlayabilir). */
 export function currentEvidenceReadiness(d: ReelDossier, nowMs?: number): EvidenceReadiness {
-  return computeReadiness({ toolNamed: toolNamedOf(d), evidence: evidenceOf(d), nowMs });
+  return computeReadiness({
+    toolNamed: toolNamedOf(d),
+    evidence: evidenceOf(d),
+    verificationId: d.verificationId,
+    nowMs,
+  });
 }
 
 export type CanonicalCarousel = {

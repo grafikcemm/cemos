@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db/client", () => ({
-  prisma: { websiteVerification: { create: vi.fn(() => Promise.resolve({ id: "wv-1" })) } },
+  prisma: {
+    websiteVerification: {
+      create: vi.fn(() => Promise.resolve({ id: "wv-1" })),
+      findFirst: vi.fn(() => Promise.resolve(null)),
+    },
+  },
 }));
 
 import { prisma } from "@/lib/db/client";
 import { assertSafeUrl, isPrivateIp, SsrfBlockedError } from "./ssrfGuard";
-import { verifyWebsite, isDisallowedByRobots } from "./verifyWebsite";
+import {
+  verifyWebsite,
+  verifyWebsiteWithReuse,
+  isDisallowedByRobots,
+  VerificationEvidenceSchema,
+} from "./verifyWebsite";
 
 // ── Test yardımcıları ────────────────────────────────────────────────────────
 
@@ -83,7 +93,12 @@ describe("SSRF suite — fetch ÖNCESİ red", () => {
       resolveHost: publicResolver,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toContain("SSRF");
+    if (!r.ok) {
+      expect(r.code).toBe("ssrf_blocked");
+      expect(r.reason).toContain("SSRF");
+      // Redaction: iç host/IP detayı reason'a sızmaz.
+      expect(r.reason).not.toContain("169.254");
+    }
   });
 
   it("redirect hop limiti (>5) aşılırsa reddedilir", async () => {
@@ -100,7 +115,7 @@ describe("SSRF suite — fetch ÖNCESİ red", () => {
       resolveHost: publicResolver,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("redirect_hop_limit");
+    if (!r.ok) expect(r.code).toBe("redirect_hop_limit");
   });
 });
 
@@ -176,7 +191,7 @@ describe("verifyWebsite — Tier 1 HTTP", () => {
       resolveHost: publicResolver,
     });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("robots_disallowed");
+    if (!r.ok) expect(r.code).toBe("robots_disallowed");
   });
 
   it("persist:true kanıtı WebsiteVerification'a yazar", async () => {
@@ -191,6 +206,168 @@ describe("verifyWebsite — Tier 1 HTTP", () => {
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.verificationId).toBe("wv-1");
+    expect(prisma.websiteVerification.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── ADR-038: typed failure + persistence + reuse sözleşmesi ─────────────────
+
+describe("verifyWebsite — ADR-038 sertleştirmesi", () => {
+  const okRoutes: Record<string, Route> = {
+    "https://example.com/robots.txt": { status: 404 },
+    "https://example.com/": { status: 200 },
+  };
+
+  it("geçersiz URL → typed invalid_url", async () => {
+    const r = await verifyWebsite("not a url", { fetchImpl: fakeFetch({}) });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("invalid_url");
+  });
+
+  it("timeout/abort → typed timeout (ham hata sızmaz)", async () => {
+    const abortingFetch = (async () => {
+      const err = new Error("This operation was aborted");
+      err.name = "AbortError";
+      throw err;
+    }) as unknown as typeof fetch;
+    const r = await verifyWebsite("https://example.com/", {
+      fetchImpl: abortingFetch,
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.code).toBe("timeout");
+      expect(r.reason).not.toContain("aborted");
+    }
+  });
+
+  it("ağ hatası → typed unreachable (raw exception mesajı yok)", async () => {
+    const failingFetch = (async () => {
+      throw new TypeError("fetch failed: getaddrinfo ENOTFOUND internal-secret-host");
+    }) as unknown as typeof fetch;
+    const r = await verifyWebsite("https://example.com/", {
+      fetchImpl: failingFetch,
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.code).toBe("unreachable");
+      expect(r.reason).not.toContain("internal-secret-host");
+    }
+  });
+
+  it("persist:true + DB yazımı BAŞARISIZ → persistence_failed (fail-soft kalktı)", async () => {
+    vi.mocked(prisma.websiteVerification.create).mockRejectedValueOnce(new Error("db down"));
+    const r = await verifyWebsite("https://example.com/", {
+      fetchImpl: fakeFetch(okRoutes),
+      resolveHost: publicResolver,
+      persist: true,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("persistence_failed");
+  });
+
+  it("451 → opens:false + regionRestricted:true typed kanıt (Türkiye erişimi yalnız 451'de iddia edilir)", async () => {
+    const f = fakeFetch({
+      "https://example.com/robots.txt": { status: 404 },
+      "https://example.com/blocked": { status: 451 },
+    });
+    const r = await verifyWebsite("https://example.com/blocked", {
+      fetchImpl: f,
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.evidence.opens).toBe(false);
+      expect(r.evidence.regionRestricted).toBe(true);
+    }
+  });
+});
+
+describe("verifyWebsiteWithReuse — snapshot defteri (append-only)", () => {
+  const okRoutes: Record<string, Route> = {
+    "https://example.com/robots.txt": { status: 404 },
+    "https://example.com/": { status: 200 },
+  };
+  const freshRow = () => {
+    const evidence = VerificationEvidenceSchema.parse({
+      opens: true,
+      finalUrl: "https://example.com/",
+      redirectChain: [],
+      signupRequired: "unknown",
+      freeTier: "unknown",
+      usageLimits: "unknown",
+      exportDownload: "unknown",
+      commercialUse: "unknown",
+      regionRestricted: "unknown",
+      lastUpdated: "unknown",
+      checkedAt: new Date(),
+      expiry: new Date(Date.now() + 20 * 24 * 3600_000),
+    });
+    return {
+      id: "wv-reuse",
+      url: "https://example.com/",
+      finalUrl: "https://example.com/",
+      opens: true,
+      redirectChain: "[]",
+      evidenceJson: JSON.stringify(evidence),
+      checkedAt: new Date(),
+      expiry: new Date(Date.now() + 20 * 24 * 3600_000),
+      createdAt: new Date(),
+    };
+  };
+
+  it("taze snapshot reuse edilir — ağ ÇAĞRILMAZ, yeni satır YAZILMAZ", async () => {
+    vi.mocked(prisma.websiteVerification.findFirst).mockResolvedValueOnce(
+      freshRow() as never
+    );
+    const netSpy = vi.fn(fakeFetch(okRoutes));
+    const r = await verifyWebsiteWithReuse("https://example.com/", {
+      fetchImpl: netSpy as unknown as typeof fetch,
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.reused).toBe(true);
+      expect(r.verificationId).toBe("wv-reuse");
+    }
+    expect(netSpy).not.toHaveBeenCalled();
+    expect(prisma.websiteVerification.create).not.toHaveBeenCalled();
+  });
+
+  it("forceRefresh → snapshot atlanır, canlı doğrulama + YENİ satır (overwrite yok)", async () => {
+    const r = await verifyWebsiteWithReuse("https://example.com/", {
+      fetchImpl: fakeFetch(okRoutes),
+      resolveHost: publicResolver,
+      forceRefresh: true,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.reused).toBeUndefined();
+    expect(prisma.websiteVerification.findFirst).not.toHaveBeenCalled();
+    expect(prisma.websiteVerification.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("bozuk evidenceJson'lu snapshot fail-closed reuse EDİLMEZ → canlı doğrulama", async () => {
+    const bad = { ...freshRow(), evidenceJson: "{corrupt" };
+    vi.mocked(prisma.websiteVerification.findFirst).mockResolvedValueOnce(bad as never);
+    const r = await verifyWebsiteWithReuse("https://example.com/", {
+      fetchImpl: fakeFetch(okRoutes),
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.reused).toBeUndefined();
+    expect(prisma.websiteVerification.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("expiry geçmiş snapshot reuse EDİLMEZ", async () => {
+    const stale = { ...freshRow(), expiry: new Date(Date.now() - 1000) };
+    vi.mocked(prisma.websiteVerification.findFirst).mockResolvedValueOnce(stale as never);
+    const r = await verifyWebsiteWithReuse("https://example.com/", {
+      fetchImpl: fakeFetch(okRoutes),
+      resolveHost: publicResolver,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.reused).toBeUndefined();
     expect(prisma.websiteVerification.create).toHaveBeenCalledTimes(1);
   });
 });

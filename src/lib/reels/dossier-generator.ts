@@ -84,17 +84,20 @@ export type ReelDossierOutcome =
 
 /**
  * Readiness — SAF, yalnız doğrulama gerçeklerinden (birim test edilir).
- * Araç yok → ready (doğrulanacak iddia yok). Araç var: taze + açılıyor →
- * ready; kanıt var ama expiry geçmiş → needs_verify; aksi → not_ready.
+ * Araç yok → ready (doğrulanacak iddia yok). Araç var: kalıcı snapshot
+ * (verificationId) + taze + açılıyor → ready; kanıt var ama expiry geçmiş →
+ * needs_verify; aksi → not_ready. ADR-038 invariant: yalnız bellekte kalan
+ * (persist edilmemiş) kanıt named-tool'u ASLA ready yapamaz.
  */
 export function computeReadiness(input: {
   toolNamed: boolean;
   evidence: VerificationEvidence | null;
+  verificationId: string | null;
   nowMs?: number;
 }): "ready" | "needs_verify" | "not_ready" {
   if (!input.toolNamed) return "ready";
   const e = input.evidence;
-  if (!e || !e.opens) return "not_ready";
+  if (!e || !e.opens || !input.verificationId) return "not_ready";
   const now = input.nowMs ?? Date.now();
   if (new Date(e.expiry).getTime() < now) return "needs_verify";
   return "ready";
@@ -254,10 +257,11 @@ export async function reelDossierFor(input: ReelDossierInput): Promise<ReelDossi
       evidence = v.evidence;
       verificationId = v.verificationId ?? null;
     } else {
-      warnings.push(`verify_failed: ${v.reason}`);
+      // Typed kod — ham hata mesajı/iç host detayı UI'a taşınmaz (ADR-038).
+      warnings.push(`verify_failed: ${v.code}`);
     }
   }
-  const finalReadiness = computeReadiness({ toolNamed, evidence });
+  const finalReadiness = computeReadiness({ toolNamed, evidence, verificationId });
 
   // ── 5) Aşamalar İN-MEMORY koşar; dossier yalnız hepsi geçince yazılır ──
   const dossierId = crypto.randomUUID();
