@@ -90,10 +90,24 @@ dürüst insufficient=null + `config_required` watchlist durumu, sertleştirilmi
 Kütüphane→İlham Inspiration Intelligence UI (yeni nav YOK). Yeni migration YOK.
 Detay: ADR-037 + IMPLEMENTATION-STATE.
 
-## Phase 3D — Doğrulanmış site/araç → production-grade Reels dossier
+## Phase 3D — Doğrulanmış site/araç → production-grade dossier ✅ KAPANDI (ADR-038; 2026-07-18)
 
-- `verifyWebsite` + `ReelDossier` motoru derinleşir: dossier'i Takvim'e bağla,
-  kanıt tazelik/expiry döngüsü, alternatif araç zinciri.
+Sınıflandırma: **production contract complete / canlı AI dossier üretimi
+BLOCKED-EXTERNAL** (rotation + INSTAGRAM_GENERATION_* yok; production'da
+ReelDossier=0 → canlı re-verification mutasyonu koşulmadı — hermetic kanıt).
+Teslim: typed-failure + fail-closed-persistence verifier (yalnız bellekteki
+kanıt named-tool'u ready yapamaz; computeReadiness verificationId ister),
+append-only WebsiteVerification snapshot defteri + 24h reuse / force-refresh
+ayrımı, guarded `POST /api/reels/dossier/[id]/verify` re-verify lifecycle'ı
+(server-side URL, LLM'siz, advisory-lock + in-tx concurrency; başarısızlık eski
+kanıtı silmez, bounded/redacted trace), tek-kaynak `computeDossierProductionState`
+read model'i (6 katman; production_ready = kanıt+creative+onay+seri+tek slot;
+"bağlandı" ≠ "yayına hazır"), versioned alternatif zinciri (≤4 aktif, bağımsız
+doğrulama, non-destructive archive, sessiz promotion yok — yeni-dossier prefill
+ADR-036 kapılı), Takvim attach sözleşmesi (mevcut-dossier seçimi, provenance
+seri eşleşmesi, tek-aktif-slot guard'ı, açık detach), DossierProductionPanel UI
+(dürüst unknown/451 kuralı; Tier-2 EKLENMEDİ — unknown kalır). Yeni migration
+YOK. Detay: ADR-038 + IMPLEMENTATION-STATE.
 
 ## Phase 3E — Aylık Reels planı + takvim yerleşimi + uçtan uca sağlık
 
