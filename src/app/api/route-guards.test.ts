@@ -37,6 +37,14 @@ import { POST as reelsSlotAttachPOST } from "./reels/plan/slot/[id]/attach/route
 import { GET as toolboxGET } from "./toolbox/route";
 import { GET as youtubeVideosGET } from "./youtube/videos/route";
 
+// Phase 3C: İlham çalışma alanı + önceden guard'sız kalan Boards/Content GET'leri.
+import { GET as inspirationGET } from "./inspiration/route";
+import { POST as inspirationCapturePOST } from "./inspiration/capture/route";
+import { POST as inspirationAnalyzePOST } from "./inspiration/analyze/route";
+import { GET as boardsGET } from "./boards/route";
+import { GET as boardDetailGET } from "./boards/[id]/route";
+import { GET as contentGET } from "./content/route";
+
 function bareReq(path: string): NextRequest {
   return new NextRequest(`http://localhost:3000${path}`);
 }
@@ -78,6 +86,12 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/reels/plan/slot/abc/attach", (req) => reelsSlotAttachPOST(req, dummyIdCtx)],
     ["/api/toolbox", toolboxGET],
     ["/api/youtube/videos", youtubeVideosGET],
+    ["/api/inspiration?accountId=x", inspirationGET],
+    ["/api/inspiration/capture", inspirationCapturePOST],
+    ["/api/inspiration/analyze", inspirationAnalyzePOST],
+    ["/api/boards", boardsGET],
+    ["/api/boards/abc", (req) => boardDetailGET(req, dummyIdCtx)],
+    ["/api/content", contentGET],
   ];
 
   it.each(cases)("%s → 403 without same-origin header", async (path, handler) => {
