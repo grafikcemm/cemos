@@ -3,13 +3,24 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
+import { extractProvenance } from "@/lib/reels/dossierReviewService";
+import { getDossierProductionState } from "@/lib/reels/dossierProductionService";
+
+export const dynamic = "force-dynamic";
 
 /**
- * Slot ↔ dossier bağlama (ADR-036 §I) — YALNIZ açık kullanıcı eylemiyle.
- * Atomik claim (updateMany: yalnız dossierId=null slot), idempotent (aynı
- * dossier tekrar bağlanınca alreadyAttached), cross-account fail-closed
- * (dossier.accountId === plan.accountId zorunlu). Dossier'siz slot sahte
- * "hazır" görünmez — bağlama ayrı, üretim ayrı eylemdir.
+ * Slot ↔ dossier bağlama (ADR-036 §I → ADR-038 §F) — YALNIZ açık kullanıcı
+ * eylemiyle. Sözleşme:
+ *  - Cross-account fail-closed (dossier.accountId === plan.accountId).
+ *  - Seri slotu: dossier PROVENANCE'ı (PipelineTrace seriesKey) slotun
+ *    seriesKey'iyle eşleşmeli — başlık/pillar string tahmini DEĞİL.
+ *  - Aynı dossier birden fazla aktif slota bağlanamaz (advisory lock +
+ *    in-tx kontrol; yarış → 409).
+ *  - İdempotent: aynı dossier aynı slota tekrar → alreadyAttached.
+ *  - Bağlama PLANLAMA eylemidir: yanıt `productionReady` + blockers döner —
+ *    "slota bağlandı" ASLA "yayına hazır" anlamına gelmez; `drafted` statüsü
+ *    yalnız "dossier bağlandı" demektir.
  */
 
 const AttachSchema = z.object({
@@ -27,40 +38,96 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const { accountId, dossierId } = parsed.data;
 
   try {
-    const slot = await prisma.reelPlanSlot.findUnique({
-      where: { id: slotId },
-      include: { plan: { select: { accountId: true } } },
+    // Provenance READ-ONLY — transaction dışında (seri uyumu gerçek kaynaktan).
+    const traces = await pipelineTraceRepo.listBySubject("reel_dossier", dossierId, 5);
+    const provenance = extractProvenance(traces.flatMap((t) => t.stages));
+
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"slot_attach:" + dossierId}))`;
+
+      const slot = await tx.reelPlanSlot.findUnique({
+        where: { id: slotId },
+        include: { plan: { select: { accountId: true } } },
+      });
+      if (!slot) return { fail: { msg: "Slot bulunamadı", status: 404, code: "slot_not_found" } };
+      if (slot.plan.accountId !== accountId) {
+        return { fail: { msg: "Slot bu hesaba ait değil", status: 422, code: "account_mismatch" } };
+      }
+      const dossier = await tx.reelDossier.findUnique({
+        where: { id: dossierId },
+        select: { accountId: true },
+      });
+      if (!dossier) {
+        return { fail: { msg: "Dossier bulunamadı", status: 404, code: "dossier_not_found" } };
+      }
+      if (dossier.accountId !== slot.plan.accountId) {
+        return {
+          fail: { msg: "Dossier bu hesaba ait değil", status: 422, code: "dossier_account_mismatch" },
+        };
+      }
+
+      if (slot.dossierId === dossierId) {
+        return { alreadyAttached: true as const };
+      }
+      if (slot.dossierId) {
+        return { fail: { msg: "Slota zaten başka bir dossier bağlı", status: 409, code: "slot_occupied" } };
+      }
+
+      // Seri slotu ↔ dossier provenance uyumu (gerçek kaynak, string tahmini değil).
+      if (slot.seriesKey && provenance.seriesKey !== slot.seriesKey) {
+        return {
+          fail: {
+            msg: provenance.seriesKey
+              ? `Dossier "${provenance.seriesKey}" serisi için üretilmiş; slot "${slot.seriesKey}" serisine ait.`
+              : "Bu seri slotuna yalnız o seri için üretilmiş dossier bağlanabilir (dossier'in seri provenance'ı yok).",
+            status: 422,
+            code: "series_mismatch",
+          },
+        };
+      }
+
+      // Aynı dossier başka bir aktif slota bağlıysa yeni bağlama reddedilir
+      // (advisory lock aynı dossier için yarışan attach'leri sıralar).
+      const otherSlot = await tx.reelPlanSlot.findFirst({
+        where: { dossierId, id: { not: slotId } },
+        select: { id: true },
+      });
+      if (otherSlot) {
+        return {
+          fail: {
+            msg: "Bu dossier zaten başka bir slota bağlı — önce oradan kaldır veya yeni dossier üret.",
+            status: 409,
+            code: "dossier_already_attached",
+          },
+        };
+      }
+
+      // Atomik claim: yalnız hâlâ boş slot güncellenir (yarış → 409).
+      const claimed = await tx.reelPlanSlot.updateMany({
+        where: { id: slotId, dossierId: null },
+        data: { dossierId, status: "drafted" },
+      });
+      if (claimed.count === 0) {
+        return { fail: { msg: "Slot bu arada bağlandı — yenileyip tekrar dene", status: 409, code: "slot_race" } };
+      }
+      return { attached: true as const };
     });
-    if (!slot) return fail("Slot bulunamadı", 404, { code: "slot_not_found" });
-    if (slot.plan.accountId !== accountId) {
-      return fail("Slot bu hesaba ait değil", 422, { code: "account_mismatch" });
-    }
-    const dossier = await prisma.reelDossier.findUnique({
-      where: { id: dossierId },
-      select: { accountId: true },
-    });
-    if (!dossier) return fail("Dossier bulunamadı", 404, { code: "dossier_not_found" });
-    if (dossier.accountId !== slot.plan.accountId) {
-      // Başka hesabın dossier'i slota bağlanamaz.
-      return fail("Dossier bu hesaba ait değil", 422, { code: "dossier_account_mismatch" });
+
+    if ("fail" in result && result.fail) {
+      return fail(result.fail.msg, result.fail.status, { code: result.fail.code });
     }
 
-    if (slot.dossierId === dossierId) {
-      return ok({ slotId, dossierId, alreadyAttached: true });
-    }
-    if (slot.dossierId) {
-      return fail("Slota zaten başka bir dossier bağlı", 409, { code: "slot_occupied" });
-    }
-
-    // Atomik claim: yalnız hâlâ boş slot güncellenir (yarış → 409).
-    const claimed = await prisma.reelPlanSlot.updateMany({
-      where: { id: slotId, dossierId: null },
-      data: { dossierId, status: "drafted" },
+    // Bağlama ≠ yayına hazır: güncel production truth açıkça döner.
+    const d = await prisma.reelDossier.findUnique({ where: { id: dossierId } });
+    const production = d ? await getDossierProductionState(d) : null;
+    return ok({
+      slotId,
+      dossierId,
+      alreadyAttached: "alreadyAttached" in result,
+      productionReady: production?.productionReady ?? false,
+      overall: production?.overall ?? null,
+      blockers: production?.blockers ?? [],
     });
-    if (claimed.count === 0) {
-      return fail("Slot bu arada bağlandı — yenileyip tekrar dene", 409, { code: "slot_race" });
-    }
-    return ok({ slotId, dossierId, alreadyAttached: false });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Bağlama başarısız", 500);
   }
