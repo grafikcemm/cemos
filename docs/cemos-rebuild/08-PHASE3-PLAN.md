@@ -109,14 +109,39 @@ seri eşleşmesi, tek-aktif-slot guard'ı, açık detach), DossierProductionPane
 (dürüst unknown/451 kuralı; Tier-2 EKLENMEDİ — unknown kalır). Yeni migration
 YOK. Detay: ADR-038 + IMPLEMENTATION-STATE.
 
-## Phase 3E — Aylık Reels planı + takvim yerleşimi + uçtan uca sağlık
+## Phase 3E — Aylık Reels planı + güvenli takvim yerleşimi + uçtan uca sağlık ✅ KAPANDI (ADR-039; 2026-07-19)
 
-- `ReelPlan` assembler → Takvim yerleşimi; plan-sağlık kontratı (staleness,
-  repetition histogram) health sistemine bağlanır; e2e kalite koşusu.
+Sınıflandırma: **production contract complete / TAM CANLI DEĞİL** (canlı AI
+üretimi, own-account Composio, Tier-2 render dış bağımlılıklara takılı). Teslim:
+derinleştirilmiş SAF assembler (ayın gerçek gün sayısı doğrulaması; çok boyutlu
+tekrar histogramı pillar/seri/konu/araç/hook + yakın geçmiş; korunan-gün dışlama;
+banned exact = hard-block), preview → apply → activate sözleşmesi (sıfır-write
+preview + fingerprint; tek-tx advisory-lock + optimistic concurrency + idempotent
+no-op; **NON-DESTRUCTIVE reconcile** — obsolete planned slot skipped'e geçer,
+korunanlar/handoff slotları asla silinmez → resultRef orphan olmaz; versioned
+`plan_notes.v1` zarfı), lifecycle state machine (apply otomatik active yapmaz),
+sertleştirilmiş `consume-plan` (ay-gün + day_occupied + boş-slot reuse + tek-tx)
+ve slot `move/skip/restore` (done immutable, optimistic concurrency, dossier/
+handoff silinmez), tek-kaynak `deriveInstagramPlanHealth` (Phase 3D
+`computeDossierProductionState` REUSE; plan yokluğu ≠ infra error; stale ≠ outage),
+`/api/health` additive `instagramPlanning` (üç altyapı sözleşmesi korunur; topbar
+priority; tek fetch kaynağı), PlanBuilder/PlanHealthStrip/SlotOpsBar UI + SystemTab
+plan bölümü + Instagram publish-vs-read metin düzeltmesi. Yeni migration YOK.
+Detay: ADR-039 + IMPLEMENTATION-STATE.
+
+## Phase 3 production-contract kapanışı
+
+3A–3E production contract'ları tamamlandı: gözlenen DNA (3A) → onaylı üretim (3B)
+→ dış ilham/rakip zekâsı (3C) → doğrulanmış dossier (3D) → aylık plan + takvim +
+plan sağlığı (3E) tek omurgada bağlı. **Phase 3'ün Instagram içerik zekâsı
+production contract'ı BİTTİ.** Ancak TAM CANLI DEĞİL: canlı AI üretimi (rotation +
+INSTAGRAM_GENERATION_*), own-account Composio aktivasyonu (3A binding), Tier-2
+render doğrulaması dış bağımlılıklara takılı kalır. Sonraki faz: **Phase 4**.
 
 ## Sıralama gerekçesi
 
 3A gözlem temelini kurar (veri → yapı); 3B üretimi bu onaylı yapıya bağlar;
-3C dış sinyali aynı ContentItem omurgasına ekler; 3D/3E üretim çıktısını
-planlama/takvime taşır. Her faz ayrı oturum + ayrı onay; "Phase 3 bitti"
-iddiası ancak 3E kapanınca.
+3C dış sinyali aynı ContentItem omurgasına ekler; 3D üretim çıktısını doğrulanmış
+dossier'a taşır; 3E dossier'ı aylık plan/takvim/sağlığa bağlar. Her faz ayrı
+oturum + ayrı onaydı; production contract "bitti" iddiası 3E kapanınca — ki
+kapandı (canlı aktivasyonlar ayrı, dış-bağımlı).
