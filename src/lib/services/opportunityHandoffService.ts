@@ -52,7 +52,10 @@ export type HandoffFailureCode =
   | "invalid_state"
   | "account_mismatch"
   | "plan_not_found"
-  | "series_not_found";
+  | "series_not_found"
+  | "day_occupied"
+  | "plan_archived"
+  | "invalid_day";
 
 export class HandoffFlowError extends Error {
   readonly code: HandoffFailureCode;
@@ -239,6 +242,9 @@ export function handoffErrorResponse(err: HandoffFlowError): { status: number; e
     account_mismatch: 422,
     plan_not_found: 422,
     series_not_found: 422,
+    day_occupied: 409,
+    plan_archived: 409,
+    invalid_day: 422,
   };
   return { status: status[err.code], error: err.message, code: err.code };
 }

@@ -81,22 +81,19 @@ function configureExistingPlan(opts: {
   updatedAt?: Date;
 }) {
   const updatedAt = opts.updatedAt ?? UPDATED;
-  mockPlanFind.mockImplementation((args) => {
-    // notesJson-only lookup (prevRevision) veya plan lookup — hepsinde aynı plan.
-    return Promise.resolve({
-      id: "plan-1",
-      status: opts.status ?? "draft",
-      updatedAt,
-      notesJson: opts.notesJson ?? "[]",
-    }) as never;
-  });
-  mockSlotFind.mockImplementation((args: { where?: { planId?: unknown } }) => {
+  mockPlanFind.mockResolvedValue({
+    id: "plan-1",
+    status: opts.status ?? "draft",
+    updatedAt,
+    notesJson: opts.notesJson ?? "[]",
+  } as never);
+  const slotImpl = (args: { where?: { planId?: unknown } }) => {
     const planId = args?.where?.planId;
-    if (typeof planId === "string") return Promise.resolve(opts.slots ?? []) as never;
-    return Promise.resolve([]) as never; // prior months
-  });
+    return Promise.resolve(typeof planId === "string" ? opts.slots ?? [] : []);
+  };
+  mockSlotFind.mockImplementation(slotImpl as never);
   txMock.reelPlan.findUnique.mockResolvedValue({ id: "plan-1", updatedAt, status: opts.status ?? "draft" });
-  txMock.reelPlanSlot.findMany.mockResolvedValue(opts.slots ?? []);
+  txMock.reelPlanSlot.findMany.mockResolvedValue((opts.slots ?? []) as never);
   txMock.reelPlan.update.mockResolvedValue({ updatedAt: new Date(updatedAt.getTime() + 1000), status: opts.status ?? "draft" });
 }
 
