@@ -455,8 +455,16 @@ export default function TakvimTab() {
                       {READINESS_META[activeDossier.finalReadiness].label}
                     </Badge>
                   </div>
-                  {/* ADR-036 §H: tam detay + editoryal/onay ayrımı — canlı fetch */}
-                  <DossierDetailPanel accountId={accountId} dossierId={activeDossier.id} />
+                  {/* ADR-038 §G: tam detay + production-state read model — canlı fetch */}
+                  <DossierDetailPanel
+                    accountId={accountId}
+                    dossierId={activeDossier.id}
+                    slotRawId={active.slotRawId}
+                    onDetached={() => {
+                      setActive(null);
+                      void load();
+                    }}
+                  />
                   <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                     Not: araç adlı dossier geçerli site kanıtı olmadan &quot;kontrolleri geçti&quot; görünmez;
                     site kanıtı editoryal onay DEĞİLDİR.
@@ -466,6 +474,7 @@ export default function TakvimTab() {
                 <SlotDossierActions
                   accountId={accountId}
                   slot={active}
+                  availableDossiers={Object.values(dossiers)}
                   onDone={() => {
                     setActive(null);
                     void load();

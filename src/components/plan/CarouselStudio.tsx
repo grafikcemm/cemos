@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Layers, Wand2, ArrowUp, ArrowDown, Trash2, Plus, CheckCircle2 } from "lucide-react";
 import { Card, Badge, Button, Drawer, Input, Textarea, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
+import DossierProductionPanel, { type ProductionModel } from "./DossierProductionPanel";
 
 /**
  * Carousel üretim + review stüdyosu (ADR-036 §H — Plan/Seriler içinde; yeni
@@ -40,6 +41,7 @@ type DetailResponse = {
   creative: { status: string; issues: Array<{ code: string; message: string }> };
   approval: { approved: boolean; trainingExampleId?: string };
   provenance: { seriesKey: string | null; promptVersion: string | null; model: string | null };
+  production: ProductionModel;
 };
 
 const CREATIVE_META: Record<string, { label: string; variant: "success" | "yellow" | "danger" | "muted" }> = {
@@ -490,6 +492,18 @@ export default function CarouselStudio({
                 <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Hashtag&apos;ler (boşlukla ayır)</span>
                 <Input value={draft.hashtags} onChange={(e) => setDraft((d) => (d ? { ...d, hashtags: e.target.value } : d))} aria-label="Hashtag'ler" data-testid="review-hashtags" />
               </label>
+
+              {/* ADR-038 §G: production-state read model (kanıt kartı +
+                  yeniden doğrula + alternatif zinciri + checklist) */}
+              <div style={{ paddingTop: 8, borderTop: "1px solid var(--border-faint)" }}>
+                <DossierProductionPanel
+                  accountId={accountId!}
+                  dossierId={detail.dossier.id}
+                  updatedAt={detail.dossier.updatedAt}
+                  production={detail.production}
+                  onChanged={() => openReview(detail.dossier.id)}
+                />
+              </div>
 
               {/* Audit (katlanmış) */}
               <button
