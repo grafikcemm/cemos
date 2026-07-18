@@ -14,6 +14,7 @@ import {
   findApprovalForDossier,
   type ReviewError,
 } from "@/lib/reels/dossierReviewService";
+import { getDossierProductionState } from "@/lib/reels/dossierProductionService";
 
 /**
  * Dossier detay + edit (ADR-036 §F). ÜÇ durum AYRI döner: üretim çıktısı,
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const traces = await pipelineTraceRepo.listBySubject("reel_dossier", id, 5);
     const provenance = extractProvenance(traces.flatMap((t) => t.stages));
     const approval = await findApprovalForDossier(id);
+    // ADR-038 §D: güncel production truth — stored finalReadiness yalnız snapshot.
+    const production = await getDossierProductionState(d);
 
     let slideCountRange: string | null = null;
     if (provenance.seriesKey) {
@@ -93,6 +96,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         ? { approved: true, trainingExampleId: approval.trainingExampleId }
         : { approved: false },
       provenance,
+      production,
     });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Dossier alınamadı", 500);
