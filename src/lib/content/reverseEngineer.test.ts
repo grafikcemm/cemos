@@ -9,6 +9,10 @@ vi.mock("@/lib/db/contentItemRepo", () => ({
 vi.mock("@/lib/db/ideaRepo", () => ({
   ideaRepo: { create: vi.fn() },
 }));
+// Phase 3C idempotency sorgusu (ideaSource.findFirst) gerçek DB'ye gitmesin.
+vi.mock("@/lib/db/client", () => ({
+  prisma: { ideaSource: { findFirst: vi.fn(() => Promise.resolve(null)) } },
+}));
 
 import { reverseEngineerToIdea } from "./reverseEngineer";
 import { generateJsonGated } from "@/lib/ai/generateGated";

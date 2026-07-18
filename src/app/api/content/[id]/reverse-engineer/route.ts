@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { reverseEngineerToIdea } from "@/lib/content/reverseEngineer";
+import {
+  reverseEngineerToIdea,
+  ReverseEngineerBlockedError,
+  ReverseEngineerInvalidOutputError,
+} from "@/lib/content/reverseEngineer";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { BudgetExceededError } from "@/lib/config/costGate";
@@ -27,8 +31,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   try {
     const result = await reverseEngineerToIdea({ contentItemId: id, ...parsed.data });
-    return ok({ ...result }, { status: 201 });
+    return ok({ ...result }, { status: result.reused ? 200 : 201 });
   } catch (err) {
+    // ADR-036 kapısı kapalı: yalnız ENV ADLARI döner (değer asla) — ağ çağrısı yapılmadı.
+    if (err instanceof ReverseEngineerBlockedError) {
+      return fail(err.message, 503, { code: err.code, missing: err.missing });
+    }
+    if (err instanceof ReverseEngineerInvalidOutputError) {
+      return fail(err.message, 422, { code: err.code });
+    }
     if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     const status = msg.includes("not found") ? 404 : 500;
