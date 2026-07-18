@@ -55,6 +55,8 @@ export type ContentItemFilters = {
   format?: string;
   analysisStatus?: string;
   creatorId?: string;
+  /** external | own | manual — baseline gibi provider-only akışlar filtreler. */
+  sourceType?: string;
   limit?: number;
 };
 
@@ -99,6 +101,7 @@ export const contentItemRepo = {
     if (filters.format) where.format = filters.format;
     if (filters.analysisStatus) where.analysisStatus = filters.analysisStatus;
     if (filters.creatorId) where.creatorId = filters.creatorId;
+    if (filters.sourceType) where.sourceType = filters.sourceType;
     return prisma.contentItem.findMany({
       where,
       orderBy: { firstSeenAt: "desc" },

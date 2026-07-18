@@ -48,7 +48,9 @@ export async function recomputeBaseline(
   metric: string = ENGAGEMENT,
   windowDays = 30,
 ): Promise<{ medianValue: number; sampleSize: number }> {
-  const items = await contentItemRepo.list({ creatorId, format, limit: 200 });
+  // Baseline'a YALNIZ provider kaynaklı içerik girer — manuel capture'ların
+  // operatör-gözlemi metrikleri medyanı kirletemez (Phase 3C provenance kuralı).
+  const items = await contentItemRepo.list({ creatorId, format, sourceType: "external", limit: 200 });
   const values = items.map((it) => engagementOf(parseMetrics(it.metricsJson), platform));
   const { medianValue, sampleSize } = computeBaseline(values);
   await creatorRepo.upsertBaseline({

@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 // GET /api/boards?accountId=   — list active boards (Swipe-file).
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const accountId = req.nextUrl.searchParams.get("accountId") ?? undefined;
   try {
     const boards = await boardRepo.list(accountId);

@@ -7,7 +7,8 @@ import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 export const dynamic = "force-dynamic";
 
 // GET /api/boards/[id]  — board + sections + items (with canonical content).
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
   try {
     const board = await boardRepo.withItems(id);

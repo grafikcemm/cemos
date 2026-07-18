@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 // GET /api/content?platform=&format=&analysisStatus=&limit=
 // Lists canonical content items (Eden unified content pool).
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const sp = req.nextUrl.searchParams;
   try {
     const items = await contentItemRepo.list({
