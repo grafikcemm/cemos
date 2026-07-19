@@ -36,9 +36,11 @@ export default function SidebarNowModule({ onNavigate }: NowModuleProps) {
     );
   }
 
-  const today = contracts.todayReadiness.counts;
-  const plan = contracts.instagramPlanning;
-  const topbar = contracts.topbar;
+  // Savunmacı: health payload'ı kısmi olabilir (test mock'u, bölüm fail-soft) —
+  // eksik alan CRASH etmez, o satır atlanır (boundary validation).
+  const today = contracts.todayReadiness?.counts ?? null;
+  const plan = contracts.instagramPlanning ?? null;
+  const topbar = contracts.topbar ?? null;
 
   const rows: NowRowData[] = [];
 
@@ -77,15 +79,27 @@ export default function SidebarNowModule({ onNavigate }: NowModuleProps) {
   }
 
   // 4. En yüksek öncelikli sistem sinyali — actionable ise; değilse sessiz ok. → Sistem
-  const sysTone = topbar.level === "error" ? "error" : topbar.level === "warn" ? "warn" : topbar.level === "action" ? "accent" : "ok";
-  rows.push({
-    icon: Activity,
-    label: "Sistem",
-    value: topbar.level === "none" ? "sağlıklı" : topbar.label,
-    valueIsText: true,
-    tone: sysTone,
-    target: "system",
-  });
+  if (topbar) {
+    const sysTone: NowTone =
+      topbar.level === "error" ? "error" : topbar.level === "warn" ? "warn" : topbar.level === "action" ? "accent" : "ok";
+    rows.push({
+      icon: Activity,
+      label: "Sistem",
+      value: topbar.level === "none" ? "sağlıklı" : topbar.label,
+      valueIsText: true,
+      tone: sysTone,
+      target: "system",
+    });
+  }
+
+  // Hiçbir alan gelmedi (kısmi payload) → dürüst boş; satır uydurma.
+  if (rows.length === 0) {
+    return (
+      <NowShell>
+        <div className="cx-now-empty">Özet için veri yok.</div>
+      </NowShell>
+    );
+  }
 
   return (
     <NowShell>

@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
 // Profil, Plan/Kütüphane subnav, Profil menü, Cmd-K, mobil 3+1 sheet, sistem
 // drawer, edit-gate. Hepsi hermetik/mutasyonsuz. globalSetup ile kimlikli koşar.
 
-test("sidebar yalnız 3 görev + Toolbox + Profil gösterir (legacy motor adı yok)", async ({ page }) => {
+test("sidebar: 3 TOP-LEVEL + Araştırma grubu + Toolbox + Profil (ADR-040; absorbed legacy adı yok)", async ({ page }) => {
   await page.goto("/");
   const sidebar = page.locator(".app-sidebar");
   await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
@@ -12,8 +12,13 @@ test("sidebar yalnız 3 görev + Toolbox + Profil gösterir (legacy motor adı y
   await expect(page.getByTestId("sidebar-area-kutuphane")).toBeVisible();
   await expect(page.getByTestId("sidebar-toolbox")).toBeVisible();
   await expect(page.getByTestId("sidebar-profile")).toBeVisible();
-  // Legacy motor/ekran adları ana navda görünmemeli.
-  for (const legacy of ["Viral Kütüphane", "Keşif Motoru", "Günlük Kuyruk", "Instagram", "Üretim", "Keşif", "Hafıza"]) {
+  // ADR-040: araştırma ekranları (Haberler/YouTube/Viral Radar/Keşif/X Kaynakları)
+  // artık sidebar'da hiyerarşik "Araştırma" grubunda keşfedilebilir — saklı DEĞİL.
+  await expect(page.getByTestId("sidebar-research-toggle")).toBeVisible();
+  await expect(page.getByTestId("sidebar-research-flow-radar")).toBeVisible();
+  await expect(page.getByTestId("sidebar-research-discovery-engine")).toBeVisible();
+  // ABSORBED legacy grup/ekran adları ana navda görünmemeli (yeni evlerine alias'landı).
+  for (const legacy of ["Viral Kütüphane", "Günlük Kuyruk", "Instagram", "Üretim", "Hafıza"]) {
     await expect(sidebar.getByText(legacy, { exact: true })).toHaveCount(0);
   }
 });
@@ -77,7 +82,7 @@ test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana nav
   await expect(page.getByRole("banner").getByText("Maliyet", { exact: true })).toBeVisible();
 });
 
-test("Cmd-K advanced araştırma ekranını açar (Viral Radar → Plan / Viral Radar)", async ({ page }) => {
+test("Cmd-K advanced araştırma ekranını açar (Araştırma / Viral Radar; sidebar'da highlight)", async ({ page }) => {
   await page.goto("/");
   // Cmd-K dinleyicisi hydration'da bağlanır → önce shell'in hazır olduğunu bekle.
   await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
@@ -87,8 +92,9 @@ test("Cmd-K advanced araştırma ekranını açar (Viral Radar → Plan / Viral 
   await input.fill("viral radar");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("banner").getByText("Viral Radar")).toBeVisible();
-  // Advanced ekran araştırma ebeveyni Plan'ı highlight eder.
-  await expect(page.getByTestId("sidebar-area-plan")).toHaveAttribute("aria-current", "page");
+  // ADR-040: advanced ekran artık kendi "Araştırma" grup öğesini highlight eder
+  // (eski davranış: Plan alanını highlight ederdi).
+  await expect(page.getByTestId("sidebar-research-flow-radar")).toHaveAttribute("aria-current", "page");
 });
 
 test("mobil bottom nav 3+1: alan geç, re-tap sheet, Profil sheet", async ({ page }) => {
