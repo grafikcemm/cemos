@@ -987,8 +987,9 @@ model LearnPack {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  concepts LearnConcept[]
-  items    LearnItem[]
+  concepts       LearnConcept[]
+  items          LearnItem[]
+  exportAttempts LearnExportAttempt[]
 
   @@unique([sourceId, pipelineVersion])
   @@index([status])
@@ -1089,6 +1090,33 @@ model LearnProcessingJob {
 
   @@unique([sourceId, pipelineVersion])
   @@index([status, currentStage])
+}
+
+// Obsidian export denemesi (4D) — kalıcı audit + idempotency. Kanal başına
+// (pack + hedef + manifest) TEK satır (@@unique upsert): aynı manifest retry
+// duplicate write/attempt üretmez → "already_current" idempotency. idempotencyKey
+// (NULL-distinct) client çift-gönderim koruması. Secret/token/tam-path YOK;
+// targetFingerprint = hedefin secret-olmayan kararlı hash'i (yerel path / repo değil).
+model LearnExportAttempt {
+  id                String    @id @default(cuid())
+  packId            String
+  pack              LearnPack @relation(fields: [packId], references: [id])
+  channel           String // zip | local_vault | github_vault
+  targetFingerprint String // hedefin secret-olmayan hash'i
+  manifestHash      String // bundle deterministik özeti
+  state             String // succeeded | already_current | partial | conflict | failed
+  writtenCount      Int       @default(0)
+  unchangedCount    Int       @default(0)
+  failedCount       Int       @default(0)
+  conflictCount     Int       @default(0)
+  errorClass        String?
+  idempotencyKey    String?
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+
+  @@unique([packId, channel, targetFingerprint, manifestHash])
+  @@unique([idempotencyKey])
+  @@index([packId, channel])
 }
 
 // ── Content Intelligence (Eden-inspired) — Faz CI ──
