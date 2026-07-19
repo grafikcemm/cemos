@@ -94,3 +94,48 @@ idempotent; sync read-only; publish intent-only).
 doğrula.** Bu, en düşük riskli + en yüksek değerli adım; B'nin rescore + üretim + pattern
 hattının tamamını "fixture-verified"dan "live-verified"a taşır. Diğer tüm entegrasyonlar
 bundan bağımsız, kendi credential'ları geldikçe yukarıdaki sırayla açılabilir.
+
+## 7. Salt-okunur envanter denetimi (2026-07-20)
+
+Kod-temelli, **canlı round-trip YOK, secret VALUE okunmadı** (yalnız env NAME'ler +
+`configured` mantığı). Hiçbir entegrasyon "live-verified" ilan EDİLMEZ — prod DB
+sorgulanmadı. Kaynak: `/api/integrations` (`isOperatorOrCronAuthorized`; `has(names)` =
+`process.env[n]` trimmed non-empty) + `/api/health` (deep probe opsiyonel).
+
+| Entegrasyon | Env NAME'ler (koddan) | Sınıf | Canlı kanıtı nerede olurdu |
+|---|---|---|---|
+| OpenRouter üretim | `OPENROUTER_API_KEY` | configured-in-code | `UsageLog`, `EvalRun` |
+| OpenRouter canlı ücretli kapı | `OPENROUTER_KEY_ROTATED_AT`, `AI_EVAL_SPEND_ENABLED`, `PHASE2E_LIVE_EVAL_APPROVED`, `PHASE2E_LIVE_MAX_USD` | blocked-external (hepsi default-off) | liveGates env varlığı |
+| Composio IG | `COMPOSIO_CONSUMER_API_KEY`, `COMPOSIO_INSTAGRAM_CONNECTED_ACCOUNT_ID`, `COMPOSIO_INSTAGRAM_ACCOUNT_HANDLE`, `INSTAGRAM_DATA_PROVIDER` | configured-in-code; sync blocked-external | `AccountPlatformBinding.lastSuccessfulSyncAt` |
+| Meta IG (business_discovery) | `META_ACCESS_TOKEN`, `META_IG_USER_ID`, `META_GRAPH_VERSION` | configured-in-code (memory canlı iddia ediyor — bu oturumda DOĞRULANMADI) | `IgWatchAccount.lastSyncAt`, `ContentOutlierScore` |
+| Obsidian yerel | `OBSIDIAN_VAULT_PATH`, `OBSIDIAN_AUTO_EXPORT` | configured-in-code (opsiyonel); idempotent+bounded | `LearnExportAttempt` |
+| Obsidian GitHub | `OBSIDIAN_GITHUB_REPO`, `OBSIDIAN_GITHUB_TOKEN`\|`GITHUB_PERSONAL_ACCESS_TOKEN`, `OBSIDIAN_GITHUB_DIR` | configured-in-code (opsiyonel); idempotent | `LearnExportAttempt` |
+| Cron'lar | `CRON_SECRET` (+ `*_BUDGET_MS`) | configured-in-code; prod'da fail-closed | `CronRun` |
+| Tier-2 worker | (yok) | blocked-external (serverless uzun-iş yok) | `CronRun`, yerel heartbeat |
+| X API doğrudan | (yok) | blocked-external (`payment_approval_required`, sıfır ağ) | — (adapter asla yazmaz) |
+| X intent akışı | (yok) | configured-in-code / çalışıyor ($0) | `PublishAttempt`/`PublishLog`/`PublishedPost` |
+
+**Haber/trend cron (salt-okunur):** `vercel.json` → `/api/cron/news` **günde bir 12:00 UTC**
+(`0 12 * * *`). Kod yorumu "every 3h" idi → GERÇEĞE göre düzeltildi (Vercel Hobby cron
+başına günde-1 sınırı; tick deadline-bounded + idempotent → Pro/manuel daha sık güvenli).
+`isCronAuthorized` prod'da fail-closed (`CRON_SECRET` yoksa 401). Dedup: `NewsItem.url @unique`
++ 7g url/başlık dedup; `processingStatus` cursor (raw→translated→analyzed); `sweepStale` 7g
+karantina; `sweepStuck` 48h retry; `CronRun` heartbeat-first. **Cron TETİKLENMEDİ** — yalnız
+kod + config denetimi.
+
+## 8. Aktivasyon-anı resmi doküman işaretçileri (erişim: 2026-07-20)
+
+Bunlar **aktivasyon-anı referanslarıdır**; canlı yazma BLOCKED-EXTERNAL olduğundan bu
+oturumda round-trip için KULLANILMADI. Operatör credential sağladığında güncellik
+2026-07-20 sonrası yeniden doğrulanmalı (sürümler değişebilir).
+
+- OpenRouter API + `/models`, `/key`: https://openrouter.ai/docs
+- Composio MCP (kodda sabit endpoint `https://connect.composio.dev/mcp`): https://docs.composio.dev
+- Claude Code MCP kurulumu (`claude mcp`): https://docs.claude.com/en/docs/claude-code/mcp
+- Meta Graph API — Instagram business_discovery: https://developers.facebook.com/docs/instagram-api
+- GitHub Contents API (Obsidian GitHub vault): https://docs.github.com/en/rest/repos/contents
+- Vercel Cron Jobs (Hobby cron limitleri): https://vercel.com/docs/cron-jobs
+- Neon (parola rotasyonu — residual risk): https://neon.tech/docs/manage/roles
+
+**Sonuç:** Envanter dürüst ve turnkey; hiçbir canlı sağlayıcı yazımı/ödeme yapılmadı.
+Aktivasyon adımları operatör credential + onayı bekliyor (§1 sırası).

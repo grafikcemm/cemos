@@ -3,9 +3,12 @@ import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { runPipelineTick } from "@/lib/news/pipeline";
 import { syncHackerNews } from "@/lib/news/hackernews";
 
-// Light intra-day refresh: fetch RSS + translate + analyze + buzz-enrich, WITHOUT
-// the heavy per-account draft generation that /api/cron/daily runs at 06:00.
-// Keeps "en güncel ve çok konuşulan" fresh through the day (every 3h via cron).
+// Light refresh: fetch RSS + translate + analyze + buzz-enrich, WITHOUT the heavy
+// per-account draft generation that /api/cron/daily runs at 06:00.
+// SCHEDULE (honest — vercel.json): once daily at 12:00 UTC ("0 12 * * *"). Vercel
+// Hobby allows only once-daily per cron, so this is NOT intra-day on Hobby; the
+// tick is deadline-bounded + idempotent so a Pro schedule (or manual/authorized
+// trigger) can safely run it more often without duplicate work.
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
