@@ -58,6 +58,11 @@ import { POST as reelsSlotMovePOST } from "./reels/plan/slot/[id]/move/route";
 import { POST as reelsSlotSkipPOST } from "./reels/plan/slot/[id]/skip/route";
 import { POST as reelsSlotRestorePOST } from "./reels/plan/slot/[id]/restore/route";
 
+// Phase 4B: unified save-to-board mutations.
+import { POST as librarySavePOST } from "./library/save/route";
+import { POST as boardsPOST } from "./boards/route";
+import { POST as boardDetailPOST } from "./boards/[id]/route";
+
 function bareReq(path: string): NextRequest {
   return new NextRequest(`http://localhost:3000${path}`);
 }
@@ -114,6 +119,9 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/reels/plan/slot/abc/move", (req) => reelsSlotMovePOST(req, dummyIdCtx)],
     ["/api/reels/plan/slot/abc/skip", (req) => reelsSlotSkipPOST(req, dummyIdCtx)],
     ["/api/reels/plan/slot/abc/restore", (req) => reelsSlotRestorePOST(req, dummyIdCtx)],
+    ["/api/library/save", librarySavePOST],
+    ["/api/boards", boardsPOST],
+    ["/api/boards/abc", (req) => boardDetailPOST(req, dummyIdCtx)],
   ];
 
   it.each(cases)("%s → 403 without same-origin header", async (path, handler) => {
