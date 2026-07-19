@@ -57,8 +57,6 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const activeTab = useXAgentStore((s) => s.activeTab);
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
-  const savedTweets = useXAgentStore((s) => s.savedTweets);
-  const removeSavedTweet = useXAgentStore((s) => s.removeSavedTweet);
 
   const lastTabByArea = useRef<Partial<Record<PrimaryAreaId, string>>>({});
   const seeded = useRef(false);
@@ -77,16 +75,26 @@ export default function AppShell({ initialTab }: AppShellProps) {
 
   // Legacy göç (ADR-043): emekliye ayrılan ViralLibraryTab'ın localStorage → DB
   // savedTweets drenajı buraya taşındı — component silinse de kullanıcının eski
-  // yıldızları kaybolmaz. İdempotent (POST id-upsert) + mount'ta yalnız bir kez.
+  // yıldızları kaybolmaz. Persist rehydration'ı BEKLER (aksi halde mount anında
+  // savedTweets henüz boş olur); getState canlı okur, idempotent, yalnız bir kez.
   useEffect(() => {
-    if (savedTweetsDrained.current) return;
-    savedTweetsDrained.current = true;
-    void (async () => {
-      const outcome = await drainSavedTweetsToDb(savedTweets, removeSavedTweet);
-      if (outcome === "failed") savedTweetsDrained.current = false; // sonraki mount tekrar dener
-    })();
-    // savedTweets bilinçli deps dışı: göç mount'ta bir kez koşar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const drain = () => {
+      if (savedTweetsDrained.current) return;
+      savedTweetsDrained.current = true;
+      void (async () => {
+        const s = useXAgentStore.getState();
+        const outcome = await drainSavedTweetsToDb(s.savedTweets, s.removeSavedTweet);
+        if (outcome === "failed") savedTweetsDrained.current = false; // sonraki mount tekrar dener
+      })();
+    };
+    const persist = (useXAgentStore as unknown as {
+      persist?: { hasHydrated?: () => boolean; onFinishHydration?: (cb: () => void) => () => void };
+    }).persist;
+    if (!persist || persist.hasHydrated?.()) {
+      drain();
+      return;
+    }
+    return persist.onFinishHydration?.(drain);
   }, []);
 
   // Bilinmeyen persist id (hiçbir sınıfa uymuyor) → morning; shell asla boş render etmez.
