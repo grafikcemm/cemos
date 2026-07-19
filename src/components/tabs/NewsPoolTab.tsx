@@ -28,6 +28,7 @@ import {
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 type NewsItem = {
   id: string;
@@ -445,6 +446,7 @@ function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }
           Kaynak haberi oku <ExternalLink size={11} strokeWidth={2} />
         </a>
         <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+        <SaveToBoardButton source={{ kind: "news", id: item.id }} size="xs" title={item.trTitle ?? undefined} />
       </span>
     </section>
   );
@@ -504,6 +506,7 @@ function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
           })
         ) : null}
         <button onClick={onToggleRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+        <SaveToBoardButton source={{ kind: "news", id: item.id }} size="xs" title={item.trTitle ?? undefined} />
       </span>
     </article>
   );

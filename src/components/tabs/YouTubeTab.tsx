@@ -50,6 +50,7 @@ import {
   type KanbanTone,
   MetricStrip,
 } from "@/components/ui";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 type YtVideo = {
   videoId: string;
@@ -737,6 +738,7 @@ function VideoCard({
         >
           Yoksay
         </Button>
+        <SaveToBoardButton source={{ kind: "ytVideo", videoId: v.videoId }} size="xs" title={v.title} />
       </div>
     </div>
   );

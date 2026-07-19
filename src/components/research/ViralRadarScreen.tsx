@@ -35,6 +35,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 /**
  * Keşif / Viral Radar (spec 05 §E3) — REDESIGNED-ADVANCED araştırma ekranı.
@@ -719,6 +720,7 @@ export default function ViralRadarScreen() {
                 }
                 actions={
                   <div onClick={stop} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <SaveToBoardButton source={{ kind: "sourcePost", id: cand.id }} size="xs" />
                     <Button size="sm" variant="ghost" onClick={() => setDetailCand(cand)}>
                       Detay
                     </Button>

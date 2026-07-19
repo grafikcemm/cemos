@@ -38,6 +38,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { scoreColor } from "@/lib/utils/scoreColor";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 /**
  * Keşif / X Hesabı Kaynakları (05 §E5) — izlenen X hesaplarını yönet; taranan
@@ -1002,9 +1003,12 @@ function PostRow({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Repeat2 size={14} strokeWidth={1.8} /> {post.retweetCount}</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Eye size={13} strokeWidth={1.8} /> {post.viewCount}</span>
         </div>
-        <Button variant="secondary" size="sm" onClick={onOpen} iconLeft={<Sparkles size={13} strokeWidth={2} />}>
-          Skor detayı
-        </Button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <SaveToBoardButton source={{ kind: "sourcePost", id: post.id }} size="xs" />
+          <Button variant="secondary" size="sm" onClick={onOpen} iconLeft={<Sparkles size={13} strokeWidth={2} />}>
+            Skor detayı
+          </Button>
+        </div>
       </div>
     </div>
   );

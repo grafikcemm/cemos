@@ -17,6 +17,7 @@ import {
 import { useXAgentStore } from "@/store/xagent";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { PageHeader, Card, Button, MetricCard, EmptyState, ErrorState, Skeleton } from "../ui";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 type CouncilVerdict = {
   sourcePostId: string;
@@ -676,6 +677,7 @@ function OutlierHighlights() {
         {items.map((o, i) => {
           const title = o.contentItem?.title || o.contentItem?.body?.slice(0, 120) || "İçerik";
           const times = o.multiplier >= 10 ? Math.round(o.multiplier) : Math.round(o.multiplier * 10) / 10;
+          const contentItemId = o.contentItem?.id;
           return (
             <div
               key={o.id}
@@ -740,6 +742,9 @@ function OutlierHighlights() {
               <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", flexShrink: 0 }}>
                 ortalaması {Math.round(o.baselineMedian).toLocaleString("tr-TR")} → {Math.round(o.metricValue).toLocaleString("tr-TR")}
               </span>
+              {contentItemId && (
+                <SaveToBoardButton source={{ kind: "contentItem", contentItemId }} size="xs" title={title} />
+              )}
             </div>
           );
         })}
