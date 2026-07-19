@@ -15,6 +15,22 @@ export const boardRepo = {
     });
   },
 
+  /**
+   * "Kaydedebileceğim panolar" = paylaşılan (accountId=null) + aktif hesabın
+   * panoları. Başka hesabın panoları HARİÇ (save-to-board scope sözleşmesi ile
+   * hizalı; picker'da görünmeyen panoya kaydetme denenmez). accountId yoksa
+   * yalnız paylaşılan panolar döner (hesap seçilmemiş → yalnız ortak swipe file).
+   */
+  listSavable(accountId?: string): Promise<Board[]> {
+    return prisma.board.findMany({
+      where: {
+        archivedAt: null,
+        OR: [{ accountId: null }, ...(accountId ? [{ accountId }] : [])],
+      },
+      orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    });
+  },
+
   getById(id: string): Promise<Board | null> {
     return prisma.board.findUnique({ where: { id } });
   },

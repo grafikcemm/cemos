@@ -6,12 +6,15 @@ import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/boards?accountId=   — list active boards (Swipe-file).
+// GET /api/boards?accountId=&savable=1  — list active boards (Swipe-file).
+// savable=1 → shared + this account's boards (save-to-board picker set); default
+// → account-scoped only (İlham keeps its own-account boards).
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const accountId = req.nextUrl.searchParams.get("accountId") ?? undefined;
+  const savable = req.nextUrl.searchParams.get("savable") === "1";
   try {
-    const boards = await boardRepo.list(accountId);
+    const boards = savable ? await boardRepo.listSavable(accountId) : await boardRepo.list(accountId);
     return ok({ count: boards.length, boards });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";

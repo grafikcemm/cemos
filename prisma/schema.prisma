@@ -1243,6 +1243,12 @@ model BoardItem {
   position      Int           @default(0)
   createdAt     DateTime      @default(now())
 
+  // "Tek kanonik içerik / pano" değişmezi DB düzeyinde (Phase 4B / ADR-041).
+  // PostgreSQL unique index NULL'ları AYRIK sayar → contentItemId=null serbest
+  // (url/not/görsel) satırlar etkilenmez; yalnız gerçek contentItemId'li duplicate
+  // (boardId, contentItemId) çifti reddedilir. Tüm ekleme yollarında (addItem/
+  // captureInspiration/saveToBoard) tekilliğin tek kaynağı.
+  @@unique([boardId, contentItemId])
   @@index([boardId])
   @@index([sectionId])
   @@index([contentItemId])
