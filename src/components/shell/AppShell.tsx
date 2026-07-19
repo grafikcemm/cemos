@@ -121,11 +121,12 @@ export default function AppShell({ initialTab }: AppShellProps) {
     setActiveTab(lastTabByArea.current[areaId] ?? firstTabOfArea(areaId));
   };
 
-  // Desktop içerik genişliği (1B.5, desktop-only): Takvim/Kütüphane/advanced =
-  // wide (1280); Bugün/Toolbox/Profil = standard (1080). Ekranlar kendi
-  // PageScaffold width varyantıyla daha da daraltabilir (reading 960).
+  // Desktop içerik genişliği (1B.5, desktop-only): Takvim/Kütüphane/advanced +
+  // Sistem dashboard = wide (ADR-040: 1440); Bugün/Toolbox/diğer Profil =
+  // standard (1080). Ekranlar kendi PageScaffold width varyantıyla daha da
+  // daraltabilir (reading 960).
   const contentWidth =
-    advanced || primaryArea === "plan" || primaryArea === "kutuphane"
+    advanced || primaryArea === "plan" || primaryArea === "kutuphane" || normalizedTab === "system"
       ? "var(--content-wide)"
       : "var(--content-standard)";
 

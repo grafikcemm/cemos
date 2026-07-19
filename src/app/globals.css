@@ -99,7 +99,9 @@
   /* ── Desktop içerik genişliği varyantları (1B.5, desktop-only) ──────────── */
   --content-reading: 960px; /* Bugün/drawer okuma */
   --content-standard: 1080px; /* Profil/Ayarlar/Toolbox */
-  --content-wide: 1280px; /* Takvim/Kütüphane tablo/advanced araştırma */
+  /* ADR-040: operasyonel/veri-yoğun yüzeyler (Takvim/Kütüphane/araştırma) 1440/
+     1920'de daralmasın — 1280 → 1440. Okuma yüzeyleri (Bugün) standard kalır. */
+  --content-wide: 1440px; /* Takvim/Kütüphane tablo/advanced araştırma */
   --content-max: var(--content-standard); /* geriye dönük alias */
 
   /* ── Spacing scale (px) ─────────────────────────────────────────────────── */

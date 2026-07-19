@@ -115,26 +115,29 @@ function Dot({ color }: { color: string }) {
   );
 }
 
-/** Bölüm başlığı + durum rozeti + isteğe bağlı deep-link. */
+/**
+ * ADR-040: her sağlık bölümü artık AYRI bir dashboard kartı (tek uzun kart
+ * yerine okunabilir grid). Başlık + durum rozeti + isteğe bağlı deep-link;
+ * gövde kartın içinde. İlişkili ama bağımsız — bir bölüm "veri yok" derken
+ * diğerleri yaşar.
+ */
 function Section({
   title,
   status,
   link,
   children,
-  first = false,
 }: {
   title: string;
   status: SectionStatus;
   link?: { label: string; tab: string };
   children: React.ReactNode;
-  first?: boolean;
 }) {
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const meta = STATUS_META[status];
   return (
-    <section style={{ padding: "var(--space-4) var(--space-5)", borderTop: first ? "none" : "1px solid var(--border-faint)" }}>
+    <Card variant="default" padded>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ flex: 1, minWidth: 140 }}>
           <SectionHeader title={title} />
         </div>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: meta.color, fontWeight: 500 }}>
@@ -162,7 +165,7 @@ function Section({
         )}
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>{children}</div>
-    </section>
+    </Card>
   );
 }
 
@@ -283,20 +286,19 @@ export default function SystemTab() {
     <div style={{ width: "100%" }}>
       {header}
 
-      <Card variant="default" padded={false}>
-        {/* 1. Altyapı */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
+        {/* 1. Altyapı — en detaylı bölüm, full-width üst kart */}
         <Section
           title="Altyapı"
           status={infrastructure.status}
           link={{ label: "Entegrasyonlar", tab: "profile-integrations" }}
-          first
         >
           {infrastructure.items.length === 0 ? (
             <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>
               Altyapı verisi alınamadı — diğer bölümler etkilenmez.
             </span>
           ) : (
-            <div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 340px), 1fr))", columnGap: "var(--space-6)" }}>
               {infrastructure.items.map((item) => (
                 <InfraRow key={item.key} item={item} />
               ))}
@@ -304,6 +306,15 @@ export default function SystemTab() {
           )}
         </Section>
 
+        {/* 2-6: ilişkili ama bağımsız sağlık kartları — responsive dashboard grid */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 430px), 1fr))",
+            gap: "var(--stack)",
+            alignItems: "start",
+          }}
+        >
         {/* 2. Akış güncelliği */}
         <Section
           title="Akış güncelliği"
@@ -502,7 +513,8 @@ export default function SystemTab() {
             ]}
           />
         </Section>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

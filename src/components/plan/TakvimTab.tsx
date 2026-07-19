@@ -388,7 +388,7 @@ export default function TakvimTab() {
           </div>
 
           {view === "month" ? (
-            <MonthGrid matrix={matrix} itemsByDay={itemsByDay} isCurrentMonth={isCurrentMonth} todayDay={today.getDate()} onDay={(day) => {
+            <MonthGrid matrix={matrix} itemsByDay={itemsByDay} dossiers={dossiers} isCurrentMonth={isCurrentMonth} todayDay={today.getDate()} onDay={(day) => {
               const first = itemsByDay.get(day)?.[0];
               if (first) setActive(first);
             }} />
@@ -528,15 +528,60 @@ function DrawerField({ label, value, multiline }: { label: string; value: string
   );
 }
 
+/**
+ * ADR-040: ay hücresi artık YALNIZ nokta değil — gerçek veri varsa kompakt satır
+ * (readiness renk noktası + başlık/konu). Renk = dossier/slot durumu; içerik
+ * uydurulmaz (dossier'sız planlı slot dürüstçe "planlı" nötr nokta). aria-label
+ * SABİT `${gün} — ${sayı} öğe` (e2e kontratı — phase3b/3d/3e).
+ */
+type DotState = { color: string; muted?: boolean; struck?: boolean };
+function itemDotState(it: CalItem, dossiers: Record<string, DossierRow>): DotState {
+  if (it.status === "skipped") return { color: "var(--text-faint)", muted: true, struck: true };
+  if (it.channel === "x") return { color: "var(--accent-text)" };
+  const dos = it.dossierId ? dossiers[it.dossierId] : null;
+  if (!dos) return { color: "var(--text-muted)" }; // planlı, dossier yok — dürüst nötr
+  if (dos.finalReadiness === "ready") return { color: "var(--status-ok)" };
+  if (dos.finalReadiness === "needs_verify") return { color: "var(--status-warn)" };
+  return { color: "var(--status-error)" };
+}
+
+function CellItemRow({ it, dossiers }: { it: CalItem; dossiers: Record<string, DossierRow> }) {
+  const d = itemDotState(it, dossiers);
+  const label = it.title || CHANNEL_LABEL[it.channel];
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, width: "100%" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "var(--radius-pill)", background: d.color, flexShrink: 0 }} />
+      <span
+        style={{
+          minWidth: 0,
+          flex: 1,
+          fontSize: "var(--text-2xs)",
+          lineHeight: 1.3,
+          color: d.muted ? "var(--text-faint)" : "var(--text-secondary)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          textDecoration: d.struck ? "line-through" : undefined,
+        }}
+      >
+        {it.time ? `${it.time} ` : ""}
+        {label}
+      </span>
+    </span>
+  );
+}
+
 function MonthGrid({
   matrix,
   itemsByDay,
+  dossiers,
   isCurrentMonth,
   todayDay,
   onDay,
 }: {
   matrix: ReturnType<typeof monthMatrix>;
   itemsByDay: Map<number, CalItem[]>;
+  dossiers: Record<string, DossierRow>;
   isCurrentMonth: boolean;
   todayDay: number;
   onDay: (day: number) => void;
@@ -562,17 +607,18 @@ function MonthGrid({
               disabled={!clickable}
               aria-label={`${cell.day} — ${items.length} öğe`}
               style={{
-                minHeight: 86,
+                minHeight: 104,
                 display: "flex",
                 flexDirection: "column",
-                gap: 6,
-                padding: "8px 9px",
+                gap: 5,
+                padding: "7px 8px",
                 textAlign: "left",
                 background: cell.inMonth ? "var(--bg-sunken)" : "transparent",
                 border: `1px solid ${isToday ? "var(--accent-border)" : "var(--border-faint)"}`,
                 borderRadius: "var(--radius-md)",
                 cursor: clickable ? "pointer" : "default",
                 opacity: cell.inMonth ? 1 : 0.4,
+                overflow: "hidden",
               }}
             >
               <span
@@ -581,17 +627,20 @@ function MonthGrid({
                   fontSize: "var(--text-xs)",
                   fontWeight: isToday ? 600 : 500,
                   color: isToday ? "var(--accent-text)" : cell.inMonth ? "var(--text-secondary)" : "var(--text-faint)",
+                  flexShrink: 0,
                 }}
               >
                 {cell.day}
               </span>
               {items.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
-                  {items.slice(0, 3).map((it) => (
-                    <span key={it.id} style={{ width: 6, height: 6, borderRadius: "var(--radius-pill)", background: "var(--accent)" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%", minWidth: 0 }}>
+                  {items.slice(0, 2).map((it) => (
+                    <CellItemRow key={it.id} it={it} dossiers={dossiers} />
                   ))}
-                  {items.length > 3 && (
-                    <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>+{items.length - 3}</span>
+                  {items.length > 2 && (
+                    <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", paddingLeft: 11 }}>
+                      +{items.length - 2} daha
+                    </span>
                   )}
                 </div>
               )}
