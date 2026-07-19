@@ -25,13 +25,13 @@ import {
   getLearnMonthlyBudgetUsd,
   isGeminiConfigured,
   isSupadataConfigured,
+  isObsidianAutoExportEnabled,
 } from "@/lib/learning/learnConfig";
 import { nextStage, PASSTHROUGH_STAGES, type LearnStage } from "./stages";
 import { fetchVideoMetadata, fetchTimedTranscript, type TimedSegment } from "./transcript-fetch";
 import { fetchTranscriptViaGemini } from "@/lib/learning/gemini";
 import { fetchTranscriptViaSupadata } from "@/lib/learning/supadata";
-import { exportPackToVault } from "@/lib/learning/obsidianWriter";
-import { exportPackToGithub } from "@/lib/learning/githubVault";
+import { exportPackToChannel } from "@/lib/learning/exportService";
 import { chunkSegments, plainTextSegments } from "./chunk";
 import {
   runSectionAnalysis,
@@ -296,12 +296,15 @@ export async function advanceJob(
         return runReviewScheduleStage();
 
       case "integration_suggestions": {
-        // Obsidian otomatik aktarım — iki kanal, ikisi de fail-open (job'u bozmaz):
-        //  1. Yerel vault (OBSIDIAN_VAULT_PATH — Vercel'de no-op),
-        //  2. GitHub vault reposu (OBSIDIAN_GITHUB_REPO — Obsidian Git eklentisi çeker).
-        if (state.packId) {
-          await exportPackToVault(state.packId);
-          await exportPackToGithub(state.packId);
+        // Obsidian OTOMATİK aktarım YALNIZ OBSIDIAN_AUTO_EXPORT=true iken (örtük dış
+        // yazma YOK — kapalıyken bundle yalnız API/UI talebiyle hazırlanır). Açıkken
+        // bile: exportPackToChannel yalnız ready pack + configured kanalı yazar ve her
+        // denemeyi LearnExportAttempt'e kaydeder. Export hatası bu aşamayı BOZMAZ
+        // (fail-soft); "aşama tamamlandı" ASLA "export başarılı" demez — gerçek durum
+        // attempt contract'ından okunur.
+        if (state.packId && isObsidianAutoExportEnabled()) {
+          await exportPackToChannel(state.packId, "local_vault").catch(() => {});
+          await exportPackToChannel(state.packId, "github_vault").catch(() => {});
         }
         return nextStage(stage)!;
       }

@@ -100,6 +100,16 @@ export function getObsidianVaultPath(): string | null {
 }
 
 /**
+ * Otomatik Obsidian export kapısı (4D). Açık DEĞİLSE pipeline dış yazma YAPMAZ —
+ * bundle yalnız API/UI talebiyle hazırlanır (örtük dış yazma yok). Açıksa yalnız
+ * ready pack + configured kanal export edilir (her biri attempt kaydeder; export
+ * hatası job/pack completion'ı bozmaz ama kalıcı partial/failed bırakır).
+ */
+export function isObsidianAutoExportEnabled(): boolean {
+  return process.env.OBSIDIAN_AUTO_EXPORT === "true";
+}
+
+/**
  * Aşama → model rolü. Ucuz aşamalar cheapWriter; precision/sentez güçlü roller.
  * LLM'siz aşamalar (metadata/transcript/validate/chunk/...) haritada yok.
  */

@@ -16,7 +16,6 @@
  */
 
 import type { ObsidianBundle } from "./obsidian";
-import { buildPackBundleForExport } from "./obsidianWriter";
 import {
   aggregate,
   notConfigured,
@@ -28,7 +27,6 @@ import { contentHash, isManagedFile, mergeSharedConceptFile, packIdOf } from "./
 const GITHUB_API = "https://api.github.com";
 const REQUEST_TIMEOUT_MS = 20_000;
 
-export type GithubExportResult = { written: number; repo: string; folder: string } | null;
 type GithubConfig = { owner: string; repo: string; dir: string; token: string };
 
 export function getGithubConfig(): GithubConfig | null {
@@ -199,21 +197,4 @@ async function putOne(
     return { path: cleanPath, outcome: "failed", errorClass: classify(put) };
   }
   return { path: cleanPath, outcome: "written" };
-}
-
-/**
- * Geri-uyumlu adaptör (orchestrator fire-and-forget). Hazır (QA-geçmiş) pack'i vault
- * reposuna commit'ler; env yok / pack hazır değil → null. Sertleştirilmiş yola yönlendirir.
- */
-export async function exportPackToGithub(packId: string): Promise<GithubExportResult> {
-  try {
-    if (!isGithubConfigured()) return null;
-    const bundle = await buildPackBundleForExport(packId);
-    if (!bundle) return null;
-    const r = await writeGithubVault(bundle);
-    return { written: r.written, repo: r.targetLabel, folder: bundle.folderName };
-  } catch (err) {
-    console.warn(`[learn] github vault export failed: ${err instanceof Error ? err.message : String(err)}`);
-    return null;
-  }
 }

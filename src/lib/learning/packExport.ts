@@ -2,7 +2,7 @@
  * CemOS Learn — pack export DTO derleyicisi (4D). Obsidian bundle üreticisinin
  * ihtiyaç duyduğu TAM veriyi (v2 artifact dahil) repolardan toplar. YALNIZ repo +
  * artifact + types import eder → learnService/orchestrator'a bağımlı DEĞİL (import
- * döngüsü yok: learnService → orchestrator → obsidianWriter zinciri temiz kalır).
+ * döngüsü yok: learnService → orchestrator → exportService zinciri temiz kalır).
  *
  * getPackDetail (UI) ile aynı alanları taşır ama export-odaklı + ready durumunu
  * ÇAĞIRANA bırakır (route 409, yazıcı null). createdAtIso stable → deterministik
