@@ -30,7 +30,7 @@ const IA_V2_TAB_SEED: Record<string, string> = {
   "repo-radar": "news-pool",
   "ai-rankings": "toolbox",
   "weekly-learning-report": "morning",
-  "training-center": "morning",
+  "training-center": "profile-memory", // ADR-045: Eğitim Merkezi → Profil/Hafıza
   instagram: "morning",
 };
 

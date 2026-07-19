@@ -163,7 +163,9 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   "content-intel": "discovery-engine",
   "ai-rankings": "toolbox",
   "weekly-learning-report": "morning",
-  "training-center": "morning",
+  // ADR-045: Eğitim Merkezi'nin geri bildirim/öğrenme geçmişi Profil → CemOS'un
+  // bildikleri'ne birleşti (yanlış "morning" alias'ı düzeltildi).
+  "training-center": "profile-memory",
 };
 
 /** Tüm gezilebilir sekmelerin id→etiket sözlüğü (tek kaynak). */

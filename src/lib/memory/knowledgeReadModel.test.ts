@@ -4,6 +4,7 @@ const factFindMany = vi.fn();
 const feFindMany = vi.fn();
 const accountFindUnique = vi.fn();
 const patternFindMany = vi.fn();
+const trainingGroupBy = vi.fn();
 
 vi.mock("@/lib/accounts/profileRepository", () =>
   import("@/lib/accounts/profileRepository.testDouble").then((m) =>
@@ -17,6 +18,7 @@ vi.mock("@/lib/db/client", () => ({
     feedbackEvent: { findMany: (...a: unknown[]) => feFindMany(...a) },
     account: { findUnique: (...a: unknown[]) => accountFindUnique(...a) },
     viralPattern: { findMany: (...a: unknown[]) => patternFindMany(...a) },
+    trainingExample: { groupBy: (...a: unknown[]) => trainingGroupBy(...a) },
   },
 }));
 
@@ -63,6 +65,7 @@ beforeEach(() => {
   feFindMany.mockResolvedValue([]);
   accountFindUnique.mockResolvedValue({ id: "acc-1" });
   patternFindMany.mockResolvedValue([]);
+  trainingGroupBy.mockResolvedValue([]);
 });
 
 describe("buildKnowledgeReadModel (ADR-030)", () => {
@@ -173,5 +176,53 @@ describe("buildKnowledgeReadModel (ADR-030)", () => {
     expect(m.recentSignals.counts).toEqual({ approved: 1, not_my_tone: 1 });
     expect(m.recentSignals.latest.find((s) => s.id === "fe-1")!.mechanical).toBe(true);
     expect(m.recentSignals.latest.find((s) => s.id === "fe-2")!.mechanical).toBe(false);
+  });
+
+  it("aday pattern'ler validatedAt=null ile AYRI listelenir (doğrulanmış derslerden farklı) — ADR-045", async () => {
+    patternFindMany
+      .mockResolvedValueOnce([]) // validated (call 0)
+      .mockResolvedValueOnce([
+        { id: "cp-1", patternName: "Liste hook'u", hookType: "liste", emotion: "merak", platform: "x", successScore: 72, usageCount: 4 },
+      ]); // candidates (call 1)
+    const m = await buildKnowledgeReadModel("grafikcem");
+    expect(m.performanceLessons).toHaveLength(0);
+    expect(m.candidatePatterns).toEqual([
+      { id: "cp-1", patternName: "Liste hook'u", hookType: "liste", emotion: "merak", platform: "x", successScore: 72, usageCount: 4 },
+    ]);
+    const candWhere = patternFindMany.mock.calls[1][0].where as { validatedAt: unknown; isActive: boolean };
+    expect(candWhere.validatedAt).toBeNull(); // doğrulanmamış = aday
+    expect(candWhere.isActive).toBe(true);
+  });
+
+  it("eğitim külliyatı label groupBy sayımlarından türetilir (boşsa 0, uydurma yok) — ADR-045", async () => {
+    trainingGroupBy.mockResolvedValue([
+      { label: "good", _count: { _all: 3 } },
+      { label: "bad", _count: { _all: 1 } },
+      { label: "edited", _count: { _all: 2 } },
+    ]);
+    const m = await buildKnowledgeReadModel("grafikcem");
+    expect(m.trainingCorpus).toEqual({ total: 6, good: 3, bad: 1, edited: 2 });
+  });
+
+  it("boş DB'de trainingCorpus tümü 0 (dürüst boş, sahte geçmiş yok)", async () => {
+    const m = await buildKnowledgeReadModel("grafikcem");
+    expect(m.trainingCorpus).toEqual({ total: 0, good: 0, bad: 0, edited: 0 });
+  });
+
+  it("etkisizleştirilmiş sinyal ETKİN sayıma girmez, ayrı sayılır + reason/edit detayı verilir — ADR-045", async () => {
+    feFindMany.mockResolvedValue([
+      { id: "fe-1", feedbackType: "rejected", reason: "Ton çok kurumsal, samimi olmalı", editedContent: "yeni metin", editDistance: 0.4, neutralizedAt: null, createdAt: new Date() },
+      { id: "fe-2", feedbackType: "not_my_tone", reason: "yanlış işaretlenmiş sinyal", editedContent: "", editDistance: null, neutralizedAt: new Date(), createdAt: new Date() },
+    ]);
+    const m = await buildKnowledgeReadModel("grafikcem");
+    // etkin sayım yalnız fe-1; fe-2 etkisiz → counts'a girmez ama neutralizedCount'a sayılır
+    expect(m.recentSignals.counts).toEqual({ rejected: 1 });
+    expect(m.recentSignals.neutralizedCount).toBe(1);
+    const s1 = m.recentSignals.latest.find((s) => s.id === "fe-1")!;
+    expect(s1.reasonExcerpt).toBe("Ton çok kurumsal, samimi olmalı");
+    expect(s1.hasEdit).toBe(true);
+    expect(s1.editDistance).toBe(0.4);
+    expect(s1.neutralized).toBe(false);
+    expect(m.recentSignals.latest.find((s) => s.id === "fe-2")!.neutralized).toBe(true);
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Brain, Check, X, Undo2, RefreshCw, Plus, ListTree, Pencil, HandMetal } from "lucide-react";
+import { Brain, Check, X, Undo2, RefreshCw, Plus, ListTree, Pencil, HandMetal, Ban, TrendingUp } from "lucide-react";
+import LearningStatusCard from "@/components/LearningStatusCard";
 import {
   PageHeader,
   Card,
@@ -70,13 +71,36 @@ type Lesson = {
   validatedSupport: number;
 };
 
+type CandidatePattern = {
+  id: string;
+  patternName: string;
+  hookType: string | null;
+  emotion: string;
+  platform: string;
+  successScore: number;
+  usageCount: number;
+};
+
+type SignalRow = {
+  id: string;
+  feedbackType: string;
+  createdAt: string;
+  mechanical: boolean;
+  reasonExcerpt: string | null;
+  editDistance: number | null;
+  hasEdit: boolean;
+  neutralized: boolean;
+};
+
 type Knowledge = {
   accountHandle: string;
   summary: string;
   activeFacts: FactRow[];
   proposals: FactRow[];
   performanceLessons: Lesson[];
-  recentSignals: { counts: Record<string, number>; latest: Array<{ id: string; feedbackType: string; createdAt: string; mechanical: boolean }> };
+  candidatePatterns: CandidatePattern[];
+  trainingCorpus: { total: number; good: number; bad: number; edited: number };
+  recentSignals: { counts: Record<string, number>; neutralizedCount: number; latest: SignalRow[] };
   policy: { promotionMinEvidence: number; note: string };
   sectionErrors: string[];
 };
@@ -216,6 +240,25 @@ export default function ProfileMemoryTab() {
     }
   };
 
+  const neutralizeSignal = async (id: string, neutralize: boolean) => {
+    setBusyId(id);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/memory/signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountHandle, id, action: neutralize ? "neutralize" : "restore" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || String(res.status));
+      await load();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "İşlem başarısız.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const openEvidence = (fact: FactRow) => {
     setDrawerFact(fact);
     setDrawerMode("evidence");
@@ -301,6 +344,11 @@ export default function ProfileMemoryTab() {
               <MetricStrip items={signalMetrics} data-testid="memory-metrics" />
             </div>
           </Card>
+
+          {/* Öğrenme döngüsü etkinliği — Eğitim Merkezi'nden birleşti (ADR-045). Global sistem sinyali. */}
+          <div data-testid="memory-learning-activity">
+            <LearningStatusCard />
+          </div>
 
           {knowledge.sectionErrors.length > 0 && (
             <div
@@ -511,26 +559,101 @@ export default function ProfileMemoryTab() {
             )}
           </section>
 
-          {/* Son geri bildirim sinyalleri */}
-          <section data-testid="memory-signals">
-            <div className="eyebrow" style={{ color: "var(--text-muted)", marginBottom: 10 }}>Son geri bildirim sinyalleri (14 gün)</div>
-            {knowledge.recentSignals.latest.length === 0 ? (
-              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Bu pencerede sinyal yok.</p>
+          {/* Güçlenen aday pattern'ler — doğrulanmamış (validated derslerden AYRI) */}
+          <section data-testid="candidate-patterns">
+            <div className="eyebrow" style={{ color: "var(--text-muted)", marginBottom: 10 }}>Güçlenen aday pattern'ler</div>
+            {knowledge.candidatePatterns.length === 0 ? (
+              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                Henüz aday pattern yok — madencilik yeni pattern buldukça skoruyla burada belirir. Hiçbiri
+                doğrulanana (tekrar + anlamlılık + marka-vetosu) kadar ders sayılmaz.
+              </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {knowledge.recentSignals.latest.map((s) => (
-                  <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
-                    <Badge variant={s.mechanical ? "muted" : "accent"} size="xs">
-                      {SIGNAL_LABELS[s.feedbackType] ?? s.feedbackType}
-                    </Badge>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      {dateLabel(s.createdAt)}
-                      {s.mechanical ? " · mekanik (öğrenilmez)" : " · açık sinyal"}
+                {knowledge.candidatePatterns.map((c) => (
+                  <div
+                    key={c.id}
+                    data-testid={`candidate-${c.id}`}
+                    style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--bg-sunken)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius-md)" }}
+                  >
+                    <Badge variant="muted" size="xs">{c.platform}</Badge>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <TrendingUp size={12} strokeWidth={2} style={{ color: "var(--text-muted)" }} />
+                      <Badge variant="yellow" size="xs">aday · doğrulanmadı</Badge>
+                    </span>
+                    <span style={{ flex: "1 1 200px", minWidth: 0, fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                      {c.patternName}
+                      {c.hookType ? ` · ${c.hookType}` : ""}
+                    </span>
+                    <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                      skor {c.successScore} · {c.usageCount} kullanım
                     </span>
                   </div>
                 ))}
               </div>
             )}
+            <p data-testid="training-corpus" style={{ margin: "10px 0 0", fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: 1.6 }}>
+              {knowledge.trainingCorpus.total === 0
+                ? "Etiketli eğitim örneği yok — üretimi şekillendiren few-shot havuzu henüz boş."
+                : `Eğitim örneği: ${knowledge.trainingCorpus.total} (iyi ${knowledge.trainingCorpus.good} · kötü ${knowledge.trainingCorpus.bad} · düzenlenmiş ${knowledge.trainingCorpus.edited}) — üretimi few-shot olarak şekillendirir.`}
+            </p>
+          </section>
+
+          {/* Son geri bildirim sinyalleri — neden/düzenleme detayı + etkisizleştir (ADR-045) */}
+          <section data-testid="memory-signals">
+            <div className="eyebrow" style={{ color: "var(--text-muted)", marginBottom: 10 }}>
+              Son geri bildirim sinyalleri (14 gün)
+              {knowledge.recentSignals.neutralizedCount > 0 && (
+                <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> · {knowledge.recentSignals.neutralizedCount} etkisiz</span>
+              )}
+            </div>
+            {knowledge.recentSignals.latest.length === 0 ? (
+              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>Bu pencerede sinyal yok.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {knowledge.recentSignals.latest.map((s) => (
+                  <div
+                    key={s.id}
+                    data-testid={`signal-${s.id}`}
+                    style={{ padding: "8px 12px", background: "var(--bg-surface)", border: "1px solid var(--border-faint)", borderRadius: "var(--radius-md)", opacity: s.neutralized ? 0.6 : 1 }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--text-xs)" }}>
+                      <Badge variant={s.neutralized || s.mechanical ? "muted" : "accent"} size="xs">
+                        {SIGNAL_LABELS[s.feedbackType] ?? s.feedbackType}
+                      </Badge>
+                      <span style={{ color: "var(--text-muted)" }}>
+                        {dateLabel(s.createdAt)}
+                        {s.mechanical ? " · mekanik (öğrenilmez)" : " · açık sinyal"}
+                      </span>
+                      {s.hasEdit && (
+                        <Badge variant="muted" size="xs">
+                          düzenleme{typeof s.editDistance === "number" ? ` · ${s.editDistance}` : ""}
+                        </Badge>
+                      )}
+                      {s.neutralized && <Badge variant="yellow" size="xs">etkisiz</Badge>}
+                      <div style={{ marginLeft: "auto" }}>
+                        {s.neutralized ? (
+                          <Button size="sm" variant="ghost" onClick={() => neutralizeSignal(s.id, false)} disabled={busyId === s.id} iconLeft={<Undo2 size={13} strokeWidth={2} />} data-testid={`signal-restore-${s.id}`}>
+                            Geri al
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="ghost" onClick={() => neutralizeSignal(s.id, true)} disabled={busyId === s.id} iconLeft={<Ban size={13} strokeWidth={2} />} data-testid={`signal-neutralize-${s.id}`}>
+                            Yok say
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {s.reasonExcerpt && (
+                      <div style={{ marginTop: 5, fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.5, textDecoration: s.neutralized ? "line-through" : "none" }}>
+                        “{s.reasonExcerpt}”
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p style={{ margin: "10px 0 0", fontSize: "var(--text-2xs)", color: "var(--text-muted)", lineHeight: 1.6 }}>
+              Bir sinyali <strong>Yok say</strong> dersen gelecekteki hafıza önerilerine girmez; ham kayıt silinmez, geri alınabilir. Halihazırda oluşmuş öneriler yukarıda ayrıca reddedilebilir.
+            </p>
           </section>
         </div>
       )}

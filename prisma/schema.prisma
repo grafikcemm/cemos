@@ -402,6 +402,10 @@ model FeedbackEvent {
   // üretir → sunucu pre-check + P2002 backstop (LearnReviewAttempt/PublishAttempt
   // deseni). NULL-distinct: key'siz (legacy/opsiyonel) satırlar serbest çoğaltılır.
   idempotencyKey  String?
+  // Phase 5B (ADR-045): operatör bir sinyali "yanlış/gürültü" işaretleyince set
+  // edilir → köprü (signalBridge) bu event'i GELECEK hafıza önerilerine SOKMAZ.
+  // Ham kaydı silmez (audit korunur); yalnız öğrenme etkisini keser. null = etkin.
+  neutralizedAt   DateTime?
   createdAt       DateTime @default(now())
 
   @@unique([idempotencyKey])

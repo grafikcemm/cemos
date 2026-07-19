@@ -224,7 +224,9 @@ export async function reconcileFeedbackSignals(opts?: {
 
   const relevantTypes = [...Object.keys(CANONICAL_FEEDBACK_RULES), "approved", "rejected", "edited"];
   const events = await prisma.feedbackEvent.findMany({
-    where: { createdAt: { gte: cutoff }, feedbackType: { in: relevantTypes } },
+    // ADR-045: operatörün etkisizleştirdiği (neutralizedAt) sinyaller GELECEK
+    // önerilere sokulmaz — köprü onları hiç görmez (ham kayıt DB'de kalır).
+    where: { createdAt: { gte: cutoff }, feedbackType: { in: relevantTypes }, neutralizedAt: null },
     orderBy: { createdAt: "asc" },
     take: limit,
     include: { account: { select: { handle: true } } },
@@ -265,4 +267,35 @@ export async function reconcileFeedbackSignals(opts?: {
     }
   }
   return summary;
+}
+
+/**
+ * ADR-045: operatör yanlış bir ham öğrenme sinyalini etkisizleştirir / geri alır.
+ * Fail-closed hesap kapsamı: event başka hesaba aitse mutasyon YAPILMAZ. Ham
+ * FeedbackEvent SİLİNMEZ (audit korunur) — yalnız `neutralizedAt` set/temizlenir;
+ * köprü etkisizleştirilmiş event'i gelecek reconciliation'da atlar. İdempotent
+ * (zaten etkin/etkisiz → aynı sonuç). Halihazırda üretilmiş MemoryEvidence/öneri
+ * yerinde kalır; onlar mevcut reject/rollback yoluyla ele alınır (bu ileri-dönük
+ * bir kapı, geçmişi geri-yazmaz).
+ */
+export type NeutralizeResult =
+  | { ok: true; id: string; neutralized: boolean }
+  | { ok: false; code: "not_found" | "account_mismatch" };
+
+export async function setFeedbackSignalNeutralized(
+  accountHandle: string,
+  id: string,
+  neutralized: boolean
+): Promise<NeutralizeResult> {
+  const ev = await prisma.feedbackEvent.findUnique({
+    where: { id },
+    include: { account: { select: { handle: true } } },
+  });
+  if (!ev) return { ok: false, code: "not_found" };
+  if ((ev.account?.handle ?? "") !== accountHandle) return { ok: false, code: "account_mismatch" };
+  await prisma.feedbackEvent.update({
+    where: { id },
+    data: { neutralizedAt: neutralized ? new Date() : null },
+  });
+  return { ok: true, id, neutralized };
 }

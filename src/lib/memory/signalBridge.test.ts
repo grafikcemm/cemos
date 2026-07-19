@@ -7,10 +7,16 @@ vi.mock("./memoryFactService", async (importOriginal) => {
 });
 
 const feFindMany = vi.fn();
+const feFindUnique = vi.fn();
+const feUpdate = vi.fn();
 const evFindMany = vi.fn();
 vi.mock("@/lib/db/client", () => ({
   prisma: {
-    feedbackEvent: { findMany: (...a: unknown[]) => feFindMany(...a) },
+    feedbackEvent: {
+      findMany: (...a: unknown[]) => feFindMany(...a),
+      findUnique: (...a: unknown[]) => feFindUnique(...a),
+      update: (...a: unknown[]) => feUpdate(...a),
+    },
     memoryEvidence: { findMany: (...a: unknown[]) => evFindMany(...a) },
   },
 }));
@@ -22,6 +28,7 @@ import {
   isMechanicalReason,
   ingestFeedbackSignal,
   reconcileFeedbackSignals,
+  setFeedbackSignalNeutralized,
   type FeedbackEventLike,
 } from "./signalBridge";
 
@@ -154,5 +161,48 @@ describe("reconcileFeedbackSignals (LLM'siz, idempotent)", () => {
     const s = await reconcileFeedbackSignals();
     expect(s.errors).toBe(1);
     expect(s.ingested + s.noSignal + s.errors).toBe(3);
+  });
+
+  it("ADR-045: sorgu neutralizedAt:null ister → etkisizleştirilmiş sinyaller köprüye HİÇ girmez", async () => {
+    feFindMany.mockResolvedValue([]);
+    evFindMany.mockResolvedValue([]);
+    await reconcileFeedbackSignals();
+    const where = feFindMany.mock.calls[0][0].where as { neutralizedAt: unknown };
+    expect(where.neutralizedAt).toBeNull();
+  });
+});
+
+describe("setFeedbackSignalNeutralized (ADR-045 — yanlış sinyali etkisizleştir/geri al)", () => {
+  it("bulunamayan event → not_found; hiçbir mutasyon yapılmaz", async () => {
+    feFindUnique.mockResolvedValue(null);
+    const r = await setFeedbackSignalNeutralized("grafikcem", "fe-x", true);
+    expect(r).toEqual({ ok: false, code: "not_found" });
+    expect(feUpdate).not.toHaveBeenCalled();
+  });
+
+  it("başka hesabın sinyali → account_mismatch fail-closed; mutasyon yok", async () => {
+    feFindUnique.mockResolvedValue({ id: "fe-1", account: { handle: "maskulenkod" } });
+    const r = await setFeedbackSignalNeutralized("grafikcem", "fe-1", true);
+    expect(r).toEqual({ ok: false, code: "account_mismatch" });
+    expect(feUpdate).not.toHaveBeenCalled();
+  });
+
+  it("etkisizleştir → neutralizedAt bir Date'e set edilir (ham kayıt silinmez)", async () => {
+    feFindUnique.mockResolvedValue({ id: "fe-1", account: { handle: "grafikcem" } });
+    feUpdate.mockResolvedValue({});
+    const r = await setFeedbackSignalNeutralized("grafikcem", "fe-1", true);
+    expect(r).toEqual({ ok: true, id: "fe-1", neutralized: true });
+    const arg = feUpdate.mock.calls[0][0] as { where: { id: string }; data: { neutralizedAt: Date | null } };
+    expect(arg.where.id).toBe("fe-1");
+    expect(arg.data.neutralizedAt).toBeInstanceOf(Date);
+  });
+
+  it("geri al → neutralizedAt null'a çekilir (idempotent geri dönüş)", async () => {
+    feFindUnique.mockResolvedValue({ id: "fe-1", account: { handle: "grafikcem" } });
+    feUpdate.mockResolvedValue({});
+    const r = await setFeedbackSignalNeutralized("grafikcem", "fe-1", false);
+    expect(r).toEqual({ ok: true, id: "fe-1", neutralized: false });
+    const arg = feUpdate.mock.calls[0][0] as { data: { neutralizedAt: Date | null } };
+    expect(arg.data.neutralizedAt).toBeNull();
   });
 });

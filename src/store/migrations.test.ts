@@ -61,7 +61,8 @@ describe("migrateXAgentStore", () => {
   // ── v8 (IA v2): kaldırılan/yeniden adlandırılan sekmeler ──
   it("should_migrate_retired_tabs_to_live_screens_when_version_below_8", () => {
     // v7 başlangıç: v8 zinciriyle canlı id'ye iner (v9 seed'inde olmayanlar sabit kalır).
-    expect(migrateXAgentStore({ activeTab: "training-center" }, 7).activeTab).toBe("morning");
+    // ADR-045: Eğitim Merkezi'nin geri bildirim/öğrenme geçmişi Profil/Hafıza'ya birleşti.
+    expect(migrateXAgentStore({ activeTab: "training-center" }, 7).activeTab).toBe("profile-memory");
     expect(migrateXAgentStore({ activeTab: "weekly-learning-report" }, 7).activeTab).toBe("morning");
     expect(migrateXAgentStore({ activeTab: "ai-rankings" }, 7).activeTab).toBe("toolbox");
     expect(migrateXAgentStore({ activeTab: "content-intel" }, 7).activeTab).toBe("discovery-engine");

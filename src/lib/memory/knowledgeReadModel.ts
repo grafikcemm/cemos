@@ -73,6 +73,33 @@ export type RecentSignal = {
   feedbackType: string;
   createdAt: string;
   mechanical: boolean;
+  /** Operatörün gerçek sözü (mekanik/boş değilse, ≤160). null = gösterilecek metin yok. */
+  reasonExcerpt: string | null;
+  /** Normalize edit mesafesi (sinyal gücü). null = düzenleme sinyali yok. */
+  editDistance: number | null;
+  /** Bu geri bildirim bir düzenleme içeriyor mu? */
+  hasEdit: boolean;
+  /** ADR-045: operatör bu sinyali gürültü işaretledi → gelecek önerileri etkilemez. */
+  neutralized: boolean;
+};
+
+/** Doğrulanmamış (aday) pattern — güçleniyor ama henüz lessonGate'i geçmedi. */
+export type CandidatePattern = {
+  id: string;
+  patternName: string;
+  hookType: string | null;
+  emotion: string;
+  platform: string;
+  successScore: number;
+  usageCount: number;
+};
+
+/** Üretimi şekillendiren etiketli örnek külliyatının sayımları. */
+export type TrainingCorpus = {
+  total: number;
+  good: number;
+  bad: number;
+  edited: number;
 };
 
 export type KnowledgeReadModel = {
@@ -81,7 +108,11 @@ export type KnowledgeReadModel = {
   activeFacts: KnowledgeFact[];
   proposals: KnowledgeFact[];
   performanceLessons: PerformanceLesson[];
-  recentSignals: { counts: Record<string, number>; latest: RecentSignal[] };
+  /** validatedAt=null aday pattern'ler (güçlenen ama doğrulanmamış). */
+  candidatePatterns: CandidatePattern[];
+  /** Etiketli eğitim örneği sayımları (üretimi neyin şekillendirdiği). */
+  trainingCorpus: TrainingCorpus;
+  recentSignals: { counts: Record<string, number>; neutralizedCount: number; latest: RecentSignal[] };
   policy: {
     promotionMinEvidence: number;
     note: string;
@@ -91,6 +122,8 @@ export type KnowledgeReadModel = {
 
 const RECENT_SIGNAL_DAYS = 14;
 const EVIDENCE_PER_FACT = 10;
+const REASON_EXCERPT_MAX = 160;
+const CANDIDATE_PATTERN_LIMIT = 12;
 
 type FactRow = {
   id: string;
@@ -197,8 +230,10 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
     sectionErrors.push(`identity: ${err instanceof Error ? err.message : "okunamadı"}`);
   }
 
-  // ── Performans dersleri (identity'den AYRI truth store — ADR-030) ──
+  // ── Performans dersleri + aday pattern'ler + eğitim külliyatı (AYRI truth store — ADR-030) ──
   let performanceLessons: PerformanceLesson[] = [];
+  let candidatePatterns: CandidatePattern[] = [];
+  const trainingCorpus: TrainingCorpus = { total: 0, good: 0, bad: 0, edited: 0 };
   try {
     const account = await prisma.account.findUnique({ where: { handle: accountHandle }, select: { id: true } });
     if (account) {
@@ -216,13 +251,44 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
         validatedAt: (p.validatedAt as Date).toISOString(),
         validatedSupport: p.validatedSupport,
       }));
+
+      // Aday pattern'ler: doğrulanmamış (validatedAt=null) ama aktif; skorla sıralı.
+      // "Güçlenen ama henüz kanıtlanmamış" — dürüstçe validated derslerden AYRI.
+      const candidates = await prisma.viralPattern.findMany({
+        where: { accountId: account.id, validatedAt: null, isActive: true },
+        orderBy: { successScore: "desc" },
+        take: CANDIDATE_PATTERN_LIMIT,
+      });
+      candidatePatterns = candidates.map((p) => ({
+        id: p.id,
+        patternName: p.patternName,
+        hookType: p.hookType,
+        emotion: p.emotion,
+        platform: p.platform,
+        successScore: p.successScore,
+        usageCount: p.usageCount,
+      }));
+
+      // Etiketli eğitim örneği sayımları (gerçek DB — boşsa 0, uydurma yok).
+      const grouped = await prisma.trainingExample.groupBy({
+        by: ["label"],
+        where: { accountId: account.id },
+        _count: { _all: true },
+      });
+      for (const g of grouped) {
+        const n = g._count._all;
+        trainingCorpus.total += n;
+        if (g.label === "good") trainingCorpus.good += n;
+        else if (g.label === "bad") trainingCorpus.bad += n;
+        else if (g.label === "edited") trainingCorpus.edited += n;
+      }
     }
   } catch (err) {
     sectionErrors.push(`performance: ${err instanceof Error ? err.message : "okunamadı"}`);
   }
 
-  // ── Son ham sinyaller (FeedbackEvent özeti) ──
-  let recentSignals: KnowledgeReadModel["recentSignals"] = { counts: {}, latest: [] };
+  // ── Son ham sinyaller (FeedbackEvent özeti + neden/düzenleme detayı) ──
+  let recentSignals: KnowledgeReadModel["recentSignals"] = { counts: {}, neutralizedCount: 0, latest: [] };
   try {
     const account = await prisma.account.findUnique({ where: { handle: accountHandle }, select: { id: true } });
     if (account) {
@@ -231,18 +297,43 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
         where: { accountId: account.id, createdAt: { gte: cutoff } },
         orderBy: { createdAt: "desc" },
         take: 100,
-        select: { id: true, feedbackType: true, reason: true, createdAt: true },
+        select: {
+          id: true,
+          feedbackType: true,
+          reason: true,
+          editedContent: true,
+          editDistance: true,
+          neutralizedAt: true,
+          createdAt: true,
+        },
       });
       const counts: Record<string, number> = {};
-      for (const e of events) counts[e.feedbackType] = (counts[e.feedbackType] ?? 0) + 1;
+      let neutralizedCount = 0;
+      for (const e of events) {
+        // ADR-045: etkisizleştirilen sinyaller ETKİN sayıma girmez (ayrı sayılır).
+        if (e.neutralizedAt) {
+          neutralizedCount++;
+          continue;
+        }
+        counts[e.feedbackType] = (counts[e.feedbackType] ?? 0) + 1;
+      }
       recentSignals = {
         counts,
-        latest: events.slice(0, 8).map((e) => ({
-          id: e.id,
-          feedbackType: e.feedbackType,
-          createdAt: e.createdAt.toISOString(),
-          mechanical: isMechanicalReason(extractReasonText(e.reason)),
-        })),
+        neutralizedCount,
+        latest: events.slice(0, 8).map((e) => {
+          const reasonText = extractReasonText(e.reason);
+          const mechanical = isMechanicalReason(reasonText);
+          return {
+            id: e.id,
+            feedbackType: e.feedbackType,
+            createdAt: e.createdAt.toISOString(),
+            mechanical,
+            reasonExcerpt: !mechanical && reasonText ? reasonText.slice(0, REASON_EXCERPT_MAX) : null,
+            editDistance: typeof e.editDistance === "number" ? e.editDistance : null,
+            hasEdit: !!(e.editedContent && e.editedContent.trim().length > 0),
+            neutralized: !!e.neutralizedAt,
+          };
+        }),
       };
     }
   } catch (err) {
@@ -258,6 +349,8 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
     activeFacts,
     proposals,
     performanceLessons,
+    candidatePatterns,
+    trainingCorpus,
     recentSignals,
     policy: {
       promotionMinEvidence: PROMOTION_MIN_EVIDENCE,
