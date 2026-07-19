@@ -27,6 +27,7 @@ import MobileNav from "./MobileNav";
 import SubNav from "@/components/ui/SubNav";
 import PageHeader from "@/components/ui/PageHeader";
 import { renderScreen } from "./screenRegistry";
+import { drainSavedTweetsToDb } from "@/lib/migrations/savedTweetsMigration";
 
 /**
  * Plan/Kütüphane host'larının açıklamaları — başlık shell WorkspaceHeader'da
@@ -56,9 +57,12 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const activeTab = useXAgentStore((s) => s.activeTab);
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
+  const savedTweets = useXAgentStore((s) => s.savedTweets);
+  const removeSavedTweet = useXAgentStore((s) => s.removeSavedTweet);
 
   const lastTabByArea = useRef<Partial<Record<PrimaryAreaId, string>>>({});
   const seeded = useRef(false);
+  const savedTweetsDrained = useRef(false);
 
   // Standalone route seeding: force the route's tab once. Folded deep-link id'leri
   // (content-radar/repo-radar…) host + alt-görünüme yönlendirilir.
@@ -70,6 +74,20 @@ export default function AppShell({ initialTab }: AppShellProps) {
       if (view && host === "news-pool") setRadarView(view);
     }
   }, [initialTab, setActiveTab, setRadarView]);
+
+  // Legacy göç (ADR-043): emekliye ayrılan ViralLibraryTab'ın localStorage → DB
+  // savedTweets drenajı buraya taşındı — component silinse de kullanıcının eski
+  // yıldızları kaybolmaz. İdempotent (POST id-upsert) + mount'ta yalnız bir kez.
+  useEffect(() => {
+    if (savedTweetsDrained.current) return;
+    savedTweetsDrained.current = true;
+    void (async () => {
+      const outcome = await drainSavedTweetsToDb(savedTweets, removeSavedTweet);
+      if (outcome === "failed") savedTweetsDrained.current = false; // sonraki mount tekrar dener
+    })();
+    // savedTweets bilinçli deps dışı: göç mount'ta bir kez koşar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Bilinmeyen persist id (hiçbir sınıfa uymuyor) → morning; shell asla boş render etmez.
   useEffect(() => {
