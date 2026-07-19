@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Copy, FileText, Info } from "lucide-react";
+import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Copy, FileText, Info, PenLine } from "lucide-react";
 import { Card, SubNav, Badge, Button, Skeleton, EmptyState } from "@/components/ui";
+import { useToast } from "@/components/ui/Toast";
+import { useXAgentStore } from "@/store/xagent";
 import { categoryLabel } from "@/lib/learning/types";
 import LearnExportPanel from "./LearnExportPanel";
 
@@ -62,6 +64,40 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
   const [pack, setPack] = useState<PackDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("genel");
+  const toast = useToast();
+  const activeChannel = useXAgentStore((s) => s.activeChannel);
+  const setActiveTab = useXAgentStore((s) => s.setActiveTab);
+  const setFocusDraftId = useXAgentStore((s) => s.setFocusDraftId);
+  const [draftBusy, setDraftBusy] = useState<string | null>(null);
+
+  // ADR-045: içerik fikri → X taslağı (deterministik, $0, idempotent). Hedef hesap
+  // = aktif kanal; başarıda Bugün'e deep-link + yeni taslağa odak.
+  const ideaToDraft = async (ideaId: string) => {
+    setDraftBusy(ideaId);
+    try {
+      const res = await fetch(`/api/learn/packs/${packId}/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ideaId, accountHandle: activeChannel }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.error ?? "Taslak oluşturulamadı.");
+        return;
+      }
+      setFocusDraftId(json.draftId);
+      setActiveTab("morning");
+      toast.success(
+        json.reused
+          ? "Bu fikirden taslak zaten vardı — Bugün'de açıldı."
+          : "Taslak oluşturuldu — Bugün'de düzenle ve manuel yayınla.",
+      );
+    } catch {
+      toast.error("Taslak oluşturulamadı (ağ hatası).");
+    } finally {
+      setDraftBusy(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -310,9 +346,21 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
                         {c.hook && <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", marginTop: 3, fontStyle: "italic" }}>&ldquo;{c.hook}&rdquo;</div>}
                         {c.angle && <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{c.angle}</div>}
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => copyText(`${c.title}\n${c.hook}\n${c.angle}`)} iconLeft={<Copy size={13} strokeWidth={2} />}>
-                        Kopyala
-                      </Button>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => ideaToDraft(c.id)}
+                          loading={draftBusy === c.id}
+                          iconLeft={<PenLine size={13} strokeWidth={2} />}
+                          data-testid="idea-to-draft"
+                        >
+                          Taslağa dönüştür
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => copyText(`${c.title}\n${c.hook}\n${c.angle}`)} iconLeft={<Copy size={13} strokeWidth={2} />}>
+                          Kopyala
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}

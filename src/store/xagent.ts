@@ -91,6 +91,11 @@ interface XAgentStore {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 
+  // Geçici (persist EDİLMEZ) — çapraz-tab deep-link: Bugün'e geçildiğinde bu
+  // taslak odaklanır (ADR-045: fikir→taslak sonrası). Tek-sefer tüketilir.
+  focusDraftId: string | null;
+  setFocusDraftId: (id: string | null) => void;
+
   // Birleşik host alt-görünümleri (persist edilir — folded sekmeler buraya iner)
   libraryView: string; // "tweets" | "prompts" | "patterns"
   setLibraryView: (v: string) => void;
@@ -217,6 +222,10 @@ export const useXAgentStore = create<XAgentStore>()(
       // Tab
       activeTab: "morning",
       setActiveTab: (tab) => set({ activeTab: tab }),
+
+      // Çapraz-tab taslak odağı (persist edilmez — geçici navigasyon niyeti).
+      focusDraftId: null,
+      setFocusDraftId: (id) => set({ focusDraftId: id }),
 
       // Birleşik host alt-görünümleri
       libraryView: "tweets",

@@ -22,6 +22,8 @@ export type CreateQueueItemInput = {
   newsItemId?: string;
   imageUrl?: string;
   generatedImageUrl?: string;
+  /** Phase 5B (ADR-045): fikir→taslak idempotency anahtarı (NULL-distinct unique). */
+  originKey?: string;
 };
 
 export type UpdateQueueItemInput = Partial<
@@ -56,6 +58,11 @@ export const queueRepo = {
 
   findById(id: string): Promise<QueueItem | null> {
     return prisma.queueItem.findUnique({ where: { id } });
+  },
+
+  /** Phase 5B: fikir→taslak idempotency ön-kontrolü (originKey NULL-distinct unique). */
+  findByOriginKey(originKey: string): Promise<QueueItem | null> {
+    return prisma.queueItem.findUnique({ where: { originKey } });
   },
 
   update(id: string, data: UpdateQueueItemInput): Promise<QueueItem> {

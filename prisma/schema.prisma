@@ -175,11 +175,19 @@ model QueueItem {
   // Visual content: carried-over source image and/or AI-generated image.
   imageUrl          String?
   generatedImageUrl String?
+  // Phase 5B (ADR-045): deterministik "fikir → taslak" köprüsü idempotency anahtarı.
+  // NULL-distinct unique (Postgres NULL'ları ayrık sayar) → yalnız fikir-tohumlu
+  // taslaklar kısıtlanır; cron/pipeline taslakları null bırakır. Değer örn.
+  // "learn:{packId}:{ideaId}:{accountId}" | "idea:{ideaId}". Çift-tık/retry →
+  // pre-check + P2002 backstop mevcut taslağı döner (duplicate YOK).
+  originKey         String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   generationRun   GenerationRun?
   publishAttempts PublishAttempt[]
+
+  @@unique([originKey])
 }
 
 model Schedule {

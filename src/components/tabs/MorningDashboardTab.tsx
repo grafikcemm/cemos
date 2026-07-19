@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { useXAgentStore } from "@/store/xagent";
 import OperatorReadinessGate from "../gate/OperatorReadinessGate";
 import MorningHeroStats from "../morning/MorningHeroStats";
 import OpportunityHandoffBand from "../morning/OpportunityHandoffBand";
@@ -36,6 +37,16 @@ export default function MorningDashboardTab() {
     },
     [queue],
   );
+
+  // ADR-045: başka bir yüzeyden (ör. Öğrenme paketi fikir→taslak) Bugün'e
+  // deep-link edilince yeni taslağa odaklan; tek-sefer tüket (store'u temizle).
+  const focusDraftId = useXAgentStore((s) => s.focusDraftId);
+  const clearFocusDraftId = useXAgentStore((s) => s.setFocusDraftId);
+  useEffect(() => {
+    if (!focusDraftId) return;
+    handleGenerated(focusDraftId);
+    clearFocusDraftId(null);
+  }, [focusDraftId, handleGenerated, clearFocusDraftId]);
 
   const showToast = useCallback(
     (text: string, type: "success" | "error") => {
