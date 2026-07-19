@@ -25,6 +25,16 @@ export async function POST(
       return fail("Gönderi bulunamadı", 404);
     }
 
+    // Phase 5A (ADR-044) idempotency: gönderi zaten "used" ise desen çıkarımı TEKRAR
+    // KOŞMAZ — ikinci ücretli extractPattern + duplicate ViralPattern üretilmez. İlk
+    // kayıt SourcePost.status="used" yazar; tekrar-tık dürüstçe no-op döner.
+    if (post.status === "used") {
+      return ok({
+        alreadySaved: true,
+        message: "Bu gönderi zaten desen olarak kaydedildi.",
+      });
+    }
+
     // 2. Trigger Feedback API process to extract & save pattern + training example
     const result = await processFeedback({
       accountHandle: post.account.handle as any,

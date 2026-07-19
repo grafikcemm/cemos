@@ -50,6 +50,9 @@ export default function LibTumuTab() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState<LibItem | null>(null);
+  // Phase 5A (ADR-044): pattern arşivle/aktifleştir + viral kalıcı kaldır (onaylı).
+  const [curating, setCurating] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   // Stale-response guard: yalnız en son isteğin sonucu uygulanır (filtre/sayfa
   // hızlı değişince yavaş yanıt yeniyi EZEMEZ).
   const seqRef = useRef(0);
@@ -136,6 +139,57 @@ export default function LibTumuTab() {
     setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, savedBoards: mergeSavedBoard(it.savedBoards, ref) } : it)));
     setActive((prev) => (prev && prev.id === itemId ? { ...prev, savedBoards: mergeSavedBoard(prev.savedBoards, ref) } : prev));
   }, []);
+
+  // Yeni öğe açılınca kaldır-onayını sıfırla (önceki öğenin onayı taşınmaz).
+  useEffect(() => {
+    setConfirmRemove(false);
+  }, [active?.id]);
+
+  // Pattern küratörlüğü — YALNIZ isActive (validatedAt'e ASLA dokunma: o otomatik
+  // lessonGate ekseni). Toggle idempotent; search `archived` durumu yansıtır.
+  const togglePatternArchive = async () => {
+    if (!active || active.type !== "pattern" || curating) return;
+    const patternId = active.id.slice("pattern-".length);
+    const nextArchived = !active.archived;
+    setCurating(true);
+    try {
+      const res = await fetch(`/api/growth/pattern-library/${patternId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !nextArchived }),
+      });
+      if (!res.ok) throw new Error("http");
+      setItems((prev) => prev.map((it) => (it.id === active.id ? { ...it, archived: nextArchived } : it)));
+      setActive((prev) => (prev ? { ...prev, archived: nextArchived } : prev));
+      toast.success(nextArchived ? "Desen arşivlendi." : "Desen yeniden aktifleştirildi.");
+    } catch {
+      toast.error("Desen güncellenemedi.");
+    } finally {
+      setCurating(false);
+    }
+  };
+
+  // Viral öğe KALICI kaldırma (kullanıcının kendi yer-imi; SavedViralTweet hard
+  // delete). Açık onaydan SONRA çağrılır → geri-döndürülemezlik kullanıcıya belli.
+  const removeViral = async () => {
+    if (!active || active.type !== "viral" || curating) return;
+    const tweetId = active.id.slice("viral-".length);
+    setCurating(true);
+    try {
+      const res = await fetch(`/api/viral-library?id=${encodeURIComponent(tweetId)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("http");
+      setItems((prev) => prev.filter((it) => it.id !== active.id));
+      setCounts((prev) => (prev ? { ...prev, viral: Math.max(0, prev.viral - 1) } : prev));
+      setTotal((t) => Math.max(0, t - 1));
+      setConfirmRemove(false);
+      setActive(null);
+      toast.success("Viral öğe kaldırıldı.");
+    } catch {
+      toast.error("Öğe kaldırılamadı.");
+    } finally {
+      setCurating(false);
+    }
+  };
 
   const rangeStart = total === 0 ? 0 : offset + 1;
   const rangeEnd = offset + items.length;
@@ -327,6 +381,9 @@ export default function LibTumuTab() {
               <Badge variant="accent" size="sm">{TYPE_LABEL[active.type]}</Badge>
               {active.platform && <Badge variant="muted" size="sm">{active.platform}</Badge>}
               {active.meta && <Badge variant="muted" size="sm">{active.meta}</Badge>}
+              {active.type === "pattern" && active.archived && (
+                <Badge variant="muted" size="sm" data-testid="lib-pattern-archived-badge">arşivli</Badge>
+              )}
             </div>
             <div
               style={{
@@ -371,6 +428,25 @@ export default function LibTumuTab() {
                 <Button size="sm" variant="primary" onClick={() => { setActiveTab("lib-ilham"); toast.info("İlham açıldı — bu içeriği analiz et."); }} iconLeft={<Sparkles size={14} strokeWidth={2} />}>
                   İlham'da analiz et
                 </Button>
+              )}
+              {active.type === "pattern" && (
+                <Button size="sm" variant="secondary" onClick={togglePatternArchive} loading={curating} data-testid="lib-pattern-archive">
+                  {active.archived ? "Yeniden aktifleştir" : "Arşivle"}
+                </Button>
+              )}
+              {active.type === "viral" && !confirmRemove && (
+                <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(true)} data-testid="lib-viral-remove">
+                  Kaldır
+                </Button>
+              )}
+              {active.type === "viral" && confirmRemove && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--text-xs)", color: "var(--status-error)" }}>
+                  Kalıcı silinsin mi? (geri alınamaz)
+                  <Button size="sm" variant="secondary" onClick={removeViral} loading={curating} data-testid="lib-viral-remove-confirm">
+                    Evet, sil
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(false)}>İptal</Button>
+                </span>
               )}
             </div>
             {active.type !== "content" && (

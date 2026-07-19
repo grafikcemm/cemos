@@ -117,6 +117,8 @@ export async function GET(req: NextRequest) {
           tags: [r.category, r.hookType].filter((t): t is string => !!t),
           createdAt: r.createdAt.toISOString(),
           score: r.successScore,
+          // Phase 5A: manuel küratörlük (isActive). validatedAt = ayrı otomatik eksen.
+          archived: !r.isActive,
         });
       }
     }

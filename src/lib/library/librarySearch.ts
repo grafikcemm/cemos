@@ -23,6 +23,8 @@ export type LibItem = {
   score?: number;
   /** Kanonik içerik hangi (arşivlenmemiş) panolarda kayıtlı — "Kayıtlı" durumu. */
   savedBoards?: Array<{ boardId: string; boardName: string }>;
+  /** Pattern küratörlüğü (Phase 5A / ADR-044): isActive=false → arşivli (drawer toggle). */
+  archived?: boolean;
 };
 
 export type LibCounts = Record<LibItemType, number>;
