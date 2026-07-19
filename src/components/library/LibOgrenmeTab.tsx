@@ -358,11 +358,13 @@ export default function LibOgrenmeTab() {
             const kindMeta = KIND_META[s.kind] ?? KIND_META.youtube;
             const KindIcon = kindMeta.icon;
             const isReady = s.userState === "ready";
-            const clickable = isReady ? !!s.packId : !!s.jobId;
+            // Pack varsa (ready VEYA needs_review/qa) paketi aç; yoksa job'ı sürdür.
+            const clickable = !!s.packId || !!s.jobId;
             const onOpen = () => {
-              if (isReady && s.packId) setView({ mode: "pack", packId: s.packId });
+              if (s.packId) setView({ mode: "pack", packId: s.packId });
               else if (s.jobId) setView({ mode: "processing", jobId: s.jobId, sourceId: s.id });
             };
+            const openLabel = s.packId ? "Aç" : "Devam";
             return (
               <div key={s.id} data-testid="learn-source-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
                 <KindIcon size={15} strokeWidth={2} style={{ color: "var(--text-muted)", flexShrink: 0 }} aria-label={kindMeta.label} />
@@ -381,7 +383,7 @@ export default function LibOgrenmeTab() {
                 {(s.userState === "failed" || s.userState === "transcript_required") && <AlertTriangle size={14} strokeWidth={2} style={{ color: "var(--danger)" }} />}
                 <Badge variant={STATE_VARIANT[s.userState] ?? "muted"} size="sm">{s.userStateLabel}</Badge>
                 {clickable && (
-                  <Button variant="ghost" size="sm" onClick={onOpen}>{isReady ? "Aç" : "Devam"}</Button>
+                  <Button variant="ghost" size="sm" onClick={onOpen}>{openLabel}</Button>
                 )}
               </div>
             );

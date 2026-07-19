@@ -23,6 +23,7 @@ type CardProps = {
   onClick?: () => void;
   className?: string;
   style?: CSSProperties;
+  "data-testid"?: string;
 };
 
 type Surface = { background: string; radius: string; pad: string; shadow: string; border: string };
@@ -79,12 +80,14 @@ export default function Card({
   onClick,
   className,
   style,
+  "data-testid": dataTestId,
 }: CardProps) {
   const liftable = interactive || !!onClick;
   const s = surfaceFor(variant, elevated);
   return (
     <div
       className={className}
+      data-testid={dataTestId}
       onClick={onClick}
       style={{
         background: s.background,
