@@ -10,9 +10,14 @@ import type { LearnStage } from "./pipeline/stages";
 /** UsageLog.meta.purpose prefix'i — getMonthlySpendByPurpose("learn_") ile uyumlu. */
 export const LEARN_PURPOSE = "learn_pack";
 
-/** Pipeline + prompt versiyonu. Pack cache anahtarı; bump → yeniden üretim. */
-export const PIPELINE_VERSION = "v1";
-export const PROMPT_VERSION = "v1";
+/**
+ * Pipeline + prompt versiyonu. Pack cache anahtarı ([sourceId, pipelineVersion]);
+ * bump → YENİ pack satırı (eskisi okunur kalır, otomatik reprocess YOK).
+ * v2 (4C-D): notes/graph/tasks artık gerçek üretim aşaması + content_ideas eklendi
+ * + v2 artifact zarfı (notesJson). v1 pack'ler passthrough'du; dokunulmaz.
+ */
+export const PIPELINE_VERSION = "v2";
+export const PROMPT_VERSION = "v2";
 
 /** Bir advance çağrısının kendine koyduğu yumuşak deadline (ms). Route maxDuration=300
  *  olsa da kısa tutmak canlı ilerleme + cache-warm tutar. */
@@ -100,8 +105,11 @@ export function getObsidianVaultPath(): string | null {
  */
 export const STAGE_ROLES: Partial<Record<LearnStage, ModelRole>> = {
   content_analysis: "cheapWriter", // section başına ucuz özet
-  notes: "creativeWriter",
+  notes: "creativeWriter", // atomik notlar (4C-D)
   concepts: "qualityJudge", // precision + grounding
+  graph: "qualityJudge", // ilişki precision (4C-D)
   assessment: "creativeWriter",
+  tasks: "creativeWriter", // uygulama görevleri (4C-D)
+  content_ideas: "creativeWriter", // içerik fikirleri (4C-D)
   qa: "qualityJudge",
 };

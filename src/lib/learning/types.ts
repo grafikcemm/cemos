@@ -41,17 +41,35 @@ export function categoryLabel(slug: string): string {
 }
 
 export type GroundingType =
-  | "source_supported"
+  | "source_supported" // transkriptte AÇIKÇA var (transcript basis)
+  | "summary_supported" // NotebookLM özetinde var — orijinal videoda DOĞRULANMADI (summary basis)
   | "external_context"
   | "inference"
   | "uncertain";
 
 export const GroundingTypeSchema = z.enum([
   "source_supported",
+  "summary_supported",
   "external_context",
   "inference",
   "uncertain",
 ]);
+
+/**
+ * Kaynak temeli (4C-A). transcript = gerçek/manuel transkript (source_supported meşru).
+ * summary = NotebookLM özeti (yalnız summary_supported meşru; source_supported = yalan iddia).
+ * kind'den türetilir → ayrı kolon gerekmez.
+ */
+export type SourceBasis = "transcript" | "summary";
+
+export function basisForKind(kind: string): SourceBasis {
+  return kind === "notebooklm_summary" ? "summary" : "transcript";
+}
+
+/** Bu basis için "materyalde geçiyor" anlamına gelen tek meşru grounded tür. */
+export function groundedTypeForBasis(basis: SourceBasis): GroundingType {
+  return basis === "summary" ? "summary_supported" : "source_supported";
+}
 
 // ── content_analysis: section özeti (map adımı) ──
 export const SectionAnalysisSchema = z.object({
@@ -142,3 +160,57 @@ export const QaReportSchema = z.object({
     .default([]),
 });
 export type QaReport = z.infer<typeof QaReportSchema>;
+
+// ── notes: atomik notlar (4C-D) — tek fikir + grounding ──
+export const AtomicNoteSchema = z.object({
+  title: z.string().min(1),
+  body: z.string().min(1),
+  tags: z.array(z.string().min(1)).default([]),
+  chunkIdxs: z.array(z.number().int().min(0)).default([]),
+  groundingType: GroundingTypeSchema.default("source_supported"),
+  relatedConceptLabels: z.array(z.string().min(1)).default([]),
+});
+export const NotesSchema = z
+  .object({ atomicNotes: z.array(AtomicNoteSchema).default([]) })
+  .refine((d) => d.atomicNotes.length > 0, { message: "en az bir atomik not gerekli" });
+export type NotesOutput = z.infer<typeof NotesSchema>;
+export type AtomicNoteOutput = z.infer<typeof AtomicNoteSchema>;
+
+// ── graph: kavram ilişkileri (4C-D) — node'lar concept/note'tan türer, edge'ler burada.
+// Edge'ler label ile referans verir (model id bilmez); orchestrator id'lere çözer. ──
+export const GraphEdgeSchema = z.object({
+  sourceLabel: z.string().min(1),
+  targetLabel: z.string().min(1),
+  relation: z.string().min(1), // ilişki etiketi (ör. "önkoşul", "örnek", "karşıt")
+  groundingType: GroundingTypeSchema.default("inference"),
+});
+export const GraphSchema = z.object({ edges: z.array(GraphEdgeSchema).default([]) });
+export type GraphOutput = z.infer<typeof GraphSchema>;
+export type GraphEdgeOutput = z.infer<typeof GraphEdgeSchema>;
+
+// ── tasks: uygulama görevleri (4C-D) — neden + adımlar + grounding ──
+export const ApplyTaskSchema = z.object({
+  title: z.string().min(1),
+  why: z.string().default(""),
+  steps: z.array(z.string().min(1)).default([]),
+  chunkIdxs: z.array(z.number().int().min(0)).default([]),
+  groundingType: GroundingTypeSchema.default("inference"),
+});
+export const TasksSchema = z.object({ tasks: z.array(ApplyTaskSchema).default([]) });
+export type TasksOutput = z.infer<typeof TasksSchema>;
+export type ApplyTaskOutput = z.infer<typeof ApplyTaskSchema>;
+
+// ── content_ideas: içerik fikirleri (4C-D) — CemOS'un YAYINLADIĞI içerik DEĞİL, öneri ──
+export const ContentIdeaSchema = z.object({
+  title: z.string().min(1),
+  angle: z.string().default(""),
+  hook: z.string().default(""),
+  format: z.string().default(""), // ör. carousel | reel | thread | video
+  sourceConceptLabels: z.array(z.string().min(1)).default([]),
+  groundingType: GroundingTypeSchema.default("inference"),
+});
+export const ContentIdeasSchema = z.object({
+  contentIdeas: z.array(ContentIdeaSchema).default([]),
+});
+export type ContentIdeasOutput = z.infer<typeof ContentIdeasSchema>;
+export type ContentIdeaOutput = z.infer<typeof ContentIdeaSchema>;

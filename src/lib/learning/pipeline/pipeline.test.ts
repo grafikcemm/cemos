@@ -47,10 +47,19 @@ describe("stage order", () => {
     expect(nextStage("completed")).toBeNull();
   });
 
-  it("marks notes/graph/tasks/integration as passthrough", () => {
-    expect(PASSTHROUGH_STAGES.has("notes")).toBe(true);
-    expect(PASSTHROUGH_STAGES.has("graph")).toBe(true);
-    expect(PASSTHROUGH_STAGES.has("content_analysis")).toBe(false);
+  it("v2: notes/graph/tasks artık passthrough DEĞİL (gerçek aşama)", () => {
+    expect(PASSTHROUGH_STAGES.has("notes")).toBe(false);
+    expect(PASSTHROUGH_STAGES.has("graph")).toBe(false);
+    expect(PASSTHROUGH_STAGES.has("tasks")).toBe(false);
+    expect(PASSTHROUGH_STAGES.size).toBe(0);
+  });
+
+  it("v2: content_ideas aşaması eklendi, concepts notes'tan ÖNCE", () => {
+    expect(STAGE_ORDER.includes("content_ideas")).toBe(true);
+    expect(nextStage("tasks")).toBe("content_ideas");
+    expect(nextStage("content_ideas")).toBe("qa");
+    expect(STAGE_ORDER.indexOf("concepts")).toBeLessThan(STAGE_ORDER.indexOf("notes"));
+    expect(nextStage("content_analysis")).toBe("concepts");
   });
 
   it("progress is monotonic 0..1", () => {

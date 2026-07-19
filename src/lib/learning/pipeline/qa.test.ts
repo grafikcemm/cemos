@@ -62,6 +62,49 @@ describe("computeQaReport", () => {
   });
 });
 
+describe("computeQaReport basis-awareness (4C)", () => {
+  const sum: GroundingType = "summary_supported";
+
+  it("summary basis: summary_supported valid → pass", () => {
+    const r = computeQaReport({
+      claims: [
+        { text: "a", chunkIdx: 0, groundingType: sum },
+        { text: "b", chunkIdx: 1, groundingType: sum },
+      ],
+      items: [],
+      chunkCount: 4,
+      basis: "summary",
+    });
+    expect(r.coverage).toBe(1);
+    expect(r.verdict).toBe("pass");
+  });
+
+  it("summary basis: source_supported iddia YALAN → flag + coverage'a sayılmaz", () => {
+    const r = computeQaReport({
+      claims: [
+        { text: "iyi", chunkIdx: 0, groundingType: sum },
+        { text: "videoda-dogrulandi-yalani", chunkIdx: 1, groundingType: ss },
+      ],
+      items: [],
+      chunkCount: 4,
+      basis: "summary",
+    });
+    // 1 meşru (summary_supported) / 2 iddia → 0.5; source_supported flag'lenir.
+    expect(r.coverage).toBe(0.5);
+    expect(r.flagged.some((f) => f.reason.includes("yanlış temelli"))).toBe(true);
+  });
+
+  it("transcript basis: summary_supported yanlış-temel → flag", () => {
+    const r = computeQaReport({
+      claims: [{ text: "a", chunkIdx: 0, groundingType: sum }],
+      items: [],
+      chunkCount: 4,
+      basis: "transcript",
+    });
+    expect(r.flagged.some((f) => f.reason.includes("yanlış temelli"))).toBe(true);
+  });
+});
+
 describe("packStatusForVerdict", () => {
   it("maps verdicts to pack statuses", () => {
     expect(packStatusForVerdict("pass")).toBe("ready");

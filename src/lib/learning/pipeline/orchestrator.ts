@@ -32,15 +32,29 @@ import { fetchTranscriptViaGemini } from "@/lib/learning/gemini";
 import { fetchTranscriptViaSupadata } from "@/lib/learning/supadata";
 import { exportPackToVault } from "@/lib/learning/obsidianWriter";
 import { exportPackToGithub } from "@/lib/learning/githubVault";
-import { chunkSegments } from "./chunk";
+import { chunkSegments, plainTextSegments } from "./chunk";
 import {
   runSectionAnalysis,
   runGlobalSynthesis,
   runConcepts,
   runAssessment,
+  runNotes,
+  runGraph,
+  runTasks,
+  runContentIdeas,
 } from "./stages-ai";
 import { computeQaReport, packStatusForVerdict, type ClaimLike, type ItemLike } from "./qa";
-import type { GroundingType } from "@/lib/learning/types";
+import { basisForKind, type GroundingType, type SourceBasis } from "@/lib/learning/types";
+import {
+  artifactOrEmpty,
+  serializeArtifact,
+  withNotes,
+  withGraph,
+  withTasks,
+  withContentIdeas,
+  type ArtifactNode,
+  type ArtifactEdge,
+} from "@/lib/learning/artifact";
 import type { SpendFn } from "./run-llm";
 
 export class TranscriptUnavailableError extends Error {
@@ -119,6 +133,7 @@ export async function advanceJob(
   const sourceId = job.sourceId;
   const source = await learnSourceRepo.getById(sourceId);
   if (!source) throw new Error("source_not_found");
+  const basis: SourceBasis = basisForKind(source.kind); // transcript | summary (NotebookLM)
   if (source.status === "new") await learnSourceRepo.update(sourceId, { status: "processing" });
 
   const state: StageState = safeJsonParse<StageState>(job.stageStateJson, {});
@@ -212,13 +227,17 @@ export async function advanceJob(
         return nextStage(stage)!;
 
       case "metadata": {
-        const meta = await fetchVideoMetadata(source!.externalId);
-        if (meta) {
-          await learnSourceRepo.update(sourceId, {
-            title: source!.title || meta.title,
-            channelTitle: source!.channelTitle || meta.channelTitle,
-            durationSec: source!.durationSec || meta.durationSec,
-          });
+        // Yalnız YouTube kaynağının video metadatası çekilir; manuel/NotebookLM'de
+        // externalId bir video değil (SHA-256) → fetch anlamsız, atla.
+        if (source!.kind === "youtube") {
+          const meta = await fetchVideoMetadata(source!.externalId);
+          if (meta) {
+            await learnSourceRepo.update(sourceId, {
+              title: source!.title || meta.title,
+              channelTitle: source!.channelTitle || meta.channelTitle,
+              durationSec: source!.durationSec || meta.durationSec,
+            });
+          }
         }
         return nextStage(stage)!;
       }
@@ -240,7 +259,10 @@ export async function advanceJob(
       case "chunk": {
         const tr = await learnTranscriptRepo.getBySource(sourceId);
         if (!tr) throw new TranscriptUnavailableError();
-        const segments = safeJsonParse<TimedSegment[]>(tr.segmentsJson, []);
+        // Zaman-kodlu segment varsa onu kullan; yoksa (manuel/NotebookLM) düz metni
+        // pseudo-segment'e böl → chunk boş kalmaz (aksi halde 0 chunk = bozuk pack).
+        let segments = safeJsonParse<TimedSegment[]>(tr.segmentsJson, []);
+        if (segments.length === 0) segments = plainTextSegments(tr.fullText);
         const chunks = chunkSegments(segments);
         await learnTranscriptRepo.replaceChunks(sourceId, tr.id, chunks);
         return nextStage(stage)!;
@@ -252,8 +274,20 @@ export async function advanceJob(
       case "concepts":
         return runConceptsStage();
 
+      case "notes":
+        return runNotesStage();
+
+      case "graph":
+        return runGraphStage();
+
       case "assessment":
         return runAssessmentStage();
+
+      case "tasks":
+        return runTasksStage();
+
+      case "content_ideas":
+        return runContentIdeasStage();
 
       case "qa":
         return runQaStage();
@@ -327,17 +361,22 @@ export async function advanceJob(
 
     for (let si = state.sections.length; si < sections.length; si++) {
       if (Date.now() - t0 > opts.deadlineMs) return STAY; // kısmi: kaldığı section'dan devam
-      const { data } = await runSectionAnalysis(trace, spend, sections[si], si);
+      const { data } = await runSectionAnalysis(trace, spend, sections[si], si, basis);
       state.sections.push({ sectionSummary: data.sectionSummary, keyPoints: data.keyPoints });
       await persistState();
     }
 
     if (Date.now() - t0 > opts.deadlineMs) return STAY;
-    const { data: global, model } = await runGlobalSynthesis(trace, spend, {
-      title: source!.title,
-      channelTitle: source!.channelTitle,
-      sections: state.sections,
-    });
+    const { data: global, model } = await runGlobalSynthesis(
+      trace,
+      spend,
+      {
+        title: source!.title,
+        channelTitle: source!.channelTitle,
+        sections: state.sections,
+      },
+      basis
+    );
     state.keyPoints = state.sections.flatMap((s) => s.keyPoints);
     state.claims = global.claims;
     await learnPackRepo.update(packId, {
@@ -355,10 +394,15 @@ export async function advanceJob(
     await assertBudget();
     const packId = await ensurePack();
     const pack = await learnPackRepo.getById(packId);
-    const { data } = await runConcepts(trace, spend, {
-      summaryL2: pack?.summaryL2 ?? "",
-      keyPoints: state.keyPoints ?? [],
-    });
+    const { data } = await runConcepts(
+      trace,
+      spend,
+      {
+        summaryL2: pack?.summaryL2 ?? "",
+        keyPoints: state.keyPoints ?? [],
+      },
+      basis
+    );
     await learnPackRepo.replaceConcepts(
       packId,
       data.concepts.map((c) => ({
@@ -371,15 +415,158 @@ export async function advanceJob(
     return nextStage("concepts")!;
   }
 
+  // notes: atomik notlar → v2 artifact zarfı (notesJson). stages'te varsa çift-ücret YOK
+  // (LLM başarılı ama advance düşmüşse retry re-charge etmez).
+  async function runNotesStage(): Promise<DispatchResult> {
+    await assertBudget();
+    const packId = await ensurePack();
+    const pack = await learnPackRepo.getById(packId);
+    const artifact = artifactOrEmpty(pack?.notesJson ?? "[]", basis);
+    if (artifact.stages.includes("notes")) return nextStage("notes")!;
+    const concepts = await learnPackRepo.listConcepts(packId);
+    const { data } = await runNotes(
+      trace,
+      spend,
+      {
+        summaryL2: pack?.summaryL2 ?? "",
+        keyPoints: state.keyPoints ?? [],
+        concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
+      },
+      basis
+    );
+    const next = withNotes(
+      artifact,
+      data.atomicNotes.map((n) => ({
+        title: n.title,
+        body: n.body,
+        tags: n.tags,
+        chunkIdxs: n.chunkIdxs,
+        groundingType: n.groundingType,
+        relatedConceptLabels: n.relatedConceptLabels,
+      }))
+    );
+    await learnPackRepo.update(packId, { notesJson: serializeArtifact(next) });
+    return nextStage("notes")!;
+  }
+
+  // graph: kavram + not node'ları + AI ilişki edge'leri (label→id çözümü; dangling/self atlanır).
+  async function runGraphStage(): Promise<DispatchResult> {
+    await assertBudget();
+    const packId = await ensurePack();
+    const pack = await learnPackRepo.getById(packId);
+    const artifact = artifactOrEmpty(pack?.notesJson ?? "[]", basis);
+    if (artifact.stages.includes("graph")) return nextStage("graph")!;
+    const concepts = await learnPackRepo.listConcepts(packId);
+    const nodes: ArtifactNode[] = [
+      ...concepts.map((c) => ({ id: c.id, label: c.label, kind: "concept" as const })),
+      ...artifact.atomicNotes.map((n) => ({ id: n.id, label: n.title, kind: "note" as const })),
+    ];
+    const labelToId = new Map<string, string>();
+    for (const n of nodes) labelToId.set(n.label.trim().toLowerCase(), n.id);
+    const { data } = await runGraph(
+      trace,
+      spend,
+      {
+        concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
+        noteTitles: artifact.atomicNotes.map((n) => n.title),
+      },
+      basis
+    );
+    const seen = new Set<string>();
+    const edges: ArtifactEdge[] = [];
+    for (const e of data.edges) {
+      const s = labelToId.get(e.sourceLabel.trim().toLowerCase());
+      const t = labelToId.get(e.targetLabel.trim().toLowerCase());
+      if (!s || !t || s === t) continue; // olmayan etiket / kendine-döngü atla
+      const key = `${s}|${t}|${e.relation}`;
+      if (seen.has(key)) continue; // duplicate edge atla
+      seen.add(key);
+      edges.push({ source: s, target: t, relation: e.relation, groundingType: e.groundingType });
+    }
+    const next = withGraph(artifact, { nodes, edges });
+    await learnPackRepo.update(packId, { notesJson: serializeArtifact(next) });
+    return nextStage("graph")!;
+  }
+
+  // tasks: uygulama görevleri → artifact.
+  async function runTasksStage(): Promise<DispatchResult> {
+    await assertBudget();
+    const packId = await ensurePack();
+    const pack = await learnPackRepo.getById(packId);
+    const artifact = artifactOrEmpty(pack?.notesJson ?? "[]", basis);
+    if (artifact.stages.includes("tasks")) return nextStage("tasks")!;
+    const concepts = await learnPackRepo.listConcepts(packId);
+    const { data } = await runTasks(
+      trace,
+      spend,
+      {
+        summaryL2: pack?.summaryL2 ?? "",
+        concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
+        keyPoints: state.keyPoints ?? [],
+      },
+      basis
+    );
+    const next = withTasks(
+      artifact,
+      data.tasks.map((t) => ({
+        title: t.title,
+        why: t.why,
+        steps: t.steps,
+        chunkIdxs: t.chunkIdxs,
+        groundingType: t.groundingType,
+      }))
+    );
+    await learnPackRepo.update(packId, { notesJson: serializeArtifact(next) });
+    return nextStage("tasks")!;
+  }
+
+  // content_ideas: içerik fikirleri → artifact. Yayınlanmış içerik DEĞİL (öneri).
+  async function runContentIdeasStage(): Promise<DispatchResult> {
+    await assertBudget();
+    const packId = await ensurePack();
+    const pack = await learnPackRepo.getById(packId);
+    const artifact = artifactOrEmpty(pack?.notesJson ?? "[]", basis);
+    if (artifact.stages.includes("content_ideas")) return nextStage("content_ideas")!;
+    const concepts = await learnPackRepo.listConcepts(packId);
+    const { data } = await runContentIdeas(
+      trace,
+      spend,
+      {
+        summaryL1: pack?.summaryL1 ?? "",
+        concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
+        category: pack?.category ?? "diger",
+      },
+      basis
+    );
+    const next = withContentIdeas(
+      artifact,
+      data.contentIdeas.map((c) => ({
+        title: c.title,
+        angle: c.angle,
+        hook: c.hook,
+        format: c.format,
+        sourceConceptLabels: c.sourceConceptLabels,
+        groundingType: c.groundingType,
+      }))
+    );
+    await learnPackRepo.update(packId, { notesJson: serializeArtifact(next) });
+    return nextStage("content_ideas")!;
+  }
+
   async function runAssessmentStage(): Promise<DispatchResult> {
     await assertBudget();
     const packId = await ensurePack();
     const concepts = await learnPackRepo.listConcepts(packId);
     const labelToId = new Map(concepts.map((c) => [c.label.toLowerCase(), c.id]));
-    const { data } = await runAssessment(trace, spend, {
-      concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
-      keyPoints: state.keyPoints ?? [],
-    });
+    const { data } = await runAssessment(
+      trace,
+      spend,
+      {
+        concepts: concepts.map((c) => ({ label: c.label, definition: c.definition })),
+        keyPoints: state.keyPoints ?? [],
+      },
+      basis
+    );
 
     const items: ItemInput[] = [];
     for (const f of data.flashcards) {
@@ -418,6 +605,8 @@ export async function advanceJob(
     const packId = await ensurePack();
     const chunkCount = await learnTranscriptRepo.countChunks(sourceId);
     const items = await learnPackRepo.listItems(packId);
+    const pack = await learnPackRepo.getById(packId);
+    const artifact = artifactOrEmpty(pack?.notesJson ?? "[]", basis);
     const claims: ClaimLike[] = (state.claims ?? []).map((c) => ({
       text: c.text,
       chunkIdx: c.chunkIdx,
@@ -431,7 +620,26 @@ export async function advanceJob(
         groundingType: it.groundingType as GroundingType,
       };
     });
-    const report = computeQaReport({ claims, items: itemLikes, chunkCount });
+    // Artifact notları + görevleri de grounding doğrulamasına girer (chunkIdx menzil kontrolü,
+    // yanlış-basis grounded iddia flag'i). İçerik fikirleri = inference → doğrulama dışı.
+    const artifactItems: ItemLike[] = [
+      ...artifact.atomicNotes.map((n) => ({
+        front: n.title,
+        chunkIdx: n.chunkIdxs[0] ?? -1,
+        groundingType: n.groundingType,
+      })),
+      ...artifact.tasks.map((t) => ({
+        front: t.title,
+        chunkIdx: t.chunkIdxs[0] ?? -1,
+        groundingType: t.groundingType,
+      })),
+    ];
+    const report = computeQaReport({
+      claims,
+      items: [...itemLikes, ...artifactItems],
+      chunkCount,
+      basis,
+    });
     await learnPackRepo.update(packId, {
       qaReportJson: safeJsonStringify(report),
       status: packStatusForVerdict(report.verdict),

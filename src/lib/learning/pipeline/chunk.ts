@@ -45,6 +45,34 @@ export function chunkSegments(
   return chunks;
 }
 
+/**
+ * Zaman-kodsuz düz metni (manuel transkript / NotebookLM özeti) pseudo-segment'lere
+ * böler. startSec=endSec=0 → "gerçek zaman damgası YOK" işareti (UI timestamp göstermez).
+ * Cümle sınırında böler; grounding chunkIdx yine çalışır. Sahte zaman damgası ÜRETİLMEZ.
+ */
+export function plainTextSegments(
+  fullText: string,
+  targetChars = CHUNK_TARGET_CHARS
+): TimedSegment[] {
+  const clean = fullText.replace(/\s+/g, " ").trim();
+  if (clean === "") return [];
+  // Cümle sınırı (., !, ?, …, satır sonu) — yoksa tüm metin tek parça.
+  const sentences = clean.match(/[^.!?…]+[.!?…]+|\S[^.!?…]*$/g) ?? [clean];
+  const segments: TimedSegment[] = [];
+  let buf = "";
+  for (const s of sentences) {
+    const piece = s.trim();
+    if (piece === "") continue;
+    if (buf !== "" && buf.length + piece.length + 1 > targetChars) {
+      segments.push({ startSec: 0, endSec: 0, text: buf.trim() });
+      buf = "";
+    }
+    buf = buf === "" ? piece : `${buf} ${piece}`;
+  }
+  if (buf.trim() !== "") segments.push({ startSec: 0, endSec: 0, text: buf.trim() });
+  return segments;
+}
+
 /** mm:ss biçimi (timestamp chip + prompt çapası). */
 export function formatTimestamp(totalSec: number): string {
   const s = Math.max(0, Math.floor(totalSec));

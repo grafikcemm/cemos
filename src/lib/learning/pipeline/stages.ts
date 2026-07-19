@@ -1,8 +1,9 @@
 /**
  * CemOS Learn pipeline aşama sırası. Job.currentStage bu union'dan bir değer
- * taşır; orchestrator nextStage() ile bir sonrakine ilerler. Dikey dilimde
- * notes/graph/tasks/integration_suggestions aşamaları PASSTHROUGH (no-op) —
- * v2'de derinleşir; sıra korunur ki versiyon/migration kırılmasın.
+ * taşır; orchestrator nextStage() ile bir sonrakine ilerler.
+ *
+ * v2 (4C-D): notes/graph/tasks artık GERÇEK üretim aşaması (passthrough DEĞİL) +
+ * content_ideas eklendi. PASSTHROUGH_STAGES boş — her aşama iş yapıyor.
  */
 
 export const STAGE_ORDER = [
@@ -12,11 +13,12 @@ export const STAGE_ORDER = [
   "validate",
   "chunk",
   "content_analysis",
-  "notes",
   "concepts",
+  "notes",
   "graph",
   "assessment",
   "tasks",
+  "content_ideas",
   "qa",
   "review_schedule",
   "integration_suggestions",
@@ -25,13 +27,9 @@ export const STAGE_ORDER = [
 
 export type LearnStage = (typeof STAGE_ORDER)[number];
 
-/** Dikey dilimde no-op geçilen aşamalar (v2'de gerçek iş).
- *  integration_suggestions artık Obsidian otomatik yazma yapıyor (passthrough değil). */
-export const PASSTHROUGH_STAGES: ReadonlySet<LearnStage> = new Set<LearnStage>([
-  "notes",
-  "graph",
-  "tasks",
-]);
+/** No-op geçilen aşamalar. v2'de BOŞ — notes/graph/tasks/content_ideas gerçek iş
+ *  yapıyor (stages-ai). Guard yine de duruyor: ileride bir aşama koşullu atlanırsa. */
+export const PASSTHROUGH_STAGES: ReadonlySet<LearnStage> = new Set<LearnStage>([]);
 
 export const TERMINAL_STAGE: LearnStage = "completed";
 
@@ -62,6 +60,7 @@ export const STAGE_LABELS: Record<LearnStage, string> = {
   graph: "Kavram ilişkileri kuruluyor",
   assessment: "Sorular hazırlanıyor",
   tasks: "Uygulama görevleri çıkarılıyor",
+  content_ideas: "İçerik fikirleri üretiliyor",
   qa: "Kalite kontrolü yapılıyor",
   review_schedule: "Tekrar programı hazırlanıyor",
   integration_suggestions: "Obsidian'a aktarılıyor",
