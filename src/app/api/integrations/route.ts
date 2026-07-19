@@ -202,6 +202,14 @@ export async function GET(req: NextRequest) {
       envNames: ["FAL_KEY"],
       note: "Görsel üretimi.",
     },
+    {
+      key: "tier2_worker",
+      name: "Tier-2 render worker",
+      group: "optional",
+      status: "blocked",
+      envNames: [],
+      note: "Ağır üretim/render (reels/carousel) için ayrı, sürekli çalışan arka-plan worker (npm run worker / dağıtılmış runtime). Vercel serverless uzun-iş çalıştırmaz → ayrı deploy gerekir; şu an aktif değil (BLOCKED-EXTERNAL). Yayın/üretim intent-only akışı bundan etkilenmez.",
+    },
   ];
 
   const composio = await readComposioIntegration();
