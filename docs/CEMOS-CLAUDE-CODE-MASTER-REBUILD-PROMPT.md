@@ -529,8 +529,14 @@ Amaç metni kopyalamak değil yapısal pattern çıkarmaktır. Copyright, platfo
 > gerçek zihin haritası (notes/graph/tasks artık PASSTHROUGH DEĞİL + content_ideas) + uygulama görevi +
 > içerik fikri (öneri, otomatik terfi yok) + review (server-side idempotent) TESLİM. Pipeline v2 (v1
 > pack'ler okunur, reprocess yok); basis-farkı → NotebookLM iddiaları asla "videoda doğrulandı" görünmez.
-> Detay: `DECISIONS.md` ADR-042 + `IMPLEMENTATION-STATE.md`. **Obsidian canlı export doğrulaması +
-> ABSORBED legacy fiziksel emekliliği = Phase 4D (SIRADAKİ, başlamadı).** Canlı ücretli AI $0.
+> Detay: `DECISIONS.md` ADR-042/043 + `IMPLEMENTATION-STATE.md`. **✅ Phase 4D TAMAMLANDI (ADR-043;
+> 2026-07-19):** deterministik + basis-farkında v2 Obsidian bundle + tipli export durum makinesi (9
+> durum, secret/path yok) + sertleştirilmiş yerel (realpath+symlink guard+atomic+conflict) / GitHub
+> (preflight+unchanged-skip+errorClass+partial) kanallar + `LearnExportAttempt` kalıcı audit (additive
+> migration) + gate'li auto-export (`OBSIDIAN_AUTO_EXPORT`) + export paneli/`/export` API; 10 runtime-DARK
+> ABSORBED legacy component fiziksel silindi (alias/legacy sembol korundu; savedTweets drenajı AppShell'e
+> taşındı). **Obsidian CANLI kanal doğrulaması (gerçek vault yazımı / gerçek GitHub commit) = BLOCKED-EXTERNAL**
+> (env/target/onay yok — kod+test+hermetik doğrulandı, gerçek yazma yok). Canlı ücretli AI $0.
 
 Mevcut Learn pipeline'ını çöpe atma. Önce `LearnSource`, transcript/chunk, pack, concept,
 review, resumable job, Obsidian bundle, local writer ve GitHub vault bridge akışını test et.

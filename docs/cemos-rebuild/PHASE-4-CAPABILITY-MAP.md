@@ -92,8 +92,13 @@ erişim (4A sonrası) · 4A öncesi görünürlük sorunu · yeni yerleşim.
 **ABSORBED/legacy id'ler** (`daily-queue`, `viral-library`, `keyword-library`,
 `prompt-library`, `pattern-library`, `learn-dashboard`, `instagram`, `flow`,
 `sources` …) `TAB_ALIASES` ile canlı evlerine normalize edilir — ayrı `case`
-YOK, orphan DEĞİL. Fiziksel bileşen emekliliği Phase 4D'ye ertelendi (04 planı:
-"compatibility kanıtıyla emeklilik"); şu an davranış-eşdeğerlik korunur.
+YOK, orphan DEĞİL. **Phase 4D (ADR-043): 10 runtime-DARK ABSORBED component FİZİKSEL
+SİLİNDİ** (grep 0 importer — DailyQueue/Keyword/Prompt/Pattern/Learn/FlowRadar/
+SourceIntelligence/ViralLibrary tab + orphan FlowList/TweetCard); eski id'ler
+`TAB_ALIASES`→`normalizeTabId`→AppShell guard 3-katmanıyla canonical ekrana çözülmeye
+DEVAM eder; ViralLibrary savedTweets localStorage→DB drenajı AppShell bootstrap'a taşındı
+(idempotent). InstagramTab + CompetitorRadarSection + ReelsDossierSection re-home bekliyor
+(canonical ev yok → KORUNDU).
 
 **Sonuç: orphan YOK.** Cmd+K (`allNavigableTabs`) tüm sınıfları listeler; e2e
 `nav.ts` helper'ı her sınıf için gerçek yol test eder.
@@ -107,7 +112,7 @@ Kodda ZATEN mevcut (duplicate model/pipeline kurma — §D):
 | Learn intake/pipeline | `src/lib/learning/{learnService,pipeline,scheduling,prompts}` + `/api/learn/*` | çalışır backend; UI kısmi |
 | Transcript | `learning/supadata.ts` (+fallback), `learning/gemini.ts` | Supadata fallback SHIPPED (memory) |
 | Pack/review | `learning/reviewService.ts`, `components/learn/{LearnPackView,LearnProcessingView,LearnReviewView}` | çekirdek var; UI bütünlüğü 4C |
-| Obsidian export | `learning/{obsidian,obsidianWriter,githubVault}.ts` + `/api/learn/packs/[id]/obsidian` | writer + GitHub vault köprüsü var; canlı doğrulama 4D |
+| Obsidian export | `learning/{obsidian,packExport,obsidianManifest,localVault,githubVault,exportService}.ts` + `/api/learn/packs/[id]/{obsidian,export}` + `LearnExportAttempt` | **4D (ADR-043): deterministik v2 bundle + tipli durum makinesi + sertleştirilmiş kanallar + kalıcı audit + gate'li auto-export ✅; canlı vault/GitHub yazımı BLOCKED-EXTERNAL** |
 | Boards/ContentItem | `LibIlhamTab`, `/api/boards*`, `/api/content*`, outlier | 3C/3D'de büyük ölçüde teslim |
 | Öğrenme girişi | `lib-ogrenme`/`LibOgrenmeTab` | **4A: sidebar Kütüphane alt-nav'da görünür kılındı** |
 
@@ -139,9 +144,19 @@ Kodda ZATEN mevcut (duplicate model/pipeline kurma — §D):
   `reviewService.grade` atomik `$transaction`+idempotent). UI: LearnPackView 7 sekme +
   provenance + LearnProcessingView resume + LibOgrenmeTab üç açık mod. Altyapı yeniden
   İCAT EDİLMEDİ (~%90 hazırdı).
-- **4D — Obsidian export canlı doğrulama + absorbed legacy emekliliği: (SIRADAKİ)**
-  `learning/{obsidianWriter,githubVault}` uçtan uca; ABSORBED bileşenlerin
-  fiziksel emekliliği (davranış-eşdeğerlik kanıtı + alias koruması).
+- **4D — Obsidian export production contract + tipli durum makinesi + ABSORBED legacy
+  fiziksel emekliliği ✅ TAMAMLANDI (ADR-043; 2026-07-19).** Deterministik + basis-farkında
+  v2 bundle (MOC/atomik not/paylaşımlı çok-pack kavram/Mermaid MOC/görev/fikir/kart/QA;
+  now() gömülmez; NotebookLM=summary framing; sahte timestamp yok; manifest hash). Tipli
+  ChannelResult (9 durum; secret/token/tam-path YOK). Sertleştirilmiş yerel (realpath +
+  symlink/junction guard + atomic temp+rename + managed conflict) + GitHub (read-only
+  preflight + unchanged-skip + errorClass haritası + partial≠success) yazıcılar.
+  `LearnExportAttempt` + additive migration (composite = manifest idempotency). Gate'li
+  auto-export (`OBSIDIAN_AUTO_EXPORT`; aksi örtük dış yazma yok). Export paneli + `/export`
+  API (POST auth+Zod+idempotency; GET not-ready→409). 10 runtime-DARK legacy component
+  silindi + savedTweets drenajı AppShell'e taşındı (alias/legacy sembol KORUNDU).
+  **Canlı vault/GitHub yazımı BLOCKED-EXTERNAL** (env/target/onay yok) — kod+test+hermetik
+  doğrulandı, gerçek yazma yok.
 
 Dış bağımlılıklar (4A dışı, değişmedi): canlı AI üretimi (rotation +
 `INSTAGRAM_GENERATION_*`), own-account Composio binding, Tier-2 render, X API
