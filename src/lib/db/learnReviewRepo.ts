@@ -87,8 +87,22 @@ export const learnReviewRepo = {
     grade: number;
     correct: boolean;
     responseMs: number;
+    idempotencyKey?: string | null;
   }): Promise<LearnReviewAttempt> {
-    return prisma.learnReviewAttempt.create({ data: input });
+    return prisma.learnReviewAttempt.create({
+      data: {
+        itemId: input.itemId,
+        grade: input.grade,
+        correct: input.correct,
+        responseMs: input.responseMs,
+        idempotencyKey: input.idempotencyKey ?? null,
+      },
+    });
+  },
+
+  /** 4C-H idempotency: bu key ile deneme var mı (çift-gönderim tespiti). */
+  findAttemptByKey(idempotencyKey: string): Promise<LearnReviewAttempt | null> {
+    return prisma.learnReviewAttempt.findUnique({ where: { idempotencyKey } });
   },
 
   /** Son n denemenin correct booleanları (mastery hesabı için, yeni→eski). */

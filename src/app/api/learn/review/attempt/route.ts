@@ -13,6 +13,7 @@ const bodySchema = z.object({
   grade: z.number().int().min(0).max(3),
   responseMs: z.number().int().min(0).max(3_600_000).default(0),
   correct: z.boolean().optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(), // 4C-H çift-gönderim koruması
 });
 
 // POST /api/learn/review/attempt { itemId, grade, responseMs?, correct? }
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
       grade: parsed.data.grade as ReviewGrade,
       responseMs: parsed.data.responseMs,
       correct: parsed.data.correct,
+      idempotencyKey: parsed.data.idempotencyKey,
     });
     return ok({ ...result });
   } catch (err) {

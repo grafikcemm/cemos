@@ -1052,15 +1052,19 @@ model LearnReviewSchedule {
 }
 
 // Tek tekrar denemesi (grade 0=again 1=hard 2=good 3=easy).
+// idempotencyKey (4C-H): çift-gönderim koruması — aynı key ikinci kez schedule'ı İLERLETMEZ.
+// NULL-distinct → key'siz denemeler (legacy/opsiyonel) serbest çoğaltılabilir.
 model LearnReviewAttempt {
-  id         String    @id @default(cuid())
-  itemId     String
-  item       LearnItem @relation(fields: [itemId], references: [id])
-  grade      Int
-  correct    Boolean   @default(false)
-  responseMs Int       @default(0)
-  reviewedAt DateTime  @default(now())
+  id             String    @id @default(cuid())
+  itemId         String
+  item           LearnItem @relation(fields: [itemId], references: [id])
+  grade          Int
+  correct        Boolean   @default(false)
+  responseMs     Int       @default(0)
+  idempotencyKey String?
+  reviewedAt     DateTime  @default(now())
 
+  @@unique([idempotencyKey])
   @@index([itemId, reviewedAt])
 }
 

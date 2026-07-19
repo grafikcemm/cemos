@@ -4,6 +4,8 @@
  * mastery yeniden hesaplanır. Saf srs matematiği reviewService'i ince tutar.
  */
 
+import { prisma } from "@/lib/db/client";
+import { Prisma } from "@/generated/prisma/client";
 import { safeJsonParse } from "@/lib/growth-engine/types";
 import { learnReviewRepo } from "@/lib/db/learnReviewRepo";
 import { learnPackRepo } from "@/lib/db/learnPackRepo";
@@ -35,6 +37,8 @@ export type GradeResult = {
   intervalDays: number;
   conceptMastery: number | null;
   packMastery: number;
+  /** true → çift-gönderim tespit edildi, schedule İLERLEMEDİ (idempotent). */
+  deduped: boolean;
 };
 
 export const reviewService = {
@@ -71,54 +75,92 @@ export const reviewService = {
     });
   },
 
-  /** Bir cevabı kaydeder, yeniden zamanlar, kavram + pack mastery'yi günceller. */
+  /**
+   * Bir cevabı kaydeder, yeniden zamanlar, kavram + pack mastery'yi günceller.
+   * ATOMİK: schedule ilerletme + attempt insert TEK transaction. İDEMPOTENT: aynı
+   * idempotencyKey ikinci kez gelirse schedule İLERLEMEZ (çift-tık ladder'ı iki
+   * kez atlamaz) — server-side garanti, yalnız client disable'a güvenilmez.
+   */
   async grade(input: {
     itemId: string;
     grade: ReviewGrade;
     responseMs: number;
     correct?: boolean;
+    idempotencyKey?: string | null;
   }): Promise<GradeResult> {
     const now = new Date();
     const item = await learnPackRepo.getItemById(input.itemId);
     if (!item) throw new Error("item_not_found");
+    const isCorrect = input.correct ?? input.grade > 0;
+    const key = input.idempotencyKey ?? null;
 
-    let schedule = await learnReviewRepo.getScheduleByItem(input.itemId);
-    if (!schedule) {
-      schedule = await learnReviewRepo.createSchedule({
-        itemId: input.itemId,
-        dueAt: now,
-        intervalDays: 1,
-        ladderStep: 0,
-        ease: 2.5,
+    let dueAt: Date;
+    let intervalDays: number;
+    let deduped = false;
+    try {
+      const core = await prisma.$transaction(async (tx) => {
+        let schedule = await tx.learnReviewSchedule.findUnique({
+          where: { itemId: input.itemId },
+        });
+        if (!schedule) {
+          schedule = await tx.learnReviewSchedule.create({
+            data: { itemId: input.itemId, dueAt: now, intervalDays: 1, ladderStep: 0, ease: 2.5 },
+          });
+        }
+        // İdempotency: bu key zaten kaydedildiyse hiçbir şey ilerletme, mevcut durumu döndür.
+        if (key) {
+          const dup = await tx.learnReviewAttempt.findUnique({ where: { idempotencyKey: key } });
+          if (dup) {
+            return { deduped: true, dueAt: schedule.dueAt, intervalDays: schedule.intervalDays };
+          }
+        }
+        const prev: ScheduleState = {
+          ladderStep: schedule.ladderStep,
+          intervalDays: schedule.intervalDays,
+          ease: schedule.ease,
+          lapses: schedule.lapses,
+        };
+        const next = nextSchedule(prev, input.grade);
+        const d = computeDueAt(now, next.intervalDays);
+        await tx.learnReviewAttempt.create({
+          data: {
+            itemId: input.itemId,
+            grade: input.grade,
+            correct: isCorrect,
+            responseMs: input.responseMs,
+            idempotencyKey: key,
+          },
+        });
+        await tx.learnReviewSchedule.update({
+          where: { itemId: input.itemId },
+          data: {
+            ladderStep: next.ladderStep,
+            intervalDays: next.intervalDays,
+            ease: next.ease,
+            lapses: next.lapses,
+            dueAt: d,
+            lastReviewedAt: now,
+          },
+        });
+        return { deduped: false, dueAt: d, intervalDays: next.intervalDays };
       });
+      dueAt = core.dueAt;
+      intervalDays = core.intervalDays;
+      deduped = core.deduped;
+    } catch (err) {
+      // Eşzamanlı yarış: aynı key başka istekte insert edildi (P2002) → schedule DOKUNULMADI.
+      if (key && err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const schedule = await learnReviewRepo.getScheduleByItem(input.itemId);
+        dueAt = schedule?.dueAt ?? now;
+        intervalDays = schedule?.intervalDays ?? 1;
+        deduped = true;
+      } else {
+        throw err;
+      }
     }
 
-    const prev: ScheduleState = {
-      ladderStep: schedule.ladderStep,
-      intervalDays: schedule.intervalDays,
-      ease: schedule.ease,
-      lapses: schedule.lapses,
-    };
-    const next = nextSchedule(prev, input.grade);
-    const dueAt = computeDueAt(now, next.intervalDays);
-
-    const isCorrect = input.correct ?? input.grade > 0;
-    await learnReviewRepo.createAttempt({
-      itemId: input.itemId,
-      grade: input.grade,
-      correct: isCorrect,
-      responseMs: input.responseMs,
-    });
-    await learnReviewRepo.updateSchedule(input.itemId, {
-      ladderStep: next.ladderStep,
-      intervalDays: next.intervalDays,
-      ease: next.ease,
-      lapses: next.lapses,
-      dueAt,
-      lastReviewedAt: now,
-    });
-
     // Kavram mastery: kavramın tüm item'larının ortalaması (recency+interval ağırlıklı).
+    // Attempt'lerden türer → idempotent; deduped olsa da güncel değeri döndürür.
     let conceptMastery: number | null = null;
     if (item.conceptId) {
       const items = await learnPackRepo.listItemsByConcept(item.conceptId);
@@ -126,7 +168,7 @@ export const reviewService = {
       for (const it of items) {
         const recent = await learnReviewRepo.recentCorrect(it.id, 5);
         const sched = await learnReviewRepo.getScheduleByItem(it.id);
-        scores.push(masteryFromReviews(recent, sched?.intervalDays ?? next.intervalDays));
+        scores.push(masteryFromReviews(recent, sched?.intervalDays ?? intervalDays));
       }
       conceptMastery =
         scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
@@ -142,9 +184,10 @@ export const reviewService = {
 
     return {
       nextDueAt: dueAt.toISOString(),
-      intervalDays: next.intervalDays,
+      intervalDays,
       conceptMastery,
       packMastery,
+      deduped,
     };
   },
 };
