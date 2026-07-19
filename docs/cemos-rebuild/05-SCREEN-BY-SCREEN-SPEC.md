@@ -65,7 +65,7 @@
 - **Durumlar:** loading = statik (nav config); empty/error/stale/blocked-external = N/A (nav her zaman var).
 - **Klavye:** Tab sırası alan→toolbox→hesap→profil; Enter seç; aktif `aria-current`.
 - **Responsive:** ≤640 gizli; 232px açık / gizli.
-- **Kabul:** yalnız 3 alan+Toolbox+Profil; legacy motor adı yok; aktif durum accent; collapse=gizle.
+- **Kabul (ADR-040 revize):** 3 TOP-LEVEL alan + hiyerarşik "Araştırma" grubu + aktif-alan alt-nav + "Şimdi" özeti + Toolbox + Profil; legacy motor adları artık sidebar'da keşfedilebilir (Fırsatlar/Cmd+K'da da kalır); aktif durum accent ikon; sidebar 1024/1920'de boş ray gibi görünmez.
 
 ### A3. Topbar (TopStrip) [sınıf: CORE]
 - **Amaç:** breadcrumb + global arama + yalnız-müdahale-gereken sağlık.
@@ -287,7 +287,7 @@ Plan  [Takvim] Fırsatlar  Seriler          [Ay ▾] [+ Slot]
 - **Durumlar:** loading = grid skeleton; **empty** = "Bu ay planlı içerik yok" + "Fırsatlardan ekle"; error = retry; success = dolu grid; **stale** = dossier evidence expired → "yeniden doğrula" bayrağı (`staleDossierFlags`); **blocked-external** = Meta izni yoksa IG slotları "manuel/import" notu.
 - **Klavye:** ok tuşları gün gezinme; Enter slot; Esc drawer.
 - **Responsive:** ay grid ≤640 dikey liste; hafta overflow-x:auto.
-- **Kabul:** ay=yoğunluk (içerik önizleme yok — clutter yok), hafta=önizleme; cross-platform filtre (kalıcı renk-overlay YOK); araç-adlı dossier geçerli site kanıtı olmadan `ready` olamaz; stale bayrağı görünür.
+- **Kabul (ADR-040 revize):** ay hücreleri artık yalnız nokta DEĞİL — gerçek veri varsa kompakt içerik (readiness renk noktası + konu/başlık; dossier'sız planlı slot dürüst nötr, içerik UYDURULMAZ); hafta=önizleme; cross-platform filtre (kalıcı renk-overlay YOK); araç-adlı dossier geçerli site kanıtı olmadan `ready` olamaz; stale bayrağı görünür. (Eski "ay=yalnız yoğunluk noktası, içerik önizleme yok" SUPERSEDED.)
 
 ### C2. Plan / Fırsatlar [sınıf: CORE (yeni) — advanced motorların editoryal yüzü]
 - **Amaç:** arka plan motorlarını (haber buzz/YouTube/viral radar/keşif/rakip) editoryal SEÇİLMİŞ birkaç fırsata indirmek; ham 60 sonuç değil.

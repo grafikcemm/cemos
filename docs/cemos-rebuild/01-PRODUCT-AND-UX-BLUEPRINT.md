@@ -8,6 +8,8 @@ CemOS, Ali Cem'in her sabah açıp **hazır içeriği görüp kısa kontrolle on
 
 ## 2. Üç görev (ana nav)
 
+> **ADR-040 (2026-07-19):** "üç görev" = üç **TOP-LEVEL** alan. Kabiliyetler saklanmaz; aktif alan sidebar'da alt hedeflerini açar, "Araştırma" grubu (Haberler/YouTube/Viral Radar/Keşif/X Kaynakları) sidebar'da hiyerarşik + keşfedilebilir, "Şimdi" gerçek-veri özeti Profil üstünde. Minimalizm ≠ işlev saklama veya boş ray.
+
 | Görev | Kullanıcı sorusu | Ne yapar |
 |---|---|---|
 | **Bugün** | "Bugün ne paylaşayım?" | Hazır X içeriği karar kuyruğu; kaynak+neden+güven gör, onayla/paylaş |

@@ -101,8 +101,9 @@ Renk = token; off-token hex YASAK. Accent yalnız işlevsel chrome'da (aktif nav
 
 ## 7. Navigasyon
 
-- **Sidebar:** tam etiketli 232px, YALNIZ 3 birincil (Bugün/Plan/Kütüphane) + Toolbox (utility) + Profil tetikleyici (alt). Utility/settings birincil rail'de DEĞİL. Collapse = gizle (icon-rail'e düşme, araştırma: 3 item rail'i hak etmez). Aktif = accent-tint zemin + 2px accent sol-bar + accent metin.
-- **Alt-nav (Plan/Kütüphane):** SubNav strip — Plan: Takvim·Fırsatlar·Seriler; Kütüphane: Tümü·İlham·Öğrenme.
+- **Sidebar:** tam etiketli ~244px, 3 **TOP-LEVEL** alan (Bugün/Plan/Kütüphane) + "Araştırma" grubu + Toolbox (Araçlar) + "Şimdi" özeti + Profil tetikleyici (alt). Utility/settings birincil rail'de DEĞİL. **ADR-040:** icon-rail collapse hâlâ yok; ama "Araştırma" (eski motor adları) sidebar'da hiyerarşik + katlanabilir + masaüstünde keşfedilebilir (rail dışında saklı DEĞİL); aktif alan alt hedeflerini sidebar'da açar. Aktif = nötr grafit zemin (`bg-elevated`) + terracotta ikon vurgusu (ADR-021).
+- **Alt-nav (Plan/Kütüphane):** hem workspace `SubNav` strip HEM sidebar'da (aktif alan altında) — Plan: Takvim·Fırsatlar·Seriler; Kütüphane: Tümü·İlham·Öğrenme.
+- **"Şimdi" özeti (ADR-040):** Profil üstünde, YALNIZ canonical health (tek fetch reuse; sahte sayı yok): yayına hazır/karar bekleyen/aktif plan/sistem sinyali.
 - **Topbar:** sticky 52px; breadcrumb + Cmd+K arama + sağlık göstergesi (yalnız müdahale-gereken; ADR-014).
 - **Profil menüsü:** CemOS'un bildikleri · Entegrasyonlar · Sistem · Maliyet · Ayarlar · Çıkış.
 

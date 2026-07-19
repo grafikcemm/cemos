@@ -632,7 +632,7 @@ reuse map'i, hangi eski ekranın yeni nereye taşındığı ve görsel token yö
 
 - erişim koruması ve doğru health contract,
 - uygulamanın tamamının kullanacağı yeni design token/primitive katmanı,
-- eski sidebar/topbar'ın yerine geçen üç görevli yeni shell ve navigation,
+- eski sidebar/topbar'ın yerine geçen üç görevli yeni shell ve navigation (ADR-040: "üç görev" = üç TOP-LEVEL alan; kabiliyetler hiyerarşik alt-nav + "Araştırma" grubu + "Şimdi" özetiyle görünür, saklanmaz),
 - Toolbox quick access,
 - global command/CemOS surface temeli,
 - yeni Bugün kuyruğu,
