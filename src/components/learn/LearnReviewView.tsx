@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Card, Button, Badge, Skeleton, EmptyState } from "@/components/ui";
 
 type SessionItem = {
@@ -18,6 +18,12 @@ type SessionItem = {
 // Date.now() modül kapsamında — react-hooks/purity render içinde impure çağrıyı engeller.
 const nowMs = (): number => Date.now();
 
+// Attempt idempotency anahtarı (4C-H) — event handler'da üretilir, çift-gönderimde aynı kalır.
+const newKey = (): string =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `k-${nowMs()}-${Math.round(Math.random() * 1e9)}`;
+
 const GRADES: { grade: 0 | 1 | 2 | 3; label: string; variant: "ghost" | "secondary" | "primary" }[] = [
   { grade: 0, label: "Tekrar", variant: "ghost" },
   { grade: 1, label: "Zor", variant: "secondary" },
@@ -33,6 +39,10 @@ export default function LearnReviewView({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [graded, setGraded] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const submittingRef = useRef(false); // senkron çift-tık guard (setState async)
+  const attemptKeyRef = useRef<string | null>(null); // kart başına idempotency key
 
   useEffect(() => {
     let cancelled = false;
@@ -53,24 +63,43 @@ export default function LearnReviewView({ onBack }: { onBack: () => void }) {
   const current = items[idx];
 
   async function submit(grade: 0 | 1 | 2 | 3) {
-    if (!current) return;
+    if (!current || submittingRef.current) return; // senkron guard: çift-tık ikinci POST'u engeller
+    submittingRef.current = true;
+    setSubmitting(true);
+    setSubmitError(null);
+    if (!attemptKeyRef.current) attemptKeyRef.current = newKey(); // bu kart için tek key (retry aynı key)
     const correct =
       current.kind === "quiz_mcq" && current.correctIdx !== null ? selected === current.correctIdx : grade > 0;
-    await fetch("/api/learn/review/attempt", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        itemId: current.itemId,
-        grade,
-        responseMs: Math.min(3_600_000, nowMs() - startedAt),
-        correct,
-      }),
-    });
-    setGraded((g) => g + 1);
-    setIdx((i) => i + 1);
-    setRevealed(false);
-    setSelected(null);
-    setStartedAt(nowMs());
+    try {
+      const res = await fetch("/api/learn/review/attempt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          itemId: current.itemId,
+          grade,
+          responseMs: Math.min(3_600_000, nowMs() - startedAt),
+          correct,
+          idempotencyKey: attemptKeyRef.current,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setSubmitError("Cevap kaydedilemedi. Tekrar dene."); // POST hatası → İLERLEME YOK
+        return;
+      }
+      // Başarı → sonraki kart (yeni key).
+      attemptKeyRef.current = null;
+      setGraded((g) => g + 1);
+      setIdx((i) => i + 1);
+      setRevealed(false);
+      setSelected(null);
+      setStartedAt(nowMs());
+    } catch {
+      setSubmitError("Ağ hatası. Cevap kaydedilemedi, tekrar dene.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }
 
   if (loading)
@@ -210,12 +239,20 @@ export default function LearnReviewView({ onBack }: { onBack: () => void }) {
               Cevabı göster
             </Button>
           ) : (
-            <div style={{ display: "flex", gap: 8 }}>
-              {GRADES.map((g) => (
-                <Button key={g.grade} variant={g.variant} size="sm" onClick={() => submit(g.grade)} style={{ flex: 1 }}>
-                  {g.label}
-                </Button>
-              ))}
+            <div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {GRADES.map((g) => (
+                  <Button key={g.grade} variant={g.variant} size="sm" onClick={() => submit(g.grade)} disabled={submitting} style={{ flex: 1 }}>
+                    {g.label}
+                  </Button>
+                ))}
+              </div>
+              {submitError && (
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--danger)" }}>
+                  <AlertTriangle size={13} strokeWidth={2} />
+                  {submitError}
+                </div>
+              )}
             </div>
           )}
         </div>
