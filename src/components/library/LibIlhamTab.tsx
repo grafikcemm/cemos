@@ -8,6 +8,7 @@ import CaptureDrawer from "@/components/library/ilham/CaptureDrawer";
 import InspirationGrid from "@/components/library/ilham/InspirationGrid";
 import InspirationDetailDrawer from "@/components/library/ilham/InspirationDetailDrawer";
 import CompetitorSummary from "@/components/library/ilham/CompetitorSummary";
+import IlhamContextRail from "@/components/library/ilham/IlhamContextRail";
 import { useIlhamWorkspace, type IlhamItem } from "@/components/library/ilham/useIlhamWorkspace";
 
 /**
@@ -71,17 +72,23 @@ export default function LibIlhamTab() {
         onCaptureOpen={() => setCaptureOpen(true)}
       />
 
-      {workspace.boards.length === 0 ? (
-        <EmptyState
-          icon={<Bookmark size={22} strokeWidth={1.8} />}
-          title="Bu hesabın panosu yok"
-          description="İlk kaydında varsayılan 'Instagram İlham' panosu otomatik oluşur; ya da '+ Pano' ile kendin aç."
-        />
-      ) : (
-        <InspirationGrid items={workspace.items} onOpen={(it) => setActiveItemId(it.id)} onCaptureOpen={() => setCaptureOpen(true)} />
-      )}
+      <div className="ilham-workspace">
+        <div className="ilham-main">
+          {workspace.boards.length === 0 ? (
+            <EmptyState
+              icon={<Bookmark size={22} strokeWidth={1.8} />}
+              title="Bu hesabın panosu yok"
+              description="İlk kaydında varsayılan 'Instagram İlham' panosu otomatik oluşur; ya da '+ Pano' ile kendin aç."
+            />
+          ) : (
+            <InspirationGrid items={workspace.items} onOpen={(it) => setActiveItemId(it.id)} onCaptureOpen={() => setCaptureOpen(true)} />
+          )}
 
-      <CompetitorSummary watch={workspace.watch} outliers={workspace.outliers} />
+          <CompetitorSummary watch={workspace.watch} outliers={workspace.outliers} />
+        </div>
+
+        <IlhamContextRail workspace={workspace} onCaptureOpen={() => setCaptureOpen(true)} />
+      </div>
 
       <CaptureDrawer
         open={captureOpen}

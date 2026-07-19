@@ -704,6 +704,26 @@ b {
   overflow: clip;
 }
 
+/* Kütüphane/İlham çalışma alanı (Phase 4B / ADR-041): geniş ekranda ana grid +
+   bağlamsal sağ rail; ≤1200px'de rail ana akışın altına güvenli biçimde düşer. */
+.ilham-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--stack);
+  align-items: start;
+}
+.ilham-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack);
+  min-width: 0;
+}
+@media (min-width: 1200px) {
+  .ilham-workspace {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
 /* Mobil responsive (FE-01): 320px'de yatay taşmayı giderir. Shell zaten
    off-canvas drawer + hamburger wiring'ine sahip (AppShell/TopStrip); burada
    yalnız görünürlük + gutter breakpoint'i tanımlanır. */

@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal, Library as LibraryIcon, ChevronLeft, ChevronRight, Copy, Sparkles, ExternalLink } from "lucide-react";
+import { Search, SlidersHorizontal, Library as LibraryIcon, ChevronLeft, ChevronRight, Copy, Sparkles, ExternalLink, BookmarkCheck } from "lucide-react";
 import { Card, Input, Select, Badge, Button, EmptyState, ErrorState, Skeleton, Drawer } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
+import SaveToBoardButton, { type SavedBoardRef } from "@/components/library/SaveToBoardButton";
 import type { LibItem, LibItemType, LibCounts } from "@/lib/library/librarySearch";
+
+/** Kayıtlı pano listesine yeni üyeliği tekilleştirerek ekler. */
+function mergeSavedBoard(prev: SavedBoardRef[] | undefined, ref: SavedBoardRef): SavedBoardRef[] {
+  const list = prev ?? [];
+  return list.some((s) => s.boardId === ref.boardId) ? list : [...list, ref];
+}
 
 /**
  * Kütüphane / Tümü (05 §D1) — 4 legacy kütüphane (viral/keyword/prompt/pattern) +
@@ -39,9 +46,13 @@ export default function LibTumuTab() {
   const [items, setItems] = useState<LibItem[]>([]);
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<LibCounts | null>(null);
+  const [capped, setCapped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [active, setActive] = useState<LibItem | null>(null);
+  // Stale-response guard: yalnız en son isteğin sonucu uygulanır (filtre/sayfa
+  // hızlı değişince yavaş yanıt yeniyi EZEMEZ).
+  const seqRef = useRef(0);
 
   // Debounce arama.
   useEffect(() => {
@@ -55,6 +66,7 @@ export default function LibTumuTab() {
   }, [debouncedQ, type, platform]);
 
   const load = useCallback(async () => {
+    const seq = ++seqRef.current;
     setLoading(true);
     setFailed(false);
     try {
@@ -68,14 +80,16 @@ export default function LibTumuTab() {
       const res = await fetch(`/api/library/search?${params.toString()}`);
       if (!res.ok) throw new Error("http");
       const json = await res.json();
+      if (seq !== seqRef.current) return; // stale — daha yeni istek uçuşta
       if (!json.success) throw new Error("payload");
       setItems(json.items ?? []);
       setTotal(json.total ?? 0);
       setCounts(json.counts ?? null);
+      setCapped(Boolean(json.capped));
     } catch {
-      setFailed(true);
+      if (seq === seqRef.current) setFailed(true);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   }, [debouncedQ, type, platform, offset]);
 
@@ -115,6 +129,13 @@ export default function LibTumuTab() {
       () => toast.error("Kopyalanamadı."),
     );
   };
+
+  // Kayıt sonrası: satırın ve açık drawer'ın "Kayıtlı" durumunu server sonucuyla
+  // uzlaştır (sahte değil — yalnız gerçekten kaydedilen pano eklenir).
+  const applySaved = useCallback((itemId: string, ref: SavedBoardRef) => {
+    setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, savedBoards: mergeSavedBoard(it.savedBoards, ref) } : it)));
+    setActive((prev) => (prev && prev.id === itemId ? { ...prev, savedBoards: mergeSavedBoard(prev.savedBoards, ref) } : prev));
+  }, []);
 
   const rangeStart = total === 0 ? 0 : offset + 1;
   const rangeEnd = offset + items.length;
@@ -256,6 +277,14 @@ export default function LibTumuTab() {
                 <span style={{ flex: 1, minWidth: 0, fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {it.title}
                 </span>
+                {it.savedBoards && it.savedBoards.length > 0 && (
+                  <span
+                    title={`Kayıtlı: ${it.savedBoards.map((s) => s.boardName).join(", ")}`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0, fontSize: "var(--text-2xs)", color: "var(--accent-text)", fontWeight: 500 }}
+                  >
+                    <BookmarkCheck size={12} strokeWidth={2} /> Kayıtlı
+                  </span>
+                )}
                 {it.meta && <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", flexShrink: 0 }}>{it.meta}</span>}
               </div>
               {it.body && (
@@ -281,6 +310,11 @@ export default function LibTumuTab() {
                 </Button>
               </div>
             </div>
+          )}
+          {capped && (
+            <p style={{ margin: "2px 0 0", fontSize: "var(--text-2xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+              Derin sayfada sıralama kapsamı sınırlı — aramayı daraltarak tam sonuç al.
+            </p>
           )}
         </div>
       )}
@@ -316,7 +350,15 @@ export default function LibTumuTab() {
                 ))}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--border-faint)" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border-faint)" }}>
+              {active.type === "content" && active.contentItemId && (
+                <SaveToBoardButton
+                  source={{ kind: "contentItem", contentItemId: active.contentItemId }}
+                  savedBoards={active.savedBoards}
+                  title={active.title}
+                  onSaved={(r) => applySaved(active.id, r)}
+                />
+              )}
               <Button size="sm" variant="secondary" onClick={() => copy(active)} iconLeft={<Copy size={14} strokeWidth={2} />}>
                 Kopyala
               </Button>
@@ -331,6 +373,11 @@ export default function LibTumuTab() {
                 </Button>
               )}
             </div>
+            {active.type !== "content" && (
+              <p style={{ margin: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Bu tür (prompt/pattern/anahtar/viral) panoya kaydedilmez — kütüphanede kendi bölümünde yaşar. Panoya kaydetme kanonik içerik içindir.
+              </p>
+            )}
           </div>
         )}
       </Drawer>
