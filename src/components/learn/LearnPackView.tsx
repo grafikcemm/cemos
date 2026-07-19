@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Download, Copy, FileText, Info } from "lucide-react";
+import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Copy, FileText, Info } from "lucide-react";
 import { Card, SubNav, Badge, Button, Skeleton, EmptyState } from "@/components/ui";
 import { categoryLabel } from "@/lib/learning/types";
+import LearnExportPanel from "./LearnExportPanel";
 
 type Grounding = { chunkIdx: number };
 type Concept = { id: string; label: string; definition: string; importance: number; masteryScore: number; grounding: Grounding[] };
@@ -61,28 +62,6 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
   const [pack, setPack] = useState<PackDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("genel");
-  const [exporting, setExporting] = useState(false);
-
-  async function exportObsidian() {
-    setExporting(true);
-    try {
-      const res = await fetch(`/api/learn/packs/${packId}/obsidian`);
-      const json = await res.json();
-      if (!json.success) return;
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      const enc = new TextEncoder();
-      for (const f of json.files as { path: string; content: string }[]) zip.file(f.path, enc.encode(f.content));
-      const blob = await zip.generateAsync({ type: "blob" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${json.folderName || "ogrenme-paketi"}.zip`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } finally {
-      setExporting(false);
-    }
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -174,12 +153,6 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
         </div>
         <Badge variant="muted" size="sm">{categoryLabel(pack.category)}</Badge>
         <Badge variant="accent" size="sm">Mastery {pack.masteryScore}</Badge>
-        {/* Obsidian aktarımı YALNIZ hazır pakette (not-ready → gizli) */}
-        {isReady && (
-          <Button variant="secondary" size="sm" onClick={exportObsidian} disabled={exporting} loading={exporting} iconLeft={exporting ? undefined : <Download size={14} strokeWidth={2} />}>
-            Obsidian&apos;a aktar
-          </Button>
-        )}
       </div>
 
       {/* NotebookLM özeti temeli — kalıcı dürüstlük uyarısı */}
@@ -205,6 +178,8 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
           </div>
         </Card>
       )}
+
+      {isReady && <LearnExportPanel packId={packId} folderTitle={pack.source?.title || "ogrenme-paketi"} />}
 
       <SubNav items={subNavItems} activeId={tab} onSelect={setTab} />
 
