@@ -113,9 +113,9 @@ describe("reverseEngineerToIdea — Phase 3C sertleştirmesi", () => {
     expect(r.reused).toBe(false);
     expect(r.analysis?.copyingRisk).toBe("low");
     expect(ideaCreate).toHaveBeenCalledTimes(1);
-    // Untrusted fence prompt'ta
+    // Untrusted fence prompt'ta — forge-safe wrapUntrustedData (SEC hardening)
     const call = generateMock.mock.calls[0][0] as { user: string };
-    expect(call.user).toContain("<<<SOURCE>>>");
+    expect(call.user).toContain("<<<KAYNAK_VERI>>>");
   });
 
   it("geçersiz model çıktısı → Idea YAZILMAZ (typed hata)", async () => {

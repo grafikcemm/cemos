@@ -323,7 +323,9 @@ export async function generateJson<T>({
         }
 
         if (!response.ok) {
-          const errorText = await response.text();
+          // Ham sağlayıcı gövdesi sınırlanır (DH-014) — sınırsız gövde/kazara
+          // sızıntı taşınmaz; sınıflandırma zaten classifyOpenRouterError'da.
+          const errorText = (await response.text()).slice(0, 200);
           throw new Error(`OpenRouter error ${response.status}: ${errorText}`);
         }
 

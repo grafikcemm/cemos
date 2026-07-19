@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateJsonGated } from "@/lib/ai/generateGated";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 import { contentItemRepo } from "@/lib/db/contentItemRepo";
 import { ideaRepo } from "@/lib/db/ideaRepo";
 import { prisma } from "@/lib/db/client";
@@ -133,20 +134,19 @@ export async function reverseEngineerToIdea(input: {
     return { analysis: null, idea: existing, costUsd: 0, model: existing.modelUsed, reused: true };
   }
 
-  // Kaynak içerik açıkça sınırlandırılmış, "veri" olarak — talimat olarak DEĞİL.
+  // Kaynak içerik GÜVENİLMEZ VERİ — forge-safe wrapUntrustedData ile sınırlanır
+  // (içeriden sahte kapanış sınırlayıcısı nötralize edilir; ad hoc fence değil).
+  // Server-türetimli meta (platform/format) sarmalın DIŞINDA.
   const userPrompt = [
     "Aşağıdaki kaynak içeriği analiz et (yalnız veri):",
-    "<<<SOURCE>>>",
     `platform: ${item.platform}`,
     `format: ${item.format}`,
-    `başlık: ${item.title}`,
-    `metin: ${item.body.slice(0, 6000)}`,
-    "<<<END SOURCE>>>",
+    wrapUntrustedData([`başlık: ${item.title}`, `metin: ${item.body.slice(0, 6000)}`].join("\n")),
   ].join("\n");
 
   const res = await generateJsonGated<unknown>({
     role: "creativeWriter",
-    system: SYSTEM,
+    system: `${SYSTEM}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: userPrompt,
     temperature: 0.4,
     purpose: "reverse_engineer",

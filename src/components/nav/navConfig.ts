@@ -162,7 +162,9 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   "repo-radar": "news-pool",
   "content-intel": "discovery-engine",
   "ai-rankings": "toolbox",
-  "weekly-learning-report": "morning",
+  // ADR-047: haftalık öğrenme raporu da öğrenme geçmişinin evine (Profil/Hafıza) iner
+  // (yanlış "morning" hedefi düzeltildi — training-center ile tutarlı).
+  "weekly-learning-report": "profile-memory",
   // ADR-045: Eğitim Merkezi'nin geri bildirim/öğrenme geçmişi Profil → CemOS'un
   // bildikleri'ne birleşti (yanlış "morning" alias'ı düzeltildi).
   "training-center": "profile-memory",

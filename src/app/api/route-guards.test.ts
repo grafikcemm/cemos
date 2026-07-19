@@ -20,7 +20,6 @@ import { GET as learningStatusGET } from "./growth/learning-status/route";
 import { GET as patternLibraryGET } from "./growth/pattern-library/route";
 import { GET as pipelineTraceGET } from "./growth/pipeline-trace/route";
 import { GET as sourceIntelligenceGET } from "./growth/source-intelligence/route";
-import { GET as trainingCenterGET } from "./growth/training-center/route";
 import { GET as learnJobGET } from "./learn/jobs/[id]/route";
 import { GET as learnPackGET } from "./learn/packs/[id]/route";
 import { GET as promptLibraryGET } from "./prompt-library/route";
@@ -85,7 +84,6 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/growth/pattern-library", patternLibraryGET],
     ["/api/growth/pipeline-trace", pipelineTraceGET],
     ["/api/growth/source-intelligence", sourceIntelligenceGET],
-    ["/api/growth/training-center", trainingCenterGET],
     ["/api/learn/jobs/abc", (req) => learnJobGET(req, dummyIdCtx)],
     ["/api/learn/packs/abc", (req) => learnPackGET(req, dummyIdCtx)],
     ["/api/prompt-library", promptLibraryGET],

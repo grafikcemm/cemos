@@ -9,6 +9,7 @@
  */
 
 import { generateJsonGated } from "@/lib/ai/generateGated";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 import { createPipelineTrace } from "@/lib/agents/pipeline-runner";
 import { accountProfiles } from "@/lib/accounts";
 import { IG_COMMENT_PURPOSE, IG_REPLY_PURPOSE } from "@/lib/instagram/igConfig";
@@ -61,7 +62,8 @@ export function buildClassifyUserBlock(
   const lines = comments.map(
     (c, i) => `${i}) @${c.username || "?"}: ${(c.text || "").slice(0, 500)}`
   );
-  return `Gönderi başlığı: "${cap}"\n\nYorumlar:\n${lines.join("\n")}`;
+  // Yorumcular yabancı — yorum metni GÜVENİLMEZ VERİ; forge-safe sarmalanır.
+  return `Gönderi başlığı: "${cap}"\n\n${wrapUntrustedData(`Yorumlar:\n${lines.join("\n")}`)}`;
 }
 
 type RawClassifyItem = {
@@ -149,8 +151,10 @@ export function buildReplyUserBlock(input: {
     : "Yorumcu Türkçe yazmış. Sadece textTr üret; textOriginal'i boş bırak.";
   return [
     `Gönderi başlığı: "${(input.caption || "").slice(0, 300)}"`,
-    `Yorum (orijinal): "${(input.commentText || "").slice(0, 500)}"`,
-    `Yorum (Türkçe): "${(input.trText || "").slice(0, 500)}"`,
+    // Yorum metni GÜVENİLMEZ VERİ — forge-safe sarmalanır; JSON talimatı sarmalın DIŞINDA.
+    wrapUntrustedData(
+      [`Yorum (orijinal): "${(input.commentText || "").slice(0, 500)}"`, `Yorum (Türkçe): "${(input.trText || "").slice(0, 500)}"`].join("\n"),
+    ),
     `Niyet: ${input.intent}`,
     "",
     bilingual,
@@ -194,7 +198,7 @@ export async function classifyBatch(
   const r = await generateJsonGated<{ items?: RawClassifyItem[] }>({
     role: "cheapWriter",
     temperature: 0.2,
-    system: CLASSIFY_SYSTEM,
+    system: `${CLASSIFY_SYSTEM}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildClassifyUserBlock(caption, batch),
     purpose: IG_COMMENT_PURPOSE,
     platform: "instagram",
@@ -223,7 +227,7 @@ export async function generateReplyVariants(input: {
     stage: "yanit",
     role: "creativeWriter",
     temperature: 0.8,
-    system: buildReplyVoice(),
+    system: `${buildReplyVoice()}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildReplyUserBlock(input),
   });
   if (input.commentId) await trace.flush(r.actualCostUsd);

@@ -14,6 +14,21 @@ import type { NextRequest } from "next/server";
 
 type JsonValue = Record<string, unknown>;
 
+/**
+ * Kaza sonucu secret sızıntısına karşı tek choke-point (SEC / DH-014). `fail()`'e
+ * ham `err.message` geçen ~119 route bir Prisma bağlantı hatası (DATABASE_URL) ya
+ * da bir sağlayıcı gövdesi (OpenRouter vb.) döndürebilir. Bilinen credential
+ * kalıpları HER mesajda maskelenir; 5xx gövdeleri ayrıca sınırlanır. Normal kısa
+ * kullanıcı mesajları desen eşleşmediğinden DEĞİŞMEZ. (Session gate zaten dış
+ * saldırganı engeller — bu operatör/log yüzeyi için derinlik savunması.)
+ */
+function redactSecrets(msg: string): string {
+  return String(msg ?? "")
+    .replace(/\b(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqp):\/\/[^\s"'<>]+/gi, "$1://[REDACTED]")
+    .replace(/\b(sk|ak|ck|pk|rk|xoxb|ghp|gho|ghs|glpat|fal)[-_][A-Za-z0-9_-]{6,}/g, "[REDACTED_KEY]")
+    .replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, "Bearer [REDACTED]");
+}
+
 /** Build a `{ success: true, ...payload }` response. */
 export function ok(payload: JsonValue = {}, init?: ResponseInit): NextResponse {
   return NextResponse.json({ success: true, ...payload }, init);
@@ -25,7 +40,10 @@ export function fail(
   status: number,
   extra?: JsonValue,
 ): NextResponse {
-  return NextResponse.json({ success: false, error, ...extra }, { status });
+  const safe = redactSecrets(error);
+  // 5xx: ham/sınırsız sağlayıcı/DB gövdesini sınırla (info-leak + verbosity).
+  const bounded = status >= 500 && safe.length > 300 ? `${safe.slice(0, 300)}…` : safe;
+  return NextResponse.json({ success: false, error: bounded, ...extra }, { status });
 }
 
 export type ParsedBody<T = unknown> =

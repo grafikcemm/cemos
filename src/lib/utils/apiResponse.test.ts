@@ -23,6 +23,23 @@ describe("apiResponse helpers", () => {
     expect(await res.json()).toEqual({ success: false, error: "Yetkisiz", code: "forbidden" });
   });
 
+  it("fail() redacts secret patterns in the error message (SEC choke-point)", async () => {
+    const json = (await fail("connect: postgresql://u:pw@h.neon.tech/db + key sk-abcdef123456", 500).json()) as { error: string };
+    expect(json.error).not.toContain("pw@h.neon.tech");
+    expect(json.error).toContain("[REDACTED]");
+    expect(json.error).toContain("[REDACTED_KEY]");
+    const bearer = (await fail("auth Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig failed", 500).json()) as { error: string };
+    expect(bearer.error).toContain("Bearer [REDACTED]");
+  });
+
+  it("fail() bounds 5xx bodies but preserves short 4xx messages", async () => {
+    const long = "x".repeat(500);
+    const r500 = (await fail(long, 500).json()) as { error: string };
+    expect(r500.error.length).toBeLessThanOrEqual(302); // 300 + "…"
+    const r400 = (await fail("Geçersiz alan", 400).json()) as { error: string };
+    expect(r400.error).toBe("Geçersiz alan"); // 4xx kısa mesaj değişmez
+  });
+
   it("parseJsonBody returns ok:true for valid JSON", async () => {
     const parsed = await parseJsonBody(makeReq(JSON.stringify({ a: 1 })));
     expect(parsed).toEqual({ ok: true, data: { a: 1 } });
