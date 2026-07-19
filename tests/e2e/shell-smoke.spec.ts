@@ -1,11 +1,22 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 // Shell etkileşim smoke'ları (rebuild 3-görevli IA): sidebar 3 alan + Toolbox +
 // Profil, Plan/Kütüphane subnav, Profil menü, Cmd-K, mobil 3+1 sheet, sistem
 // drawer, edit-gate. Hepsi hermetik/mutasyonsuz. globalSetup ile kimlikli koşar.
 
-test("sidebar: 3 TOP-LEVEL + Araştırma grubu + Toolbox + Profil (ADR-040; absorbed legacy adı yok)", async ({ page }) => {
+// Hydration guard (ADR-044): SSR paint sidebar'ı listener'lardan ÖNCE görünür kılar →
+// shell-ready (committed effect) beklenmeden yapılan tık yutulabilir (Race A). Bu
+// smoke'lar selectTab yerine MANUEL tıkladığından aynı korumayı burada sağlarız.
+async function gotoReady(page: Page) {
   await page.goto("/");
+  await page.locator('[data-shell-ready="true"]').waitFor({ state: "attached" });
+}
+async function settle(page: Page) {
+  await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: 30_000 });
+}
+
+test("sidebar: 3 TOP-LEVEL + Araştırma grubu + Toolbox + Profil (ADR-040; absorbed legacy adı yok)", async ({ page }) => {
+  await gotoReady(page);
   const sidebar = page.locator(".app-sidebar");
   await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
   await expect(page.getByTestId("sidebar-area-plan")).toBeVisible();
@@ -24,7 +35,7 @@ test("sidebar: 3 TOP-LEVEL + Araştırma grubu + Toolbox + Profil (ADR-040; abso
 });
 
 test("hesap değiştirici (§8F): non-modal popover; Escape kapatır + focus döner; kanal değişir", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
   const trigger = page.getByTestId("sidebar-account");
   await trigger.click();
@@ -46,18 +57,19 @@ test("hesap değiştirici (§8F): non-modal popover; Escape kapatır + focus dö
 });
 
 test("Plan alanı subnav ile açılır ve Fırsatlar'a geçer", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   await page.getByTestId("sidebar-area-plan").click();
   await expect(page.getByRole("banner").getByText("Plan", { exact: true })).toBeVisible();
   await expect(page.getByTestId("subnav-tab-plan-takvim")).toBeVisible();
   await page.getByTestId("subnav-tab-plan-firsatlar").click();
   await expect(page.getByRole("banner").getByText("Fırsatlar")).toBeVisible();
   // Faz 1D: gerçek Fırsatlar yüzeyi (placeholder değil) — segment filtresi görünür.
+  await settle(page);
   await expect(page.getByTestId("opp-segment-all")).toBeVisible();
 });
 
 test("Kütüphane alanı Tümü host'unu açar", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   await page.getByTestId("sidebar-area-kutuphane").click();
   await expect(page.getByRole("banner").getByText("Kütüphane", { exact: true })).toBeVisible();
   await expect(page.getByTestId("subnav-tab-lib-tumu")).toBeVisible();
@@ -67,7 +79,7 @@ test("Kütüphane alanı Tümü host'unu açar", async ({ page }) => {
 });
 
 test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana navda değil)", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   await page.getByTestId("sidebar-profile").click();
   const menu = page.getByTestId("profile-menu");
   await expect(menu).toBeVisible();
@@ -83,7 +95,7 @@ test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana nav
 });
 
 test("Cmd-K advanced araştırma ekranını açar (Araştırma / Viral Radar; sidebar'da highlight)", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   // Cmd-K dinleyicisi hydration'da bağlanır → önce shell'in hazır olduğunu bekle.
   await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
   await page.keyboard.press("Control+k");
@@ -99,7 +111,7 @@ test("Cmd-K advanced araştırma ekranını açar (Araştırma / Viral Radar; si
 
 test("mobil bottom nav 3+1: alan geç, re-tap sheet, Profil sheet", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await gotoReady(page);
   await expect(page.getByTestId("bottomnav-bugun")).toBeVisible();
   await expect(page.getByTestId("bottomnav-profil")).toBeVisible();
 
@@ -118,7 +130,7 @@ test("mobil bottom nav 3+1: alan geç, re-tap sheet, Profil sheet", async ({ pag
 });
 
 test("sistem durum butonu sorun drawer'ını açar", async ({ page }) => {
-  await page.goto("/");
+  await gotoReady(page);
   await page.getByRole("button", { name: /Sistem durumu/ }).click();
   await expect(page.getByText("Sistem Durumu")).toBeVisible();
   await expect(page.getByText("Bugünkü maliyet")).toBeVisible();
