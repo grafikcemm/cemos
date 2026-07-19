@@ -20,6 +20,14 @@ import {
 export async function selectTab(page: Page, tabId: string): Promise<void> {
   const id = normalizeTabId(tabId);
 
+  // Hydration-race guard (Phase 5A / ADR-044): the SSR paint renders the sidebar
+  // as visible/clickable before React attaches listeners, so a click can land
+  // pre-hydration and be swallowed (activeTab never changes). Wait for AppShell's
+  // committed-effect signal — a real user-interactive milestone, not a timeout —
+  // before any navigation click. Covers every path below (area/subnav, toolbox,
+  // profile, Cmd+K: child effects commit before the shell-ready parent effect).
+  await page.locator('[data-shell-ready="true"]').waitFor({ state: "attached" });
+
   const area = resolveAreaForTab(id);
   if (area) {
     await page.getByTestId(`sidebar-area-${area}`).click();
@@ -42,8 +50,9 @@ export async function selectTab(page: Page, tabId: string): Promise<void> {
 
   if (isAdvancedTab(id)) {
     // Advanced ekranlar sidebar'da yok → Cmd+K. Klavye dinleyicisi hydration'da
-    // bağlanır → önce shell'in hazır olduğunu bekle (Ctrl+K yarışını önler).
-    await page.getByTestId("sidebar-area-bugun").waitFor({ state: "visible" });
+    // bağlanır; üstteki shell-ready guard onun bağlı olduğunu garanti eder
+    // (CommandPalette child effect'i shell-ready parent effect'inden ÖNCE commit
+    // olur) → ayrı bir visible-guard'a gerek yok.
     await page.keyboard.press("Control+k");
     await page.getByLabel("Ekran ara").fill(labelForTab(id));
     await page.keyboard.press("Enter");

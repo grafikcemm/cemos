@@ -14,10 +14,22 @@ async function noHorizontalOverflow(page: import("@playwright/test").Page) {
   );
 }
 
+/**
+ * Kullanıcı-görünür "settled" sinyali: tüm skeleton'lar kalktı (`data-skeleton`
+ * count 0) — veri ilk yüklemesi bitti. Faz 1D.1 sözleşmesinin kullandığı AYNI
+ * sinyal (arbitrary wait DEĞİL). First-navigation'da segment/anchor henüz
+ * skeleton'ın altındayken assert'i beklemekten korur (Race B).
+ */
+const SETTLE_TIMEOUT = 30_000;
+async function waitSettled(page: import("@playwright/test").Page) {
+  await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
+}
+
 test.describe("Plan yüzeyleri gerçek", () => {
   test("Takvim: ay ızgarası + kanal filtresi + reels planı eylemi", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "plan-takvim");
+    await waitSettled(page);
     await expect(page.getByTestId("takvim-view-month")).toBeVisible();
     await expect(page.getByTestId("takvim-channel-reels")).toBeVisible();
     await expect(page.getByTestId("takvim-plan-open")).toBeVisible();
@@ -27,6 +39,8 @@ test.describe("Plan yüzeyleri gerçek", () => {
   test("Fırsatlar: kürasyon segmentleri (placeholder değil)", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "plan-firsatlar");
+    // Race B: segment butonları FirsatlarTab skeleton'ının ALTINDA — önce settle.
+    await waitSettled(page);
     await expect(page.getByTestId("opp-segment-all")).toBeVisible();
     await expect(page.getByTestId("opp-segment-news")).toBeVisible();
     await expect(page.getByTestId("host-placeholder")).toHaveCount(0);
@@ -45,6 +59,7 @@ test.describe("Kütüphane yüzeyleri gerçek", () => {
   test("Tümü: birleşik arama + tür segmentleri; '/' odak", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "lib-tumu");
+    await waitSettled(page);
     await expect(page.getByTestId("lib-search")).toBeVisible();
     await expect(page.getByTestId("lib-type-all")).toBeVisible();
     await expect(page.getByTestId("lib-type-pattern")).toBeVisible();
@@ -65,6 +80,7 @@ test.describe("Kütüphane yüzeyleri gerçek", () => {
   test("Öğrenme: durum sekmeleri (Gelen kutusu) veya kapalı-durum", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "lib-ogrenme");
+    await waitSettled(page);
     // Modül açıksa durum sekmeleri; kapalıysa dürüst blocked-external.
     const inbox = page.getByTestId("learn-tab-inbox");
     const url = page.getByTestId("learn-url");
@@ -87,6 +103,7 @@ test.describe("Profil yüzeyleri gerçek", () => {
   test("Entegrasyonlar: env-code görünür, secret VALUE yok; X API blocked-external", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "profile-integrations");
+    await waitSettled(page);
     await expect(page.getByTestId("integration-row-openrouter")).toBeVisible();
     // Env NAME code olarak; hiçbir yerde "sk-" gibi secret değeri yok.
     await expect(page.getByText("OPENROUTER_API_KEY").first()).toBeVisible();
@@ -123,6 +140,7 @@ test.describe("Erişim + taşma sözleşmeleri", () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
       await selectTab(page, "lib-tumu");
+      await waitSettled(page);
       await expect(page.getByTestId("lib-search")).toBeVisible();
       expect(await noHorizontalOverflow(page)).toBe(true);
     }
@@ -132,8 +150,8 @@ test.describe("Erişim + taşma sözleşmeleri", () => {
 test.describe("Settled-state sözleşmesi (Faz 1D.1)", () => {
   // Loading state makul sürede KALKMALI ve yerine semantik bir success/empty/
   // error/blocked göstergesi gelmeli. Yalnız networkidle'a veya skeleton'ın
-  // "bir an görünmesine" güvenilmez — kalkması doğrulanır.
-  const SETTLE_TIMEOUT = 30_000;
+  // "bir an görünmesine" güvenilmez — kalkması doğrulanır. SETTLE_TIMEOUT +
+  // waitSettled artık modül düzeyinde (aynı sinyali başarısız-testler de kullanır).
 
   const SURFACES: { tab: string; anchor: string }[] = [
     { tab: "plan-takvim", anchor: "takvim-view-month" },
@@ -177,6 +195,7 @@ test.describe("Advanced araştırma ekranları (Cmd+K, yeniden tasarlandı)", ()
   test("Viral Radar: pipeline + sessiz metrik (8-KPI hero yok); placeholder yok", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "flow-radar");
+    await waitSettled(page);
     await expect(page.getByRole("banner").getByText("Viral Radar")).toBeVisible();
     // Pipeline künye (arketip): Tara → Puanla → Karar Ver → Üret.
     await expect(page.getByText(/puanla/i).first()).toBeVisible();
@@ -186,6 +205,7 @@ test.describe("Advanced araştırma ekranları (Cmd+K, yeniden tasarlandı)", ()
   test("X Hesabı Kaynakları: ölü 'Flow'a Gönder' butonu KALDIRILDI; placeholder yok", async ({ page }) => {
     await page.goto("/");
     await selectTab(page, "source-intelligence");
+    await waitSettled(page);
     await expect(page.getByRole("banner").getByText("X Hesabı Kaynakları")).toBeVisible();
     // Sprint-9 ölü placeholder butonu (cursor:not-allowed) artık yok.
     await expect(page.getByText("Flow'a Gönder")).toHaveCount(0);

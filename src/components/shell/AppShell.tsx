@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useXAgentStore } from "@/store/xagent";
 import { SystemHealthProvider } from "./SystemHealthProvider";
 import {
@@ -61,6 +61,19 @@ export default function AppShell({ initialTab }: AppShellProps) {
   const lastTabByArea = useRef<Partial<Record<PrimaryAreaId, string>>>({});
   const seeded = useRef(false);
   const savedTweetsDrained = useRef(false);
+
+  // First-navigation hydration readiness (Phase 5A / ADR-044). `/` is a fully
+  // "use client" tree (page → XAgentApp → AppShell) with no Suspense boundary, so
+  // the SSR paint renders the sidebar as visible/clickable BEFORE React attaches
+  // event listeners. A click landing in that window is swallowed → activeTab never
+  // changes (the first-navigation flake). A committed effect is React's own
+  // guarantee that hydration has finished and listeners are attached; child
+  // effects (e.g. CommandPalette's key listener) commit before this parent effect,
+  // and the store's persist hydration is synchronous, so this is the last
+  // hydration milestone. Surfaced to the DOM so e2e navigation waits on a real
+  // user-interactive signal instead of racing (no waitForTimeout).
+  const [shellReady, setShellReady] = useState(false);
+  useEffect(() => setShellReady(true), []);
 
   // Standalone route seeding: force the route's tab once. Folded deep-link id'leri
   // (content-radar/repo-radar…) host + alt-görünüme yönlendirilir.
@@ -163,7 +176,7 @@ export default function AppShell({ initialTab }: AppShellProps) {
 
   return (
     <SystemHealthProvider>
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
+    <div data-shell-ready={shellReady ? "true" : "false"} style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--bg-base)", color: "var(--text-primary)" }}>
       <CommandPalette activeTab={activeTab} onNavigate={setActiveTab} />
 
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
