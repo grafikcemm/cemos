@@ -11,13 +11,27 @@ import {
   ChevronsUpDown,
   Check,
   Compass,
+  Newspaper,
+  MonitorPlay,
+  Flame,
+  Telescope,
+  AtSign,
   type LucideIcon,
 } from "lucide-react";
 import { useXAgentStore, DEFAULT_CHANNELS, type Channel } from "@/store/xagent";
-import { PRIMARY_AREAS, type PrimaryAreaId } from "@/components/nav/navConfig";
+import {
+  PRIMARY_AREAS,
+  researchNavItems,
+  resolveAreaForTab,
+  normalizeTabId,
+  isAdvancedTab,
+  subTabsOfArea,
+  type PrimaryAreaId,
+} from "@/components/nav/navConfig";
 import AppIcon from "@/components/ui/AppIcon";
 import Popover from "@/components/ui/Popover";
 import ProfileMenu from "./ProfileMenu";
+import SidebarNowModule from "./SidebarNowModule";
 
 
 const AREA_ICONS: Record<string, LucideIcon> = {
@@ -26,29 +40,44 @@ const AREA_ICONS: Record<string, LucideIcon> = {
   Library,
 };
 
+const RESEARCH_ICON_MAP: Record<string, LucideIcon> = {
+  Newspaper,
+  MonitorPlay,
+  Flame,
+  Telescope,
+  AtSign,
+  Compass,
+};
+
 type SidebarProps = {
+  activeTab: string;
   highlightArea: PrimaryAreaId | null;
   toolboxActive: boolean;
   profileActive: boolean;
   activeProfileId: string | null;
   onSelectArea: (areaId: PrimaryAreaId) => void;
+  onSelectTab: (tabId: string) => void;
   onSelectToolbox: () => void;
   onSelectProfileTab: (tabId: string) => void;
   onNavigate?: () => void;
 };
 
 /**
- * Referans-sadakat sidebar (ADR-021): near-black rail → özgün CemOS lockup →
- * işlenmiş hesap bağlam kartı → Bugün/Plan/Kütüphane (nötr grafit slab, terracotta
- * yalnız ikon vurgusu) → ayırıcı → Toolbox → Profil. Ortak CSS sınıfları (inline
- * style + JS hover yerine). Tüm ikonlar AppIcon (tek optik boyut/stroke).
+ * Referans-sadakat sidebar (ADR-021 + ADR-040 yoğunluk): near-black rail → özgün
+ * CemOS lockup → işlenmiş hesap bağlam kartı → 3 TOP-LEVEL görev alanı (aktif alan
+ * anlamlı alt hedeflerini AÇAR) → hiyerarşik "Araştırma" grubu (keşfedilebilir,
+ * katlanabilir) → "Araçlar" (Toolbox) → gerçek-veri "Şimdi" özeti → Profil.
+ * Minimalizm = yalnız 3 top-level; işlevleri saklamak veya boş ray DEĞİL.
+ * Tüm ikonlar AppIcon (tek optik boyut/stroke).
  */
 export default function Sidebar({
+  activeTab,
   highlightArea,
   toolboxActive,
   profileActive,
   activeProfileId,
   onSelectArea,
+  onSelectTab,
   onSelectToolbox,
   onSelectProfileTab,
   onNavigate,
@@ -56,6 +85,16 @@ export default function Sidebar({
   const activeChannel = useXAgentStore((s) => s.activeChannel);
   const setActiveChannel = useXAgentStore((s) => s.setActiveChannel);
   const [profileOpen, setProfileOpen] = useState(false);
+
+  const normalizedTab = normalizeTabId(activeTab);
+  const activeArea = resolveAreaForTab(activeTab); // yalnız birincil alan üyeleri
+  const researchActive = isAdvancedTab(activeTab);
+  const research = researchNavItems();
+
+  // Araştırma grubu katlanma durumu — sidebar mount boyunca yaşar (shell'de
+  // kalıcı). Aktif bir araştırma ekranı varsa daima açık (aktif öğe görünsün).
+  const [researchOpen, setResearchOpen] = useState(true);
+  const researchExpanded = researchOpen || researchActive;
 
   const go = (fn: () => void) => {
     fn();
@@ -81,21 +120,80 @@ export default function Sidebar({
         <AccountCard channel={activeChannel} onSelect={setActiveChannel} />
       </div>
 
-      {/* Ana nav + Toolbox */}
-      <nav className="cx-sidebar-scroll">
-        {PRIMARY_AREAS.map((area) => (
-          <NavItem
-            key={area.id}
-            testid={`sidebar-area-${area.id}`}
-            label={area.label}
-            icon={AREA_ICONS[area.icon] ?? Compass}
-            active={highlightArea === area.id && !toolboxActive && !profileActive}
-            onClick={() => go(() => onSelectArea(area.id))}
-          />
-        ))}
+      {/* Ana nav (kaydırılabilir): 3 alan + aktif alt-nav + Araştırma + Araçlar */}
+      <nav className="cx-sidebar-scroll" aria-label="Ana navigasyon">
+        {PRIMARY_AREAS.map((area) => {
+          const isAreaActive = highlightArea === area.id && !toolboxActive && !profileActive && !researchActive;
+          const subTabs = subTabsOfArea(area.id);
+          const showSub = activeArea === area.id && subTabs.length > 1;
+          return (
+            <div key={area.id}>
+              <NavItem
+                testid={`sidebar-area-${area.id}`}
+                label={area.label}
+                icon={AREA_ICONS[area.icon] ?? Compass}
+                active={isAreaActive}
+                onClick={() => go(() => onSelectArea(area.id))}
+              />
+              {showSub && (
+                <div className="cx-subnav" role="group" aria-label={`${area.label} alt sekmeleri`}>
+                  {subTabs.map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      data-testid={`sidebar-subtab-${st.id}`}
+                      onClick={() => go(() => onSelectTab(st.id))}
+                      aria-current={normalizedTab === st.id ? "page" : undefined}
+                      className="cx-subnav-item"
+                    >
+                      <span className="cx-subnav-rail" aria-hidden />
+                      <span className="cx-nav-label">{st.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
+        {/* ── Araştırma (hiyerarşik, keşfedilebilir grup) ── */}
         <div className="cx-divider" aria-hidden />
+        <button
+          type="button"
+          data-testid="sidebar-research-toggle"
+          className="cx-group-header"
+          aria-expanded={researchExpanded}
+          aria-controls="sidebar-research-group"
+          onClick={() => setResearchOpen((v) => !v)}
+        >
+          <span className="cx-section-label" style={{ margin: 0, padding: 0 }}>
+            Araştırma
+          </span>
+          <AppIcon
+            icon={ChevronDown}
+            size="sm"
+            style={{ opacity: 0.55, transform: researchExpanded ? "none" : "rotate(-90deg)", transition: "transform .16s var(--ease-out)" }}
+          />
+        </button>
+        {researchExpanded && (
+          <div id="sidebar-research-group" role="group" aria-label="Araştırma ekranları">
+            {research.map((item) => (
+              <NavItem
+                key={item.id}
+                testid={`sidebar-research-${item.id}`}
+                label={item.label}
+                icon={RESEARCH_ICON_MAP[item.icon] ?? Compass}
+                active={researchActive && normalizedTab === item.id}
+                small
+                onClick={() => go(() => onSelectTab(item.id))}
+              />
+            ))}
+          </div>
+        )}
 
+        {/* ── Araçlar ── */}
+        <div className="cx-divider" aria-hidden />
+        <div className="cx-section-label">Araçlar</div>
         <NavItem
           testid="sidebar-toolbox"
           label="Toolbox"
@@ -104,6 +202,9 @@ export default function Sidebar({
           onClick={() => go(onSelectToolbox)}
         />
       </nav>
+
+      {/* Gerçek-veri "Şimdi" özeti (canonical health reuse) */}
+      <SidebarNowModule onNavigate={(id) => go(() => onSelectTab(id))} />
 
       {/* Dip: Profil */}
       <div style={{ padding: 12, borderTop: "1px solid var(--border-faint)", flexShrink: 0 }}>
@@ -172,17 +273,24 @@ function NavItem({
   label,
   icon,
   active,
+  small,
   onClick,
 }: {
   testid: string;
   label: string;
   icon: LucideIcon;
   active: boolean;
+  small?: boolean;
   onClick: () => void;
 }) {
   return (
-    <button data-testid={testid} onClick={onClick} aria-current={active ? "page" : undefined} className="cx-nav-item">
-      <AppIcon icon={icon} size="md" active={active} />
+    <button
+      data-testid={testid}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={small ? "cx-nav-item cx-nav-item-sm" : "cx-nav-item"}
+    >
+      <AppIcon icon={icon} size={small ? "sm" : "md"} active={active} />
       <span className="cx-nav-label">{label}</span>
     </button>
   );

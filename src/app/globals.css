@@ -576,6 +576,117 @@ b {
   letter-spacing: -0.02em;
 }
 
+/* ── ADR-040: sidebar yoğunluk — aktif alan alt-nav + Araştırma grubu + Şimdi
+   özeti. 3 top-level korunur; alt hedefler hiyerarşik + keşfedilebilir olur. ── */
+
+/* Araştırma grubu öğeleri — birincil satırdan bir tık küçük. */
+.cx-nav-item-sm {
+  height: 34px;
+}
+
+/* Aktif alanın alt hedefleri (Plan: Takvim/Fırsatlar/Seriler · Kütüphane: …). */
+.cx-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 1px 0 3px;
+}
+.cx-subnav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out);
+}
+.cx-subnav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.cx-subnav-item[aria-current="page"] {
+  color: var(--text-primary);
+}
+.cx-subnav-item[aria-current="page"] .cx-subnav-rail {
+  background: var(--accent-text);
+}
+.cx-subnav-rail {
+  width: 2px;
+  height: 15px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  background: var(--border-strong);
+  transition: background 0.14s var(--ease-out);
+}
+
+/* Grup başlığı (Araştırma katlama tetikleyicisi). */
+.cx-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 11px 4px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+}
+.cx-group-header:hover .cx-section-label {
+  color: var(--text-muted);
+}
+
+/* "Şimdi" özeti — Profil'in üstünde, gerçek/canonical health verisi. */
+.cx-now {
+  flex-shrink: 0;
+  padding: 12px 12px 10px;
+  margin: 0 4px;
+  border-top: 1px solid var(--border-faint);
+}
+.cx-now-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.14s var(--ease-out);
+}
+.cx-now-row:hover {
+  background: var(--bg-hover);
+}
+.cx-now-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.cx-now-empty {
+  padding: 4px 8px 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
 /* Workspace paneli — ana içerik frame'den koyu, yuvarlak köşeli panel içinde
    yaşar (dark dashboard referansı). overflow:clip scroll container OLUŞTURMAZ,
    sticky TopStrip çalışmaya devam eder. */

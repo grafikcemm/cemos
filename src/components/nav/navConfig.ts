@@ -66,6 +66,46 @@ export const ADVANCED_TABS: readonly AdvancedTab[] = [
   { id: "source-intelligence", label: "X Hesabı Kaynakları", parentArea: "plan" },
 ];
 
+/**
+ * ADR-040: "Araştırma" sidebar grubu — SUNUM katmanı, sınıflandırma DEĞİL. Bu
+ * ekranlar hâlâ REDESIGNED-ADVANCED'tir (resolveAreaForTab → null, parentArea
+ * "plan" highlight için), ama artık ana rail'de kendi hiyerarşik grubunda
+ * keşfedilebilir (yalnız Fırsatlar/Cmd+K arkasında saklı değil). Kısa etiket +
+ * lucide ikon; ADVANCED_TABS tek kaynaktır (bu yalnız ikon + kısa ad ekler).
+ */
+export const RESEARCH_ICONS: Readonly<Record<string, string>> = {
+  "news-pool": "Newspaper",
+  youtube: "MonitorPlay",
+  "flow-radar": "Flame",
+  "discovery-engine": "Telescope",
+  "source-intelligence": "AtSign",
+};
+
+/** Sidebar "Araştırma" grubu için kısa etiketler (uzun ADVANCED_TABS etiketleri
+ *  dar rail'de taşar). id → kısa ad; etiket YİNE tek-kaynak labelForTab'ten türer
+ *  değilse fallback tam etiket. */
+const RESEARCH_SHORT_LABELS: Readonly<Record<string, string>> = {
+  "news-pool": "Haberler",
+  youtube: "YouTube",
+  "flow-radar": "Viral Radar",
+  "discovery-engine": "Keşif",
+  "source-intelligence": "X Kaynakları",
+};
+
+export type ResearchNavItem = { readonly id: string; readonly label: string; readonly icon: string };
+
+/**
+ * Sidebar "Araştırma" grubu öğeleri (id + kısa etiket + lucide ikon adı).
+ * ADVANCED_TABS sırasını korur; tek kaynak. Sınıflandırmayı DEĞİŞTİRMEZ.
+ */
+export function researchNavItems(): ResearchNavItem[] {
+  return ADVANCED_TABS.map((t) => ({
+    id: t.id,
+    label: RESEARCH_SHORT_LABELS[t.id] ?? t.label,
+    icon: RESEARCH_ICONS[t.id] ?? "Compass",
+  }));
+}
+
 /** Yardımcı (utility) — ana alanlar altında ayrı, küçük. Yalnız Toolbox. */
 export type UtilityTab = { readonly id: string; readonly label: string; readonly icon: string };
 

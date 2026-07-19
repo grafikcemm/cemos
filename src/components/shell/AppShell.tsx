@@ -108,7 +108,9 @@ export default function AppShell({ initialTab }: AppShellProps) {
   } else if (toolboxActive) {
     areaLabel = "Toolbox";
   } else if (advanced) {
-    areaLabel = PRIMARY_AREAS.find((a) => a.id === advanced.parentArea)?.label ?? "Plan";
+    // ADR-040: araştırma ekranları artık ayrı "Araştırma" grubunda (Plan alt-
+    // detayı değil) → breadcrumb kökü de "Araştırma".
+    areaLabel = "Araştırma";
     subTabLabel = advanced.label;
   } else if (primaryArea) {
     areaLabel = PRIMARY_AREAS.find((a) => a.id === primaryArea)?.label ?? "Bugün";
@@ -140,11 +142,13 @@ export default function AppShell({ initialTab }: AppShellProps) {
       <div style={{ display: "flex", flex: 1, minHeight: 0, minWidth: 0 }}>
         <div className="app-sidebar-desktop">
           <Sidebar
+            activeTab={normalizedTab}
             highlightArea={highlightArea}
             toolboxActive={toolboxActive}
             profileActive={profileActive}
             activeProfileId={activeProfileId}
             onSelectArea={handleSelectArea}
+            onSelectTab={setActiveTab}
             onSelectToolbox={() => setActiveTab("toolbox")}
             onSelectProfileTab={setActiveTab}
           />

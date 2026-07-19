@@ -19,6 +19,7 @@ import {
   subTabsOfArea,
   seedTargetForTab,
   allNavigableTabs,
+  researchNavItems,
 } from "./navConfig";
 
 /** Tüm CANLI (doğrudan render edilebilir) tab id'leri. */
@@ -222,6 +223,31 @@ describe("normalizeAreaId + AREA_ALIASES", () => {
     expect(normalizeAreaId("kesif")).toBe("plan");
     expect(normalizeAreaId("hafiza")).toBe("kutuphane");
     expect(normalizeAreaId("plan")).toBe("plan");
+  });
+});
+
+describe("researchNavItems (ADR-040 sidebar Araştırma grubu — SUNUM katmanı)", () => {
+  it("ADVANCED_TABS sırasını korur + tümü icon taşır", () => {
+    const items = researchNavItems();
+    expect(items.map((i) => i.id)).toEqual(ADVANCED_TABS.map((t) => t.id));
+    for (const it of items) {
+      expect(it.icon, `${it.id} ikonsuz`).toBeTruthy();
+      expect(it.label, `${it.id} etiketsiz`).toBeTruthy();
+    }
+  });
+
+  it("sunum katmanı sınıflandırmayı DEĞİŞTİRMEZ (hâlâ advanced, alana ait değil)", () => {
+    for (const it of researchNavItems()) {
+      expect(isAdvancedTab(it.id), `${it.id} advanced kalmalı`).toBe(true);
+      expect(resolveAreaForTab(it.id), `${it.id} birincil alana çözülmemeli`).toBeNull();
+    }
+  });
+
+  it("kısa etiketler dar rail için gerçek/anlamlı (ham id sızmaz)", () => {
+    const byId = Object.fromEntries(researchNavItems().map((i) => [i.id, i.label]));
+    expect(byId["news-pool"]).toBe("Haberler");
+    expect(byId["source-intelligence"]).toBe("X Kaynakları");
+    for (const it of researchNavItems()) expect(it.label).not.toBe(it.id);
   });
 });
 
