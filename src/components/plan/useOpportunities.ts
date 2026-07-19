@@ -36,7 +36,7 @@ type RawNews = {
   newsSource?: { name?: string } | null;
 };
 type RawYt = { videoId: string; title?: string; viewsPerDay?: number; outlierScore?: number; publishedAt?: string | null };
-type RawRadar = { contentItemId: string; author?: string; caption?: string; multiplier?: number; insufficient?: boolean };
+type RawRadar = { contentItemId: string; author?: string; caption?: string; multiplier?: number; insufficient?: boolean; url?: string | null };
 type RawFlow = {
   id: string;
   sourceHandle?: string;
@@ -129,6 +129,7 @@ function mapRadar(items: RawRadar[]): OpportunityInput[] {
       sourcePlatform: "Instagram",
       topicSeed: (i.caption || "").slice(0, 200),
       rawTab: "", // IG outlier'ın standalone advanced ekranı yok (§14)
+      url: i.url ?? undefined, // rakip outlier → IG post derin bağlantısı (Phase 5A)
     };
   });
 }

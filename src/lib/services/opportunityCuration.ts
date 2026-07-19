@@ -38,6 +38,8 @@ export type OpportunityInput = {
   topicSeed: string;
   /** "Ham araştır" hedef advanced ekran id'si; yoksa "" (link gösterilmez). */
   rawTab: string;
+  /** Kaynak gönderiye derin bağlantı (rakip outlier → IG post); yoksa gösterilmez. */
+  url?: string;
 };
 
 export type Opportunity = OpportunityInput & {

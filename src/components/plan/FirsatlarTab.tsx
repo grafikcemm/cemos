@@ -9,6 +9,7 @@ import { OPPORTUNITY_SEGMENTS, type Opportunity, type OpportunitySourceKind } fr
 import { createHandoffFromOpportunity, type HandoffDto } from "@/components/handoff/useHandoffs";
 import { useOpportunities } from "./useOpportunities";
 import { useAccounts } from "./useAccounts";
+import CompetitorWatchlistCard from "./CompetitorWatchlistCard";
 
 /**
  * Plan / Fırsatlar (05 §C2) — ham motor sonuçlarını birkaç editoryal fırsata
@@ -179,6 +180,10 @@ export default function FirsatlarTab() {
         </div>
       </div>
 
+      {/* Rakip segmentinde: izlenen rakip hesap yönetimi (Phase 5A — emekli
+          CompetitorRadarSection'ın benzersiz "hesap ekle" eylemi canonical eve taşındı). */}
+      {segment === "radar" && <CompetitorWatchlistCard />}
+
       {/* Kısmi motor hataları/engelleri (bütünü bozmaz) */}
       {notes.map((n) =>
         n.kind === "blocked" ? (
@@ -291,6 +296,13 @@ export default function FirsatlarTab() {
                   <Button size="sm" variant="ghost" onClick={() => goRaw(o)} iconRight={<ArrowUpRight size={13} strokeWidth={2} />}>
                     Ham araştır
                   </Button>
+                )}
+                {o.url && (
+                  <a href={o.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }} data-testid={`opp-open-${o.id}`}>
+                    <Button size="sm" variant="ghost" iconRight={<ArrowUpRight size={13} strokeWidth={2} />}>
+                      Instagram&apos;da aç
+                    </Button>
+                  </a>
                 )}
               </>
             }
