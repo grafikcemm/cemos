@@ -398,7 +398,13 @@ model FeedbackEvent {
   // eder (KPI okuyucusu kolon-önce, JSON-fallback). null = edit sinyali yok.
   editDistance    Float?
   platform        String   @default("x")
+  // Phase 5A (ADR-044): açık geri bildirim çift-tık/retry idempotency — client key
+  // üretir → sunucu pre-check + P2002 backstop (LearnReviewAttempt/PublishAttempt
+  // deseni). NULL-distinct: key'siz (legacy/opsiyonel) satırlar serbest çoğaltılır.
+  idempotencyKey  String?
   createdAt       DateTime @default(now())
+
+  @@unique([idempotencyKey])
 }
 
 model EvalTest {

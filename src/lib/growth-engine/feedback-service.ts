@@ -185,6 +185,7 @@ export function buildFeedbackEventInput(input: FeedbackApiInput) {
     editedContent: input.editedContent ?? "",
     reason,
     editDistance,
+    idempotencyKey: input.idempotencyKey ?? null,
   };
 }
 
@@ -212,6 +213,11 @@ export function buildTrainingExampleFromFeedback(
     reason: input.reason ?? "",
     metricsJson,
   };
+}
+
+/** Prisma unique-constraint (P2002) tespiti — idempotencyKey yarış backstop'u. */
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2002";
 }
 
 /**
@@ -251,9 +257,28 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
     throw new Error("No content provided in feedback input");
   }
 
+  // 3b. Phase 5A (ADR-044): idempotency gate — aynı client key ikinci kez YAN ETKİ
+  // (memory sinyali / pattern reweight / TrainingExample / embedding / ViralPattern)
+  // tetiklemez. Pre-check (sıralı çift-tık) + create P2002 backstop (gerçek yarış).
+  if (fb.idempotencyKey) {
+    const prior = await feedbackEventRepo.findByIdempotencyKey(fb.idempotencyKey);
+    if (prior) {
+      return { success: true, feedbackEventId: prior.id, warnings: ["idempotent_replay"] };
+    }
+  }
+
   // 4. Create FeedbackEvent (Mandatory)
   const feedbackInput = buildFeedbackEventInput(fb);
-  const feedbackEvent = await feedbackEventRepo.create(feedbackInput);
+  let feedbackEvent: Awaited<ReturnType<typeof feedbackEventRepo.create>>;
+  try {
+    feedbackEvent = await feedbackEventRepo.create(feedbackInput);
+  } catch (err) {
+    if (fb.idempotencyKey && isUniqueViolation(err)) {
+      const prior = await feedbackEventRepo.findByIdempotencyKey(fb.idempotencyKey);
+      if (prior) return { success: true, feedbackEventId: prior.id, warnings: ["idempotent_replay"] };
+    }
+    throw err;
+  }
 
   // 4a. Faz 2B (ADR-029) — deterministik memory sinyal köprüsü: tanımlı tag /
   // gerçek operatör reason'ı idempotent kanıt+proposal'a işlenir (LLM'siz).

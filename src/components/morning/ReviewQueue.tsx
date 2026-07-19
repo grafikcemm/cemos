@@ -30,7 +30,7 @@ const isDone = (d: MorningDraft) =>
  * o taslağa taşır. J kısayolu sıradaki bekleyene atlar.
  */
 export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
-  const { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished } = queue;
+  const { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished, sendFeedback, rescore } = queue;
   const [generating, setGenerating] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
 
@@ -163,6 +163,8 @@ export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
           onSaveSegments={saveSegments}
           onPrepareIntent={prepareIntent}
           onMarkPublished={markPublished}
+          onFeedback={sendFeedback}
+          onRescore={rescore}
           onToast={onToast}
           onSkip={handleSkip}
         />

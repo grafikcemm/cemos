@@ -981,7 +981,7 @@ async function scoreSourcePostWithAI(
 // AI-powered scoring — draft
 // ---------------------------------------------------------------------------
 
-async function scoreDraftWithAI(
+export async function scoreDraftWithAI(
   input: DraftScoringInput
 ): Promise<DraftScore | null> {
   try {

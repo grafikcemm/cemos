@@ -79,7 +79,8 @@ export const CreateFeedbackEventSchema = z.object({
   reason: z.string().optional(),
   // Normalize edit-distance (0..1) — queryable column; null/undefined = yok.
   editDistance: z.number().nullable().optional(),
-  platform: z.string().optional()
+  platform: z.string().optional(),
+  idempotencyKey: z.string().nullable().optional()
 });
 
 export type CreateFeedbackEventInput = z.infer<typeof CreateFeedbackEventSchema>;
@@ -259,7 +260,11 @@ export const FeedbackApiInputSchema = z
     sourceContent: z.string().optional(),
     modeId: z.string().optional(),
     saveTrainingExample: z.boolean().optional().default(true),
-    saveAsPattern: z.boolean().optional().default(false)
+    saveAsPattern: z.boolean().optional().default(false),
+    // Phase 5A (ADR-044): açık geri bildirim çift-tık/retry idempotency. Client
+    // üretir; verilirse processFeedback pre-check + FeedbackEvent unique backstop ile
+    // aynı key ikinci kez YAN ETKİ (TrainingExample/embedding/reweight) DOĞURMAZ.
+    idempotencyKey: z.string().max(200).optional()
   })
   .refine(
     (data) => {

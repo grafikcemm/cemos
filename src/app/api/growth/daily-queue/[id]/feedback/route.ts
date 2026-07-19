@@ -11,6 +11,8 @@ const FeedbackSchema = z.object({
   feedbackType: z.string().max(50).optional(),
   editedContent: z.string().max(10000).optional(),
   reason: z.string().max(2000).optional(),
+  // Phase 5A (ADR-044): çift-tık/retry idempotency (client üretir).
+  idempotencyKey: z.string().max(200).optional(),
 });
 
 export async function POST(
@@ -26,7 +28,7 @@ export async function POST(
     const parsed = FeedbackSchema.safeParse(body.data);
     if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
 
-    const { feedbackType, editedContent, reason } = parsed.data;
+    const { feedbackType, editedContent, reason, idempotencyKey } = parsed.data;
 
     if (!feedbackType) {
       return fail("feedbackType is required.", 400);
@@ -59,6 +61,7 @@ export async function POST(
       modeId: existing.mode,
       saveTrainingExample: true,
       saveAsPattern: false,
+      idempotencyKey,
     });
 
     // Sync database status based on feedback action

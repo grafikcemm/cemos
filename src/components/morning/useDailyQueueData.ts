@@ -282,5 +282,117 @@ export function useDailyQueueData() {
     }
   }, []);
 
-  return { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished };
+  /**
+   * Phase 5A (ADR-044): açık geri bildirim — tek servis (/feedback → processFeedback:
+   * FeedbackEvent + memory sinyali + pattern reweight + TrainingExample). idempotencyKey
+   * ile çift-tık/retry çoğaltmaz. Status'u optimistic yansıt (sunucu da aynı mantığı uygular).
+   */
+  const sendFeedback = useCallback(
+    async (
+      id: string,
+      feedbackType: string,
+      opts: { reason?: string; idempotencyKey: string },
+    ): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const res = await fetch(`/api/growth/daily-queue/${id}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            feedbackType,
+            reason: opts.reason,
+            idempotencyKey: opts.idempotencyKey,
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
+        if (res.ok && data.success) {
+          setDrafts((prev) =>
+            prev.map((d) => {
+              if (d.id !== id) return d;
+              const status =
+                feedbackType === "approved" || feedbackType === "edited"
+                  ? "approved"
+                  : feedbackType === "rejected"
+                    ? "rejected"
+                    : d.status;
+              return { ...d, status };
+            }),
+          );
+          return { ok: true };
+        }
+        return { ok: false, error: data.error || "Geri bildirim kaydedilemedi." };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : "Geri bildirim kaydedilemedi." };
+      }
+    },
+    [],
+  );
+
+  /**
+   * Phase 5A (ADR-044): operatör-tetikli yeniden değerlendirme. 402 → dürüst blocked
+   * (AI kredisi yok); judged=false → degraded heuristik; judged=true → taze skorlar.
+   * scoresParsed'ı anında güncelle (drawer yansıtır).
+   */
+  const rescore = useCallback(
+    async (
+      id: string,
+    ): Promise<{ ok: boolean; judged?: boolean; degraded?: boolean; blocked?: boolean; error?: string }> => {
+      try {
+        const res = await fetch(`/api/growth/daily-queue/${id}/rescore`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          error?: string;
+          judged?: boolean;
+          degraded?: boolean;
+          critic?: Record<string, number>;
+        };
+        if (res.status === 402) {
+          return { ok: false, blocked: true, error: data.error || "AI değerlendirme bütçesi tükendi." };
+        }
+        if (res.ok && data.success) {
+          const judged = data.judged === true;
+          const critic = (data.critic ?? {}) as Record<string, number | undefined>;
+          setDrafts((prev) =>
+            prev.map((d) => {
+              if (d.id !== id || !d.scoresParsed) return d;
+              return {
+                ...d,
+                scoresParsed: {
+                  ...d.scoresParsed,
+                  hookStrengthScore: critic.hookStrengthScore ?? d.scoresParsed.hookStrengthScore,
+                  clarityScore: critic.clarityScore ?? d.scoresParsed.clarityScore,
+                  noveltyScore: critic.noveltyScore ?? d.scoresParsed.noveltyScore,
+                  personaMatchScore: critic.personaMatchScore ?? d.scoresParsed.personaMatchScore,
+                  riskScore: critic.riskScore ?? d.scoresParsed.riskScore,
+                  judged,
+                  judgeModel: judged ? "ai" : "heuristic",
+                },
+              };
+            }),
+          );
+          return { ok: true, judged, degraded: data.degraded === true };
+        }
+        return { ok: false, error: data.error || "Yeniden değerlendirme başarısız." };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : "Yeniden değerlendirme başarısız." };
+      }
+    },
+    [],
+  );
+
+  return {
+    drafts,
+    loading,
+    error,
+    fetchDrafts,
+    saveDraft,
+    saveSegments,
+    prepareIntent,
+    markPublished,
+    sendFeedback,
+    rescore,
+  };
 }

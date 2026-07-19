@@ -22,7 +22,7 @@ import {
 import { verificationLabel, freshnessWarning } from "@/lib/services/whyToday";
 import Surface, { InverseCard, PeachCard } from "@/components/ui/Surface";
 import Popover from "@/components/ui/Popover";
-import DraftDetailDrawer from "./DraftDetailDrawer";
+import DraftDetailDrawer, { type RescoreResult } from "./DraftDetailDrawer";
 import ThreadSegmentEditor from "./ThreadSegmentEditor";
 import { READINESS_META, VERIFICATION_DOT } from "./readinessMeta";
 import type { MorningDraft } from "./useDailyQueueData";
@@ -34,6 +34,9 @@ type Props = {
   /** Faz 1E: server-side PublishAttempt(prepared) + intent URL. */
   onPrepareIntent: (id: string) => Promise<{ ok: boolean; intentUrl?: string; error?: string }>;
   onMarkPublished: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Phase 5A (ADR-044): açık geri bildirim + yeniden değerlendirme (drawer'a iletilir). */
+  onFeedback: (id: string, feedbackType: string, opts: { reason?: string; idempotencyKey: string }) => Promise<{ ok: boolean; error?: string }>;
+  onRescore: (id: string) => Promise<RescoreResult>;
   onToast: (text: string, type: "success" | "error") => void;
   /** Kuyruktaki İLK bekleyen kart — "SIRADAKİ" işareti + A/E/J/K kısayolları. */
   isNextUp?: boolean;
@@ -56,6 +59,8 @@ export default function DraftReviewCard({
   onSaveSegments,
   onPrepareIntent,
   onMarkPublished,
+  onFeedback,
+  onRescore,
   onToast,
   isNextUp = false,
   onSkip,
@@ -530,7 +535,14 @@ export default function DraftReviewCard({
   return (
     <>
       {card}
-      <DraftDetailDrawer draft={draft} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <DraftDetailDrawer
+        draft={draft}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onFeedback={(ft, opts) => onFeedback(draft.id, ft, opts)}
+        onRescore={() => onRescore(draft.id)}
+        onToast={onToast}
+      />
     </>
   );
 }
