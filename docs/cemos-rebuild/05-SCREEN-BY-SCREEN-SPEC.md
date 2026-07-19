@@ -368,6 +368,7 @@ Kütüphane  [Tümü] İlham  Öğrenme
 - **Klavye:** `/` arama focus; ↑↓ sonuç; Enter aç.
 - **Responsive:** 960 tablo → ≤640 kart; geniş tablo overflow-x:auto.
 - **Kabul:** 4 kütüphane tek aramada; tür filtresi (keyword/prompt/pattern/viral); niş filtreler gelişmiş panelde; item detayı İlham analizine bağlanır.
+- **4B UYGULANDI (ADR-041, 2026-07-19):** içerik satırı → drawer → kanonik **panoya kaydet** (`SaveToBoardButton` portal menü: hızlı kaydet + pano seç/oluştur; idempotent — zaten-kayıtlıda dürüst "Zaten kayıtlı"; satırda "Kayıtlı" rozeti); non-content (prompt/pattern/anahtar/viral) dürüst "panoya kaydedilmez — kanonik içerik içindir" notu; `/api/library/search` görünen sayfaya `savedBoards` üyeliğini TEK toplu sorguyla iliştirir (N+1 yok) + kararlı sayfalama (createdAt-desc+id) + `capped`; stale-response guard (yavaş yanıt yeniyi ezmez). TEK sözleşme `POST /api/library/save` (Tümü + 5 araştırma ekranı paylaşır).
 
 ### D2. Kütüphane / İlham [sınıf: CORE (yeni)]
 - **Amaç:** kaydedilen rakip içeriğin yapısal analizi ("neden çalışıyor / nasıl uyarlanır / ne kopyalanmamalı" + 3 özgün fikir); boards.
@@ -392,6 +393,7 @@ Girdi: URL · screenshot · video · not · radardan Kaydet
 - **Klavye:** Kaydet kısayolu; Tab board/item; Enter analiz.
 - **Responsive:** 960 board grid → ≤640 tek kolon.
 - **Kabul:** X/IG/YT/web/manuel kaydedilir + board'a; her kayıt "neden çalışıyor/nasıl uyarlanır/ne kopyalanmamalı" analizi; copyright/PII/policy sınırı; yapı çıkarımı (metin kopyalama değil).
+- **4B UYGULANDI (ADR-041, 2026-07-19):** geniş ekranda (≥1200px) ana grid + bağlamsal sağ **rail** (`IlhamContextRail` — aktif pano + kayıt/pano/analiz sayaçları + son analizler + hızlı yakalama; YALNIZ gerçek workspace verisi, sahte KPI yok; `.ilham-workspace` grid ile ≤1200px'de rail ana akışın altına düşer). Capture akışı account-scoped + atomik ContentItem+BoardItem (mevcut `captureInspiration` sözleşmesi; DB unique index dedup backstop'u paylaşır). Araştırma ekranlarından (Haberler/YouTube/Viral Radar/Keşif/X Kaynakları) değerli sonuç aynı `POST /api/library/save` sözleşmesiyle panoya taşınır.
 
 ### D3. Kütüphane / Öğrenme [sınıf: CORE (yeni) — learn-dashboard ABSORBED]
 - **Amaç:** YouTube/transcript/NotebookLM → kaynaklı Learn Pack (özet/atomik not/kavram/zihin haritası/görev/içerik fikri/tekrar); sakin Inbox→Hazır akışı.

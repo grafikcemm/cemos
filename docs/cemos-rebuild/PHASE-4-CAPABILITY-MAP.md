@@ -1,7 +1,8 @@
 # PHASE 4 — CAPABILITY MAP (kabiliyet dağıtımı + orphan denetimi)
 
 > Durum: 2026-07-19 · ADR-040 (Phase 4A: Capability Distribution + Information
-> Density). Bu belge kodun GERÇEK kabiliyet envanteridir — paralel/ikinci bir
+> Density) + ADR-041 (Phase 4B: Unified Library — kanonik save/capture/board
+> sözleşmesi + araştırma köprüsü; §5). Bu belge kodun GERÇEK kabiliyet envanteridir — paralel/ikinci bir
 > registry DEĞİL. Tek doğruluk kaynağı `src/components/nav/navConfig.ts`
 > (sınıflandırma + erişim yolu) + `src/components/shell/screenRegistry.tsx`
 > (ekran → bileşen). Bu harita onları ÖZETLER; onlarla çelişirse KOD kazanır.
@@ -113,12 +114,19 @@ Kodda ZATEN mevcut (duplicate model/pipeline kurma — §D):
 
 ## 5. Phase 4B/C/D turnkey haritası
 
-- **4B — Unified Library + capture/search/board bütünlüğü:** `LibTumuTab` +
-  `LibIlhamTab` birleşik arama/pano/capture akışını tamamla (`/api/library/search`,
-  `/api/boards*`, `/api/content*`). Model duplike etme.
+- **4B — Unified Library + capture/search/board bütünlüğü ✅ TAMAMLANDI (ADR-041;
+  2026-07-19).** TEK kanonik save-to-board sözleşmesi (`src/lib/boards/saveToBoard.ts`
+  — idempotent, scope fail-closed, advisory-lock + `BoardItem @@unique([boardId,
+  contentItemId])` P2002-backstop) + araştırma→ContentItem köprüsü
+  (`src/lib/boards/saveFromSource.ts` — client `{kind,id}`, sunucu yetkili satırı
+  `fromX` normalizer'la yeniden yükler) + unified `POST /api/library/save` +
+  `SaveToBoardButton` (portal menü) + `IlhamContextRail` + Tümü satır/drawer save +
+  5 araştırma ekranı ortak save. `/api/library/search` toplu `savedBoards` (N+1'siz)
+  + kararlı sayfalama + `capped`. Model DUPLİKE EDİLMEDİ (ContentItem/Board/BoardItem
+  + normalizer/ingestContent REUSE). Tek additive migration (BoardItem unique index).
 - **4C — Learn intake → transcript/NotebookLM → Pack → atomik not/zihin
   haritası/görev/içerik fikri/review:** `learning/pipeline` + `components/learn/*`
-  UI bütünlüğü; `/api/learn/jobs/[id]/advance` durum makinesi.
+  UI bütünlüğü; `/api/learn/jobs/[id]/advance` durum makinesi. **(SIRADAKİ)**
 - **4D — Obsidian export canlı doğrulama + absorbed legacy emekliliği:**
   `learning/{obsidianWriter,githubVault}` uçtan uca; ABSORBED bileşenlerin
   fiziksel emekliliği (davranış-eşdeğerlik kanıtı + alias koruması).
