@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { boardMembershipFor } from "@/lib/boards/saveToBoard";
 import {
   flattenKeywords,
   mergeAndPaginate,
@@ -14,7 +15,11 @@ import keywordData from "@/data/keyword-library.json";
 
 export const dynamic = "force-dynamic";
 
-const TAKE_CAP = 300;
+// Per-source fetch bound. take = min(offset+limit, TAKE_CAP): shallow pages fetch
+// little; deep pages beyond the cap are honestly flagged `capped` (not silently
+// truncated to a wrong page). Merge-across-sources is stable within the cap
+// because every source is createdAt-desc + id tie-broken (deterministic order).
+const TAKE_CAP = 500;
 
 function parseTags(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -149,7 +154,25 @@ export async function GET(req: NextRequest) {
 
     const total = counts.viral + counts.keyword + counts.prompt + counts.pattern + counts.content;
     const items = mergeAndPaginate(all, offset, limit);
-    return ok({ items, total, counts, limit, offset });
+
+    // Board-membership for canonical content on THIS page only — ONE batched
+    // query (no N+1). Non-content items carry no canonical membership.
+    const pageContentIds = items
+      .filter((it) => it.type === "content" && it.contentItemId)
+      .map((it) => it.contentItemId as string);
+    if (pageContentIds.length > 0) {
+      const membership = await boardMembershipFor(pageContentIds);
+      for (const it of items) {
+        if (it.type === "content" && it.contentItemId && membership[it.contentItemId]) {
+          it.savedBoards = membership[it.contentItemId];
+        }
+      }
+    }
+
+    // Honest cap: a deep page whose (offset+limit) exceeds the per-source fetch
+    // bound cannot be served completely — flag it rather than silently truncate.
+    const capped = offset + limit > TAKE_CAP;
+    return ok({ items, total, counts, limit, offset, capped });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Arama başarısız";
     return fail(msg, 500);

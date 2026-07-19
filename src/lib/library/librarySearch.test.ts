@@ -69,4 +69,33 @@ describe("mergeAndPaginate", () => {
     // Sayfalar örtüşmez
     expect(page1.some((p) => page2.map((q) => q.id).includes(p.id))).toBe(false);
   });
+
+  it("tüm sayfalar gezilince duplicate YOK, eksik YOK (stable pagination)", () => {
+    const limit = 7;
+    const seen: string[] = [];
+    for (let offset = 0; offset < items.length; offset += limit) {
+      const page = mergeAndPaginate(items, offset, limit);
+      seen.push(...page.map((p) => p.id));
+    }
+    // Her id tam bir kez görünür.
+    expect(seen.length).toBe(items.length);
+    expect(new Set(seen).size).toBe(items.length);
+    // Global sıralamayla birebir aynı (yeni→eski, id tie-break).
+    const expected = [...items].sort(compareLibItems).map((p) => p.id);
+    expect(seen).toEqual(expected);
+  });
+
+  it("eşit tarihli karışık kaynaklar id tie-break ile kararlı sayfalanır", () => {
+    // Aynı createdAt → yalnız id belirleyici; sayfa sınırında kayma olmamalı.
+    const tie = Array.from({ length: 12 }, (_, i) =>
+      item({ id: `tie-${String(i).padStart(2, "0")}`, type: i % 2 ? "content" : "viral", createdAt: "2026-05-05T00:00:00Z" }),
+    );
+    const all = [...tie].reverse(); // giriş sırası bozuk
+    const seen: string[] = [];
+    for (let offset = 0; offset < all.length; offset += 5) {
+      seen.push(...mergeAndPaginate(all, offset, 5).map((p) => p.id));
+    }
+    expect(new Set(seen).size).toBe(all.length);
+    expect(seen).toEqual(tie.map((p) => p.id)); // id artan, deterministik
+  });
 });

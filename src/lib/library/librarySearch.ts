@@ -21,6 +21,8 @@ export type LibItem = {
   contentItemId?: string;
   sourceUrl?: string;
   score?: number;
+  /** Kanonik içerik hangi (arşivlenmemiş) panolarda kayıtlı — "Kayıtlı" durumu. */
+  savedBoards?: Array<{ boardId: string; boardName: string }>;
 };
 
 export type LibCounts = Record<LibItemType, number>;
