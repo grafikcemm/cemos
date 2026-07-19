@@ -44,6 +44,10 @@ type MockState = {
   factsByHandle: Record<string, { active: MockFact[]; proposals: MockFact[] }>;
   sectionErrors: string[];
   postCalls: Array<{ action: string; factId?: string }>;
+  // ADR-045
+  candidatePatterns: Array<{ id: string; patternName: string; hookType: string | null; emotion: string; platform: string; successScore: number; usageCount: number }>;
+  trainingCorpus: { total: number; good: number; bad: number; edited: number };
+  signalNeutralized: Record<string, boolean>;
 };
 
 function evd(id: string, over: Partial<MockFact["evidence"][number]> = {}) {
@@ -124,6 +128,11 @@ function freshState(): MockState {
     },
     sectionErrors: [],
     postCalls: [],
+    candidatePatterns: [
+      { id: "cp-1", patternName: "Liste hook'u", hookType: "liste", emotion: "merak", platform: "x", successScore: 72, usageCount: 4 },
+    ],
+    trainingCorpus: { total: 6, good: 3, bad: 1, edited: 2 },
+    signalNeutralized: {},
   };
 }
 
@@ -156,11 +165,15 @@ async function mockMemoryApi(page: Page, state: MockState) {
           performanceLessons: [
             { id: "vp-1", patternName: "Somut sayı hook'u", hookType: "sayı", emotion: "merak", platform: "x", validatedAt: new Date().toISOString(), validatedSupport: 5 },
           ],
+          // ADR-045: aday pattern'ler (doğrulanmamış) + eğitim külliyatı + zenginleştirilmiş sinyaller.
+          candidatePatterns: state.candidatePatterns,
+          trainingCorpus: state.trainingCorpus,
           recentSignals: {
-            counts: { not_my_tone: 2, approved: 3 },
+            counts: { not_my_tone: 1 },
+            neutralizedCount: state.signalNeutralized["fe-2"] ? 1 : 0,
             latest: [
-              { id: "fe-1", feedbackType: "not_my_tone", createdAt: new Date().toISOString(), mechanical: false },
-              { id: "fe-2", feedbackType: "approved", createdAt: new Date().toISOString(), mechanical: true },
+              { id: "fe-1", feedbackType: "not_my_tone", createdAt: new Date().toISOString(), mechanical: false, reasonExcerpt: "Ton çok kurumsal, samimi olmalı", editDistance: 0.4, hasEdit: true, neutralized: false },
+              { id: "fe-2", feedbackType: "approved", createdAt: new Date().toISOString(), mechanical: true, reasonExcerpt: null, editDistance: null, hasEdit: false, neutralized: !!state.signalNeutralized["fe-2"] },
             ],
           },
           policy: { promotionMinEvidence: 3, note: "insan onayı" },
@@ -168,6 +181,21 @@ async function mockMemoryApi(page: Page, state: MockState) {
         },
       },
     });
+  });
+
+  // ADR-045: öğrenme etkinliği kartı (LearningStatusCard) — hermetik boş.
+  await page.route((url) => url.pathname === "/api/growth/learning-status", (route) =>
+    route.fulfill({
+      json: { success: true, lastDaily: null, lastLearn: null, patternsMinedLast7d: 0, engagementEventsLast7d: 0, topPatterns: [] },
+    }),
+  );
+
+  // ADR-045: sinyal etkisizleştir/geri al.
+  await page.route((url) => url.pathname === "/api/memory/signals", (route) => {
+    if (route.request().method() !== "POST") return route.fulfill({ json: { success: true } });
+    const body = route.request().postDataJSON() as { id: string; action: string };
+    state.signalNeutralized[body.id] = body.action === "neutralize";
+    return route.fulfill({ json: { success: true, id: body.id, neutralized: body.action === "neutralize" } });
   });
 
   await page.route((url) => url.pathname === "/api/memory/proposals", (route) => {
@@ -295,6 +323,37 @@ test.describe("Kaynaklı hafıza (Faz 2B, hermetik)", () => {
     await expect(lessons).toBeVisible({ timeout: 20_000 });
     await expect(lessons).toContainText("Somut sayı hook'u");
     await expect(lessons).toContainText("destek 5");
+  });
+
+  test("ADR-045: aday pattern'ler + eğitim külliyatı + öğrenme etkinliği kartı görünür", async ({ page }) => {
+    const state = freshState();
+    await mockMemoryApi(page, state);
+    await page.goto("/");
+    await selectTab(page, "profile-memory");
+    await expect(page.getByTestId("memory-summary")).toBeVisible({ timeout: 20_000 });
+    const cand = page.getByTestId("candidate-patterns");
+    await expect(cand).toContainText("Liste hook'u");
+    await expect(cand).toContainText("aday · doğrulanmadı"); // validated derslerden AYRI
+    await expect(page.getByTestId("training-corpus")).toContainText("Eğitim örneği: 6");
+    await expect(page.getByTestId("memory-learning-activity")).toBeVisible(); // Eğitim Merkezi'nden birleşti
+  });
+
+  test("ADR-045: yanlış sinyali 'Yok say' → etkisiz; 'Geri al' geri döner (ham kayıt silinmez)", async ({ page }) => {
+    const state = freshState();
+    await mockMemoryApi(page, state);
+    await page.goto("/");
+    await selectTab(page, "profile-memory");
+    await expect(page.getByTestId("signal-fe-2")).toBeVisible({ timeout: 20_000 });
+    // Zenginleştirilmiş sinyal: operatör reason'ı + düzenleme rozeti fe-1'de görünür.
+    await expect(page.getByTestId("signal-fe-1")).toContainText("Ton çok kurumsal");
+    // fe-2 yok say → POST + reload → "Geri al"a döner.
+    await page.getByTestId("signal-neutralize-fe-2").click();
+    await expect(page.getByTestId("signal-restore-fe-2")).toBeVisible({ timeout: 10_000 });
+    expect(state.signalNeutralized["fe-2"]).toBe(true);
+    // Geri al → tekrar "Yok say".
+    await page.getByTestId("signal-restore-fe-2").click();
+    await expect(page.getByTestId("signal-neutralize-fe-2")).toBeVisible({ timeout: 10_000 });
+    expect(state.signalNeutralized["fe-2"]).toBe(false);
   });
 
   test("desktop 1024–1920: kaynaklı hafıza ekranında yatay taşma yok", async ({ page }) => {

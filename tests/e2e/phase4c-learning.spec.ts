@@ -147,6 +147,34 @@ test.describe("Phase 4C — Ready Pack", () => {
     expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
   });
 
+  test("ADR-045: içerik fikri → 'Taslağa dönüştür' server-otoriteli POST + Bugün'e deep-link", async ({ page }) => {
+    await mockShell(page);
+    await page.route(/\/api\/learn\/sources(\?|$)/, (r) => r.fulfill({ json: dashboard([src({})]) }));
+    await page.route(/\/api\/learn\/packs\/pk1(\?|$)/, (r) => r.fulfill({ json: transcriptPack() }));
+    let draftBody: { ideaId?: string; accountHandle?: string } | null = null;
+    await page.route(/\/api\/learn\/packs\/pk1\/draft/, (r) => {
+      draftBody = r.request().postDataJSON();
+      return r.fulfill({ json: { success: true, draftId: "q-learn-1", reused: false } });
+    });
+    // Bugün'e geçince kuyruk hermetik boş dönsün (gerçek DB'ye gitmesin).
+    await page.route(/\/api\/growth\/daily-queue(\?|$)/, (r) => r.fulfill({ json: { success: true, items: [] } }));
+
+    await page.goto("/");
+    await selectTab(page, "lib-ogrenme");
+    await page.getByTestId("learn-tab-ready").click();
+    await page.getByRole("button", { name: "Aç", exact: true }).first().click();
+    await page.getByTestId("subnav-tab-uygula").click();
+    await expect(page.getByTestId("idea-to-draft").first()).toBeVisible();
+
+    await page.getByTestId("idea-to-draft").first().click();
+    // Client YALNIZ ideaId + hedef hesap yollar; fikir metni sunucuda paketten okunur.
+    await expect.poll(() => draftBody, { timeout: 10_000 }).not.toBeNull();
+    expect(draftBody!.ideaId).toBe("i1");
+    expect(typeof draftBody!.accountHandle).toBe("string");
+    // Bugün'e deep-link: aktif alan Bugün oldu.
+    await expect(page.getByTestId("sidebar-area-bugun")).toHaveAttribute("aria-current", "page", { timeout: 10_000 });
+  });
+
   test("NotebookLM paket: summary-basis uyarısı + 'özet' grounding (zaman damgası yok)", async ({ page }) => {
     await mockShell(page);
     await page.route(/\/api\/learn\/sources(\?|$)/, (r) => r.fulfill({ json: dashboard([src({ kind: "notebooklm_summary", packId: "pk1" })]) }));
