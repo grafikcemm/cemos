@@ -28,7 +28,6 @@ export { default as Surface, InverseCard, PeachCard, surfaceTone, type SurfaceTo
 export { default as SubNav } from "./SubNav";
 export { default as Table } from "./Table";
 export { default as Textarea } from "./Textarea";
-export { default as TimelineLane, type TimelineLaneItem, type TimelineLaneTone } from "./TimelineLane";
 export { default as Toggle } from "./Toggle";
 export { default as Tooltip } from "./Tooltip";
 export { ToastProvider, useToast } from "./Toast";
