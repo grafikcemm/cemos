@@ -2,7 +2,8 @@
 
 > Durum: 2026-07-19 · ADR-040 (Phase 4A: Capability Distribution + Information
 > Density) + ADR-041 (Phase 4B: Unified Library — kanonik save/capture/board
-> sözleşmesi + araştırma köprüsü; §5). Bu belge kodun GERÇEK kabiliyet envanteridir — paralel/ikinci bir
+> sözleşmesi + araştırma köprüsü) + ADR-042 (Phase 4C: Learn intake → grounded
+> Pack → atomik not/zihin haritası/görev/içerik fikri/review; §5). Bu belge kodun GERÇEK kabiliyet envanteridir — paralel/ikinci bir
 > registry DEĞİL. Tek doğruluk kaynağı `src/components/nav/navConfig.ts`
 > (sınıflandırma + erişim yolu) + `src/components/shell/screenRegistry.tsx`
 > (ekran → bileşen). Bu harita onları ÖZETLER; onlarla çelişirse KOD kazanır.
@@ -124,10 +125,21 @@ Kodda ZATEN mevcut (duplicate model/pipeline kurma — §D):
   5 araştırma ekranı ortak save. `/api/library/search` toplu `savedBoards` (N+1'siz)
   + kararlı sayfalama + `capped`. Model DUPLİKE EDİLMEDİ (ContentItem/Board/BoardItem
   + normalizer/ingestContent REUSE). Tek additive migration (BoardItem unique index).
-- **4C — Learn intake → transcript/NotebookLM → Pack → atomik not/zihin
-  haritası/görev/içerik fikri/review:** `learning/pipeline` + `components/learn/*`
-  UI bütünlüğü; `/api/learn/jobs/[id]/advance` durum makinesi. **(SIRADAKİ)**
-- **4D — Obsidian export canlı doğrulama + absorbed legacy emekliliği:**
+- **4C — Learn intake → grounded Pack → atomik not/zihin haritası/görev/içerik
+  fikri/review ✅ TAMAMLANDI (ADR-042; 2026-07-19).** Kritik açık kapatıldı:
+  notes/graph/tasks artık PASSTHROUGH DEĞİL (gerçek üretim) + `content_ideas` aşaması;
+  pipeline v2 (`PIPELINE_VERSION`/`PROMPT_VERSION` v1→v2; v1 pack'ler okunur, reprocess
+  yok; `artifact.stages` çift-ücret koruması). v2 artifact zarfı (`src/lib/learning/artifact.ts`,
+  `LearnPack.notesJson` — yeni tablo YOK; parseArtifact v2|legacy|invalid; graphToMermaid
+  deterministik+escape'li). Üç açık kaynak türü (`SourceIntake`: youtube/manual_transcript/
+  notebooklm_summary — içerik SHA-256 idempotent; provider/basis/verified SUNUCU-set).
+  Basis-farkı: `summary_supported` grounding + basis-farkında prompt/QA → NotebookLM
+  iddiaları asla video-doğrulanmış görünmez. Kanonik status read-model (`src/lib/learning/status.ts`
+  `deriveLearnState`). Review idempotency (tek additive migration `20260719140000`;
+  `reviewService.grade` atomik `$transaction`+idempotent). UI: LearnPackView 7 sekme +
+  provenance + LearnProcessingView resume + LibOgrenmeTab üç açık mod. Altyapı yeniden
+  İCAT EDİLMEDİ (~%90 hazırdı).
+- **4D — Obsidian export canlı doğrulama + absorbed legacy emekliliği: (SIRADAKİ)**
   `learning/{obsidianWriter,githubVault}` uçtan uca; ABSORBED bileşenlerin
   fiziksel emekliliği (davranış-eşdeğerlik kanıtı + alias koruması).
 
