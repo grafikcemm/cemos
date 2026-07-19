@@ -45,6 +45,7 @@ function planHealthContract(configured = true) {
     nextActionable: { slotId: "s1", dayOfMonth: 12, reason: "dossier bekliyor" },
     blockers: [],
     warnings: [],
+    meetsBar: { ok: false, attached: 1, ready: 1, reason: "Bar geçilmedi: 3 dossiersiz, 1 kanıt sorunu." },
     message: "Önümüzdeki 7 günde 1 slot hazır değil.",
   };
 }

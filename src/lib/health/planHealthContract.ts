@@ -83,10 +83,47 @@ export type InstagramPlanHealthContract = {
   nextActionable: { slotId: string; dayOfMonth: number; reason: string } | null;
   blockers: string[];
   warnings: string[];
+  /** ADR-046: konsolide "kalite barını geçti mi" verdisi — mevcut counts'tan TÜRETİLİR
+   *  (ikinci readiness sözlüğü YOK). Bağlı her Reels site-kanıtı + üretim + onay taşıyor mu? */
+  meetsBar: { ok: boolean; attached: number; ready: number; reason: string };
   message: string;
 };
 
 const PROTECTED_STATUSES = ["drafted", "done"];
+
+function computeMeetsBar(
+  counts: PlanHealthCounts,
+  blockers: string[]
+): InstagramPlanHealthContract["meetsBar"] {
+  const attached = counts.totalActiveSlots - counts.withoutDossier;
+  const evidenceIssues = counts.evidenceMissing + counts.evidenceStale + counts.evidenceFailed;
+  const ok =
+    attached > 0 &&
+    counts.productionReady === attached &&
+    blockers.length === 0 &&
+    evidenceIssues === 0 &&
+    counts.attachedNotReady === 0 &&
+    counts.creativeNeedsEdit === 0 &&
+    counts.awaitingApproval === 0 &&
+    counts.seriesChanged === 0;
+  let reason: string;
+  if (attached === 0) {
+    reason = "Dossier bağlı slot yok — planlanan Reels'ler henüz site kanıtı/üretim taşımıyor.";
+  } else if (ok) {
+    reason = `Tüm ${attached} bağlı slot yayına hazır (site kanıtı + üretim + onay + seri).`;
+  } else {
+    const parts: string[] = [];
+    if (counts.withoutDossier > 0) parts.push(`${counts.withoutDossier} dossiersiz`);
+    if (evidenceIssues > 0) parts.push(`${evidenceIssues} kanıt sorunu`);
+    if (counts.creativeNeedsEdit > 0) parts.push(`${counts.creativeNeedsEdit} içerik eksik`);
+    if (counts.awaitingApproval > 0) parts.push(`${counts.awaitingApproval} onay bekliyor`);
+    if (counts.attachedNotReady > 0) parts.push(`${counts.attachedNotReady} bağlı-ama-hazır-değil`);
+    if (counts.seriesChanged > 0) parts.push(`${counts.seriesChanged} seri değişti`);
+    if (blockers.length > 0) parts.push(`${blockers.length} hard blocker`);
+    reason = `Bar geçilmedi: ${parts.join(", ")}.`;
+  }
+  return { ok, attached, ready: counts.productionReady, reason };
+}
 
 function emptyCounts(): PlanHealthCounts {
   return {
@@ -146,6 +183,7 @@ export function deriveInstagramPlanHealth(
     nextActionable: null,
     blockers: input.plan?.hardBlockers ?? [],
     warnings: input.plan?.warnings ?? [],
+    meetsBar: { ok: false, attached: 0, ready: 0, reason: "değerlendirilmedi" },
   };
 
   if (input.dataUnavailable) {
@@ -261,6 +299,7 @@ export function deriveInstagramPlanHealth(
     todayUnready,
     next7DaysUnready,
     nextActionable,
+    meetsBar: computeMeetsBar(counts, base.blockers),
     status,
     message,
   };

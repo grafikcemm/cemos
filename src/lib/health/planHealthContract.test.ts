@@ -60,6 +60,45 @@ describe("deriveInstagramPlanHealth — anlam korkulukları", () => {
     expect(r.message).toContain("arşiv");
   });
 
+  it("meetsBar: dossier bağlı slot yoksa bar geçilmez (dürüst — Reels kanıt taşımıyor)", () => {
+    const r = deriveInstagramPlanHealth({
+      plan: plan("active"),
+      slots: [slot({ slotId: "s1", dayOfMonth: 5, hasDossier: false })],
+      todayDayOfMonth: 1,
+    });
+    expect(r.meetsBar.ok).toBe(false);
+    expect(r.meetsBar.attached).toBe(0);
+    expect(r.meetsBar.reason).toContain("bağlı slot yok");
+  });
+
+  it("meetsBar: tüm bağlı slotlar yayına hazır → bar geçilir", () => {
+    const r = deriveInstagramPlanHealth({
+      plan: plan("active"),
+      slots: [
+        slot({ slotId: "s1", dayOfMonth: 5, hasDossier: true, productionReady: true }),
+        slot({ slotId: "s2", dayOfMonth: 6, hasDossier: true, productionReady: true }),
+      ],
+      todayDayOfMonth: 1,
+    });
+    expect(r.meetsBar.ok).toBe(true);
+    expect(r.meetsBar.attached).toBe(2);
+    expect(r.meetsBar.ready).toBe(2);
+  });
+
+  it("meetsBar: bir slot kanıt eksik → bar geçilmez + gerekçe listeler (site uydurulmaz)", () => {
+    const r = deriveInstagramPlanHealth({
+      plan: plan("active"),
+      slots: [
+        slot({ slotId: "s1", dayOfMonth: 5, hasDossier: true, productionReady: true }),
+        slot({ slotId: "s2", dayOfMonth: 6, hasDossier: true, productionReady: false, overall: "evidence_missing", evidenceState: "missing" }),
+      ],
+      todayDayOfMonth: 1,
+    });
+    expect(r.meetsBar.ok).toBe(false);
+    expect(r.meetsBar.reason).toContain("Bar geçilmedi");
+    expect(r.meetsBar.reason).toContain("kanıt");
+  });
+
   it("active + bugün hazır olmayan slot → warn", () => {
     const input: InstagramPlanHealthInput = {
       plan: plan("active"),

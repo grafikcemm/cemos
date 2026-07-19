@@ -1,6 +1,6 @@
 "use client";
 
-import { MetricStrip } from "@/components/ui";
+import { Badge, MetricStrip } from "@/components/ui";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 
 /**
@@ -40,6 +40,15 @@ export default function PlanHealthStrip({ viewedMonth }: { viewedMonth: string }
           </span>
         )}
       </div>
+      {/* ADR-046: konsolide kalite barı verdisi (bağlı her Reels kanıt+üretim+onay taşıyor mu). */}
+      {ph.meetsBar && (
+        <div data-testid="plan-meets-bar" style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <Badge variant={ph.meetsBar.ok ? "success" : ph.planStatus === "draft" ? "muted" : "yellow"} size="xs">
+            {ph.meetsBar.ok ? "kalite barı ✓" : "kalite barı ✗"}
+          </Badge>
+          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{ph.meetsBar.reason}</span>
+        </div>
+      )}
       <MetricStrip
         items={[
           { label: "yayına hazır", value: `${c.productionReady}/${c.totalActiveSlots}`, tone: c.productionReady > 0 ? "ok" : "default" },

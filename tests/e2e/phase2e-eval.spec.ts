@@ -117,11 +117,33 @@ function evalRunsPayload(kind: "none" | "passed" | "blocked") {
   };
 }
 
+// ADR-046: dürüst kalibrasyon durumu — yetersiz gerçek sonuç örneklemi → KALİBRE DEĞİL.
+const CALIBRATION_PAYLOAD = {
+  success: true,
+  status: {
+    outcomeCalibrated: false,
+    reason: "Yetersiz gerçek sonuç örneklemi (eşleşen 0 < 5). Sistem KALİBRE DEĞİL — kalite eşikleri provisional kalır.",
+    samples: [
+      { key: "matched_outcomes", label: "Eşleşen yayın-sonrası ölçüm (X)", observed: 0, floor: 5, sufficient: false, note: "Canlı besleme yok." },
+      { key: "validated_patterns", label: "Doğrulanmış pattern", observed: 0, floor: 1, sufficient: false, note: "Aday (doğrulanmamış): 0." },
+    ],
+    normalization: { active: false, note: "normalizedScore şu an ham engagement skoru." },
+    thresholds: { readinessPolicyVersion: "1.1.0-provisional", provisional: true, note: "provisional — canlı kalibrasyon bekliyor." },
+    eval: {
+      registryContract: { present: true, status: "passed", policyVersion: "2E-1", passed: 16, failed: 0, at: "2026-07-19T00:00:00Z" },
+      golden: { present: false, status: null, policyVersion: null, passed: 0, failed: 0, at: null },
+    },
+    blockers: ["Canlı X API + SocialData — blocked-external."],
+    sectionErrors: [],
+  },
+};
+
 async function mockSystemSurfaces(page: Page, runsKind: "none" | "passed" | "blocked") {
   await page.route("**/api/health**", (route) => route.fulfill({ json: HEALTH_PAYLOAD }));
   await page.route("**/api/costs**", (route) => route.fulfill({ json: COSTS_PAYLOAD }));
   await page.route("**/api/eval/kpis**", (route) => route.fulfill({ json: KPIS_PAYLOAD }));
   await page.route("**/api/eval/runs**", (route) => route.fulfill({ json: evalRunsPayload(runsKind) }));
+  await page.route("**/api/quality/calibration**", (route) => route.fulfill({ json: CALIBRATION_PAYLOAD }));
 }
 
 async function horizontalOverflow(page: Page): Promise<number> {
@@ -156,6 +178,19 @@ test.describe("Profil > Sistem — Agent değerlendirmeleri (ADR-034 §I)", () =
     // Dürüst dil: blocked-external üretim kesintisi gibi sunulmaz.
     await expect(section).toContainText("üretim kesintisi değildir");
     expect(errors).toEqual([]);
+  });
+
+  test("ADR-046: kalibrasyon durumu DÜRÜST — yetersiz örneklem → 'KALİBRE DEĞİL' (sahte kalibre yok)", async ({ page }) => {
+    await mockSystemSurfaces(page, "passed");
+    await page.goto("/");
+    await selectTab(page, "system");
+    const calib = page.getByTestId("calibration-status");
+    await expect(calib).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId("calibration-verdict")).toContainText("KALİBRE DEĞİL");
+    await expect(page.getByTestId("calib-sample-matched_outcomes")).toContainText("0/5");
+    // Normalizasyon dürüstlüğü + provisional eşik görünür.
+    await expect(calib).toContainText("normalize değil");
+    await expect(calib).toContainText("1.1.0-provisional");
   });
 
   test("hiç koşmadı durumu dürüst gösterilir (sahte %100 yok)", async ({ page }) => {

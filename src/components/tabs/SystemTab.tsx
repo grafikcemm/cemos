@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
+import CalibrationStatusCard from "@/components/system/CalibrationStatusCard";
 import { useXAgentStore } from "@/store/xagent";
 import type {
   InfraItem,
@@ -499,6 +500,11 @@ export default function SystemTab() {
             </Section>
           );
         })()}
+
+        {/* ADR-046: dürüst kalite-kalibrasyon durumu (sonuç örneklemi + eşik + eval; sahte "kalibre" yok). */}
+        <div data-testid="system-calibration">
+          <CalibrationStatusCard />
+        </div>
 
         {/* Sessiz maliyet + kalite satırı — hero KPI kartı değil; detay ayrı sekmelerde. */}
         <Section title="Maliyet & kalite" status="ok" link={{ label: "Maliyetler", tab: "costs" }}>
