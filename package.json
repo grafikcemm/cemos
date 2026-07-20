@@ -25,7 +25,8 @@
     "ingest:research": "npx tsx scripts/ingest-research.ts",
     "eval:run": "npx tsx scripts/run-eval-tests.ts",
     "verify:catalog": "npx tsx scripts/verify-model-catalog.ts",
-    "verify:acceptance": "npx tsx scripts/verify-acceptance.ts"
+    "verify:acceptance": "npx tsx scripts/verify-acceptance.ts",
+    "verify:ai-economics": "npx tsx scripts/verify-ai-economics.ts"
   },
   "dependencies": {
     "@next/env": "^16.2.6",
