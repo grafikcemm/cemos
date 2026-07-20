@@ -43,6 +43,15 @@ export function assertEphemeralDatabase(): void {
   }
 }
 
+/** Minimal valid Account row (all no-default required fields) for FK-dependent
+ *  integration tests. Returns the created account id. */
+export async function createTestAccount(handle: string): Promise<string> {
+  const acc = await prisma.account.create({
+    data: { handle, xHandle: handle, persona: "test", concept: "test", maxChars: 280 },
+  });
+  return acc.id;
+}
+
 /** Truncate the given tables (RESTART IDENTITY, CASCADE). Ephemeral-guarded. */
 export async function truncate(tables: string[]): Promise<void> {
   assertEphemeralDatabase();
