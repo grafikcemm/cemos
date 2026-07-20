@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/client";
 import { modelConfigs, resolveModel } from "@/lib/ai/model-config";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { getModelProfile } from "@/lib/services/settingsService";
 
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
@@ -15,7 +16,9 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const profile = process.env.MODEL_PROFILE || "operator_quality";
+    // Durable, server-authoritative profile (Phase 5F §6) — reflects the
+    // persisted operator choice, not just this instance's env.
+    const profile = await getModelProfile();
     const enableFree = process.env.ENABLE_FREE_MODELS === "true";
     const cheapOverride = process.env.OPENROUTER_CHEAP_MODEL;
     const judgeOverride = process.env.OPENROUTER_JUDGE_MODEL;

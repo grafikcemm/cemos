@@ -671,6 +671,17 @@ model AiModelSnapshot {
   createdAt    DateTime @default(now())
 }
 
+// Durable, server-authoritative operator preferences (Phase 5F §6). Replaces the
+// serverless-broken `.env.local` write for MODEL_PROFILE: on Vercel the FS is
+// read-only outside /tmp and env is not re-read per request, so the old POST
+// reported success while production routing never changed. Single additive
+// key/value row per setting (key "model_profile"). Non-secret routing prefs only.
+model OperatorSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Daily aggregated digest shown on the morning dashboard.
 model DailyDigest {
   id          String   @id @default(cuid())

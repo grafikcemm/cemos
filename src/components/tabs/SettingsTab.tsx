@@ -153,7 +153,7 @@ export default function SettingsTab() {
       );
       if (data.success) {
         await loadData();
-        alert("Model profili 'Operator Quality' olarak güncellendi ve env.local kaydedildi!");
+        alert("Model profili 'Operator Quality' olarak kalıcı kaydedildi (sunucu-otoriteli). Yeni sunucu örneklerinde geçerli olur.");
       } else {
         alert("Hata: " + data.error);
       }

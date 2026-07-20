@@ -21,4 +21,17 @@ export async function register(): Promise<void> {
 
   assertRequiredSecrets();
   validatePresets();
+
+  // Durable model-profile hydration (Phase 5F §6): copy the persisted
+  // OperatorSetting into process.env once per instance so the synchronous
+  // `resolveModel` path honors the operator's stored choice instead of the
+  // build-time env default. Fail-open — a missing table or unreachable DB at
+  // boot must never block startup; getModelProfile already falls back to
+  // env/default internally, and this guard covers import/connection errors.
+  try {
+    const { getModelProfile } = await import("@/lib/services/settingsService");
+    await getModelProfile();
+  } catch {
+    /* fail-open: keep the env/default profile */
+  }
 }

@@ -1,14 +1,25 @@
 import type { NextRequest } from "next/server";
-import fs from "fs";
-import path from "path";
 import { z } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { setModelProfile } from "@/lib/services/settingsService";
 
 const ProfileSchema = z.object({
   profile: z.enum(["dev", "operator_quality", "premium"]),
 });
 
+/**
+ * Durable, server-authoritative model-profile write (Phase 5F §6).
+ *
+ * The previous implementation wrote `.env.local` via fs, which on Vercel is a
+ * read-only FS outside /tmp (throws) and is never re-read per request (a mutated
+ * `process.env` touches only the current ephemeral instance and is lost on cold
+ * start). The UI reported success while production routing never changed.
+ *
+ * Now persisted in `OperatorSetting`; success is returned ONLY after the row is
+ * committed. `instrumentation.register()` re-hydrates `process.env.MODEL_PROFILE`
+ * on each instance boot so the synchronous resolver honors the durable choice.
+ */
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const body = await parseJsonBody(req);
@@ -17,32 +28,9 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return fail("Geçersiz profil değeri.", 400, { detail: parsed.error.flatten() });
   }
-  const { profile } = parsed.data;
   try {
-
-    // 1. Update the process.env in-memory immediately for current server execution
-    process.env.MODEL_PROFILE = profile;
-
-    // 2. Write it permanently to .env.local file
-    const envPath = path.join(process.cwd(), ".env.local");
-    if (fs.existsSync(envPath)) {
-      let content = fs.readFileSync(envPath, "utf-8");
-      
-      const regex = /^MODEL_PROFILE=.*$/m;
-      if (regex.test(content)) {
-        content = content.replace(regex, `MODEL_PROFILE=${profile}`);
-      } else {
-        // Append it at the end
-        content = content.trim() + `\nMODEL_PROFILE=${profile}\n`;
-      }
-      
-      fs.writeFileSync(envPath, content, "utf-8");
-    } else {
-      // Create a brand new file
-      fs.writeFileSync(envPath, `MODEL_PROFILE=${profile}\n`, "utf-8");
-    }
-
-    return ok({ profile });
+    const profile = await setModelProfile(parsed.data.profile);
+    return ok({ profile, durable: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Model profili güncellenemedi";
     return fail(message, 500);
