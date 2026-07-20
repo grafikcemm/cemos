@@ -76,6 +76,16 @@ describe("SSRF suite — fetch ÖNCESİ red", () => {
     expect(isPrivateIp("2606:4700::1111")).toBe(false);
   });
 
+  it("IPv6 hex-canonicalized embedded IPv4 (URL-parser form) reddedilir", () => {
+    // new URL("http://[::169.254.169.254]/").hostname === "::a9fe:a9fe"
+    expect(isPrivateIp("::a9fe:a9fe")).toBe(true); // metadata 169.254.169.254
+    // new URL("http://[::ffff:127.0.0.1]/").hostname === "::ffff:7f00:1"
+    expect(isPrivateIp("::ffff:7f00:1")).toBe(true); // loopback 127.0.0.1
+    expect(isPrivateIp("::ffff:c0a8:101")).toBe(true); // private 192.168.1.1 (hex)
+    expect(isPrivateIp("::10.0.0.1")).toBe(true); // IPv4-compatible dotted
+    expect(isPrivateIp("2606:4700::1111")).toBe(false); // public unchanged
+  });
+
   it("URL'de kimlik bilgisi reddedilir", async () => {
     await expect(assertSafeUrl("https://user:pass@example.com")).rejects.toThrow(SsrfBlockedError);
   });

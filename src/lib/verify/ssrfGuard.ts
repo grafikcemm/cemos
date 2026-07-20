@@ -55,9 +55,19 @@ export function isPrivateIpv4(ip: string): boolean {
 
 export function isPrivateIpv6(ip: string): boolean {
   const lower = ip.toLowerCase();
-  // IPv4-mapped (::ffff:a.b.c.d) → v4 kurallarına indirgenir.
-  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIpv4(mapped[1]);
+  // IPv4-mapped/compatible with a DOTTED tail (::ffff:a.b.c.d or ::a.b.c.d).
+  const dotted = lower.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted) return isPrivateIpv4(dotted[1]);
+  // The WHATWG URL parser canonicalizes an embedded IPv4 to HEX: IPv4-mapped
+  // (::ffff:7f00:1 = 127.0.0.1) or IPv4-compatible (::a9fe:a9fe = 169.254.169.254,
+  // the cloud metadata IP). The old dotted-only regex missed both, letting a
+  // metadata/loopback target slip through an IPv6 literal. Reduce the trailing
+  // 32 bits to their IPv4 form and re-check.
+  const hex = lower.match(/^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (hex) {
+    const v4 = ((parseInt(hex[1], 16) << 16) | parseInt(hex[2], 16)) >>> 0;
+    return isPrivateIpv4(`${(v4 >>> 24) & 0xff}.${(v4 >>> 16) & 0xff}.${(v4 >>> 8) & 0xff}.${v4 & 0xff}`);
+  }
   if (lower === "::1" || lower === "::") return true; // loopback / unspecified
   if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // fc00::/7 ULA
   if (lower.startsWith("fe8") || lower.startsWith("fe9") || lower.startsWith("fea") || lower.startsWith("feb"))
