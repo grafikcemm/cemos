@@ -117,13 +117,15 @@ export const viralPatternRepo = {
    */
   async adjustSuccessScore(id: string, delta: number): Promise<ViralPattern | null> {
     try {
-      const existing = await prisma.viralPattern.findUnique({ where: { id } });
-      if (!existing) return null;
-      const next = Math.max(10, Math.min(95, existing.successScore + delta));
-      return await prisma.viralPattern.update({
-        where: { id },
-        data: { successScore: next },
-      });
+      // Atomic clamped update — no read-modify-write, so two concurrent feedback
+      // events (or a feedback reweight racing the lessonGate perf sync) can't lose
+      // each other's delta. successScore stays in [10, 95].
+      const affected = await prisma.$executeRaw`
+        UPDATE "ViralPattern"
+        SET "successScore" = LEAST(95, GREATEST(10, ROUND("successScore" + ${delta})))::int
+        WHERE "id" = ${id}`;
+      if (affected === 0) return null;
+      return await prisma.viralPattern.findUnique({ where: { id } });
     } catch (err) {
       console.error("ViralPattern successScore güncellenirken hata oluştu:", err);
       return null;

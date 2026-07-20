@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 
 /** True when running on Vercel or with NODE_ENV=production. */
 export function isProductionRuntime(): boolean {
@@ -29,8 +30,17 @@ export function isCronSecretConfigured(): boolean {
  * Fail-closed by default: if no secret is set, only a positively-identified
  * local dev/test runtime stays open (never Vercel, never an unset NODE_ENV).
  */
+/** Constant-time token equality — avoids leaking the secret through early-exit
+ *  timing on a byte mismatch. Length mismatch is returned directly. */
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
 export function isCronAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return isLocalDevRuntime();
-  return req.headers.get("authorization") === `Bearer ${secret}`;
+  return timingSafeEqualStr(req.headers.get("authorization") ?? "", `Bearer ${secret}`);
 }
