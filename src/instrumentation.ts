@@ -22,16 +22,12 @@ export async function register(): Promise<void> {
   assertRequiredSecrets();
   validatePresets();
 
-  // Durable model-profile hydration (Phase 5F §6): copy the persisted
-  // OperatorSetting into process.env once per instance so the synchronous
-  // `resolveModel` path honors the operator's stored choice instead of the
-  // build-time env default. Fail-open — a missing table or unreachable DB at
-  // boot must never block startup; getModelProfile already falls back to
-  // env/default internally, and this guard covers import/connection errors.
-  try {
-    const { getModelProfile } = await import("@/lib/services/settingsService");
-    await getModelProfile();
-  } catch {
-    /* fail-open: keep the env/default profile */
-  }
+  // NOTE (Phase 5F §6): the durable model profile is NOT hydrated here. Pulling
+  // `settingsService` (→ Prisma) into instrumentation forces the Prisma client
+  // into the instrumentation/edge webpack bundle, which fails to resolve
+  // `node:child_process`. The durable profile is instead read server-side by the
+  // node-runtime `/api/settings` GET and by `setModelProfile` (POST), each of
+  // which converges `process.env.MODEL_PROFILE` so the synchronous `resolveModel`
+  // role path honors the stored choice once the settings surface is touched in
+  // that instance. Presets pin their own models and are unaffected either way.
 }

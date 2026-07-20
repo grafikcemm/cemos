@@ -11,12 +11,14 @@ import { prisma } from "@/lib/db/client";
  *
  * Runtime resolver hydration: `resolveModel` reads `process.env.MODEL_PROFILE`
  * synchronously (it is called on hot, non-async paths). This service is the
- * single async authority; `instrumentation.register()` copies the durable value
- * into `process.env.MODEL_PROFILE` once per instance at boot, and `set`/`get`
- * refresh it, so the sync resolver converges on the persisted choice. A change
- * made on one instance reaches other already-running instances on their next
- * boot or cache refresh (documented propagation window; presets pin their own
- * models and are unaffected either way).
+ * single async authority; `get`/`set` converge `process.env.MODEL_PROFILE` on
+ * the durable value, so the sync resolver honors the persisted choice once a
+ * node-runtime path touches the settings surface in that instance (the
+ * `/api/settings` GET reads it on load; `setModelProfile` on change). It is
+ * deliberately NOT hydrated from `instrumentation.register()` — pulling Prisma
+ * into instrumentation forces the client into the edge webpack bundle, which
+ * cannot resolve `node:child_process`. Presets pin their own models and are
+ * unaffected by the profile either way.
  */
 
 export type ModelProfile = "dev" | "operator_quality" | "premium";
