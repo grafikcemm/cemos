@@ -16,9 +16,18 @@ export type ModelPricing = {
   outputCostPerMillion: number;
 };
 
-/** Live OpenRouter catalog prices verified on 2026-07-10. */
+/**
+ * Live OpenRouter catalog prices (USD per 1M tokens).
+ * Re-verified 2026-07-20 (Phase 5F §7) against https://openrouter.ai/api/v1/models
+ * and per-model pages: every slug below matched the live catalog EXACTLY.
+ * This constant is the committed safe fallback (`priceSource: "catalog-verified"`);
+ * see MODEL_PRICING_VERIFIED_AT. No silent $0 — an unknown slug falls back to the
+ * caller's role estimate in `estimateModelCost`, never zero.
+ */
+export const MODEL_PRICING_VERIFIED_AT = "2026-07-20";
 export const MODEL_PRICING: Readonly<Record<string, ModelPricing>> = {
   "anthropic/claude-sonnet-5": { inputCostPerMillion: 2, outputCostPerMillion: 10 },
+  "anthropic/claude-opus-4.8": { inputCostPerMillion: 5, outputCostPerMillion: 25 },
   "openai/gpt-5.5": { inputCostPerMillion: 5, outputCostPerMillion: 30 },
   "openai/gpt-5.4-mini": { inputCostPerMillion: 0.75, outputCostPerMillion: 4.5 },
   "google/gemini-3.5-flash": { inputCostPerMillion: 1.5, outputCostPerMillion: 9 },
@@ -153,6 +162,14 @@ export function estimateCost(inputTokens: number, outputTokens: number, role: Mo
   );
 }
 
+/**
+ * Per-model cost. MODEL_PRICING (catalog-verified, see MODEL_PRICING_VERIFIED_AT)
+ * is authoritative. An unknown slug falls back to the caller's role estimate —
+ * never $0 — so a model missing from the table produces an over- rather than
+ * under-estimate. `modelConfigs[role]` costs are operator_quality-aligned
+ * approximations for the legacy role path; the real per-call cost is always the
+ * provider-reported `usage.cost` recorded by the gate.
+ */
 export function estimateModelCost(
   inputTokens: number,
   outputTokens: number,
@@ -164,6 +181,11 @@ export function estimateModelCost(
     (inputTokens / 1_000_000) * pricing.inputCostPerMillion +
     (outputTokens / 1_000_000) * pricing.outputCostPerMillion
   );
+}
+
+/** True when a model slug has a catalog-verified price (no role-fallback estimate). */
+export function hasVerifiedPrice(model: string): boolean {
+  return model in MODEL_PRICING;
 }
 
 export type JudgeMode = "always" | "risk_based" | "off";
