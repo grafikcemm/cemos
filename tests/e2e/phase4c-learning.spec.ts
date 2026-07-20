@@ -66,7 +66,10 @@ function transcriptPack(over: Record<string, unknown> = {}) {
       graph: { nodes: [{ id: "c1", label: "Kavram A", kind: "concept" }, { id: "n1", label: "Atomik not A", kind: "note" }], edges: [{ source: "c1", target: "n1", relation: "örnek", groundingType: "inference" }] },
       graphMermaid: "graph TD\n  n_c1[\"Kavram A\"]\n  n_n1[\"Atomik not A\"]\n  n_c1 -->|örnek| n_n1",
       tasks: [{ id: "t1", title: "Uygulama görevi", why: "Neden", steps: ["Adım 1", "Adım 2"], chunkIdxs: [0], groundingType: "inference", status: "open" }],
-      contentIdeas: [{ id: "i1", title: "İçerik fikri", angle: "Açı", hook: "Kanca cümlesi", format: "reel", sourceConceptLabels: ["Kavram A"], groundingType: "inference" }],
+      contentIdeas: [
+        { id: "i1", title: "İçerik fikri", angle: "Açı", hook: "Kanca cümlesi", format: "tweet", sourceConceptLabels: ["Kavram A"], groundingType: "inference" },
+        { id: "ic", title: "Carousel fikri", angle: "Açı2", hook: "Kanca2", format: "carousel", sourceConceptLabels: ["Kavram A"], groundingType: "inference" },
+      ],
       ...over,
     },
   };
@@ -154,7 +157,7 @@ test.describe("Phase 4C — Ready Pack", () => {
     let draftBody: { ideaId?: string; accountHandle?: string } | null = null;
     await page.route(/\/api\/learn\/packs\/pk1\/draft/, (r) => {
       draftBody = r.request().postDataJSON();
-      return r.fulfill({ json: { success: true, draftId: "q-learn-1", reused: false } });
+      return r.fulfill({ json: { success: true, kind: "draft", draftId: "q-learn-1", reused: false } });
     });
     // Bugün'e geçince kuyruk hermetik boş dönsün (gerçek DB'ye gitmesin).
     await page.route(/\/api\/growth\/daily-queue(\?|$)/, (r) => r.fulfill({ json: { success: true, items: [] } }));
@@ -164,7 +167,8 @@ test.describe("Phase 4C — Ready Pack", () => {
     await page.getByTestId("learn-tab-ready").click();
     await page.getByRole("button", { name: "Aç", exact: true }).first().click();
     await page.getByTestId("subnav-tab-uygula").click();
-    await expect(page.getByTestId("idea-to-draft").first()).toBeVisible();
+    // tweet formatı → X taslağı CTA'sı.
+    await expect(page.getByTestId("idea-to-draft").first()).toContainText("Taslağa dönüştür");
 
     await page.getByTestId("idea-to-draft").first().click();
     // Client YALNIZ ideaId + hedef hesap yollar; fikir metni sunucuda paketten okunur.
@@ -173,6 +177,35 @@ test.describe("Phase 4C — Ready Pack", () => {
     expect(typeof draftBody!.accountHandle).toBe("string");
     // Bugün'e deep-link: aktif alan Bugün oldu.
     await expect(page.getByTestId("sidebar-area-bugun")).toHaveAttribute("aria-current", "page", { timeout: 10_000 });
+  });
+
+  test("5E BUG-01: carousel fikri → 'Seriler'e gönder' handoff + Plan deep-link (X'e AKMAZ)", async ({ page }) => {
+    await mockShell(page);
+    await page.route(/\/api\/learn\/sources(\?|$)/, (r) => r.fulfill({ json: dashboard([src({})]) }));
+    await page.route(/\/api\/learn\/packs\/pk1(\?|$)/, (r) => r.fulfill({ json: transcriptPack() }));
+    let draftBody: { ideaId?: string } | null = null;
+    await page.route(/\/api\/learn\/packs\/pk1\/draft/, (r) => {
+      draftBody = r.request().postDataJSON();
+      // Sunucu-otoriteli: carousel formatı X taslağı DEĞİL → Seriler handoff'u.
+      return r.fulfill({ json: { success: true, kind: "handoff", handoffId: "h-1", action: "series", target: "plan-seriler", reused: false } });
+    });
+    // Seriler'e geçince hermetik boş dönsün (gerçek DB'ye gitmesin).
+    await page.route(/\/api\/series(\?|$)/, (r) => r.fulfill({ json: { success: true, series: [] } }));
+    await page.route(/\/api\/reels\/plan(\?|$)/, (r) => r.fulfill({ json: { success: true, plan: null } }));
+
+    await page.goto("/");
+    await selectTab(page, "lib-ogrenme");
+    await page.getByTestId("learn-tab-ready").click();
+    await page.getByRole("button", { name: "Aç", exact: true }).first().click();
+    await page.getByTestId("subnav-tab-uygula").click();
+    // carousel fikri (2. içerik fikri) CTA'sı X taslağı değil — Instagram yüzeyi.
+    await expect(page.getByTestId("idea-to-draft").nth(1)).toContainText("Seriler'e gönder");
+
+    await page.getByTestId("idea-to-draft").nth(1).click();
+    await expect.poll(() => draftBody, { timeout: 10_000 }).not.toBeNull();
+    expect(draftBody!.ideaId).toBe("ic");
+    // Plan→Seriler'e deep-link (Bugün'e AKMADI).
+    await expect(page.getByTestId("sidebar-area-plan")).toHaveAttribute("aria-current", "page", { timeout: 10_000 });
   });
 
   test("NotebookLM paket: summary-basis uyarısı + 'özet' grounding (zaman damgası yok)", async ({ page }) => {
