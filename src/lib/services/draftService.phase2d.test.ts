@@ -170,7 +170,42 @@ describe("draftService — Phase 2D thread persistence", () => {
       mode: "thread",
     });
     expect(res.blocked).toBe(true);
-    expect(res.reason).toBe("thread_generation_invalid");
+    // usedMock guard now fires for ALL intents before the thread-specific check.
+    expect(res.reason).toBe("pipeline_unavailable");
+    expect(queueRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("tweet/auto + usedMock → hardcoded mock taslak GERÇEK gibi persist EDİLMEZ (blocked)", async () => {
+    // Provider outage → runDraftPipeline degrades to createMockBenchmark
+    // (usedMock:true) with hardcoded marketing tweets. A tweet/auto intent must
+    // NOT persist that as a real QueueItem (green cron + fake "ready" Bugün) —
+    // it must surface as honest blocked. Regression for the draftService twin of
+    // the draft-generator canned-fallback (closure D).
+    vi.mocked(runDraftPipeline).mockResolvedValue(
+      pipelineResult([], { usedMock: true, rankedCandidates: [] })
+    );
+    const res = await draftService.generateDraft({
+      accountHandle: "grafikcem",
+      sourceTweet: "Kaynak",
+      draftType: "TWEET",
+    });
+    expect(res.blocked).toBe(true);
+    expect(res.reason).toBe("pipeline_unavailable");
+    expect(queueRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("mid-pipeline throw → mock persist EDİLMEZ, honest pipeline_failed:<class> blocked", async () => {
+    // A thrown pipeline error (e.g. 402) is caught, degraded to a mock, and MUST
+    // block with the classified error so observability can see WHY (not fake it).
+    vi.mocked(runDraftPipeline).mockRejectedValue(new Error("402 insufficient credits"));
+    const res = await draftService.generateDraft({
+      accountHandle: "grafikcem",
+      sourceTweet: "Kaynak",
+      draftType: "TWEET",
+    });
+    expect(res.blocked).toBe(true);
+    expect(res.reason).toMatch(/^pipeline_failed:/);
+    expect(res.usedMock).toBe(true);
     expect(queueRepo.create).not.toHaveBeenCalled();
   });
 

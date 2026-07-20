@@ -280,7 +280,18 @@ export const draftService = {
 
     // ── Phase 2D aday seçimi (ADR-033): canonical içerik provenance'lı writer
     //    adayından gelir; sahte tek-segment/mock thread ASLA yazılmaz. ──
-    if (formatIntent === "thread" && (pipelineResult.threadRequestUnsatisfied || pipelineResult.usedMock)) {
+    // A mock/degraded pipeline result is a placeholder, NEVER real content. On a
+    // provider outage (402 / timeout / mid-pipeline failure) it MUST surface as
+    // blocked with an honest reason — never persist as a QueueItem or count as
+    // `created`. Previously ONLY `thread` intent was guarded here, so a tweet/auto
+    // intent silently persisted the mock's hardcoded marketing text as a real
+    // draft (green cron + "ready" Bugün on a total OpenRouter outage).
+    if (pipelineResult.usedMock) {
+      return blockedResult(
+        pipelineError ? `pipeline_failed:${classifyOpenRouterError(pipelineError)}` : "pipeline_unavailable",
+      );
+    }
+    if (formatIntent === "thread" && pipelineResult.threadRequestUnsatisfied) {
       return blockedResult("thread_generation_invalid");
     }
 
