@@ -3,6 +3,19 @@
 import { useState } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
+import { useToast } from "@/components/ui/Toast";
+
+type ScanAccountResult = {
+  handle?: string;
+  draftsCreated?: number;
+  draftsBlocked?: number;
+  reason?: string;
+};
+type ScanNowResponse = {
+  success: boolean;
+  error?: string;
+  results?: ScanAccountResult[];
+};
 
 /**
  * Operator eylem kapısı (ADR-034 §F): canonical health contract'larından
@@ -14,8 +27,9 @@ import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
  * Sessizlik sözleşmesi korunur: sağlıklıyken null döner; yalnız sorun/eylem
  * varken genişler. "Kuyruk tamamlandı" bir SORUN DEĞİLDİR (gate sessiz kalır).
  */
-export default function OperatorReadinessGate() {
+export default function OperatorReadinessGate({ onGenerated }: { onGenerated?: () => void }) {
   const { contracts, refresh } = useSystemHealth();
+  const toast = useToast();
   const [generating, setGenerating] = useState(false);
 
   const handleGenerateToday = async () => {
@@ -26,17 +40,33 @@ export default function OperatorReadinessGate() {
 
     setGenerating(true);
     try {
-      const data = await fetchJson<{ success: boolean; error?: string }>(
+      const data = await fetchJson<ScanNowResponse>(
         "/api/settings/operator-scan-now",
         { method: "POST" }
       );
-      if (data.success) {
-        alert("Taslak üretimi başarıyla tamamlandı!");
+      if (!data.success) {
+        toast.error("Üretim başlatılamadı: " + (data.error || "bilinmeyen hata"));
+        return;
+      }
+      // Honest outcome: the scan tick returning "success" does NOT mean drafts
+      // were produced (daily 1/account limit, no qualifying source, or all
+      // blocked at the quality gate). Report the real counts and refresh the
+      // queue so genuinely-created drafts appear without a page reload.
+      const results = data.results ?? [];
+      const created = results.reduce((n, r) => n + (r.draftsCreated ?? 0), 0);
+      const blocked = results.reduce((n, r) => n + (r.draftsBlocked ?? 0), 0);
+      if (created > 0) {
+        toast.success(
+          `${created} yeni taslak üretildi${blocked > 0 ? ` · ${blocked} kalite kapısında bloklandı` : ""}.`
+        );
+        onGenerated?.();
+      } else if (blocked > 0) {
+        toast.info(`Yeni yayınlanabilir taslak yok — ${blocked} aday kalite kapısında bloklandı.`);
       } else {
-        alert("Hata oluştu: " + (data.error || "Bilinmeyen bir hata"));
+        toast.info("Yeni taslak üretilmedi (bugünlük limit dolu veya uygun kaynak yok).");
       }
     } catch (err) {
-      alert("Hata oluştu: " + (err instanceof Error ? err.message : "İletişim hatası"));
+      toast.error("İletişim hatası: " + (err instanceof Error ? err.message : "bilinmeyen"));
     } finally {
       setGenerating(false);
       refresh();

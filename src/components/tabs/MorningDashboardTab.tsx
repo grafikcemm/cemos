@@ -61,7 +61,7 @@ export default function MorningDashboardTab() {
       {/* Başlık YOK — breadcrumb yeter; aktif taslak ilk viewport'ta başlar. */}
       <MorningHeroStats queue={queue} />
 
-      <OperatorReadinessGate />
+      <OperatorReadinessGate onGenerated={() => queue.fetchDrafts()} />
 
       <OpportunityHandoffBand onGenerated={handleGenerated} />
 
