@@ -37,7 +37,31 @@
 
 ## Teknik borç (5D dead-code geçişinde ele alınacak — çözülmezse backlog)
 
-- Orphaned `/api/growth/training-center` GET route (5B-A değeri knowledgeReadModel'e
-  taştı → route artık tüketicisiz). 5D: sil VEYA operatör data-table'ı için wire.
-- `POST /api/ideas/[id]/create-draft` UI tüketicisi yok (programatik/MCP). 5D: dead-code
-  denetimi keep/wire/delete kararı verir.
+- Orphaned `/api/growth/training-center` GET route — **5D'de SİLİNDİ** (değer 5B-A'da
+  knowledgeReadModel'e taşınmıştı; import-graph 0 tüketici).
+- `POST /api/ideas/[id]/create-draft` — 5B-B'de originKey idempotency ile sertleşti;
+  programatik/MCP kalıyor (UI-wired değil). Aşağıdaki 5D-deferred listede.
+
+## 5D-deferred dead-code temizliği (kanıt-temelli DELETE-safe; RC churn riskinden ertelendi)
+
+Release-readiness denetimi (import-graph, 0 canlı tüketici) bunları DELETE-safe işaretledi
+ama RC ortasında toplu silmek churn riskli — hepsi operator-guarded + zararsız. Post-release
+tek `refactor(cleanup)` sweep'inde silinir (her biri kendi route.test + route-guards girişiyle):
+- Legacy top-level üretim route'ları: `/api/{benchmark,scan,generate,flow,drafts}`.
+- Süperseded kuyruk/growth route'ları: `/api/queue/[id]/{approve,reject,schedule,regenerate,mark-published}`,
+  `/api/growth/feedback`, `/api/growth/pattern-library/[id]/{adjust-score,increment-usage}`.
+- Programatik-only (UI yok): `/api/ideas` GET + `/api/ideas/[id]/create-draft`, `/api/content/search`,
+  `/api/{voice-profiles,published-posts,source-posts,prompt-library,competitors}`,
+  `/api/growth/vector-memory/*` (dışarıdan çağrılmıyorsa).
+- `workerService.ts` 8 `console.log` → yapılandırılmış logger (LOW).
+
+## Güvenlik residualleri (5D — dürüst, kapatılmadı)
+
+- **SSRF DNS-rebinding TOCTOU** (`ssrfGuard.ts`): `assertSafeUrl` `dns.lookup` doğrular ama
+  `fetch` bağımsız yeniden çözer (IP-pin yok). Serverless'te düşük pratik şiddet; düzeltme =
+  custom dispatcher/Agent ile doğrulanmış IP'yi pinle.
+- **postcss (Next transitif) moderate**: build-zamanı CSS-stringify XSS; bu uygulamanın
+  runtime'ında güvenilmeyen CSS stringify edilmediğinden istismar edilemez. Düzeltme = kırıcı
+  Next bump (test döngüsü ister) → RC dışı.
+- **Neon parola rotasyonu** (KRİTİK USER-ACTION): geçmişte parola sızmış olabilir; rotasyon
+  operatör kararı, mevcut bağlantıyı kırabilir → deploy kapısında açık blocker.
