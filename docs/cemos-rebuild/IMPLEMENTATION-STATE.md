@@ -1,10 +1,12 @@
 # IMPLEMENTATION-STATE
 
-## OWNER / PERFECTION PASS (2026-07-20) — P1 dalgası KAPANDI, P2 sürüyor
+## OWNER / PERFECTION PASS (2026-07-20) — non-external P0–P2 KAPANDI, launch onayı bekleniyor
 
-**Branch `feature/cemos-rebuild` @ `95fcc12`** (baseline `7b82bdc` üstüne 7 commit). Push/PR/deploy YOK. Tree temiz (`?? shots/`). Adversarial 8-subagent read-only audit → ana-thread kanıtlı düzeltmeler. Canlı ücretli AI **$0**; dış çağrı yalnız read-only (`prisma migrate status/deploy` guarded).
+**Branch `feature/cemos-rebuild` @ `1934468`** (baseline `7b82bdc` üstüne 16 commit). Push/PR/deploy YOK. Tree temiz (`?? shots/`). Adversarial 8-subagent read-only audit → ana-thread kanıtlı düzeltmeler. Canlı ücretli AI **$0**; dış çağrı yalnız read-only.
 
-**Closure A (migration) UYGULANDI:** `20260720120000_add_operator_setting` → prod Neon (`npm run db:migrate`: 13/13 additive scan + before/after satır sayımı [queueItems 68 / accounts 2 / newsItems 1669 / usageLogs 4220 / …] **satır kaybı YOK** + ikinci deploy "No pending migrations"). `migrate status` = up to date.
+**TAM GATE YEŞİL:** typecheck **0** · lint **0** · unit **2252** (+32) · build **0** · e2e **159 passed** (8.7m).
+
+**Closure A + C migration UYGULANDI** (prod Neon, guarded, her biri before=after satır sayımı [queueItems 68 / accounts 2 / newsItems 1669 / usageLogs 4220 / …] **SIFIR kayıp** + iki-deploy "No pending"): `20260720120000_add_operator_setting` + `20260720130000_add_ai_spend_reservation`. `migrate status` = "up to date". Read-only kredi-şifreleme denetimi: `IntegrationCredential` **0 satır** (plaintext-at-rest = 0; env-token modeli).
 
 **Kapanan P1 (7 commit):**
 - `bedfaae` **B cold-start**: `generateJsonGated` artık `getModelProfile()`'ı estimate+call ÖNCESİ hydrate eder → soğuk instance operatörün durable profilini kullanır (Settings ziyareti gerekmez). Sahte "instrumentation re-hydrates" yorumu + "yeni sunucu örneklerinde geçerli" UI yalanı düzeltildi.
@@ -17,7 +19,16 @@
 
 **Gate (95fcc12):** typecheck **0** · lint **0** · unit **2240** (+20). Tam build + e2e P2 dalgası sonunda toplu koşulacak.
 
-**KALAN (P2, non-external, sıradaki):** C bütçe TOCTOU atomik reservation · H SSRF DNS-rebind IP-pin + IPv6-compat gap · ungated Gemini/embeddings accounting · generate/feedback idempotency · daily-cron aggregate `ok` dürüstlüğü · viralPatternRepo lost-update · security hijyen (timing-safe compare, redaction rollout) · E routing UI dürüstlüğü · misc UX swallow · G dead-code sweep. Sonra tam build+e2e gate + final rapor.
+**Ek P1/P2 KAPANDI (16 commit toplam):** morning-gen single-flight (`cronRunRepo.startIfIdle` advisory-locked atomic) · proxy fail-closed default (`isLocalDevRuntime`; proxy+cron+snapshot) · Learn 8-builder prompt-injection fencing · feedback server-side idempotency · timing-safe token compare · atomik viral-score · daily-cron partial dürüstlüğü + healthService yüzeyi · DigestSection/SettingsTab swallow düzeltmeleri · **closure C** reservation · **closure F** provider honesty · **closure H** IPv6-gap.
+
+**Residual (dürüst, non-external, backlog — çekirdek release'i bloke ETMEZ):**
+- SSRF DNS-rebind TOCTOU — undici modül olarak import edilemiyor (Node global fetch'te lookup hook yok); node:https ile pinned-fetch rewrite'ı iyi-test-edilmiş verifier'ı değiştireceği için ertelendi. Yarım-fix EKLENMEDİ.
+- Gemini transcript (`learning/gemini.ts`) + OpenRouter embeddings (`vector-memory.ts`) UsageLog'a yazmıyor → budget fraksiyon-cent under-read (düşük-$ accounting deliği; embeddings hata → local hash dürüst fallback).
+- `redactError`/logger rollout ~20 ham `console.error/warn` sitede eksik (hijyen; secret yalnız server log'una, HTTP yanıtına DEĞİL — `apiResponse.fail` zaten redact eder).
+- Dead-route sweep (~25 kanıtlı DELETE-safe route) — RC-churn riskiyle ertelendi; hepsi guard'lı, akış kırmıyor.
+- `generateDraftsFallback` fiziksel silme (unreachable + DEAD işaretli).
+
+**Yalnız operatör aksiyonu (external):** Neon parola rotasyonu · Vercel prod env + Deployment Protection · OpenRouter kredi (tek canlı golden) · Composio/Meta binding · Obsidian target · bounded live benchmark (USD tavanı) · push/PR/deploy.
 
 ---
 
