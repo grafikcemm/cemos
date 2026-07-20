@@ -552,7 +552,8 @@ describe("processFeedback (Main Flow)", () => {
     expect(trainingExampleRepo.create).not.toHaveBeenCalled();
   });
 
-  it("does not gate when no idempotencyKey is provided (legacy calls unaffected)", async () => {
+  it("derives a server-side idempotency key when the client omits one (double-submit safe)", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue(null);
     const response = await processFeedback({
       accountId: "acc-123",
       accountHandle: "grafikcem",
@@ -560,7 +561,33 @@ describe("processFeedback (Main Flow)", () => {
       originalContent: "No key legacy call",
     });
     expect(response.success).toBe(true);
-    expect(feedbackEventRepo.findByIdempotencyKey).not.toHaveBeenCalled();
+    // The gate ALWAYS engages now: a deterministic "auto:" key is derived and
+    // pre-checked, so a double-submit / retry can't duplicate the side-effects.
+    expect(feedbackEventRepo.findByIdempotencyKey).toHaveBeenCalled();
+    const key = vi.mocked(feedbackEventRepo.findByIdempotencyKey).mock.calls.at(-1)?.[0];
+    expect(key).toMatch(/^auto:/);
+    expect(feedbackEventRepo.create).toHaveBeenCalledTimes(1);
+    const created = vi.mocked(feedbackEventRepo.create).mock.calls[0][0];
+    expect(created.idempotencyKey).toMatch(/^auto:/);
+  });
+
+  it("dedupes an identical no-key double-submit via the derived key", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: "fb-first" } as any);
+    const input = {
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "approved" as const,
+      originalContent: "same content",
+      reason: "same reason",
+    };
+    const first = await processFeedback(input);
+    const second = await processFeedback(input);
+    expect(first.success).toBe(true);
+    expect(second.warnings).toContain("idempotent_replay");
+    // Both derived the SAME key → the second short-circuits; the side-effecting
+    // create runs exactly once.
     expect(feedbackEventRepo.create).toHaveBeenCalledTimes(1);
   });
 });

@@ -20,6 +20,7 @@ import {
   type DraftScore,
   type PatternExtractionResult,
 } from "@/lib/growth-engine/types";
+import { createHash } from "node:crypto";
 
 /**
  * Faz D.2 — how much to nudge a grounding pattern's successScore based on the
@@ -221,6 +222,28 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 /**
+ * Server-side idempotency fallback. When the client omits `idempotencyKey`, a
+ * double-submit / network retry would otherwise create duplicate FeedbackEvent +
+ * TrainingExample + ViralPattern rows AND a paid embedding. We derive a
+ * deterministic key from the stable feedback fields so an IDENTICAL re-submit is
+ * deduped, while a genuinely different feedback (different verdict/edit/reason)
+ * hashes differently and is still recorded. Prefixed `auto:` to stay disjoint
+ * from client-supplied keys.
+ */
+function deriveFeedbackIdempotencyKey(fb: FeedbackApiInput): string {
+  const basis = [
+    fb.accountId ?? "",
+    fb.queueItemId ?? "",
+    fb.sourcePostId ?? "",
+    fb.feedbackType ?? "",
+    (fb.editedContent ?? "").trim(),
+    (fb.originalContent ?? "").trim(),
+    (fb.reason ?? "").trim(),
+  ].join("");
+  return "auto:" + createHash("sha256").update(basis).digest("hex").slice(0, 40);
+}
+
+/**
  * Processes feedback by creating feedback event, training example, and viral pattern as required.
  */
 export async function processFeedback(rawInput: unknown): Promise<FeedbackApiResponse> {
@@ -245,7 +268,14 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   if (!account) {
     throw new Error(`Invalid accountHandle: ${input.accountHandle}`);
   }
-  const fb: FeedbackApiInput = { ...input, accountId: account.id };
+  const withAccount: FeedbackApiInput = { ...input, accountId: account.id };
+  // Always carry an idempotency key: client-supplied when present, otherwise a
+  // deterministic server-derived one so the double-submit gate below and the
+  // FeedbackEvent unique index ALWAYS engage (not only when the client bothered).
+  const fb: FeedbackApiInput = {
+    ...withAccount,
+    idempotencyKey: withAccount.idempotencyKey ?? deriveFeedbackIdempotencyKey(withAccount),
+  };
 
   // 3. Ensure content exists
   const hasContent = Boolean(
