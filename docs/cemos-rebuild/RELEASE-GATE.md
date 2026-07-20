@@ -5,6 +5,22 @@
 > Durum: **release candidate CODE COMPLETE** — "operational core live" ya da
 > "production launched" DEĞİL (canlı sağlayıcı round-trip'leri BLOCKED-EXTERNAL).
 >
+> **GÜNCELLEME (Pre-Launch Adversarial Certification, 2026-07-20):** Owner pass `0127213`
+> üstüne **10 commit** (HEAD = doc commit'i). Yeni 8-subagent adversarial dalga. **Bilinen
+> non-external P0–P1 = 0; düzeltilebilir P2 kapandı.** Kapatılan: `draftService` sahte-mock
+> persist (P0/P1, D-closure ikizi) · budget **fail-CLOSED** (`BudgetSystemUnavailableError`) +
+> tek-tx kritik bölüm · TÜM ücretli AI muhasebesi (transkript UNGATED→gated+log, embeddings,
+> discovery, Fal/transcript Costs reconciliation) · Sistem paneli liveness + learn-cron partial +
+> operator-scan-now 0-taslak dürüstlüğü · SSRF toolbox/refresh per-hop guard · redaction (provider
+> body+Prisma) · **real-Postgres itest katmanı** (`*.itest.ts`+CI `postgres:16`, CI-only/SKIP-guarded)
+> · **6 ölü legacy route silindi**. **RUNTIME AUTH KANITI:** `next start`+curl → proxy **401/307**
+> enforce + `instrumentation` secret-yok **fail-closed 500** ⇒ güvenlik-denetiminin P0-1 ("route'lar
+> auth'suz erişilebilir") iddiası **ÇÜRÜTÜLDÜ** (residual yalnız build-kıran typo idi, düzeltildi).
+> TAM GATE YEŞİL: typecheck **0** · lint **0** · catalog OK · acceptance OK (**98 mutation route**) ·
+> ai-economics OK · unit **2257** · build **0** (+`ƒ Proxy (Middleware)`). **YENİ migration YOK** (A+C
+> zaten prod'da). Route 138→**132**, mutation 104→**98**. $0 · push/deploy YOK. Ayrıntı üst §:
+> `IMPLEMENTATION-STATE.md`. §5–§11 operatör aksiyon listesi DEĞİŞMEDİ.
+
 > **GÜNCELLEME (Phase 5E, 2026-07-20 — Final Acceptance & Repair):** 5D RC (`7a5dac2`)
 > üstüne **5 commit** (`53f30b8` feat format-aware Learn idea handoff BUG-01/02 · `538395f`
 > fix(security) safeExternalHref BUG-06 · `a440310` verify:acceptance + lint 0/0 · `bd00737`

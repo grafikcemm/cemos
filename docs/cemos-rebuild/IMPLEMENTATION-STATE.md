@@ -1,5 +1,35 @@
 # IMPLEMENTATION-STATE
 
+## PRE-LAUNCH ADVERSARIAL CERTIFICATION (2026-07-20) — non-external P0–P1 = 0, düzeltilebilir P2 kapandı; launch onayı bekleniyor
+
+**Branch `feature/cemos-rebuild`** (Owner/Perfection Pass `0127213` üstüne **10 commit**, HEAD bu doc commit'i). Push/PR/deploy YOK. Tree temiz (`?? shots/`). Yeni 8-subagent adversarial dalga (DB-concurrency / AI-accounting / security-SSRF / dead-route / product-false-success / cron-provider / test-realism / dormant-IG) → ana-thread kanıtlı düzeltmeler + false-positive geri çekme. Canlı ücretli AI **$0**; dış round-trip YOK.
+
+**TAM GATE YEŞİL:** typecheck **0** · lint **0** · verify:catalog **OK** (9 preset, canlı) · verify:acceptance **OK** (18 ekran / **98 mutation route hepsi guard'lı** / 4 cron) · verify:ai-economics **OK** · unit **2257** (228 dosya) · build **0** (temiz `.next`, `ƒ Proxy (Middleware)` üretildi) · e2e HARNESS (bu koşu; prior tam suite 159 passed).
+
+**RUNTIME AUTH KANITI (yeni — önceki pass'ler dosya/manifest varlığına dayanıyordu):** `next start` prod sunucu + curl ile PROXY ENFORCEMENT canlı doğrulandı → `/giris`=200 (allowlist), `/api/health`=**401** `{"ok":false,"code":"unauthenticated"}` (proxy.ts:58), `/dashboard`=**307 /giris?next=** (proxy.ts:60-63), `/`=307. AYRICA sırlar yokken `instrumentation.js` başlangıçta THROW → yapılandırılmamış deploy her isteğe **500 fail-closed** (açık erişim DEĞİL). ⇒ güvenlik-denetiminin "tüm route auth'suz erişilebilir (P0-1)" iddiası ÇÜRÜTÜLDÜ; gerçek residual yalnız build-kıran vitest-config typo idi (düzeltildi). Boş `middleware-manifest.json` red-herring (Next 16 webpack proxy'yi başka mekanizmayla kaydeder; runtime doğru çağırır).
+
+**Kapatılan (kanıtlı, non-external):**
+- **P0/P1 sahte-başarı** (`draftService.ts`): 402/timeout'ta `createMockBenchmark` sabit pazarlama tweet'i tweet/auto niyette GERÇEK QueueItem olarak persist ediliyordu (yeşil cron + "hazır" Bugün) → ANY `usedMock` artık dürüst blocked (`pipeline_failed:<class>`). Owner pass'in D-closure'ının kaçırdığı ikiz motor.
+- **Budget fail-CLOSED** (mandate): reservation altyapı hatasında (tablo yok / DB unreachable / status okuma hatası) → `BudgetSystemUnavailableError` (harcama YOK; eski fail-open `{id:null}` KALKTI); cold-start retry; kritik bölüm TEK `tx` bağlantısı (DB-agent self-starvation P2 kapandı).
+- **Tüm ücretli AI muhasebeleşiyor**: Gemini/Supadata transkript UNGATED + silent-$0 idi → learn-budget gate + `recordTranscript`; OpenRouter embeddings + xConnector discovery scan + `recordScan` provider-tag + Fal/transcript Costs line-item reconciliation. Migration YOK.
+- **Cron dürüstlüğü**: Sistem paneli liveness ledger (402→kırmızı; split-brain kapandı) · learn-cron budget-skip → partial · operator-scan-now 0-taslak dürüst (UI blanket-success yalanı kalktı).
+- **Ürün**: series `accounts[0]` non-determinism (stable `orderBy`) · SSRF toolbox/refresh per-hop `assertSafeUrl`+manual-redirect · redaction (openrouter provider body + Prisma repo logları).
+- **Real-Postgres itest katmanı** (`*.itest.ts` + `vitest.integration.config.ts` + CI `postgres:16` + double-guard): reservation overshoot · cron single-flight · viral atomic clamp/no-lost-update · feedback P2002 idempotency · OperatorSetting upsert. **YEREL PG/Docker YOK → CI'da koşar, SKIP-guarded, prod Neon'a ASLA dokunmaz (dürüst blocker; DoD "PASS sayma" izlendi).**
+- **6 kanıtlı-ölü legacy route SİLİNDİ** (`/api/{generate,scan,benchmark,drafts,flow,news}`; 0 kod tüketicisi, acceptance yeşil kaldı).
+
+**Migrations:** A (`OperatorSetting`) + C (`AiSpendReservation`) ZATEN prod Neon'da (Owner pass; guarded, before=after satır kaybı YOK, iki-deploy "No pending"). Bu certification'da YENİ migration YOK. `migrate status` = up to date.
+
+**Residual (dürüst, non-external, backlog — çekirdeği bloke ETMEZ):**
+- SSRF DNS-rebind TOCTOU (`verifyWebsite`): undici import EDİLEMİYOR (MODULE_NOT_FOUND doğrulandı) → node:https lookup-pin rewrite tested-verifier'ı riske atar; toolbox/refresh sertleştirildi ama verifyWebsite'te sub-saniye rebind penceresi açık (auth-gated + tek-operatör + metadata zaten bloklu → düşük gerçek maruziyet). Yarım-fix EKLENMEDİ.
+- `redactError` broad rollout (~15 message-only `console.*` site: instagramService / cron routes) — Prisma parolayı zaten maskeler; düşük gerçek-secret riski.
+- integration-DB testleri YEREL koşulamaz (Docker/PG yok) → CI-only.
+- Kalan kanıtlı-DELETE-safe route'lar (queue/[id]/* superseded, vector-memory/*, adjust-score lost-update) — shared test-file coupling → ayrı sweep.
+- `BudgetSystemUnavailableError` route'larda 503-kod yerine honest-500 (harcama YOK; kozmetik).
+
+**Yalnız operatör (external):** Neon parola rotasyonu · Vercel prod env (`CREDENTIAL_ENC_KEY`/`ACCESS_PASSWORD_HASH`/`SESSION_SECRET`) + Deployment Protection · OpenRouter kredi (tek canlı golden) · Composio/Meta binding · Obsidian target · bounded live benchmark (USD tavanı) · push/PR/deploy. **NOT operational-core-live (canlı sağlayıcı round-trip YOK) / NOT production-launched (deploy YOK).**
+
+---
+
 ## OWNER / PERFECTION PASS (2026-07-20) — non-external P0–P2 KAPANDI, launch onayı bekleniyor
 
 **Branch `feature/cemos-rebuild` @ `1934468`** (baseline `7b82bdc` üstüne 16 commit). Push/PR/deploy YOK. Tree temiz (`?? shots/`). Adversarial 8-subagent read-only audit → ana-thread kanıtlı düzeltmeler. Canlı ücretli AI **$0**; dış çağrı yalnız read-only.

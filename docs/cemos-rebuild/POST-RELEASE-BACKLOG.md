@@ -1,5 +1,16 @@
 # POST-RELEASE-BACKLOG — CemOS
 
+> **Pre-Launch Certification (2026-07-20) KAPATTI — bu maddeler artık backlog DEĞİL:**
+> Bütçe TOCTOU (§10) → `AiSpendReservation` + **fail-CLOSED** uygulandı (spec değil kod).
+> `growth-engine/draft-generator` statik-canned fallback + **`draftService` ikiz mock-persist** →
+> ANY `usedMock` dürüst blocked. Gemini/Supadata transkript + embeddings + discovery muhasebe
+> deliği → gate+log. SSRF **toolbox/refresh** → per-hop `assertSafeUrl`+manual-redirect. 6 ölü
+> legacy route (`/api/{generate,scan,benchmark,drafts,flow,news}`) → SİLİNDİ. Detay:
+> `IMPLEMENTATION-STATE.md` üst "PRE-LAUNCH ADVERSARIAL CERTIFICATION" bölümü.
+> **AÇIK KALAN residual:** SSRF `verifyWebsite` DNS-rebind (undici yok), redactError broad rollout,
+> queue/[id]/* + vector-memory/* + adjust-score dead-route sweep, integration-DB testleri CI-only.
+
+
 > Bu programın (Release Completion: 5B→5C→5D) kapsamı DIŞINDA kalan "güzel olur"
 > maddeleri. Current release'e EKLENMEZ; her biri kısa gerekçeyle burada bekler.
 > Kaynak: 5B kararları (ADR-045) + keşif denetimleri.
