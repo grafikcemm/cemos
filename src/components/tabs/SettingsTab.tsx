@@ -153,7 +153,7 @@ export default function SettingsTab() {
       );
       if (data.success) {
         await loadData();
-        alert("Model profili 'Operator Quality' olarak kalıcı kaydedildi (sunucu-otoriteli). Yeni sunucu örneklerinde geçerli olur.");
+        alert("Model profili 'Operator Quality' olarak kalıcı kaydedildi (sunucu-otoriteli). Her AI çağrısı öncesi yüklenir; soğuk başlangıç dahil tüm sunucu örneklerinde rol-bazlı üretim yönlendirmesine uygulanır. (Not: sabit preset'li yollar — ana yazar/jüri — kendi modelini kullanır, profilden bağımsız.)");
       } else {
         alert("Hata: " + data.error);
       }

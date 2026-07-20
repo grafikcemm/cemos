@@ -13,6 +13,7 @@ import {
 import { usageService } from "@/lib/services/usageService";
 import type { ModelRole } from "@/lib/ai/model-config";
 import { resolvePreset, type PresetName } from "@/lib/ai/presets";
+import { getModelProfile } from "@/lib/services/settingsService";
 
 /**
  * Budget-gated wrapper around `generateJson`.
@@ -67,6 +68,16 @@ export async function generateJsonGated<T>(
     throw new Error("generateJsonGated: purpose zorunlu (UsageLog attribution).");
   }
   const budgetClass = opts.budgetClass ?? inferAiBudgetClass(purpose);
+  // Cold-start durable-profile hydration (Phase 5F §6 / closure B). The legacy
+  // role path resolves the model from `process.env.MODEL_PROFILE` SYNCHRONOUSLY
+  // (`model-config.resolveModel`), and BOTH the cost estimate below and the
+  // actual call go through it. `getModelProfile()` reads the durable
+  // `OperatorSetting` row and converges `process.env.MODEL_PROFILE`, so the very
+  // first paid call on a cold serverless instance honors the operator's saved
+  // choice WITHOUT requiring a prior `/api/settings` visit. Fail-open + 30s
+  // cache → at most one cached DB read per instance per 30s. Presets pin their
+  // own model and are unaffected either way.
+  await getModelProfile();
   const model = preset?.primary;
   const fallbacks = preset?.fallbacks;
   const requestedCeilingUsd = estimateGenerateJsonCeiling({

@@ -14,11 +14,15 @@ vi.mock("@/lib/config/costGate", async () => {
 vi.mock("@/lib/services/usageService", () => ({
   usageService: { recordOpenRouter: vi.fn() },
 }));
+vi.mock("@/lib/services/settingsService", () => ({
+  getModelProfile: vi.fn(async () => "operator_quality"),
+}));
 
 import { generateJsonGated } from "./generateGated";
 import { generateJson } from "@/lib/ai/openrouter";
 import { assertGenerationAllowed, BudgetExceededError } from "@/lib/config/costGate";
 import { usageService } from "@/lib/services/usageService";
+import { getModelProfile } from "@/lib/services/settingsService";
 
 const fakeResult = {
   data: { x: 1 },
@@ -121,6 +125,37 @@ describe("generateJsonGated", () => {
         meta: expect.objectContaining({ purpose: "judge_unlabeled" }),
       }),
     );
+  });
+
+  it("cold-start: durable model profile'ı generateJson'dan ÖNCE hydrate eder (closure B)", async () => {
+    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+    vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
+
+    await generateJsonGated({
+      role: "creativeWriter",
+      system: "s",
+      user: "u",
+      purpose: "writer_x_growth",
+    });
+
+    // The sync resolveModel reads process.env.MODEL_PROFILE; hydration MUST run
+    // first so a cold serverless instance honors the operator's durable choice.
+    expect(getModelProfile).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(getModelProfile).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(generateJson).mock.invocationCallOrder[0],
+    );
+  });
+
+  it("budget reddi durable profile hydrate edildikten sonra bile spend yapmaz", async () => {
+    vi.mocked(assertGenerationAllowed).mockRejectedValueOnce(new BudgetExceededError(10, 5));
+
+    await expect(
+      generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" }),
+    ).rejects.toBeInstanceOf(BudgetExceededError);
+
+    // Hydration is cheap + fail-open; it runs before the budget assertion but a
+    // blocked budget still stops the spend.
+    expect(generateJson).not.toHaveBeenCalled();
   });
 
   it("ne preset ne role → hata (budget gate'e bile gitmez)", async () => {

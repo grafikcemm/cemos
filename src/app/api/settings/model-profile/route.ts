@@ -17,8 +17,13 @@ const ProfileSchema = z.object({
  * start). The UI reported success while production routing never changed.
  *
  * Now persisted in `OperatorSetting`; success is returned ONLY after the row is
- * committed. `instrumentation.register()` re-hydrates `process.env.MODEL_PROFILE`
- * on each instance boot so the synchronous resolver honors the durable choice.
+ * committed. The durable value is re-hydrated by `generateJsonGated` (via
+ * `getModelProfile`) before every LLM call — and by `/api/settings` GET — so the
+ * synchronous `resolveModel` path honors the operator's choice on any instance,
+ * including a cold serverless start, without requiring a Settings visit first.
+ * It is deliberately NOT hydrated from `instrumentation.register()`: pulling
+ * Prisma into instrumentation forces the edge webpack bundle, which cannot
+ * resolve `node:child_process` (see commit 533327a).
  */
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
