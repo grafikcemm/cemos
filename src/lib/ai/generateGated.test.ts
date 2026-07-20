@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn(),
   estimateGenerateJsonCeiling: vi.fn(() => 0.05),
+  classifyOpenRouterError: vi.fn((m: string) => (/json|parse/i.test(m) ? "invalid_json" : "unknown")),
 }));
 vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
@@ -158,6 +159,7 @@ describe("generateJsonGated billed failures", () => {
           purpose: "test",
           budgetClass: "background",
           failed: true,
+          errorClass: "invalid_json",
         }),
       }),
     );

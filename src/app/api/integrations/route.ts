@@ -3,6 +3,11 @@ import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { prisma } from "@/lib/db/client";
 import { getComposioConfig, missingComposioEnvNames } from "@/lib/composio/config";
+import {
+  getProviderLiveness,
+  UNKNOWN_LIVENESS,
+  type ProviderLiveness,
+} from "@/lib/services/providerLivenessService";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +21,16 @@ export const dynamic = "force-dynamic";
 
 type Group = "core" | "social" | "optional";
 type Status = "connected" | "missing" | "blocked" | "optional";
-type Provider = { key: string; name: string; group: Group; status: Status; envNames: string[]; note?: string };
+type Provider = {
+  key: string;
+  name: string;
+  group: Group;
+  status: Status;
+  envNames: string[];
+  note?: string;
+  /** Persisted liveness (§13/BUG-05) — last success/failure from the audit trail. */
+  liveness?: ProviderLiveness;
+};
 
 /** Composio Instagram bağlantısının UI'ye giden durumu (ADR-032; secret YOK). */
 export type ComposioIntegration = {
@@ -212,6 +226,15 @@ export async function GET(req: NextRequest) {
     },
   ];
 
-  const composio = await readComposioIntegration();
-  return ok({ providers, composio });
+  const [composio, liveness] = await Promise.all([
+    readComposioIntegration(),
+    getProviderLiveness(),
+  ]);
+  // §13/BUG-05: a configured provider is not a working provider. Attach the
+  // persisted last-success/last-failure; providers with no ledger stay `unknown`.
+  const withLiveness = providers.map((p) => ({
+    ...p,
+    liveness: liveness[p.key] ?? UNKNOWN_LIVENESS,
+  }));
+  return ok({ providers: withLiveness, composio });
 }

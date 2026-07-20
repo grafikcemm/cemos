@@ -1,4 +1,5 @@
 import {
+  classifyOpenRouterError,
   estimateGenerateJsonCeiling,
   generateJson,
   type GenerateJsonResult,
@@ -118,6 +119,12 @@ export async function generateJsonGated<T>(
           ? errorRecord.model
           : model;
       try {
+        // Non-sensitive error category (DH-014) so provider liveness (§13/BUG-05)
+        // can surface WHY the last call failed (e.g. provider_credit = 402) without
+        // leaking the raw provider body.
+        const errorClass = classifyOpenRouterError(
+          error instanceof Error ? error.message : String(error),
+        );
         await usageService.recordOpenRouter({
           accountId: opts.accountId,
           estimatedCostUsd: billedCostUsd,
@@ -126,6 +133,7 @@ export async function generateJsonGated<T>(
             purpose,
             budgetClass,
             failed: true,
+            errorClass,
             ...(preset ? { preset: preset.name } : {}),
             ...opts.meta,
           },

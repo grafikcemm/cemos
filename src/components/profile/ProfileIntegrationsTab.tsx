@@ -14,6 +14,13 @@ import { useXAgentStore } from "@/store/xagent";
  * durum Sistem'de. Profil host'u kendi başlığını taşır.
  */
 
+type Liveness = {
+  state: "verified" | "degraded" | "unknown";
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastErrorClass: string | null;
+};
+
 type Provider = {
   key: string;
   name: string;
@@ -21,6 +28,7 @@ type Provider = {
   status: "connected" | "missing" | "blocked" | "optional";
   envNames: string[];
   note?: string;
+  liveness?: Liveness;
 };
 
 type ComposioBinding = {
@@ -91,16 +99,39 @@ function healthOf(key: string, h: Health | null): HealthEntry | undefined {
   return undefined;
 }
 
+function livenessNote(l: Liveness | undefined): string | undefined {
+  if (!l) return undefined;
+  if (l.state === "degraded") {
+    const when = l.lastFailureAt ? new Date(l.lastFailureAt).toLocaleString("tr-TR") : "";
+    return `Son çağrı başarısız${l.lastErrorClass ? ` (${l.lastErrorClass})` : ""}${when ? ` · ${when}` : ""}`;
+  }
+  if (l.state === "verified" && l.lastSuccessAt) {
+    return `Son başarılı çağrı: ${new Date(l.lastSuccessAt).toLocaleString("tr-TR")}`;
+  }
+  return undefined;
+}
+
 function display(p: Provider, h: Health | null): { variant: "success" | "danger" | "yellow" | "muted"; label: string; live?: string } {
   if (p.status === "blocked") return { variant: "yellow", label: "engelli" };
   const he = healthOf(p.key, h);
+  const lNote = livenessNote(p.liveness);
   if (p.status === "connected") {
+    // The live /api/health probe is authoritative for CURRENT state when present.
     if (he && typeof he.ok === "boolean") {
       return he.ok
-        ? { variant: "success", label: "bağlı", live: he.message }
-        : { variant: "yellow", label: "yanıt yok", live: he.message };
+        ? { variant: "success", label: "bağlı", live: he.message ?? lNote }
+        : { variant: "yellow", label: "yanıt yok", live: he.message ?? lNote };
     }
-    return { variant: "success", label: "yapılandırıldı" };
+    // No live probe → fall back to the persisted ledger (§13/BUG-05): a configured
+    // provider whose LAST recorded call failed is NOT reported as healthy.
+    if (p.liveness?.state === "degraded") {
+      return { variant: "yellow", label: "son çağrı başarısız", live: lNote };
+    }
+    if (p.liveness?.state === "verified") {
+      return { variant: "success", label: "bağlı", live: lNote };
+    }
+    // Configured but never exercised — honestly "configured, not verified".
+    return { variant: "muted", label: "yapılandırıldı · doğrulanmadı" };
   }
   if (p.status === "missing") return { variant: "danger", label: "eksik" };
   return { variant: "muted", label: "opsiyonel" };
