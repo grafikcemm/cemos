@@ -75,6 +75,24 @@ export function getGeminiTranscriptModel(): string {
 }
 
 /**
+ * Per-transcript cost ESTIMATE for the two PAID transcript providers, so a
+ * transcript fetch is never silently accounted as $0. Static env fallback (no
+ * per-token metering available for Gemini native-video here). Free providers
+ * (youtubei captions, manual paste, NotebookLM summary) cost 0.
+ */
+export function getTranscriptCostUsd(provider: string): number {
+  if (provider === "gemini") {
+    const n = Number(process.env.GEMINI_TRANSCRIPT_COST_USD);
+    return Number.isFinite(n) && n >= 0 ? n : 0.03;
+  }
+  if (provider === "supadata") {
+    const n = Number(process.env.SUPADATA_COST_PER_TRANSCRIPT_USD);
+    return Number.isFinite(n) && n >= 0 ? n : 0.01;
+  }
+  return 0;
+}
+
+/**
  * Supadata 3rd-party transkript API'si (supadata.ai). Innertube/timedtext Vercel
  * IP'sinde bloklu + Gemini bazı videoları PROHIBITED_CONTENT ile reddeder; Supadata
  * gerçek altyazıyı kendi altyapısından çeker → ikisini de atlatır. Zincirde Gemini'den

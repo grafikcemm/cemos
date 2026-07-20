@@ -3,7 +3,7 @@ import type { UsageLog } from "@/generated/prisma/client";
 
 export type CreateUsageLogInput = {
   accountId?: string;
-  type: "scan" | "generation" | "openrouter" | "image";
+  type: "scan" | "generation" | "openrouter" | "image" | "transcript";
   tweetCount?: number;
   estimatedCostUsd: number;
   date: string;

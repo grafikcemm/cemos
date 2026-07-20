@@ -20,6 +20,10 @@ export const usageService = {
       tweetCount: opts.tweetCount,
       estimatedCostUsd: opts.estimatedCostUsd,
       date: todayDate(),
+      // provider tag so providerLivenessService (which filters strictly on
+      // `provider`) can see SocialData as verified/degraded instead of forever
+      // "unknown". Cost totals still key off type:"scan" (backward compatible).
+      provider: "socialdata",
       platform: opts.platform,
     });
   },
@@ -105,6 +109,28 @@ export const usageService = {
       model: opts.model,
       meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
       platform: opts.platform,
+    });
+  },
+
+  /**
+   * Log a paid transcript spend (Gemini native-video / Supadata). provider keeps
+   * it off the OpenRouter LLM line; meta.purpose="learn_transcript" folds it into
+   * the "learn_" monthly budget so the transcript fetch is no longer an unmetered,
+   * silently-$0 paid path. Free captions (youtubei) / manual paste never call this.
+   */
+  async recordTranscript(opts: {
+    provider: string;
+    estimatedCostUsd: number;
+    model?: string;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    await usageLogRepo.create({
+      type: "transcript",
+      estimatedCostUsd: opts.estimatedCostUsd,
+      date: todayDate(),
+      provider: opts.provider,
+      model: opts.model,
+      meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
     });
   },
 

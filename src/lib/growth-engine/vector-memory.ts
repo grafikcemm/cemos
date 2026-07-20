@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
+import { usageService } from "@/lib/services/usageService";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
 import type {
   MemoryLabel,
@@ -110,6 +111,18 @@ export async function createEmbedding(text: string): Promise<EmbeddingVector> {
     const data = await response.json();
     const values = data.data?.[0]?.embedding;
     if (Array.isArray(values) && values.length > 0) {
+      // Account the real OpenRouter embedding spend (was silently $0). The monthly
+      // CEILING was already enforced via the provider-usage max in costGate, but
+      // per-purpose attribution was missing. Rough token estimate (~4 chars/token)
+      // at text-embedding-3-small pricing ($0.02 / 1M tokens). Best-effort.
+      const estTokens = Math.ceil(text.length / 4);
+      await usageService
+        .recordOpenRouter({
+          estimatedCostUsd: (estTokens / 1_000_000) * 0.02,
+          model: "openai/text-embedding-3-small",
+          meta: { purpose: "embedding" },
+        })
+        .catch(() => {});
       return {
         provider: "openrouter",
         model: "openai/text-embedding-3-small",

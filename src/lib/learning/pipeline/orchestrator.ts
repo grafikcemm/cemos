@@ -26,6 +26,8 @@ import {
   isGeminiConfigured,
   isSupadataConfigured,
   isObsidianAutoExportEnabled,
+  getTranscriptCostUsd,
+  getGeminiTranscriptModel,
 } from "@/lib/learning/learnConfig";
 import { nextStage, PASSTHROUGH_STAGES, type LearnStage } from "./stages";
 import { fetchVideoMetadata, fetchTimedTranscript, type TimedSegment } from "./transcript-fetch";
@@ -327,6 +329,11 @@ export async function advanceJob(
     const existing = await learnTranscriptRepo.getBySource(sourceId);
     if (existing && existing.fullText.length >= MIN_TRANSCRIPT_CHARS) return true;
     let tr = await fetchTimedTranscript(source!.externalId);
+    // Free youtubei captions come first. The next two providers COST money, so the
+    // learn budget must gate them (previously the only paid path with NO ceiling)
+    // and the spend must be logged (previously silently $0). assertBudget throws
+    // BudgetExceededError → the stage stops honestly when the learn budget is spent.
+    if (!tr && (isSupadataConfigured() || isGeminiConfigured())) await assertBudget();
     if (!tr && isSupadataConfigured()) tr = await fetchTranscriptViaSupadata(source!.externalId);
     if (!tr && isGeminiConfigured()) tr = await fetchTranscriptViaGemini(source!.url);
     if (tr && tr.fullText.length >= MIN_TRANSCRIPT_CHARS) {
@@ -337,6 +344,19 @@ export async function advanceJob(
         segmentsJson: safeJsonStringify(tr.segments),
         fullText: tr.fullText,
       });
+      // Account the PAID transcript providers (gemini / supadata). Best-effort: a
+      // ledger write must never lose a transcript we already fetched + stored.
+      const cost = getTranscriptCostUsd(tr.provider);
+      if (cost > 0) {
+        await usageService
+          .recordTranscript({
+            provider: tr.provider,
+            estimatedCostUsd: cost,
+            model: tr.provider === "gemini" ? getGeminiTranscriptModel() : undefined,
+            meta: { purpose: "learn_transcript", sourceId },
+          })
+          .catch(() => {});
+      }
       return true;
     }
     return false;
