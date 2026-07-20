@@ -162,6 +162,19 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     }
   }
 
+  // Aggregate honesty: a failed own/competitor IG sync (e.g. a revoked Meta
+  // token) must not leave a clean "cron ran" signal. It doesn't flip `ok` (draft
+  // generation still worked and per-widget freshness stays honest), but it marks
+  // the run PARTIAL so the health surface reads degraded rather than green.
+  const subSyncDegraded = (r: unknown): boolean => {
+    if (!r || typeof r !== "object") return false;
+    const o = r as Record<string, unknown>;
+    return o.ok === false || "error" in o;
+  };
+  if (subSyncDegraded(igOwnSync) || subSyncDegraded(igCompetitorSync)) {
+    partial = true;
+  }
+
   const ok = handles.length === 0 ? true : errors < handles.length;
   if (cronRunId) {
     await cronRunRepo.finish(cronRunId, {

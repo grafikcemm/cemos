@@ -258,6 +258,11 @@ export const healthService = {
     // "cron çalışmadı" message (the most common false alarm pre-CronRun).
     if (isServerless && lastCronRun && lastCronRun.finishedAt && !lastCronRun.ok) {
       recommendation = `Son cron çalıştı fakat hata verdi: ${lastCronRun.error || "bilinmeyen hata"}. Panelden manuel tarama yapıp logları kontrol edin.`;
+    } else if (isServerless && lastCronRun && lastCronRun.finishedAt && lastCronRun.ok && lastCronRun.partial) {
+      // Overall ok, but a sub-stage degraded (e.g. an IG sync failed on a revoked
+      // Meta token) — surface it instead of an all-green signal.
+      recommendation =
+        "Son cron çalıştı ama bazı alt-adımlar kısmi/başarısız (ör. Instagram senkronu). Profil → Entegrasyonlar ve Sistem'den durumu kontrol edin.";
     }
 
     // Result-level news pipeline health (fail-open: a DB hiccup here must not
