@@ -10,6 +10,7 @@
 import { formatTimestamp } from "@/lib/learning/pipeline/chunk";
 import type { SourceBasis } from "@/lib/learning/types";
 import { groundedTypeForBasis } from "@/lib/learning/types";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 
 export type PromptPair = { system: string; user: string };
 
@@ -62,9 +63,9 @@ export function buildSectionAnalysis(
     system:
       `Sen bir öğrenme materyali analistisin. Sana eğitici bir ${mat} BİR BÖLÜMÜNÜN ` +
       "zaman-kodlu parçaları veriliyor. Bu bölümü özetle ve önemli noktaları çıkar. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `${mat} parçaları:\n${formatChunks(sectionChunks)}\n\n` +
+      `${mat} parçaları:\n${wrapUntrustedData(formatChunks(sectionChunks))}\n\n` +
       `JSON şeması: {"sectionSummary": "...", "keyPoints": [{"text": "...", "chunkIdx": 0}]}`,
   };
 }
@@ -90,9 +91,9 @@ export function buildGlobalSynthesis(
       "İçeriği şu kategorilerden BİRİNE ata (category alanında slug): yapay_zeka, kisisel_gelisim, " +
       "teknoloji, tasarim, is_finans, pazarlama, saglik_psikoloji, egitim, bilim, diger. " +
       "Ayrıca önemli iddiaları topla; her iddia için kaynak chunkIdx ve groundingType ver. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Başlık: ${input.title}\nKanal: ${input.channelTitle}\n\nBölüm özetleri (chunkIdx parantez içinde):\n${sectionsBlock}\n\n` +
+      `${wrapUntrustedData(`Başlık: ${input.title}\nKanal: ${input.channelTitle}\n\nBölüm özetleri (chunkIdx parantez içinde):\n${sectionsBlock}`)}\n\n` +
       `JSON şeması: {"summaryL1":"...","summaryL2":"...","summaryL3":"...","category":"yapay_zeka","claims":[{"text":"...","chunkIdx":0,"groundingType":"${grounded(basis)}"}]}`,
   };
 }
@@ -106,9 +107,9 @@ export function buildConcepts(
     system:
       "Sen bir kavram çıkarıcısın. İçerikteki önemli ÖĞRETİLEBİLİR kavramları çıkar (en fazla 12). " +
       "Her kavram için kısa tanım, önem (0-100) ve kavramı destekleyen chunkIdx listesi ver. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Özet: ${input.summaryL2}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}\n\n` +
+      `${wrapUntrustedData(`Özet: ${input.summaryL2}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}`)}\n\n` +
       `JSON şeması: {"concepts":[{"label":"...","definition":"...","importance":50,"groundingChunks":[0,1]}]}`,
   };
 }
@@ -125,9 +126,9 @@ export function buildAssessment(
       "materyali üret: flashcard'lar (soru→kısa cevap) ve çoktan seçmeli quiz'ler. " +
       "Quiz distractor'ları (yanlış şıklar) yakın kavramlardan türetilmeli ama net yanlış olmalı; " +
       "rastgele/anlamsız olmamalı. Her item kaynak chunkIdx taşımalı. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Kavramlar:\n${conceptBlock}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}\n\n` +
+      `${wrapUntrustedData(`Kavramlar:\n${conceptBlock}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}`)}\n\n` +
       `Her kavram için en az 1 flashcard, toplam en az 3 quiz üret.\n` +
       `JSON şeması: {"flashcards":[{"front":"...","back":"...","conceptLabel":"...","difficulty":2,"chunkIdx":0,"groundingType":"${grounded(basis)}"}],` +
       `"quizzes":[{"stem":"...","options":["...","..."],"correctIdx":0,"rationale":"...","conceptLabel":"...","difficulty":2,"chunkIdx":0,"groundingType":"${grounded(basis)}"}]}`,
@@ -147,9 +148,9 @@ export function buildNotes(
       "Sen bir Zettelkasten not alıcısısın. İçerikten ATOMİK notlar üret: her not TEK bir fikri " +
       "kendi başına anlaşılır biçimde anlatır (başlık + kısa gövde). Uzun/çok-fikirli not YAZMA. " +
       "Her nota destekleyen chunkIdx listesi (chunkIdxs) ve varsa ilgili kavram etiketleri ver. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Özet: ${input.summaryL2}\n\nKavramlar:\n${conceptBlock}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}\n\n` +
+      `${wrapUntrustedData(`Özet: ${input.summaryL2}\n\nKavramlar:\n${conceptBlock}\n\nÖnemli noktalar (chunkIdx parantez içinde):\n${kp}`)}\n\n` +
       `En az 3 atomik not üret.\n` +
       `JSON şeması: {"atomicNotes":[{"title":"...","body":"...","tags":["..."],"chunkIdxs":[0],"groundingType":"${grounded(basis)}","relatedConceptLabels":["..."]}]}`,
   };
@@ -168,9 +169,9 @@ export function buildGraph(
       "etiketi (ör. 'önkoşul', 'örnek', 'karşıt', 'parça', 'neden'). İlişkiler çoğunlukla çıkarımdır " +
       "→ groundingType genelde 'inference'; materyalde açıkça söyleniyorsa uygun grounded tür. " +
       "Var olmayan etikete bağlama. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Kavramlar:\n${conceptBlock}\n\nNotlar:\n${notesBlock}\n\n` +
+      `${wrapUntrustedData(`Kavramlar:\n${conceptBlock}\n\nNotlar:\n${notesBlock}`)}\n\n` +
       `JSON şeması: {"edges":[{"sourceLabel":"...","targetLabel":"...","relation":"önkoşul","groundingType":"inference"}]}`,
   };
 }
@@ -186,9 +187,9 @@ export function buildTasks(
       "Sen bir uygulama koçusun. İçerikten öğrenilenleri HAYATA GEÇİRECEK somut görevler üret. " +
       "Her görev: title, why (neden uygulanmalı), steps (2-5 somut adım) ve varsa destekleyen chunkIdxs. " +
       "Görevler uygulanabilir olmalı; genel klişe değil. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Özet: ${input.summaryL2}\n\nKavramlar:\n${conceptBlock}\n\nÖnemli noktalar:\n${kp}\n\n` +
+      `${wrapUntrustedData(`Özet: ${input.summaryL2}\n\nKavramlar:\n${conceptBlock}\n\nÖnemli noktalar:\n${kp}`)}\n\n` +
       `En az 3 uygulama görevi üret.\n` +
       `JSON şeması: {"tasks":[{"title":"...","why":"...","steps":["..."],"chunkIdxs":[0],"groundingType":"inference"}]}`,
   };
@@ -204,9 +205,9 @@ export function buildContentIdeas(
       "Sen bir içerik stratejistisin. Öğrenilen kavramlardan bir İÇERİK ÜRETİCİSİ için içerik FİKİRLERİ öner. " +
       "Her fikir: title, angle (bakış açısı), hook (ilk cümle), format (carousel|reel|thread|video), " +
       "sourceConceptLabels (dayandığı kavramlar). Bunlar ÖNERİDİR — yayınlanmış içerik değildir. " +
-      groundingRuleFor(basis),
+      groundingRuleFor(basis) + " " + UNTRUSTED_DATA_NOTICE,
     user:
-      `Konu özeti: ${input.summaryL1}\nKategori: ${input.category}\n\nKavramlar:\n${conceptBlock}\n\n` +
+      `${wrapUntrustedData(`Konu özeti: ${input.summaryL1}\nKategori: ${input.category}\n\nKavramlar:\n${conceptBlock}`)}\n\n` +
       `En az 3 içerik fikri üret.\n` +
       `JSON şeması: {"contentIdeas":[{"title":"...","angle":"...","hook":"...","format":"reel","sourceConceptLabels":["..."],"groundingType":"inference"}]}`,
   };
