@@ -107,7 +107,7 @@ type Row = {
 
 function relevanceScore(r: Row): number {
   // Category is the primary signal.
-  let score = CATEGORY_WEIGHT[r.category] ?? DEFAULT_CATEGORY_WEIGHT;
+  const score = CATEGORY_WEIGHT[r.category] ?? DEFAULT_CATEGORY_WEIGHT;
   // Purpose-field keyword bonus (NOT promptText). Word-set membership avoids
   // substring false positives ("ai" inside unrelated words).
   const purposeTokens = tokenize(`${r.title} ${r.useCase ?? ""} ${r.tags}`);
