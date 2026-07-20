@@ -3,6 +3,7 @@
 import { Flame, Radar } from "lucide-react";
 import { Badge, BlockedExternalState, Card, EmptyState, SectionHeader, StaleNotice } from "@/components/ui";
 import type { IlhamWorkspace } from "@/components/library/ilham/useIlhamWorkspace";
+import { safeExternalHref } from "@/lib/utils/url";
 
 /**
  * Rakip watchlist özeti + outlier feed (Phase 3C §C/§E). Watchlist GLOBALDİR —
@@ -70,7 +71,7 @@ export default function CompetitorSummary({ watch, outliers }: Props) {
             {outliers.slice(0, 12).map((o, i) => (
               <a
                 key={o.contentItemId}
-                href={o.url ?? undefined}
+                href={safeExternalHref(o.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

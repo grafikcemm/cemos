@@ -33,6 +33,7 @@ import {
   Textarea,
   Skeleton,
 } from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
@@ -701,7 +702,7 @@ export default function ViralRadarScreen() {
                     )}
                     {isHttpUrl(cand.url) && (
                       <a
-                        href={cand.url}
+                        href={safeExternalHref(cand.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={stop}

@@ -5,6 +5,7 @@ import { GitBranch, Star, Copy } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { copyToClipboard } from "@/lib/utils/clipboard";
 import { Card, EmptyState, ErrorState, SectionHeader, Skeleton, Badge, Button } from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type RepoItem = {
   id: string;
@@ -91,7 +92,7 @@ export default function RepoHighlights({ onToast }: Props) {
             <Card key={r.id} variant="feature">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <a
-                  href={r.repoUrl}
+                  href={safeExternalHref(r.repoUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-display"

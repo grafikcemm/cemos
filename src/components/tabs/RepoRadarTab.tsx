@@ -6,6 +6,7 @@ import { fetchJson } from "@/lib/utils/safeFetch";
 import { scoreColor } from "@/lib/utils/scoreColor";
 import { useCopyToast } from "@/lib/hooks/useCopyToast";
 import { PageHeader, Card, Button, Input, Badge, EmptyState, Skeleton, EntityCard, PageScaffold } from "../ui";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type RepoItem = {
   id: string;
@@ -142,7 +143,7 @@ export default function RepoRadarTab() {
               }
               eyebrow={r.owner}
               title={
-                <a href={r.repoUrl} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
+                <a href={safeExternalHref(r.repoUrl)} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "none" }}>
                   {r.repoName}
                 </a>
               }

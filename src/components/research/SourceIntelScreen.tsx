@@ -16,6 +16,7 @@ import {
   Sparkles,
   ExternalLink,
 } from "lucide-react";
+import { safeExternalHref } from "@/lib/utils/url";
 import {
   PageHeader,
   MetricStrip,
@@ -772,7 +773,10 @@ export default function SourceIntelScreen() {
               variant="secondary"
               size="sm"
               iconLeft={<ExternalLink size={14} strokeWidth={2} />}
-              onClick={() => window.open(panelUrl, "_blank", "noopener,noreferrer")}
+              onClick={() => {
+                const safe = safeExternalHref(panelUrl);
+                if (safe) window.open(safe, "_blank", "noopener,noreferrer");
+              }}
             >
               Gönderiyi X&apos;te aç
             </Button>

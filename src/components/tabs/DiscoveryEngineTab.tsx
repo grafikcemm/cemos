@@ -18,6 +18,7 @@ import { useXAgentStore } from "@/store/xagent";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { PageHeader, Card, Button, MetricCard, EmptyState, ErrorState, Skeleton } from "../ui";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type CouncilVerdict = {
   sourcePostId: string;
@@ -726,7 +727,7 @@ function OutlierHighlights() {
               >
                 {o.contentItem?.url ? (
                   <a
-                    href={o.contentItem.url}
+                    href={safeExternalHref(o.contentItem.url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "inherit", textDecoration: "none" }}

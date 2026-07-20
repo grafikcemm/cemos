@@ -6,6 +6,7 @@ import Drawer from "@/components/ui/Drawer";
 import { verificationLabel, freshnessWarning } from "@/lib/services/whyToday";
 import { VERIFICATION_DOT } from "./readinessMeta";
 import type { MorningDraft } from "./useDailyQueueData";
+import { safeExternalHref } from "@/lib/utils/url";
 
 export type RescoreResult = {
   ok: boolean;
@@ -334,7 +335,7 @@ function SourceRow({ title, url, meta }: { title: string; url: string; meta?: st
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <a
-        href={url}
+        href={safeExternalHref(url)}
         target="_blank"
         rel="noopener noreferrer"
         style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", color: "var(--accent-text)", textDecoration: "none", wordBreak: "break-word" }}

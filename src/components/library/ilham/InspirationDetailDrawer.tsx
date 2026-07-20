@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowUpRight, Sparkles, Wand2, CalendarPlus, ListPlus } from "lucide-react";
 import { Badge, BlockedExternalState, Button, Drawer } from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 import { useToast } from "@/components/ui/Toast";
 import { formatIcon, formatLabel } from "@/components/library/ilham/InspirationGrid";
 import type { IlhamAnalysis, IlhamItem } from "@/components/library/ilham/useIlhamWorkspace";
@@ -182,7 +183,7 @@ export default function InspirationDetailDrawer({ item, accountId, gate, onClose
         )}
 
         {sourceUrl && (
-          <a href={sourceUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", alignSelf: "flex-start" }}>
+          <a href={safeExternalHref(sourceUrl)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", alignSelf: "flex-start" }}>
             <Button size="sm" variant="ghost" iconRight={<ArrowUpRight size={13} strokeWidth={2} />}>Kaynağı aç</Button>
           </a>
         )}

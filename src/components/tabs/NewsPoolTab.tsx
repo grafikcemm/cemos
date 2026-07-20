@@ -10,6 +10,7 @@ import {
   Skeleton,
   useToast,
 } from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 import {
   RefreshCw,
   Settings2,
@@ -121,15 +122,6 @@ export function verificationBadge(
 
 // RSS <link> URL'leri şema-doğrulanmadan DB'ye girer. javascript:/data: href
 // React'te tıklamada çalışır → http(s) dışını engelle (güvensiz ise href yok).
-function safeHref(url: string): string | undefined {
-  try {
-    const p = new URL(url).protocol;
-    return p === "http:" || p === "https:" ? url : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function timeAgo(iso: string | null): string {
   if (!iso) return "";
   const ms = Date.now() - new Date(iso).getTime();
@@ -431,7 +423,7 @@ function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }
         <Flame size={14} strokeWidth={2} />
         <span className="eyebrow" style={{ fontSize: "var(--text-2xs)" }}>ÖNE ÇIKAN</span>
       </span>
-      <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={featuredTitle} title={item.trTitle ?? undefined}>
+      <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={featuredTitle} title={item.trTitle ?? undefined}>
         {item.trTitle}
       </a>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
@@ -442,7 +434,7 @@ function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }
         )}
         <SourceMeta item={item} />
         {badge && <span title="Çapraz kaynak teyidi" style={badgeChip(badge.color)}>{badge.label}</span>}
-        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>
+        <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>
           Kaynak haberi oku <ExternalLink size={11} strokeWidth={2} />
         </a>
         <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
@@ -463,7 +455,7 @@ function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
   return (
     <article style={{ ...rowShell, borderTop: divider ? "1px solid var(--border-faint)" : "none" }}>
       <a
-        href={safeHref(item.url)}
+        href={safeExternalHref(item.url)}
         target="_blank"
         rel="noopener noreferrer"
         title={item.trTitle ?? undefined}
@@ -488,7 +480,7 @@ function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
       </span>
 
       <span style={rowActions}>
-        <a href={safeHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink} title="Kaynak haberi oku">
+        <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink} title="Kaynak haberi oku">
           oku <ExternalLink size={11} strokeWidth={2} />
         </a>
         {item.isUsed ? (

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Newspaper, Target, Loader2, CheckCircle2, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { Card, EmptyState, ErrorState, SectionHeader, Skeleton, Badge } from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type NewsItem = {
   id: string;
@@ -126,7 +127,7 @@ export default function NewsHighlights({ onToast }: Props) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <a
-                      href={n.url}
+                      href={safeExternalHref(n.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-display"

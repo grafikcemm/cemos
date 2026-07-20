@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
 import SaveToBoardButton, { type SavedBoardRef } from "@/components/library/SaveToBoardButton";
 import type { LibItem, LibItemType, LibCounts } from "@/lib/library/librarySearch";
+import { safeExternalHref } from "@/lib/utils/url";
 
 /** Kayıtlı pano listesine yeni üyeliği tekilleştirerek ekler. */
 function mergeSavedBoard(prev: SavedBoardRef[] | undefined, ref: SavedBoardRef): SavedBoardRef[] {
@@ -420,7 +421,7 @@ export default function LibTumuTab() {
                 Kopyala
               </Button>
               {active.sourceUrl && (
-                <a href={active.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <a href={safeExternalHref(active.sourceUrl)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                   <Button size="sm" variant="ghost" iconRight={<ExternalLink size={13} strokeWidth={2} />}>Kaynağı aç</Button>
                 </a>
               )}

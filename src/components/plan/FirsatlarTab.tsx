@@ -8,6 +8,7 @@ import { useXAgentStore } from "@/store/xagent";
 import { OPPORTUNITY_SEGMENTS, type Opportunity, type OpportunitySourceKind } from "@/lib/services/opportunityCuration";
 import { createHandoffFromOpportunity, type HandoffDto } from "@/components/handoff/useHandoffs";
 import { useOpportunities } from "./useOpportunities";
+import { safeExternalHref } from "@/lib/utils/url";
 import { useAccounts } from "./useAccounts";
 import CompetitorWatchlistCard from "./CompetitorWatchlistCard";
 
@@ -298,7 +299,7 @@ export default function FirsatlarTab() {
                   </Button>
                 )}
                 {o.url && (
-                  <a href={o.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }} data-testid={`opp-open-${o.id}`}>
+                  <a href={safeExternalHref(o.url)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }} data-testid={`opp-open-${o.id}`}>
                     <Button size="sm" variant="ghost" iconRight={<ArrowUpRight size={13} strokeWidth={2} />}>
                       Instagram&apos;da aç
                     </Button>
