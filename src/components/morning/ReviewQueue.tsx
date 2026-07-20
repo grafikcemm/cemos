@@ -63,12 +63,28 @@ export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
     if (!confirmed) return;
     setGenerating(true);
     try {
-      const data = await fetchJson<{ success: boolean; error?: string }>(
-        "/api/settings/operator-scan-now",
-        { method: "POST" }
-      );
+      const data = await fetchJson<{
+        success: boolean;
+        error?: string;
+        draftsCreated?: number;
+        reason?: string;
+      }>("/api/settings/operator-scan-now", { method: "POST" });
       if (data.success) {
-        onToast("Taslak üretimi tamamlandı.", "success");
+        const n = data.draftsCreated ?? 0;
+        if (n > 0) {
+          onToast(`${n} taslak üretildi.`, "success");
+        } else {
+          // Honest: a 0-draft run (automation off / no candidates / all
+          // quality-blocked) is NOT a success — say so with the reason.
+          const reasonLabel: Record<string, string> = {
+            no_enabled_sources: "otomasyon kapalı",
+            daily_limit_reached: "günlük limit dolu",
+            no_usable_candidates: "uygun aday yok",
+            no_drafts_created: "uygun aday yok",
+            budget: "bütçe limiti",
+          };
+          onToast(`Taslak üretilmedi (${reasonLabel[data.reason ?? ""] ?? data.reason ?? "bilinmeyen"}).`, "error");
+        }
         await fetchDrafts();
       } else {
         onToast("Üretim hatası: " + (data.error || "bilinmeyen"), "error");

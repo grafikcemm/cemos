@@ -14,6 +14,10 @@ export async function GET(req: NextRequest) {
       include: {
         schedule: true,
       },
+      // Stable order: clients that default to accounts[0] (Seriler seed/handoff)
+      // must bind the SAME account every time, not a non-deterministic Postgres
+      // row order. Account selector for explicit choice is a separate follow-up.
+      orderBy: { createdAt: "asc" },
     });
 
     // Durable, server-authoritative profile (Phase 5F §6) — reflects the

@@ -2,6 +2,10 @@ import { prisma } from "@/lib/db/client";
 import { assessQueueItemReadiness } from "@/lib/services/readinessAdapter";
 import { getInstagramPlanHealth } from "@/lib/health/planHealthService";
 import {
+  getProviderLiveness,
+  type ProviderLiveness,
+} from "@/lib/services/providerLivenessService";
+import {
   deriveHealthContracts,
   type InfrastructureInput,
   type PipelineInput,
@@ -45,8 +49,18 @@ type HealthPayloadLike = {
   };
 };
 
-function infrastructureInput(health: HealthPayloadLike): InfrastructureInput {
+function infrastructureInput(
+  health: HealthPayloadLike,
+  liveness: Record<string, ProviderLiveness> = {},
+): InfrastructureInput {
   const meta = health.metaToken;
+  // The liveness ledger (real LAST-call outcome from UsageLog) OVERRIDES shallow
+  // env-presence health: a configured provider whose most recent call FAILED
+  // (e.g. OpenRouter 402 credit-exhausted) must NOT read green on the Sistem
+  // panel. Mirrors integrationDisplay.ts so the two surfaces agree (closes the
+  // split-brain where Profile→Integrations was honest but Sistem was not).
+  const orDegraded = liveness.openrouter?.state === "degraded";
+  const sdDegraded = liveness.socialdata?.state === "degraded";
   return {
     databaseOk: health.database?.ok ?? null,
     worker: {
@@ -61,18 +75,22 @@ function infrastructureInput(health: HealthPayloadLike): InfrastructureInput {
         label: "OpenRouter",
         required: true,
         configured: health.openrouter?.configured === true,
-        ok: health.openrouter?.ok !== false,
+        ok: health.openrouter?.ok !== false && !orDegraded,
         envNames: ["OPENROUTER_API_KEY"],
-        detail: health.openrouter?.message,
+        detail: orDegraded
+          ? `Son çağrı başarısız (${liveness.openrouter?.lastErrorClass ?? "hata"})`
+          : health.openrouter?.message,
       },
       {
         key: "socialdata",
         label: "SocialData",
         required: true,
         configured: health.socialdata?.configured === true,
-        ok: health.socialdata?.ok !== false,
+        ok: health.socialdata?.ok !== false && !sdDegraded,
         envNames: ["SOCIALDATA_API_KEY"],
-        detail: health.socialdata?.message,
+        detail: sdDegraded
+          ? `Son çağrı başarısız (${liveness.socialdata?.lastErrorClass ?? "hata"})`
+          : health.socialdata?.message,
       },
       {
         key: "meta",
@@ -206,9 +224,11 @@ export const healthContractService = {
    * sorgulardan türetir. Tek bölümün hatası diğerlerini düşürmez.
    */
   async getContracts(health: HealthPayloadLike): Promise<SystemHealthContracts> {
+    // Fail-soft: liveness errors leave providers on their env-configured status.
+    const liveness = await getProviderLiveness().catch(() => ({}));
     const [infra, pipeline, today, instagramPlanning] = await Promise.all([
       Promise.resolve()
-        .then(() => infrastructureInput(health))
+        .then(() => infrastructureInput(health, liveness))
         .catch(() => null),
       pipelineInput(health).catch(() => null),
       todayInput().catch(() => null),

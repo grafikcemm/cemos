@@ -165,7 +165,11 @@ async function runLearn(handleParam: string | null) {
       if (miningAllowed && miningLimit > 0) {
         entry.mining = await miningService.mineTopItems(handle, miningLimit);
       } else {
-        entry.mining = { skipped: miningLimit === 0 ? "mining_disabled" : "budget_exhausted" };
+        const skipReason = miningLimit === 0 ? "mining_disabled" : "budget_exhausted";
+        entry.mining = { skipped: skipReason };
+        // Budget-exhausted mining is a DEGRADED run — surface it as partial so the
+        // cron doesn't read fully green while silently skipping the paid learning.
+        if (skipReason === "budget_exhausted") partial = true;
       }
     } catch (err) {
       entry.miningError = err instanceof Error ? err.message : String(err);
