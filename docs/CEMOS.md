@@ -4,18 +4,25 @@
 
 CemOS, XAgent'tan evrilen kişisel üretim işletim sistemidir. XAgent tek platforma (X) odaklı bir içerik motoruydu; CemOS aynı çekirdeği (kaynak keşfi → LLM konseyi → taslak → manuel yayın → öğrenme) çok platformlu bir mimariye taşır: X, Haber zekâsı, YouTube (Faz C), Instagram (Faz D/E).
 
-## 2. Platform grupları
+## 2. Bilgi mimarisi (IA — rebuild, güncel)
 
-Nav, platform gruplarına ayrılmıştır (`src/components/nav/navConfig.ts` tek doğruluk kaynağı):
+> NOT (2026-07-20, Phase 5E): eski "platform grupları" tablosu (X/Haber/Sistem/
+> Instagram/YouTube) ARTİK GEÇERLİ DEĞİL. Güncel IA rebuild ile 3 göreve indi.
+> Tek doğruluk kaynağı `src/components/nav/navConfig.ts` (`screenRegistry.tsx` render eder).
 
-| Grup | İçerik |
+Nav = **3 birincil alan + Toolbox (utility) + Profil menüsü**:
+
+| Grup | Ekranlar (screen id) |
 |---|---|
-| **Bugün** (direkt) | Sabah panosu — günün operasyonu |
-| **X** | Keşif Motoru, Günlük Kuyruk, Viral Radar, Kaynaklar, Kaynak Zekası, Pattern Kütüphanesi |
-| **Haber** | Haber Havuzu, İçerik Radarı, Repo Radarı, AI Sıralama, Toolbox, Prompt Kütüphanesi, Kütüphane |
-| **Sistem** | Maliyetler, Ayarlar, Haftalık Öğrenme Raporu, Eğitim Merkezi |
-| **Instagram** | `hidden: true` — Faz D açar |
-| **YouTube** | `hidden: true` — Faz C açar |
+| **Bugün** | Sabah panosu (`morning`) |
+| **Plan** | Takvim (`plan-takvim`), Fırsatlar (`plan-firsatlar`), Seriler (`plan-seriler`) |
+| **Kütüphane** | Tümü (`lib-tumu`), İlham (`lib-ilham`), Öğrenme (`lib-ogrenme`) |
+| **Toolbox** | `toolbox` |
+| **Profil** (menü) | CemOS'un bildikleri (`profile-memory`), Entegrasyonlar (`profile-integrations`), Sistem (`system`), Maliyet (`costs`), Ayarlar (`settings`) |
+
+**Araştırma-advanced** (ana rail dışı, Fırsatlar/Cmd+K + Araştırma grubundan): `news-pool`,
+`youtube`, `flow-radar`, `discovery-engine`, `source-intelligence`. Eski id'ler `TAB_ALIASES`
+ile canonical eve çözülür (ör. `instagram`→`plan-seriler`, `daily-queue`→`morning`).
 
 ## 3. Çekirdek ilkeler
 
@@ -51,14 +58,19 @@ Marka her yerde **CemOS**; kod içi legacy semboller bilinçli korunur:
 
 ## 7. Güvenlik sınırı (SEC-02)
 
-CemOS **tek-operatör** bir uygulamadır — User/Workspace/Session tablosu yoktur.
+CemOS **tek-operatör** bir uygulamadır — User/Workspace tablosu yoktur.
 Erişim sınırı şu katmanlarla sağlanır:
 
-- **Dış erişim kapısı = Vercel Deployment Protection.** Prod dağıtım bu koruma
-  **açık** kalacak şekilde yapılandırılır (Vercel → Project → Deployment Protection).
-  Uygulama kendi içinde anonim ziyaretçiyi bloklayan bir login katmanı taşımaz;
-  herkese-açık dağıtımda bu koruma kapatılırsa okuma uçları + panolar açığa çıkar.
-- **Cron uçları** `CRON_SECRET` bearer ile korunur (`isCronAuthorized`).
+- **Uygulama-içi parola + session kapısı (ADR-013/017, GÜNCEL).** `src/proxy.ts`
+  (Next 16 proxy, Node runtime) tüm yolları `SESSION_COOKIE` doğrulamasının arkasına
+  alır — geçerli session yoksa sayfa→`/giris`, `/api/*`→401. Parola scrypt hash
+  (`ACCESS_PASSWORD_HASH`, düz parola env'de tutulmaz), session HMAC-SHA256 imzalı
+  (`SESSION_SECRET`, 30g TTL) — ikisi AYRI sır (`src/lib/auth/session.ts`). Prod'da
+  bu sırlar yoksa **fail-closed** (503/setup). Allow-list: `/giris`, `/api/auth/*`,
+  `/api/cron/*`. → Uygulama anonim ziyaretçiyi KENDİ İÇİNDE bloklar (eski "login
+  katmanı yok / yalnız Vercel Deployment Protection" notu yanlıştı; Phase 5E düzeltmesi).
+  Vercel Deployment Protection AÇIK tutmak yine de savunma-derinliği olarak önerilir.
+- **Cron uçları** `CRON_SECRET` bearer ile korunur (`isCronAuthorized`, prod fail-closed).
 - **Mutation uçları** `isOperatorOrCronAuthorized` ile CSRF-sınıfı korumadadır
   (same-origin / Origin-host / cron bearer). Bu **kimlik doğrulama değil**, "üçüncü
   taraf sayfa, ziyaretçi tarayıcısı üzerinden bütçemizi harcayamaz" garantisidir;

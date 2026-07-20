@@ -4,6 +4,15 @@
 > YAPMADI.** Aşağıdaki hiçbir adım operatör (Ali) açık onayı olmadan yürütülmez.
 > Durum: **release candidate CODE COMPLETE** — "operational core live" ya da
 > "production launched" DEĞİL (canlı sağlayıcı round-trip'leri BLOCKED-EXTERNAL).
+>
+> **GÜNCELLEME (Phase 5E, 2026-07-20 — Final Acceptance & Repair):** 5D RC (`7a5dac2`)
+> üstüne **5 commit** (`53f30b8` feat format-aware Learn idea handoff BUG-01/02 · `538395f`
+> fix(security) safeExternalHref BUG-06 · `a440310` verify:acceptance + lint 0/0 · `bd00737`
+> e2e · docs). **Tam denetim (4 subagent + elle güvenlik): P0 YOK, bilinen P1 FIXED, non-blocked
+> P2 FIXED.** Erişim sınırı GERÇEK oturum kapısı (§7 doc düzeltildi). Yeni `npm run verify:acceptance`
+> (104/104 mutation guard'lı backstop). Gate: typecheck 0 · lint **0/0** · acceptance OK · unit
+> **2188** · build 0 · tam e2e (bu koşu). Ayrıntı: `FINAL-ACCEPTANCE-MATRIX.md`. Aşağıdaki §5–§11
+> operatör aksiyon listesi DEĞİŞMEDİ (Neon rotasyonu + prod env + OpenRouter kredisi + push/deploy onayı).
 
 ## 1. Branch / HEAD
 - Branch: `feature/cemos-rebuild` @ **`0d54de2`** (upstream tanımsız).
