@@ -682,6 +682,28 @@ model OperatorSetting {
   updatedAt DateTime @updatedAt
 }
 
+// Atomic AI-spend reservation (closure C). Closes the budget TOCTOU: an
+// advisory-locked reserve claims the estimated cost BEFORE the provider call,
+// settled to actual after (or released on failure). getBudgetStatus counts open
+// (unexpired) reservations, so concurrent essential calls can't both pass the
+// check and overshoot the monthly/pacing/class cap. Runtime fail-opens to the
+// legacy assert if this table is absent, so deploy-before-migration is safe.
+model AiSpendReservation {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  budgetClass      String
+  purpose          String
+  model            String?
+  estimatedCostUsd Float
+  actualCostUsd    Float?
+  status           String    @default("open") // open | settled | released
+  expiresAt        DateTime
+  settledAt        DateTime?
+
+  @@index([status, expiresAt])
+  @@index([createdAt])
+}
+
 // Daily aggregated digest shown on the morning dashboard.
 model DailyDigest {
   id          String   @id @default(cuid())

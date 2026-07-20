@@ -6,7 +6,6 @@ import {
   type JsonSchemaSpec,
 } from "@/lib/ai/openrouter";
 import {
-  assertGenerationAllowed,
   inferAiBudgetClass,
   type AiBudgetClass,
 } from "@/lib/config/costGate";
@@ -14,6 +13,11 @@ import { usageService } from "@/lib/services/usageService";
 import type { ModelRole } from "@/lib/ai/model-config";
 import { resolvePreset, type PresetName } from "@/lib/ai/presets";
 import { getModelProfile } from "@/lib/services/settingsService";
+import {
+  reserveAiSpend,
+  settleAiSpend,
+  releaseAiSpend,
+} from "@/lib/services/aiSpendReservationService";
 
 /**
  * Budget-gated wrapper around `generateJson`.
@@ -89,7 +93,16 @@ export async function generateJsonGated<T>(
     fallbacks,
   });
 
-  await assertGenerationAllowed({ budgetClass, estimatedCostUsd: requestedCeilingUsd });
+  // Closure C: atomically RESERVE the estimated spend (advisory-locked) instead
+  // of a racy check-then-spend — concurrent essential calls can't both pass the
+  // check and overshoot the cap. Fails open to the base cap check on a missing
+  // table / transient fault, so generation is never blocked by a reservation bug.
+  const reservation = await reserveAiSpend({
+    budgetClass,
+    estimatedCostUsd: requestedCeilingUsd,
+    purpose,
+    model,
+  });
 
   let res: GenerateJsonResult<T>;
   try {
@@ -117,6 +130,9 @@ export async function generateJsonGated<T>(
         : {}),
     });
   } catch (error) {
+    // Free the reservation — any real billed cost is recorded below and captured
+    // by UsageLog, so releasing keeps the budget correct without double-counting.
+    await releaseAiSpend(reservation);
     const errorRecord = typeof error === "object" && error !== null ? error : null;
     const billedCostUsd =
       errorRecord &&
@@ -157,6 +173,10 @@ export async function generateJsonGated<T>(
     }
     throw error;
   }
+
+  // Settle the reservation to the real cost (UsageLog below stays the source of
+  // truth for actual spend; the settled reservation stops counting as in-flight).
+  await settleAiSpend(reservation, res.actualCostUsd);
 
   await usageService.recordOpenRouter({
     accountId: opts.accountId,

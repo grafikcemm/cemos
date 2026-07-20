@@ -5,24 +5,27 @@ vi.mock("@/lib/ai/openrouter", () => ({
   estimateGenerateJsonCeiling: vi.fn(() => 0.05),
   classifyOpenRouterError: vi.fn((m: string) => (/json|parse/i.test(m) ? "invalid_json" : "unknown")),
 }));
-vi.mock("@/lib/config/costGate", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
-    "@/lib/config/costGate",
-  );
-  return { ...actual, assertGenerationAllowed: vi.fn() };
-});
 vi.mock("@/lib/services/usageService", () => ({
   usageService: { recordOpenRouter: vi.fn() },
 }));
 vi.mock("@/lib/services/settingsService", () => ({
   getModelProfile: vi.fn(async () => "operator_quality"),
 }));
+// Closure C: the gate reserves atomically. Mock the reservation service so tests
+// control allow/deny (reserveAiSpend rejects with BudgetExceededError to deny)
+// and assert the settle-on-success / release-on-failure lifecycle.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveAiSpend: vi.fn(async () => ({ id: "res-1" })),
+  settleAiSpend: vi.fn(),
+  releaseAiSpend: vi.fn(),
+}));
 
 import { generateJsonGated } from "./generateGated";
 import { generateJson } from "@/lib/ai/openrouter";
-import { assertGenerationAllowed, BudgetExceededError } from "@/lib/config/costGate";
+import { BudgetExceededError } from "@/lib/config/costGate";
 import { usageService } from "@/lib/services/usageService";
 import { getModelProfile } from "@/lib/services/settingsService";
+import { reserveAiSpend, settleAiSpend, releaseAiSpend } from "@/lib/services/aiSpendReservationService";
 
 const fakeResult = {
   data: { x: 1 },
@@ -38,8 +41,8 @@ beforeEach(() => {
 });
 
 describe("generateJsonGated", () => {
-  it("budget exceeded → throws before any spend, no usage logged", async () => {
-    vi.mocked(assertGenerationAllowed).mockRejectedValueOnce(new BudgetExceededError(10, 5));
+  it("budget exceeded (reservation denied) → throws before any spend, nothing logged", async () => {
+    vi.mocked(reserveAiSpend).mockRejectedValueOnce(new BudgetExceededError(10, 5));
 
     await expect(
       generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" }),
@@ -47,10 +50,11 @@ describe("generateJsonGated", () => {
 
     expect(generateJson).not.toHaveBeenCalled();
     expect(usageService.recordOpenRouter).not.toHaveBeenCalled();
+    expect(settleAiSpend).not.toHaveBeenCalled();
+    expect(releaseAiSpend).not.toHaveBeenCalled();
   });
 
-  it("success → calls generateJson once and logs exactly one UsageLog row", async () => {
-    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+  it("success → calls generateJson once, settles the reservation, logs one UsageLog row", async () => {
     vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
 
     const res = await generateJsonGated({
@@ -73,10 +77,12 @@ describe("generateJsonGated", () => {
       meta: { purpose: "test", budgetClass: "background", contentItemId: "ci-1" },
       platform: "x",
     });
+    // Closure C: the reservation is settled to the actual cost on success.
+    expect(settleAiSpend).toHaveBeenCalledWith({ id: "res-1" }, 0.002);
+    expect(releaseAiSpend).not.toHaveBeenCalled();
   });
 
   it("preset → model/fallback/structured/cache/provider preset'ten forward edilir", async () => {
-    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
     vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
 
     await generateJsonGated({
@@ -115,7 +121,6 @@ describe("generateJsonGated", () => {
   });
 
   it("preset + purpose yok → purposePrefix'ten default purpose yazılır", async () => {
-    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
     vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
 
     await generateJsonGated({ preset: "cemos-final-judge", system: "s", user: "u" });
@@ -128,7 +133,6 @@ describe("generateJsonGated", () => {
   });
 
   it("cold-start: durable model profile'ı generateJson'dan ÖNCE hydrate eder (closure B)", async () => {
-    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
     vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
 
     await generateJsonGated({
@@ -146,23 +150,22 @@ describe("generateJsonGated", () => {
     );
   });
 
-  it("budget reddi durable profile hydrate edildikten sonra bile spend yapmaz", async () => {
-    vi.mocked(assertGenerationAllowed).mockRejectedValueOnce(new BudgetExceededError(10, 5));
+  it("reservation reddi durable profile hydrate edildikten sonra bile spend yapmaz", async () => {
+    vi.mocked(reserveAiSpend).mockRejectedValueOnce(new BudgetExceededError(10, 5));
 
     await expect(
       generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" }),
     ).rejects.toBeInstanceOf(BudgetExceededError);
 
-    // Hydration is cheap + fail-open; it runs before the budget assertion but a
-    // blocked budget still stops the spend.
     expect(generateJson).not.toHaveBeenCalled();
   });
 
-  it("ne preset ne role → hata (budget gate'e bile gitmez)", async () => {
+  it("ne preset ne role → hata (rezervasyona bile gitmez)", async () => {
     await expect(generateJsonGated({ system: "s", user: "u", purpose: "p" })).rejects.toThrow(
       /preset veya role/,
     );
     expect(generateJson).not.toHaveBeenCalled();
+    expect(reserveAiSpend).not.toHaveBeenCalled();
   });
 
   it("purpose'suz preset'siz çağrı → hata (UsageLog attribution zorunlu)", async () => {
@@ -170,12 +173,12 @@ describe("generateJsonGated", () => {
       /purpose zorunlu/,
     );
     expect(generateJson).not.toHaveBeenCalled();
+    expect(reserveAiSpend).not.toHaveBeenCalled();
   });
 });
 
 describe("generateJsonGated billed failures", () => {
-  it("logs a billed invalid response before rethrowing", async () => {
-    vi.mocked(assertGenerationAllowed).mockResolvedValueOnce(undefined);
+  it("releases the reservation and logs a billed invalid response before rethrowing", async () => {
     const failure = Object.assign(new Error("invalid JSON"), {
       actualCostUsd: 0.03,
       model: "test/model",
@@ -186,6 +189,9 @@ describe("generateJsonGated billed failures", () => {
       generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" }),
     ).rejects.toBe(failure);
 
+    // Closure C: a failed call releases its reservation (billed cost stays in UsageLog).
+    expect(releaseAiSpend).toHaveBeenCalledWith({ id: "res-1" });
+    expect(settleAiSpend).not.toHaveBeenCalled();
     expect(usageService.recordOpenRouter).toHaveBeenCalledWith(
       expect.objectContaining({
         estimatedCostUsd: 0.03,

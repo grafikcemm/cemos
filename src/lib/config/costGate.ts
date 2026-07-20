@@ -47,6 +47,9 @@ export type BudgetCheckOptions = {
   budgetClass?: AiBudgetClass;
   estimatedCostUsd?: number;
   now?: Date;
+  /** In-flight AI-spend reservations (USD) not yet in UsageLog — added to
+   *  spentUsd so the reserve path (closure C) counts concurrent claims. */
+  reservedUsd?: number;
 };
 
 const ESSENTIAL_PURPOSES = [
@@ -94,7 +97,11 @@ export async function getBudgetStatus(
   // Provider usage is authoritative when older calls were not written locally.
   // Local usage stays authoritative when multiple keys/environments share a DB.
   const providerUsageMonthlyUsd = provider?.usageMonthlyUsd ?? null;
-  const spentUsd = Math.max(localSpendUsd, providerUsageMonthlyUsd ?? 0);
+  // Add in-flight reservations (closure C): a concurrent essential call that has
+  // reserved but not yet settled must count against this call's budget so both
+  // can't overshoot the cap.
+  const spentUsd =
+    Math.max(localSpendUsd, providerUsageMonthlyUsd ?? 0) + nonNegative(options.reservedUsd);
   const remainingUsd = Math.max(0, limitUsd - spentUsd);
   const progress = limits.pacingEnabled ? monthProgressUtc(now) : 1;
   const pacedLimitUsd = limitUsd * progress;
