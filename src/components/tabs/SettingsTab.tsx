@@ -114,9 +114,15 @@ export default function SettingsTab() {
             acc.id === accountId ? { ...acc, schedule: { ...acc.schedule, ...schedule } } : acc
           )
         );
+      } else {
+        // Honesty: a failed save must not look applied. Reload the persisted
+        // (unchanged) state and tell the operator instead of failing silently.
+        await loadData();
+        alert("Ayar kaydedilemedi. Değişiklik uygulanmadı.");
       }
     } catch {
-      // silent
+      await loadData();
+      alert("Ayar kaydedilemedi (bağlantı hatası). Değişiklik uygulanmadı.");
     }
   };
 

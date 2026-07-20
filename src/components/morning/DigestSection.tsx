@@ -18,6 +18,7 @@ type DigestResponse = {
 export default function DigestSection() {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -26,7 +27,11 @@ export default function DigestSection() {
       .then((data) => {
         if (mounted) setDigest(data.digest);
       })
-      .catch(() => {})
+      // Honesty: a failed fetch (403/500/network) must not masquerade as the
+      // benign "digest not created yet" empty state.
+      .catch(() => {
+        if (mounted) setError(true);
+      })
       .finally(() => {
         if (mounted) setLoading(false);
       });
@@ -67,6 +72,10 @@ export default function DigestSection() {
           {loading ? (
             <div style={{ padding: 16, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
               ⏳ Digest yükleniyor...
+            </div>
+          ) : error ? (
+            <div style={{ background: "var(--bg-surface)", border: "1px solid color-mix(in srgb, var(--danger) 25%, var(--border))", borderRadius: 8, padding: 16, fontSize: 12, color: "var(--status-warn-text, var(--text-secondary))" }}>
+              Digest yüklenemedi (bağlantı veya yetki hatası). Sayfayı yenileyip tekrar deneyin.
             </div>
           ) : blocks.length === 0 ? (
             <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: 16, fontSize: 12, color: "var(--text-muted)" }}>
