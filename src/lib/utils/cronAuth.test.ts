@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { isCronAuthorized, isCronSecretConfigured, isProductionRuntime } from "./cronAuth";
+import { isCronAuthorized, isCronSecretConfigured, isProductionRuntime, isLocalDevRuntime } from "./cronAuth";
 
 function makeReq(authHeader?: string) {
   return new NextRequest("http://localhost:3000/api/cron/daily", {
@@ -72,5 +72,31 @@ describe("health signal helpers", () => {
     expect(isProductionRuntime()).toBe(true);
     vi.stubEnv("NODE_ENV", "development");
     expect(isProductionRuntime()).toBe(false);
+  });
+});
+
+describe("isLocalDevRuntime — fail-closed hardening", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("open only for explicit local dev/test, never on Vercel", () => {
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(isLocalDevRuntime()).toBe(true);
+    vi.stubEnv("NODE_ENV", "test");
+    expect(isLocalDevRuntime()).toBe(true);
+    // Vercel is never a dev runtime, even if NODE_ENV says otherwise.
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("NODE_ENV", "development");
+    expect(isLocalDevRuntime()).toBe(false);
+  });
+
+  it("FAILS CLOSED when NODE_ENV is unset/other (custom server / Docker hole)", () => {
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("NODE_ENV", "");
+    expect(isLocalDevRuntime()).toBe(false);
+    vi.stubEnv("NODE_ENV", "production");
+    expect(isLocalDevRuntime()).toBe(false);
+    vi.stubEnv("NODE_ENV", "staging");
+    expect(isLocalDevRuntime()).toBe(false);
   });
 });

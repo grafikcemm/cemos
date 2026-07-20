@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
+import { isLocalDevRuntime } from "@/lib/utils/cronAuth";
 
 function requireSnapshotAuth(req: NextRequest): boolean {
   const token = process.env.XAGENT_SNAPSHOT_TOKEN;
-  if (!token) return process.env.NODE_ENV !== "production";
+  // Fail-closed by default when unset — only a positively-identified local
+  // dev/test runtime stays open (never Vercel / never an unset NODE_ENV).
+  if (!token) return isLocalDevRuntime();
   return req.headers.get("authorization") === `Bearer ${token}`;
 }
 

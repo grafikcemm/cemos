@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth/session";
+import { isLocalDevRuntime } from "@/lib/utils/cronAuth";
 
 /**
  * Tek-operatör erişim kapısı (Next 16 Proxy; ADR-013/017). Node.js runtime
@@ -8,7 +9,8 @@ import { verifySession, SESSION_COOKIE } from "@/lib/auth/session";
  *
  * - Allow-list: /giris, /api/auth/*, /api/cron/* (zaten CRON_SECRET korumalı),
  *   statikler (matcher ile hariç).
- * - ACCESS_PASSWORD_HASH yoksa: prod → fail-closed /giris?setup=1; dev → geç.
+ * - Sır (ACCESS_PASSWORD_HASH/SESSION_SECRET) yoksa: yalnız pozitif-tanımlı yerel
+ *   dev/test runtime → geç; aksi (prod VEYA NODE_ENV tanımsız) → fail-closed.
  * - Geçerli session cookie → geç; yoksa sayfa→/giris redirect, /api/*→401 JSON.
  *
  * Not: same-origin guard AYRI bir CSRF katmanıdır, authentication DEĞİL.
@@ -31,11 +33,14 @@ export function proxy(request: NextRequest) {
   const secret = process.env.SESSION_SECRET;
   const isApi = pathname.startsWith("/api/");
 
-  // Yapılandırma eksik.
+  // Yapılandırma eksik (erişim sırları yok).
   if (!passwordHash || !secret) {
-    const prod = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-    if (!prod) return NextResponse.next(); // dev pass-through
-    // prod fail-closed: her şey giriş kurulum ekranına
+    // Fail CLOSED by default. Only a positively-identified local dev/test runtime
+    // gets the open setup pass-through — a custom Node server / Docker / PM2 with
+    // NODE_ENV unset must NOT open the whole app just because it is not detected
+    // as prod (auth-perimeter hardening).
+    if (isLocalDevRuntime()) return NextResponse.next();
+    // fail-closed: her şey giriş kurulum ekranına
     if (isApi) {
       return NextResponse.json({ ok: false, code: "not_configured" }, { status: 503 });
     }

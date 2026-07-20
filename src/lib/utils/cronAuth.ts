@@ -5,6 +5,18 @@ export function isProductionRuntime(): boolean {
   return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
 }
 
+/**
+ * True ONLY for a positively-identified local dev/test runtime. Never on Vercel,
+ * and never when NODE_ENV is unset — a bare custom Node server / Docker /
+ * standalone build with no NODE_ENV must FAIL CLOSED rather than read as
+ * "not production" and silently open the app (auth-perimeter hardening).
+ */
+export function isLocalDevRuntime(): boolean {
+  if (process.env.VERCEL === "1") return false;
+  const env = process.env.NODE_ENV;
+  return env === "development" || env === "test";
+}
+
 /** Whether CRON_SECRET is configured. Drives the Settings health signal. */
 export function isCronSecretConfigured(): boolean {
   return Boolean(process.env.CRON_SECRET);
@@ -14,12 +26,11 @@ export function isCronSecretConfigured(): boolean {
  * Shared auth check for Vercel cron routes. Vercel automatically sends
  * `Authorization: Bearer ${CRON_SECRET}` when the env var is configured.
  *
- * Fail-closed in production: if no secret is set on Vercel/prod the endpoint
- * rejects (401) instead of staying open. Local/dev without a secret stays open
- * for convenience.
+ * Fail-closed by default: if no secret is set, only a positively-identified
+ * local dev/test runtime stays open (never Vercel, never an unset NODE_ENV).
  */
 export function isCronAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return !isProductionRuntime();
+  if (!secret) return isLocalDevRuntime();
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
