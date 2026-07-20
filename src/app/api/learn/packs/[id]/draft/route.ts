@@ -34,7 +34,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const msg = r.code === "account_not_found" ? "Hesap bulunamadı" : "Bulunamadı";
       return fail(msg, status, { code: r.code });
     }
-    return ok({ draftId: r.draftId, reused: r.reused }, { status: r.reused ? 200 : 201 });
+    // Format-farkında sonuç: X taslağı (kind="draft") veya Instagram handoff
+    // (kind="handoff" → Seriler/Takvim). Client hedefe göre deep-link eder.
+    if (r.kind === "handoff") {
+      return ok(
+        { kind: "handoff", handoffId: r.handoffId, action: r.action, target: r.target, reused: r.reused },
+        { status: r.reused ? 200 : 201 }
+      );
+    }
+    return ok({ kind: "draft", draftId: r.draftId, reused: r.reused }, { status: r.reused ? 200 : 201 });
   } catch (err) {
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }

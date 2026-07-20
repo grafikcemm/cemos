@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Copy, FileText, Info, PenLine } from "lucide-react";
+import { ArrowLeft, Clock, AlertTriangle, GraduationCap, Copy, FileText, Info, PenLine, ListPlus, CalendarPlus } from "lucide-react";
 import { Card, SubNav, Badge, Button, Skeleton, EmptyState } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
@@ -60,6 +60,14 @@ function copyText(text: string) {
   if (typeof navigator !== "undefined" && navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
 }
 
+/** Fikir formatının hedef yüzeyi → CTA etiketi + tür (sunucu routing ile hizalı, 5E). */
+function ideaTarget(format: string | null | undefined): { label: string; kind: "series" | "plan" | "x" } {
+  const f = (format ?? "").trim().toLowerCase();
+  if (f === "carousel") return { label: "Seriler'e gönder", kind: "series" };
+  if (f === "reel" || f === "reels") return { label: "Takvim'e gönder", kind: "plan" };
+  return { label: "Taslağa dönüştür", kind: "x" };
+}
+
 export default function LearnPackView({ packId, onBack }: { packId: string; onBack: () => void }) {
   const [pack, setPack] = useState<PackDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,8 +78,9 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
   const setFocusDraftId = useXAgentStore((s) => s.setFocusDraftId);
   const [draftBusy, setDraftBusy] = useState<string | null>(null);
 
-  // ADR-045: içerik fikri → X taslağı (deterministik, $0, idempotent). Hedef hesap
-  // = aktif kanal; başarıda Bugün'e deep-link + yeni taslağa odak.
+  // ADR-045 + 5E: içerik fikri → FORMAT-farkında hedef (deterministik, $0, idempotent).
+  // Sunucu formatı pakteen okuyup yönlendirir: X (tweet/thread) → Bugün taslağı;
+  // Instagram (carousel/reel) → Seriler/Takvim handoff'u. Hedef hesap = aktif kanal.
   const ideaToDraft = async (ideaId: string) => {
     setDraftBusy(ideaId);
     try {
@@ -82,7 +91,18 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        toast.error(json.error ?? "Taslak oluşturulamadı.");
+        toast.error(json.error ?? "Aktarılamadı.");
+        return;
+      }
+      if (json.kind === "handoff") {
+        // Instagram fikri X/Bugün'e AKMAZ — Seriler/Takvim'de bekler (üretim ayrı kapı).
+        setActiveTab(json.target);
+        const surface = json.action === "series" ? "Seriler" : "Takvim";
+        toast.success(
+          json.reused
+            ? `Bu fikir zaten ${surface}'e aktarılmıştı — Plan→${surface}'de.`
+            : `${surface}'e aktarıldı — Plan→${surface}'de bekliyor (X taslağı değil).`,
+        );
         return;
       }
       setFocusDraftId(json.draftId);
@@ -93,7 +113,7 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
           : "Taslak oluşturuldu — Bugün'de düzenle ve manuel yayınla.",
       );
     } catch {
-      toast.error("Taslak oluşturulamadı (ağ hatası).");
+      toast.error("Aktarılamadı (ağ hatası).");
     } finally {
       setDraftBusy(null);
     }
@@ -335,7 +355,9 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
               <EmptyState icon={<GraduationCap size={20} strokeWidth={1.8} />} title="Fikir yok" description={pack.hasArtifact ? "İçerik fikri üretilmedi." : "Legacy paket."} compact />
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {pack.contentIdeas.map((c) => (
+                {pack.contentIdeas.map((c) => {
+                  const cta = ideaTarget(c.format);
+                  return (
                   <Card key={c.id} variant="default" padded data-testid="content-idea">
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                       <div style={{ flex: 1 }}>
@@ -352,10 +374,11 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
                           size="sm"
                           onClick={() => ideaToDraft(c.id)}
                           loading={draftBusy === c.id}
-                          iconLeft={<PenLine size={13} strokeWidth={2} />}
+                          iconLeft={cta.kind === "series" ? <ListPlus size={13} strokeWidth={2} /> : cta.kind === "plan" ? <CalendarPlus size={13} strokeWidth={2} /> : <PenLine size={13} strokeWidth={2} />}
                           data-testid="idea-to-draft"
+                          title={cta.kind === "x" ? undefined : "Instagram formatı — X taslağı yerine Plan yüzeyine aktarılır"}
                         >
-                          Taslağa dönüştür
+                          {cta.label}
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => copyText(`${c.title}\n${c.hook}\n${c.angle}`)} iconLeft={<Copy size={13} strokeWidth={2} />}>
                           Kopyala
@@ -363,7 +386,8 @@ export default function LearnPackView({ packId, onBack }: { packId: string; onBa
                       </div>
                     </div>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

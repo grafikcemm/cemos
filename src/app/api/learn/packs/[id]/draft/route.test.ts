@@ -46,20 +46,34 @@ describe("/api/learn/packs/[id]/draft (ADR-045)", () => {
     expect(createDraftFromLearnIdea).not.toHaveBeenCalled();
   });
 
-  it("yeni taslak 201 + servisi doğru argümanlarla çağırır", async () => {
-    vi.mocked(createDraftFromLearnIdea).mockResolvedValue({ ok: true, draftId: "q1", reused: false });
+  it("yeni taslak 201 + kind=draft + servisi doğru argümanlarla çağırır", async () => {
+    vi.mocked(createDraftFromLearnIdea).mockResolvedValue({ ok: true, kind: "draft", draftId: "q1", reused: false });
     const res = await POST(postReq({ ideaId: "i1", accountHandle: "grafikcem" }), ctx);
     expect(res.status).toBe(201);
     const json = await res.json();
+    expect(json.kind).toBe("draft");
     expect(json.draftId).toBe("q1");
     expect(json.reused).toBe(false);
     expect(createDraftFromLearnIdea).toHaveBeenCalledWith("p1", "i1", "grafikcem");
   });
 
   it("mevcut taslak reused → 200", async () => {
-    vi.mocked(createDraftFromLearnIdea).mockResolvedValue({ ok: true, draftId: "q1", reused: true });
+    vi.mocked(createDraftFromLearnIdea).mockResolvedValue({ ok: true, kind: "draft", draftId: "q1", reused: true });
     const res = await POST(postReq({ ideaId: "i1", accountHandle: "grafikcem" }), ctx);
     expect(res.status).toBe(200);
+  });
+
+  it("Instagram formatı → kind=handoff + target (X'e AKMAZ)", async () => {
+    vi.mocked(createDraftFromLearnIdea).mockResolvedValue({
+      ok: true, kind: "handoff", handoffId: "h1", action: "series", target: "plan-seriler", reused: false,
+    });
+    const res = await POST(postReq({ ideaId: "ic", accountHandle: "grafikcem" }), ctx);
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.kind).toBe("handoff");
+    expect(json.target).toBe("plan-seriler");
+    expect(json.handoffId).toBe("h1");
+    expect(json.draftId).toBeUndefined();
   });
 
   it("account_not_found → 400", async () => {

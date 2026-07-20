@@ -31,7 +31,7 @@ export const HandoffPayloadSchema = z.object({
 export const CreateHandoffSchema = z.object({
   accountId: z.string().min(1),
   action: HandoffActionSchema,
-  sourceKind: z.enum(["news", "youtube", "radar", "discovery"]),
+  sourceKind: z.enum(["news", "youtube", "radar", "discovery", "learn"]),
   sourceId: z.string().min(1),
   sourcePlatform: z.string().default(""),
   title: z.string().min(1).max(500),
