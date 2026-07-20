@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { redactSecrets } from "@/lib/utils/redactSecrets";
 
 /**
  * Shared API response + request-parsing helpers.
@@ -14,20 +15,10 @@ import type { NextRequest } from "next/server";
 
 type JsonValue = Record<string, unknown>;
 
-/**
- * Kaza sonucu secret sızıntısına karşı tek choke-point (SEC / DH-014). `fail()`'e
- * ham `err.message` geçen ~119 route bir Prisma bağlantı hatası (DATABASE_URL) ya
- * da bir sağlayıcı gövdesi (OpenRouter vb.) döndürebilir. Bilinen credential
- * kalıpları HER mesajda maskelenir; 5xx gövdeleri ayrıca sınırlanır. Normal kısa
- * kullanıcı mesajları desen eşleşmediğinden DEĞİŞMEZ. (Session gate zaten dış
- * saldırganı engeller — bu operatör/log yüzeyi için derinlik savunması.)
- */
-function redactSecrets(msg: string): string {
-  return String(msg ?? "")
-    .replace(/\b(postgres(?:ql)?|mysql|mongodb(?:\+srv)?|rediss?|amqp):\/\/[^\s"'<>]+/gi, "$1://[REDACTED]")
-    .replace(/\b(sk|ak|ck|pk|rk|xoxb|ghp|gho|ghs|glpat|fal)[-_][A-Za-z0-9_-]{6,}/g, "[REDACTED_KEY]")
-    .replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, "Bearer [REDACTED]");
-}
+// redactSecrets: shared credential masking (SEC / DH-014) — see
+// `@/lib/utils/redactSecrets`. `fail()` is the API choke-point: ~119 routes pass
+// raw `err.message` that could carry a Prisma connection string or provider body;
+// known credential patterns are masked here and 5xx bodies are additionally bounded.
 
 /** Build a `{ success: true, ...payload }` response. */
 export function ok(payload: JsonValue = {}, init?: ResponseInit): NextResponse {
