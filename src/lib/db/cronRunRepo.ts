@@ -66,6 +66,36 @@ export const cronRunRepo = {
     }
   },
 
+  /**
+   * ATOMIC single-flight start. Takes a per-kind advisory lock, then starts a run
+   * only if no non-stale run of that kind is already in flight — closing the
+   * `hasRunning()→start()` TOCTOU so a Vercel retry or a manual recovery
+   * overlapping the cron cannot BOTH begin the same job (double LLM spend +
+   * duplicate writes). `{ skipped: true }` means "already running, do nothing".
+   * Fails OPEN on a DB/lock error: it proceeds (best-effort plain start) rather
+   * than blocking the cron, matching the pre-existing start() error behavior.
+   */
+  async startIfIdle(
+    kind: string,
+    staleMs = DEFAULT_RUNNING_STALE_MS,
+  ): Promise<{ run: CronRun | null; skipped: boolean }> {
+    try {
+      const run = await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`cronrun:${kind}`}))`;
+        const running = await tx.cronRun.findFirst({
+          where: { kind, finishedAt: null, startedAt: { gt: new Date(Date.now() - staleMs) } },
+        });
+        if (running) return null;
+        return await tx.cronRun.create({ data: { kind } });
+      });
+      return run === null ? { run: null, skipped: true } : { run, skipped: false };
+    } catch (err) {
+      console.error("CronRun startIfIdle hata oluştu:", err);
+      const run = await prisma.cronRun.create({ data: { kind } }).catch(() => null);
+      return { run, skipped: false };
+    }
+  },
+
   pruneOlderThan(days = 60): Promise<{ count: number }> {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return prisma.cronRun.deleteMany({ where: { startedAt: { lt: cutoff } } });

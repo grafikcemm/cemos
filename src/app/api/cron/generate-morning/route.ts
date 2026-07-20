@@ -28,13 +28,17 @@ async function run(handleParam: string | null): Promise<RunOutcome> {
   // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
   const { handles } = await resolveCronHandles(handleParam);
 
-  // Heartbeat-FIRST: even a killed invocation leaves proof the cron fired.
-  let cronRunId: string | null = null;
-  try {
-    cronRunId = (await cronRunRepo.start("generate_morning")).id;
-  } catch (err) {
-    console.error("CronRun start (generate_morning) yazılırken hata oluştu:", err);
+  // Single-flight (atomic): if a generate_morning run is already in flight — a
+  // Vercel retry or a manual recovery overlapping the scheduled cron — SKIP.
+  // Otherwise both invocations regenerate the day's drafts, doubling LLM spend
+  // and creating duplicate QueueItems (runDailyForAccount's count-based
+  // idempotency races across concurrent invocations).
+  const { run: startedRun, skipped } = await cronRunRepo.startIfIdle("generate_morning");
+  if (skipped) {
+    return { ok: true, partial: true, results: [{ skipped: "already_running" }] };
   }
+  // Heartbeat-FIRST: even a killed invocation leaves proof the cron fired.
+  const cronRunId: string | null = startedRun?.id ?? null;
 
   const results: unknown[] = [];
   let errors = 0;
