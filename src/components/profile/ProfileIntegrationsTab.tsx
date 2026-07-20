@@ -5,6 +5,7 @@ import { RefreshCw, Plug } from "lucide-react";
 import { PageHeader, Card, Badge, Button, ErrorState, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
+import { display, type Provider, type Health } from "./integrationDisplay";
 
 /**
  * Profil / Entegrasyonlar (05 §G2) — sağlayıcı yapılandırma durumu. Yalnız env
@@ -13,23 +14,6 @@ import { useXAgentStore } from "@/store/xagent";
  * kurtarma. Hafif probe (timeout yok → panel "bilinmiyor"a düşmez); canlı derin
  * durum Sistem'de. Profil host'u kendi başlığını taşır.
  */
-
-type Liveness = {
-  state: "verified" | "degraded" | "unknown";
-  lastSuccessAt: string | null;
-  lastFailureAt: string | null;
-  lastErrorClass: string | null;
-};
-
-type Provider = {
-  key: string;
-  name: string;
-  group: "core" | "social" | "optional";
-  status: "connected" | "missing" | "blocked" | "optional";
-  envNames: string[];
-  note?: string;
-  liveness?: Liveness;
-};
 
 type ComposioBinding = {
   connectionStatus: string;
@@ -74,14 +58,6 @@ type SyncOutcome = {
   warnings: string[];
 };
 
-type HealthEntry = { configured?: boolean; ok?: boolean; message?: string };
-type Health = {
-  openrouter?: HealthEntry;
-  socialdata?: HealthEntry;
-  database?: HealthEntry;
-  metaToken?: HealthEntry;
-};
-
 const GROUP_LABEL: Record<Provider["group"], string> = {
   core: "Çekirdek",
   social: "Sosyal",
@@ -89,53 +65,6 @@ const GROUP_LABEL: Record<Provider["group"], string> = {
 };
 
 const X_COST = "5–8 post/gün senaryosu: %0 link ~$2–4/ay · %50 link ~$16–26/ay · %100 link ~$30–48/ay.";
-
-function healthOf(key: string, h: Health | null): HealthEntry | undefined {
-  if (!h) return undefined;
-  if (key === "openrouter") return h.openrouter;
-  if (key === "socialdata") return h.socialdata;
-  if (key === "neon") return h.database;
-  if (key === "meta") return h.metaToken;
-  return undefined;
-}
-
-function livenessNote(l: Liveness | undefined): string | undefined {
-  if (!l) return undefined;
-  if (l.state === "degraded") {
-    const when = l.lastFailureAt ? new Date(l.lastFailureAt).toLocaleString("tr-TR") : "";
-    return `Son çağrı başarısız${l.lastErrorClass ? ` (${l.lastErrorClass})` : ""}${when ? ` · ${when}` : ""}`;
-  }
-  if (l.state === "verified" && l.lastSuccessAt) {
-    return `Son başarılı çağrı: ${new Date(l.lastSuccessAt).toLocaleString("tr-TR")}`;
-  }
-  return undefined;
-}
-
-function display(p: Provider, h: Health | null): { variant: "success" | "danger" | "yellow" | "muted"; label: string; live?: string } {
-  if (p.status === "blocked") return { variant: "yellow", label: "engelli" };
-  const he = healthOf(p.key, h);
-  const lNote = livenessNote(p.liveness);
-  if (p.status === "connected") {
-    // The live /api/health probe is authoritative for CURRENT state when present.
-    if (he && typeof he.ok === "boolean") {
-      return he.ok
-        ? { variant: "success", label: "bağlı", live: he.message ?? lNote }
-        : { variant: "yellow", label: "yanıt yok", live: he.message ?? lNote };
-    }
-    // No live probe → fall back to the persisted ledger (§13/BUG-05): a configured
-    // provider whose LAST recorded call failed is NOT reported as healthy.
-    if (p.liveness?.state === "degraded") {
-      return { variant: "yellow", label: "son çağrı başarısız", live: lNote };
-    }
-    if (p.liveness?.state === "verified") {
-      return { variant: "success", label: "bağlı", live: lNote };
-    }
-    // Configured but never exercised — honestly "configured, not verified".
-    return { variant: "muted", label: "yapılandırıldı · doğrulanmadı" };
-  }
-  if (p.status === "missing") return { variant: "danger", label: "eksik" };
-  return { variant: "muted", label: "opsiyonel" };
-}
 
 export default function ProfileIntegrationsTab() {
   const toast = useToast();
