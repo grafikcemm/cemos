@@ -40,14 +40,11 @@ export async function generateDrafts(
     });
   }
 
-  let drafts: DraftVariant[] = [];
-  try {
-    drafts = await generateDraftsWithAI(context);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : "AI generation failed";
-    warnings.push(`AI generation failed, using fallback drafts: ${errMsg}`);
-    drafts = generateDraftsFallback(context, input.count || 3);
-  }
+  // Closure D: writer failure must NOT fall back to canned marketing copy — that
+  // presents fabricated, source-unrelated text as real generated drafts (a
+  // success lie). Let the error propagate so the route returns an honest 402
+  // (budget) / 5xx and the UI shows its blocked/error state instead.
+  const drafts: DraftVariant[] = await generateDraftsWithAI(context);
 
   // Critique drafts using Draft Critic
   let draftsWithCritic: Array<{ draft: DraftVariant; critic: any }> = [];
@@ -56,21 +53,24 @@ export async function generateDrafts(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Critique failed";
     warnings.push(`Critique failed: ${errMsg}`);
-    // If critique fails, attach default fallback scores
+    // Closure D: drafts are real AI output, but WITHOUT a critic verdict we must
+    // NOT fabricate publish-readiness. Mark degraded + "rewrite" (needs manual
+    // review) with neutral scores — never a fake "publish" at 75.
     draftsWithCritic = drafts.map((draft) => ({
       draft,
       critic: {
-        personaMatchScore: 75,
-        hookStrengthScore: 75,
-        clarityScore: 75,
-        viralityScore: 75,
-        noveltyScore: 75,
-        riskScore: 20,
-        publishScore: 75,
-        publishRecommendation: "publish",
+        personaMatchScore: 0,
+        hookStrengthScore: 0,
+        clarityScore: 0,
+        viralityScore: 0,
+        noveltyScore: 0,
+        riskScore: 0,
+        publishScore: 0,
+        publishRecommendation: "rewrite",
         rewriteSuggestion: "",
-        reason: "Fallback critic rating",
-        confidence: 80,
+        reason: "Kritik yapılamadı — otomatik değerlendirme yok; yayından önce manuel incele.",
+        confidence: 0,
+        degraded: true,
       },
     }));
   }
@@ -116,6 +116,13 @@ export async function generateDraftsWithAI(
   return normalizeDraftVariants(response.data, context);
 }
 
+/**
+ * DEAD (closure D): hardcoded, per-account marketing copy. No longer wired to
+ * any generation path — `generateDrafts` rethrows on writer failure instead of
+ * serving fabricated content. Retained only for its isolated unit tests; slated
+ * for removal in the dead-code sweep. Do NOT re-invoke this as a fallback: it
+ * returns source-unrelated canned text and would reintroduce the success lie.
+ */
 export function generateDraftsFallback(
   context: GenerationContext,
   count = 3
