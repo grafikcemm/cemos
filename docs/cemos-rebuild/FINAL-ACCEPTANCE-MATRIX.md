@@ -1,8 +1,11 @@
-# FINAL-ACCEPTANCE-MATRIX — CemOS (Phase 5E)
+# FINAL-ACCEPTANCE-MATRIX — CemOS (Phase 5E → 5F)
 
 > Kabul denetimi envanteri. Her satır gerçek kod/git/test/çalışan uygulamaya karşı
-> doğrulanır — belgeye güvenilmez. **Durum: IN-PROGRESS (2026-07-20).**
-> Repo: `feature/cemos-rebuild` @ start `7a5dac2`. Push/deploy YOK.
+> doğrulanır — belgeye güvenilmez. **Durum: Phase 5E TAMAMLANDI (2026-07-20);
+> Phase 5F (AI economics) İLERLİYOR — bkz. `AI-COST-QUALITY-MATRIX.md` +
+> `IMPLEMENTATION-STATE.md`.** Repo: `feature/cemos-rebuild` @ start `7a5dac2`
+> (5E), 5F `325bbf2` üstüne. Push/deploy YOK. 5E sınıflandırması: bilinen
+> (reproduce edilebilir) P0–P2 hata YOK, launch onayı bekleniyor.
 
 ## 0. Sınıflandırma + kanıt seviyeleri
 

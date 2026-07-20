@@ -82,11 +82,14 @@ tek `refactor(cleanup)` sweep'inde silinir (her biri kendi route.test + route-gu
   (MCP), cron'lar. RC-ortası toplu silme churn-riskli + B bir false-positive üretti (BUG-07) →
   her silme ayrı doğrulanmalı. **Ayrıca 2 dangling client→route:** `scripts/seed-ai-rankings.ts`
   →`/api/ai-rankings` (legacy seed, runtime değil). Hiçbiri P0–P2 değil (guard'lı, akış kırmıyor).
-- **Silent-degrade gözlemlenebilirliği (BUG-05).** Configured-ama-broken Fal/YouTube/
-  business_discovery/Supadata/Obsidian sağlık sinyali üretmiyor (hata yalnız `CronRun.result`);
-  Composio `AccountPlatformBinding.lastErrorClass` surface EDİYOR. Genelleştir: `/api/integrations`
-  veya `/api/health` per-sağlayıcı last-run/last-error. Blocker-gated (hepsi şu an unconfigured);
-  yeni observability subsystem RC-dışıydı.
+- ~~**Silent-degrade gözlemlenebilirliği (BUG-05).**~~ **DONE (Phase 5F §13, `2d404aa`):**
+  `/api/integrations` artık `providerLivenessService` ile per-sağlayıcı liveness taşır —
+  `UsageLog` (openrouter/socialdata/fal: son başarı vs son hata + errorClass) + `LearnExportAttempt`
+  (obsidian). Son çağrısı BAŞARISIZ configured sağlayıcı artık yeşil "yapılandırıldı" DEĞİL
+  (degraded + errorClass); hiç çağrılmamış = "yapılandırıldı · doğrulanmadı" (healthy DEĞİL);
+  canlı `/api/health` probe'u mevcutken güncel durumda kazanır. `generateJsonGated` başarısız
+  UsageLog satırına `errorClass` de yazar. Yeni subsystem YOK; secret/token/path/gövde YOK; fail-soft.
+  Kalan: gerçek canlı 402/expired-token round-trip'i doğrulama (BLOCKED-EXTERNAL, credential bekliyor).
 - **Learn→handoff/draft per-fikir hedef hesap seçici.** Şu an aktif kanal (server var-yok doğrular,
   fail-closed). Fikir kartına hesap dropdown'u (ADR-036 ayrı) — düşük öncelik.
 - **`coverage/**` eslint-ignore.** Doğru kalıcı fix (generated coverage'ı ignore) config-protection
@@ -98,3 +101,50 @@ tek `refactor(cleanup)` sweep'inde silinir (her biri kendi route.test + route-gu
   route/UI bağlı DEĞİL; `ScanRun`/`GenerationRun` write-only telemetri (retention prune yok);
   `KeywordEntry`/`PromptFormula`/`AiModelSnapshot` seed-only. Model DROP = destructive (DB-safety
   yasağı) → silinMEZ; Faz D/E'de wire edilir veya bilinçli dormant kalır. Retention/prune eklenebilir.
+
+## AI ekonomisi (Phase 5F ertelenen — evidence/altyapı bekliyor)
+
+- **Bütçe TOCTOU (§10) — scoped P2, dürüst tehdit modeli.** `getBudgetStatus` oku → sağlayıcı çağır
+  → `recordOpenRouter` yaz arasında atomik reservation YOK: eşzamanlı iki `essential` çağrı ikisi de
+  bütçeyi uygun görüp aşabilir. **Pratik maruziyet düşük:** overshoot ≈ (eşzamanlı çağrı × tek-çağrı
+  maliyeti); tek-çağrı ~$0.01–0.05, tek-operatör + günde-1 cron = düşük eşzamanlılık → ~%birkaç
+  overshoot. **Telafi kontrolleri:** OpenRouter prepaid kredi (hard stop), provider key limit
+  (`getOpenRouterKeyStatus.limitRemainingUsd`), pacing (`monthProgress`), reserve (`AI_MONTHLY_RESERVE_USD`).
+  **Neden şimdi yapılmadı:** doğru fix = her LLM çağrısına reservation-insert (latency + yeni tablo +
+  §6'da kaçınılan test-DB-blast-radius); düşük maruziyet bunu haklı çıkarmıyor. **Scoped fix:** additive
+  `AiSpendReservation` (reserve estimated → çağrı → actual settle → unused release → stale expiry;
+  idempotency key + budget class + purpose/model audit); `getBudgetStatus` açık reservation'ları sayar.
+  "Yarım reservation sistemi" eklenmedi (task talimatı).
+- **SSRF DNS-rebind TOCTOU (§10A) — scoped P3.** `ssrfGuard` güçlü (şema-allowlist + credential-block +
+  tüm A/AAAA private/loopback/link-local/**metadata** + IPv4-mapped-v6 + redirect auto-follow YOK). Tek
+  residual: `assertSafeUrl` host'u resolve+doğrular, ama fetch host'u YENİDEN resolve eder → DNS'i
+  kontrol eden saldırgan check'te public, fetch'te private IP döndürebilir. Serverless'te düşük şiddet
+  (metadata IP zaten bloklu). **Robust fix:** `assertSafeUrl` doğrulanmış IP'yi döndürsün + caller undici
+  `Agent`/`dispatcher` ile fetch'i O IP'ye pinlesin (SNI/Host = hostname), rebind mock resolver'la testli.
+  "Yarım çözüm ekleme" talimatı gereği rushed IP-pin EKLENMEDİ; dürüst P3 residual.
+- **Model routing birleştirme (§5) — provisional.** Preset (9, model'i pinler + MODEL_PROFILE'ı yok sayar)
+  ve role (6, profile-aware) iki paralel yol; aynı "judge" işi yola göre farklı model/fiyat (preset
+  gpt-5.4-mini vs role gemini). Tek `ResolvedAiRoute` çözümleyici (compatibility wrapper, rewrite DEĞİL)
+  her ikisini tek fiyat/budget/family sözleşmesine bağlar. **Benchmark kanıtı bekliyor** — model değişimi
+  gerektirir, §8 olmadan yapılmaz.
+- **Fiyat/performans live benchmark (§8) — BLOCKED (ödeme onayı).** Dry-run (ücretsiz) = `verify:ai-economics`
+  (katalog/capability/fiyat/fixture-contract). Bounded live benchmark: rotasyonlu key + prepaid kredi +
+  `AI_EVAL_SPEND_ENABLED=true` + açık USD tavanı gerekir (operatör §19). Yoksa "en iyi model budur" DENMEZ —
+  yalnız provisional öneri.
+- **Adaptif fiyat/performans routing (§9) — §8'e bağlı.** Tier 0 deterministik (parse/normalize/dedup) →
+  Tier 1 ucuz extraction → Tier 2 dengeli → Tier 3 premium yalnız kalite-barı-kaçırma/yüksek-risk/açık
+  premium profil. Judge `risk_based` modu (`getJudgeMode`) zaten var; daha fazla siteye genişlet. Benchmark
+  olmadan model eşlemesi sabitlenMEZ.
+- **Prompt/cache/token optimizasyonu (§11).** Katalog prompt-caching'in ~%60–80 tasarruf sağladığını not
+  ediyor; writer/strategist anthropic `cache_control` breakpoint bunu zaten kullanıyor. Diğer preset'lere
+  (stable system/brand context) cache genişletme + memory-retrieval token bütçesi + kaynak-başı extraction
+  idempotency cache — kaliteyi (kaynak/provenance/safety prompt) düşürmeden. Ölçülü lever, bug değil.
+- **Costs UI genişletme (§12).** Mevcut Profil/Maliyet yüzeyi (yeni ekran YOK): cost-per-accepted-output,
+  fallback/escalation sayısı, en pahalı purpose grupları, pricing-snapshot tarihi + stale uyarısı, pacing %.
+  `verify:ai-economics` + `MODEL_PRICING_VERIFIED_AT` verisi mevcut; UI surface RC-dışı, düşük risk.
+- **Fiyat-drift periyodik kontrolü (§7).** `MODEL_PRICING` katalog-doğrulanmış committed fallback
+  (`MODEL_PRICING_VERIFIED_AT`). Runtime her istekte katalog fetch etmemeli; periyodik/manuel refresh +
+  timestamp + stale bayrağı + drift alarmı (WebFetch ile katalog erişilebilir; runtime fetch değil).
+- **`growth-engine/draft-generator` statik-canned fallback.** Başarısız growth draft'ı deterministik
+  hesap DEĞİL, sabit pazarlama metni döndürür (matrix §6'da flag'li). Heuristik türetime çevir veya
+  "örnek/placeholder" olarak dürüst etiketle.

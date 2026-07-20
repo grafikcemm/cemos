@@ -14,8 +14,21 @@
 > **2188** · build 0 · tam e2e (bu koşu). Ayrıntı: `FINAL-ACCEPTANCE-MATRIX.md`. Aşağıdaki §5–§11
 > operatör aksiyon listesi DEĞİŞMEDİ (Neon rotasyonu + prod env + OpenRouter kredisi + push/deploy onayı).
 
+> **GÜNCELLEME (Phase 5F, 2026-07-20 — AI Economics & Live Readiness):** 5E RC (`325bbf2`)
+> üstüne 5F commit'leri: `82d9fcf` fix(ai) pricing provenance (§7 canlı katalog 2026-07-20
+> RE-DOĞRULANDI, 8/8 slug EXACT) · `720bc06` fix(settings) durable model-profile (§6 **P1**
+> "settings success lie" kapandı) · `cb1f184` docs(ai) AI-COST-QUALITY-MATRIX (§4, 47 call-site) ·
+> `2388059` test(ai) `verify:ai-economics` (§17) · `2d404aa` feat(integrations) provider liveness
+> (§13/BUG-05) · `3760d3f` refactor(cleanup) redacted logger (§15) · docs. Gate: typecheck **0** ·
+> lint **0/0** · catalog OK · acceptance OK · ai-economics OK · unit **2220** · build 0 · tam e2e.
+> **Additive `OperatorSetting` migration (`20260720120000`) HAZIR + statik-scan ADDITIVE ama prod'a
+> UYGULANMADI** — deploy adımına bağlandı (§3). Canlı ücretli AI/round-trip YOK ($0); live benchmark
+> USD tavanı bekliyor. Operatör aksiyon listesi (§11) DEĞİŞMEDİ + "OperatorSetting migration deploy'da
+> uygula" eklendi. Ayrıntı: `AI-COST-QUALITY-MATRIX.md` + `IMPLEMENTATION-STATE.md`.
+
 ## 1. Branch / HEAD
-- Branch: `feature/cemos-rebuild` @ **`0d54de2`** (upstream tanımsız).
+- Branch: `feature/cemos-rebuild` @ **`3760d3f`+** (5F in-progress; kesin HEAD `IMPLEMENTATION-STATE.md`).
+  5D RC `0d54de2` → 5E `325bbf2` → 5F commit'leri (yukarıda).
 - Remote: `origin https://github.com/grafikcemm/cemos.git`.
 - Çalışma ağacı: yalnız `?? shots/` (kanıt; commit'lenmez).
 
@@ -31,17 +44,23 @@
 | `0d54de2` | 5D hardening: security redaction/fencing + dead-code (ADR-047) |
 
 ## 3. Migration durumu
-- İKİ additive migration prod Neon `neondb`'ye uygulandı (guarded `safe-migrate-deploy`):
+- İKİ additive migration (5B) prod Neon `neondb`'ye uygulandı (guarded `safe-migrate-deploy`):
   `20260720100000_add_feedback_neutralized_at`, `20260720110000_add_queue_item_origin_key`.
-- Her ikisi: statik destructive-scan clean, iki-deploy ("No pending migrations"),
+  Her ikisi: statik destructive-scan clean, iki-deploy ("No pending migrations"),
   öncesi=sonrası read-only snapshot **satır kaybı YOK** (queueItems 66/accounts 2/…).
-- `migrate status`: up-to-date. Pending migration YOK.
+- **YENİ (5F, §6): `20260720120000_add_operator_setting` — HAZIR + statik-scan ADDITIVE, prod'a
+  UYGULANMADI.** Tek yeni tablo (`OperatorSetting` key/value); hiçbir mevcut tabloya ALTER/DROP/
+  TRUNCATE/rename/backfill YOK. Runtime fail-open okur (tablo yoksa → env/default), yani kod bu
+  migration'dan ÖNCE deploy edilebilir. Deploy adımında `npm run db:migrate` ile uygulanır (guarded).
+- `migrate status`: 5B'ye kadar up-to-date; `operator_setting` **pending (deploy'da uygulanacak)**.
 
-## 4. Test matrisi (RC gate — gerçek sonuçlar)
-- typecheck **0** · lint **0 err / 4 pre-existing warn (YENİ 0)** · verify:catalog **OK (9 preset)**
-- unit **2181** (221 dosya) · build **0** (temiz `.next`)
-- e2e **158 passed / 0 failed** (tam suite; first-nav guard stabil)
-- görsel: 12 REAL-DB-READONLY shot, 1024+1920 **yatay taşma 0**
+## 4. Test matrisi (RC gate — gerçek sonuçlar, 5F güncel)
+- typecheck **0** · lint **0 err / 0 warn** · verify:catalog **OK (9 preset)** ·
+  verify:acceptance **OK** · **verify:ai-economics OK** (yeni, §17)
+- unit **2220** (225 dosya) · build **0** (temiz `.next`)
+- e2e **tam suite** (5F kapanış koşusu — bkz. `IMPLEMENTATION-STATE.md`; first-nav guard stabil)
+- görsel: 5E/5D REAL-DB-READONLY shot'lar; 5F değişimleri (model-profile durability + integration
+  liveness + worker log) mantık/servis testleriyle + typecheck ile kapsandı
 
 ## 5. Gerekli production env (operatör VAR/YOK doğrulasın — DEĞER yazılmaz)
 **Zorunlu (çekirdek):** `DATABASE_URL` · `CREDENTIAL_ENC_KEY` · `CRON_SECRET` · oturum sırları
@@ -95,5 +114,10 @@ release: OpenRouter üretim + Neon + Vercel = düşük/orta.
 1. **Neon parolasını rotate et** + `DATABASE_URL` güncelle (kritik güvenlik).
 2. Vercel prod env'lerini tamamla (§5) + Deployment Protection AÇIK.
 3. OpenRouter kredisi ekle (çekirdek üretim kilidi) → tek golden koşu doğrulaması.
-4. Push/deploy onayı ver → yukarıdaki §10 sırası yürütülür.
-(1–3 olmadan "operational core live" İLAN EDİLMEZ; canlı sağlayıcı yazımı bu programda YOK.)
+4. **`npm run db:migrate`** (deploy sırasında) → `20260720120000_add_operator_setting` additive
+   migration'ı uygula (guarded; §3). Kod fail-open, migration'dan önce/sonra deploy güvenli.
+5. (Opsiyonel, fiyat/performans) Bounded live benchmark için USD tavanı belirle +
+   `AI_EVAL_SPEND_ENABLED=true` + `PHASE2E_LIVE_MAX_USD` → provisional öneriler canlı doğrulanır (§8).
+6. Push/deploy onayı ver → yukarıdaki §10 sırası yürütülür.
+(1–4 olmadan "operational core live" İLAN EDİLMEZ; canlı sağlayıcı yazımı bu programda YOK. Live
+benchmark [5] için açık USD tavanı verilmedikçe ücretli çağrı YAPILMAZ.)
