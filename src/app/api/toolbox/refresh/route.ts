@@ -1,21 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { assertSafeUrl } from "@/lib/verify/ssrfGuard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const HEAD_TIMEOUT_MS = 8_000;
 const BATCH_SIZE = 10;
+const MAX_REDIRECTS = 5;
 
-// Probe one URL with a timeout-bounded HEAD request. Fail-open: any error
-// (timeout, DNS, refused, non-2xx) resolves to "dead" — never throws.
+// Probe one URL with a timeout-bounded HEAD request. SSRF-guarded: EACH hop is
+// validated (assertSafeUrl blocks private/metadata/credentialed targets) and
+// redirects are followed MANUALLY so a 3xx to an internal host is re-checked, not
+// blindly followed. Fail-open: any error (blocked, timeout, DNS, refused, non-2xx,
+// too many redirects) resolves to "dead" — never throws. Residual sub-second
+// DNS-rebind TOCTOU is the same as verifyWebsite (no undici pinned-IP dispatcher
+// available in this runtime); toolbox URLs are operator-curated, not attacker input.
 async function probe(url: string): Promise<"alive" | "dead"> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), HEAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal });
-    return res.ok ? "alive" : "dead";
+    let current = url;
+    for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+      const safe = await assertSafeUrl(current);
+      const res = await fetch(safe.toString(), {
+        method: "HEAD",
+        redirect: "manual",
+        signal: ctrl.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return "dead";
+        current = new URL(loc, safe).toString(); // re-validated next iteration
+        continue;
+      }
+      return res.ok ? "alive" : "dead";
+    }
+    return "dead"; // too many redirects
   } catch {
     return "dead";
   } finally {

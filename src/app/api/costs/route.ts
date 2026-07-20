@@ -125,6 +125,14 @@ export async function GET(req: NextRequest) {
     const sortByCost = <T extends { costUsd: number }>(arr: T[]) =>
       arr.sort((a, b) => b.costUsd - a.costUsd).map((e) => ({ ...e, costUsd: round5(e.costUsd) }));
 
+    // fal.ai image + transcript (gemini/supadata) spend: summed into the month
+    // total but previously shown in NO line item, so Σ(line items) < total. Break
+    // them out so the Costs breakdown reconciles against the grand total.
+    const falLogs = logs.filter((l) => l.type === "image" || l.provider === "fal");
+    const falCostUsd = falLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const transcriptLogs = logs.filter((l) => l.type === "transcript");
+    const transcriptCostUsd = transcriptLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+
     const lineItems = {
       socialData: {
         provider: "socialdata",
@@ -138,6 +146,16 @@ export async function GET(req: NextRequest) {
         byPurpose: sortByCost([...byPurposeMap.values()]),
         byModel: sortByCost([...byModelMap.values()]),
         byPreset: sortByCost([...byPresetMap.values()]),
+      },
+      fal: {
+        provider: "fal",
+        images: falLogs.length,
+        costUsd: round5(falCostUsd),
+      },
+      transcript: {
+        provider: "transcript",
+        count: transcriptLogs.length,
+        costUsd: round5(transcriptCostUsd),
       },
     };
 
@@ -178,6 +196,8 @@ export async function GET(req: NextRequest) {
         budgetUsd,
         socialDataUsd: lineItems.socialData.costUsd,
         openRouterUsd: lineItems.openRouter.costUsd,
+        falUsd: lineItems.fal.costUsd,
+        transcriptUsd: lineItems.transcript.costUsd,
       },
       lineItems,
       budgetStatus,

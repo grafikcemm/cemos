@@ -8,6 +8,11 @@ vi.mock("@/lib/db/client", () => ({
   prisma: { toolboxResource: { findMany: vi.fn(), update: vi.fn() } },
 }));
 vi.mock("@/lib/utils/sameOriginGuard", () => ({ isOperatorOrCronAuthorized: vi.fn(() => true) }));
+// SSRF guard has its own suite (ssrfGuard.test.ts); passthrough here so the fetch
+// mock drives alive/dead (the reserved .example URLs don't resolve via real DNS).
+vi.mock("@/lib/verify/ssrfGuard", () => ({
+  assertSafeUrl: vi.fn(async (u: string) => new URL(u)),
+}));
 
 function makeReq() {
   return new NextRequest("http://localhost:3000/api/toolbox/refresh", { method: "POST" });
