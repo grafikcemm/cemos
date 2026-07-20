@@ -196,4 +196,17 @@ zararsız (P0–P2 DEĞİL; hiçbir kullanıcı akışı kırılmıyor).
 - [x] Production DB test verisiyle kirletilmedi — bu turda SIFIR DB yazımı/migration.
 - [x] skip/retry/mock ile gizlenen gerçek hata yok — fixture/reality uyumsuzluğu (reel e2e) dürüstçe düzeltildi.
 - [x] `verify:acceptance` komutu eklendi + geçiyor — `npm run verify:acceptance` exit 0.
-- [ ] **Tam gate (§13) yeşil** — typecheck 0/lint 0/catalog OK/acceptance OK/unit 2188 ✓; **build + tam e2e final koşusu bekliyor.**
+- [x] **Tam gate (§13) YEŞİL** — typecheck **0** · lint **0/0** · catalog **OK** · acceptance **OK** (104/104 guard) · unit **2188** · build **0** (temiz) · e2e **159 passed / 0 fail**.
+
+## 11. Sınıflandırma (§16)
+
+**CemOS Final Acceptance tamamlandı; bilinen (yeniden üretilebilir) P0–P2 hata yok, launch onayı bekleniyor.**
+
+Gerekçe: bulunan + yeniden üretilen tüm P0–P2 kapatıldı (P0 yok; P1 BUG-01/02 FIXED; P2 BUG-06
+FIXED). BUG-03/04 = §8C/§8D doc-resolution (kod defekti değil — programatik/dormant, tasarımca);
+BUG-05 = external-blocker-gated (tüm sağlayıcılar unconfigured → manifest olmaz). **P3 residualler
+(dürüst, kapatılmadı):** SSRF DNS-rebind TOCTOU (serverless düşük şiddet — guard direct/metadata'yı
+bloklar; robust fix = undici IP-pin dispatcher, scoped security task) · dead-route sweep (verified
+DELETE-safe, churn-riskiyle ertelendi) · `coverage/**` kalıcı eslint-ignore (config-protection
+hook-bloke). **NOT "operational core live"** (canlı sağlayıcı round-trip YOK) · **NOT "production
+launched"** (deploy YOK). "Kusursuz" İDDİA EDİLMEZ.
