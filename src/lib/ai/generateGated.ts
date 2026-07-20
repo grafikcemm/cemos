@@ -95,8 +95,9 @@ export async function generateJsonGated<T>(
 
   // Closure C: atomically RESERVE the estimated spend (advisory-locked) instead
   // of a racy check-then-spend — concurrent essential calls can't both pass the
-  // check and overshoot the cap. Fails open to the base cap check on a missing
-  // table / transient fault, so generation is never blocked by a reservation bug.
+  // check and overshoot the cap. Fails CLOSED: if the budget authority can't be
+  // verified it throws BudgetSystemUnavailableError (propagates here — NO spend),
+  // so a reservation-infra fault never becomes an unmetered paid call.
   const reservation = await reserveAiSpend({
     budgetClass,
     estimatedCostUsd: requestedCeilingUsd,

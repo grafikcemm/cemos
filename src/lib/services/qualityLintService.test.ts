@@ -36,6 +36,15 @@ vi.mock("@/lib/services/usageService", () => ({
   },
 }));
 
+// generateJsonGated reserves atomically before spending; mock the reservation so
+// this unit test needs no DB (reserveAiSpend fails CLOSED on the unset test
+// DATABASE_URL otherwise). Budget/reservation logic is covered by its own tests.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveAiSpend: vi.fn(async () => ({ id: "res-test" })),
+  settleAiSpend: vi.fn(),
+  releaseAiSpend: vi.fn(),
+}));
+
 // generateJsonGated now wraps generateJson with a budget gate; keep the gate open
 // in this unit test so the LLM judge path runs (budget logic covered elsewhere).
 vi.mock("@/lib/config/costGate", async () => {

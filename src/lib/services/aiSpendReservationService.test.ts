@@ -6,8 +6,13 @@ vi.mock("@/lib/db/client", () => {
     create: vi.fn(async () => ({ id: "resv-1" })),
     update: vi.fn(async () => ({})),
   };
+  // The in-lock month-spend read now runs on the tx connection via prisma.usageLog.
+  const usageLog = {
+    aggregate: vi.fn(async () => ({ _sum: { estimatedCostUsd: 0 } })),
+  };
   const prisma = {
     aiSpendReservation,
+    usageLog,
     $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (cb: (tx: typeof prisma) => unknown) => cb(prisma)),
   };
@@ -17,9 +22,6 @@ vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>("@/lib/config/costGate");
   return { ...actual, getBudgetStatus: vi.fn() };
 });
-vi.mock("@/lib/services/usageService", () => ({
-  usageService: { getMonthlyOpenRouterCost: vi.fn(async () => 0) },
-}));
 
 import {
   reserveAiSpend,
@@ -28,11 +30,24 @@ import {
   getOpenReservationUsd,
 } from "./aiSpendReservationService";
 import { prisma } from "@/lib/db/client";
-import { getBudgetStatus, BudgetExceededError } from "@/lib/config/costGate";
-import { usageService } from "@/lib/services/usageService";
+import {
+  getBudgetStatus,
+  BudgetExceededError,
+  BudgetSystemUnavailableError,
+} from "@/lib/config/costGate";
 
 const okStatus = (over: Record<string, unknown> = {}) =>
   ({ allowed: true, spentUsd: 5, limitUsd: 100, pacedLimitUsd: 100, ...over }) as never;
+
+/** Set the in-lock reads: open-reservation sum + month OpenRouter spend. */
+function seedReads(reservedUsd: number, monthSpendUsd = 0) {
+  vi.mocked(prisma.aiSpendReservation.aggregate).mockResolvedValueOnce({
+    _sum: { estimatedCostUsd: reservedUsd },
+  } as never);
+  vi.mocked(prisma.usageLog.aggregate).mockResolvedValueOnce({
+    _sum: { estimatedCostUsd: monthSpendUsd },
+  } as never);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -41,8 +56,7 @@ beforeEach(() => {
 describe("reserveAiSpend (closure C)", () => {
   it("reserves atomically (advisory lock + insert) when within budget", async () => {
     vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus({ spentUsd: 5 }));
-    vi.mocked(usageService.getMonthlyOpenRouterCost).mockResolvedValueOnce(5);
-    vi.mocked(prisma.aiSpendReservation.aggregate).mockResolvedValueOnce({ _sum: { estimatedCostUsd: 10 } } as never);
+    seedReads(10, 5);
 
     const r = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 1, purpose: "test" });
 
@@ -64,8 +78,7 @@ describe("reserveAiSpend (closure C)", () => {
     // Base allows (actual spend alone fits), but actual + in-flight reservations
     // + this estimate exceeds the hard limit → the atomic check must deny.
     vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus({ spentUsd: 90, pacedLimitUsd: 100 }));
-    vi.mocked(usageService.getMonthlyOpenRouterCost).mockResolvedValueOnce(90);
-    vi.mocked(prisma.aiSpendReservation.aggregate).mockResolvedValueOnce({ _sum: { estimatedCostUsd: 8 } } as never);
+    seedReads(8, 90);
 
     // 90 actual + 8 reserved + 5 estimate = 103 > 100
     await expect(
@@ -74,21 +87,50 @@ describe("reserveAiSpend (closure C)", () => {
     expect(prisma.aiSpendReservation.create).not.toHaveBeenCalled();
   });
 
-  it("fails OPEN (id: null) when the reservation table is missing — base cap already passed", async () => {
+  it("fails CLOSED (BudgetSystemUnavailable) when the reservation table is missing", async () => {
+    // Post-migration this is a real misconfiguration — refuse the paid call
+    // rather than the old fail-open "proceed without a reservation".
     vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus());
     vi.mocked(prisma.$transaction).mockRejectedValueOnce(
       Object.assign(new Error('relation "AiSpendReservation" does not exist'), { code: "P2021" }),
     );
 
+    await expect(
+      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 1, purpose: "test" }),
+    ).rejects.toBeInstanceOf(BudgetSystemUnavailableError);
+  });
+
+  it("fails CLOSED when the budget-status read itself throws", async () => {
+    vi.mocked(getBudgetStatus).mockRejectedValueOnce(new Error("db unreachable"));
+    await expect(
+      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 1, purpose: "test" }),
+    ).rejects.toBeInstanceOf(BudgetSystemUnavailableError);
+  });
+
+  it("retries once on a transient connection error, then succeeds", async () => {
+    vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus());
+    // First $transaction attempt hits a cold-start P1001; the retry uses the
+    // default mock impl (runs the callback) → success.
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(
+      Object.assign(new Error("Can't reach database server"), { code: "P1001" }),
+    );
     const r = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 1, purpose: "test" });
-    expect(r.id).toBeNull();
+    expect(r.id).toBe("resv-1");
+  });
+
+  it("fails CLOSED after the retry when a transient error persists", async () => {
+    vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus());
+    const timeout = Object.assign(new Error("Timed out fetching a connection"), { code: "P2024" });
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(timeout).mockRejectedValueOnce(timeout);
+    await expect(
+      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 1, purpose: "test" }),
+    ).rejects.toBeInstanceOf(BudgetSystemUnavailableError);
   });
 
   it("uses paced limit as the hard ceiling", async () => {
     // monthly limit 100 but paced (mid-month) 40; 30 actual + 0 reserved + 15 est = 45 > 40 → deny
     vi.mocked(getBudgetStatus).mockResolvedValueOnce(okStatus({ spentUsd: 30, limitUsd: 100, pacedLimitUsd: 40 }));
-    vi.mocked(usageService.getMonthlyOpenRouterCost).mockResolvedValueOnce(30);
-    vi.mocked(prisma.aiSpendReservation.aggregate).mockResolvedValueOnce({ _sum: { estimatedCostUsd: 0 } } as never);
+    seedReads(0, 30);
 
     await expect(
       reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 15, purpose: "test" }),
@@ -123,7 +165,7 @@ describe("settle / release", () => {
     );
   });
 
-  it("settle / release are no-ops for a null reservation (fail-open path)", async () => {
+  it("settle / release are no-ops for a null reservation (defensive null guard)", async () => {
     await settleAiSpend({ id: null }, 0.02);
     await releaseAiSpend({ id: null });
     expect(prisma.aiSpendReservation.update).not.toHaveBeenCalled();

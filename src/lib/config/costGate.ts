@@ -26,6 +26,21 @@ export class BudgetExceededError extends Error {
   }
 }
 
+/**
+ * The budget AUTHORITY itself could not be verified (reservation table missing,
+ * DB unreachable, budget-status read failed). Distinct from BudgetExceededError
+ * (a proven "over budget" deny): this means "we cannot prove you're under budget",
+ * so the paid call is refused fail-CLOSED. Retryable (503-class), not permanent.
+ */
+export class BudgetSystemUnavailableError extends Error {
+  readonly code = "budget_unavailable";
+
+  constructor(public readonly detail: string) {
+    super(`AI butce otoritesi dogrulanamadi (harcama engellendi): ${detail}`);
+    this.name = "BudgetSystemUnavailableError";
+  }
+}
+
 export type BudgetStatus = {
   allowed: boolean;
   spentUsd: number;

@@ -22,6 +22,14 @@ vi.mock("@/lib/services/usageService", () => ({
     getMonthlySpendByBudgetClass: vi.fn(() => Promise.resolve(0)),
   },
 }));
+// generateJsonGated reserves atomically before spending; mock the reservation so
+// this unit test needs no DB (reserveAiSpend fails CLOSED on the unset test
+// DATABASE_URL otherwise). Budget/reservation logic is covered by its own tests.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveAiSpend: vi.fn(async () => ({ id: "res-test" })),
+  settleAiSpend: vi.fn(),
+  releaseAiSpend: vi.fn(),
+}));
 
 import { generateJson } from "@/lib/ai/openrouter";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
