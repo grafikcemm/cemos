@@ -3,6 +3,7 @@ import {
   resolveModel,
   type ModelRole,
 } from "@/lib/ai/model-config";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 type TextContentPart = {
   type: "text";
@@ -379,7 +380,9 @@ export async function generateJson<T>({
         };
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        console.warn(`[OpenRouter] generateJson attempt ${attempt + 1} with model ${model} failed: ${lastError.message}`);
+        // Redact: lastError.message embeds the (capped) provider body, which can
+        // echo a Bearer token / key on an auth error.
+        console.warn(`[OpenRouter] generateJson attempt ${attempt + 1} with model ${model} failed: ${redactError(lastError)}`);
       }
     }
   }

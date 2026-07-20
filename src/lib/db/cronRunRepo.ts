@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import type { CronRun } from "@/generated/prisma/client";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const DEFAULT_RUNNING_STALE_MS = 10 * 60 * 1000; // a scan/cron should never exceed 10 min
 
@@ -36,7 +37,7 @@ export const cronRunRepo = {
         },
       });
     } catch (err) {
-      console.error("CronRun finish yazılırken hata oluştu:", err);
+      console.error("CronRun finish yazılırken hata oluştu:", redactError(err));
       return null;
     }
   },
@@ -61,7 +62,7 @@ export const cronRunRepo = {
       });
       return Boolean(running);
     } catch (err) {
-      console.error("CronRun lock kontrolünde hata oluştu:", err);
+      console.error("CronRun lock kontrolünde hata oluştu:", redactError(err));
       return false;
     }
   },
@@ -90,7 +91,7 @@ export const cronRunRepo = {
       });
       return run === null ? { run: null, skipped: true } : { run, skipped: false };
     } catch (err) {
-      console.error("CronRun startIfIdle hata oluştu:", err);
+      console.error("CronRun startIfIdle hata oluştu:", redactError(err));
       const run = await prisma.cronRun.create({ data: { kind } }).catch(() => null);
       return { run, skipped: false };
     }

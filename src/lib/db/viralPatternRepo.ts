@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import type { ViralPattern } from "@/generated/prisma/client";
+import { redactError } from "@/lib/utils/redactSecrets";
 import {
   CreateViralPatternSchema,
   UpdateViralPatternSchema,
@@ -127,7 +128,7 @@ export const viralPatternRepo = {
       if (affected === 0) return null;
       return await prisma.viralPattern.findUnique({ where: { id } });
     } catch (err) {
-      console.error("ViralPattern successScore güncellenirken hata oluştu:", err);
+      console.error("ViralPattern successScore güncellenirken hata oluştu:", redactError(err));
       return null;
     }
   },
@@ -145,7 +146,7 @@ export const viralPatternRepo = {
         data: { validatedAt: new Date(), validatedSupport: support },
       });
     } catch (err) {
-      console.error("ViralPattern validatedAt yazılırken hata oluştu:", err);
+      console.error("ViralPattern validatedAt yazılırken hata oluştu:", redactError(err));
       return null;
     }
   },
