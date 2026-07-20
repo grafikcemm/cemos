@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:db-integration": "vitest run --config vitest.integration.config.ts",
     "worker": "npx tsx scripts/worker.ts",
     "discover": "npx tsx scripts/discover.ts",
     "dev:operator": "npm-run-all --parallel dev worker",
