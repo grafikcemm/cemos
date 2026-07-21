@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 import { TranscriptUnavailableError } from "@/lib/learning/pipeline/orchestrator";
 import { ok, fail } from "@/lib/utils/apiResponse";
 
@@ -20,9 +20,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const result = await learnService.advance(id);
     return ok({ ...result });
   } catch (err) {
-    if (err instanceof BudgetExceededError) {
-      return fail(err.message, 429, { code: "budget" });
-    }
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     if (err instanceof TranscriptUnavailableError) {
       return fail(err.message, 422, { code: "transcript_unavailable" });
     }

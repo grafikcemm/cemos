@@ -4,7 +4,7 @@ import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 // Phase 3 of the split Keşif Motoru run: generate today's drafts from the
 // already-discovered (and mined) backlog. Discovery/mining are skipped here —
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
     });
     return ok({ ...summary });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Üretim hatası";
     return fail(msg, 500);
   }

@@ -3,7 +3,7 @@ import { operatorReadinessService } from "@/lib/services/operatorReadinessServic
 import { workerService } from "@/lib/services/workerService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 export async function POST(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
       reason: draftsCreated > 0 ? "generated" : firstReason || "no_drafts_created",
     });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const message = err instanceof Error ? err.message : "Operator scan now failed";
     return fail(message, 500);
   }

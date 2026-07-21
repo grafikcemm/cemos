@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 export async function POST(
   req: NextRequest,
@@ -58,7 +58,8 @@ export async function POST(
       message: "Pattern başarıyla kaydedildi ve gönderi used olarak işaretlendi.",
     });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

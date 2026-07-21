@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 const bodySchema = z.object({
   // ADR-031: hesap doğrulaması generateDraft içindeki DB profil yüklemesinde
@@ -62,7 +62,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     return ok({ result });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

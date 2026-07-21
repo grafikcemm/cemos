@@ -4,7 +4,7 @@ import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { discoveryService } from "@/lib/services/discoveryService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 // Phase 1 of the split Keşif Motoru run (discover → mine → generate). Each
 // phase gets its own invocation so no single call can hit the Vercel timeout.
@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
     const summary = await discoveryService.discoverForAccount(handle as AccountHandle);
     return ok({ ...summary });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Keşif hatası";
     return fail(msg, 500);
   }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { ytBriefRepo } from "@/lib/db/ytBriefRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 import { YtBriefDailyLimitError } from "@/lib/youtube/brief-generator";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
@@ -37,9 +37,8 @@ export async function POST(req: NextRequest) {
     const result = await youtubeService.briefForVideo(parsed.data.videoId);
     return ok({ ...result });
   } catch (err) {
-    if (err instanceof BudgetExceededError) {
-      return fail(err.message, 429, { code: "budget" });
-    }
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     if (err instanceof YtBriefDailyLimitError) {
       return fail(err.message, 429, { code: "daily_limit" });
     }

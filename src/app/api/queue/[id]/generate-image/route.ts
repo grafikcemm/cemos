@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { imageService } from "@/lib/services/imageService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 /**
  * POST /api/queue/[id]/generate-image
@@ -46,7 +46,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/queue/[id]"
       costUsd: result.costUsd,
     });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     const status = msg === "queue_item_not_found" ? 404 : 500;
     return fail(msg, status);

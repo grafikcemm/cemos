@@ -3,7 +3,7 @@ import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { translateBatch, analyzeBatch } from "@/lib/news/pipeline";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 // POST /api/news-pool/process — UI-triggered drain of the translate → analyze
 // backlog ("Tümünü İşle"). Guarded by isOperatorOrCronAuthorized: the app's
@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
     }
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     return fail(msg, 500);
   }
 }

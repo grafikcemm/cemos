@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 import { reelDossierFor, ReelDailyLimitError } from "@/lib/reels/dossier-generator";
 
 /**
@@ -106,7 +106,8 @@ export async function POST(req: NextRequest) {
         return ok({ ...result });
     }
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     if (err instanceof ReelDailyLimitError) return fail(err.message, 429, { code: err.code });
     return fail(err instanceof Error ? err.message : "Dossier üretilemedi", 500);
   }

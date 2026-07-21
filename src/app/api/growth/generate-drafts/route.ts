@@ -4,7 +4,7 @@ import { generateDrafts } from "@/lib/growth-engine/draft-generator";
 import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engine/account-adapter";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 const GenerateDraftsSchema = z.object({
   accountHandle: z.string().max(100).optional(),
@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
     const { success: _ok, ...payload } = result;
     return ok(payload);
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during draft generation.";
     return fail(msg, 500);
   }

@@ -5,7 +5,7 @@ import { accountRepo } from "@/lib/db/accountRepo";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 const FeedbackSchema = z.object({
   feedbackType: z.string().max(50).optional(),
@@ -83,7 +83,8 @@ export async function POST(
     const { success: _ok, ...payload } = result;
     return ok(payload);
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue feedback.";
     return fail(msg, 500);
   }

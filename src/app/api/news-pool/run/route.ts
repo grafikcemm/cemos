@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 import {
   syncDueSources,
   translateBatch,
@@ -91,7 +91,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     if (cronRunId) {
       await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
     }
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget", stage: stageParam });
+    const budgetRes = budgetErrorResponse(err, { stage: stageParam });
+    if (budgetRes) return budgetRes;
     return fail(msg, 500, { stage: stageParam });
   }
 }

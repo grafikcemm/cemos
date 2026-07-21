@@ -4,7 +4,7 @@ import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { miningService } from "@/lib/services/miningService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 /**
  * Manual trigger for the deliberation council + viral pattern mining for one
@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
     const result = await miningService.mineTopItems(handle as AccountHandle, limit);
     return ok({ ...result });
   } catch (err) {
-    if (err instanceof BudgetExceededError) return fail(err.message, 402, { code: "budget" });
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Madencilik hatası";
     return fail(msg, 500);
   }
