@@ -1,5 +1,14 @@
 # POST-RELEASE-BACKLOG — CemOS
 
+> **Last Non-External Closure (2026-07-21, HEAD `1c47b3b`) KAPATTI — artık backlog DEĞİL:**
+> provider degraded-tail muhasebesi (F1–F4, `UsageLog.meta.costOutcome`, migration YOK); kalan log
+> redaction (`redactSecrets` sertleştirme + 5 kopya `errMsg` kök-neden + DB-persist sink'leri);
+> `BudgetSystemUnavailableError`→**503** tek-kaynak mapping (16 route); Group-C ölü route
+> (competitors/prompt-library/source-posts/adjust-score/increment-usage). PostgreSQL **CI-READY/NOT-RUN**
+> (14 itest `vitest list` ile discovery-kanıtlı). Manual desktop walkthrough tamam (0 console error, 0
+> taşma). **Düzeltilebilir non-external P0/P1/P2 = 0.** Kalan yalnız P3 (F5/F6 nadir tail, embeddings
+> reserve) + external operatör işleri. Detay: `IMPLEMENTATION-STATE.md` üst "LAST NON-EXTERNAL CLOSURE".
+
 > **Pre-Launch Certification (2026-07-20) KAPATTI — bu maddeler artık backlog DEĞİL:**
 > Bütçe TOCTOU (§10) → `AiSpendReservation` + **fail-CLOSED** uygulandı (spec değil kod).
 > `growth-engine/draft-generator` statik-canned fallback + **`draftService` ikiz mock-persist** →
