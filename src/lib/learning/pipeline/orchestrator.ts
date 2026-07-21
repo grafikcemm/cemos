@@ -27,7 +27,7 @@ import {
   isGeminiConfigured,
   isSupadataConfigured,
   isObsidianAutoExportEnabled,
-  getTranscriptCostUsd,
+  transcriptCostRows,
   getGeminiTranscriptModel,
 } from "@/lib/learning/learnConfig";
 import { nextStage, PASSTHROUGH_STAGES, type LearnStage } from "./stages";
@@ -337,9 +337,29 @@ export async function advanceJob(
     // and the spend must be logged (previously silently $0). assertBudget throws
     // BudgetExceededError → the stage stops honestly when the learn budget is spent.
     if (!tr && (isSupadataConfigured() || isGeminiConfigured())) await assertBudget();
-    if (!tr && isSupadataConfigured()) tr = await fetchTranscriptViaSupadata(source!.externalId);
-    if (!tr && isGeminiConfigured()) tr = await fetchTranscriptViaGemini(source!.url);
-    if (tr && tr.fullText.length >= MIN_TRANSCRIPT_CHARS) {
+
+    // Track every PAID provider we actually CALL. Such a call may bill REGARDLESS of
+    // whether it returns a usable (≥MIN_TRANSCRIPT_CHARS) transcript — Gemini processes
+    // (and can bill) a video it then safety-blocks or truncates, and a returned-but-
+    // too-short transcript is unambiguously billed. Recording every paid attempt closes
+    // the degraded-tail hole (F1): otherwise a failing-but-billed provider stays silently
+    // $0, invisible to /api/costs, and — because assertBudget() above sums RECORDED spend
+    // — never accrues against the learn_ ceiling, so the cap keeps passing while real
+    // money burns (the stage retries the paid call up to MAX_STAGE_ATTEMPTS times).
+    const paidAttempts: string[] = [];
+    if (!tr && isSupadataConfigured()) {
+      paidAttempts.push("supadata");
+      tr = await fetchTranscriptViaSupadata(source!.externalId);
+    }
+    if (!tr && isGeminiConfigured()) {
+      paidAttempts.push("gemini");
+      tr = await fetchTranscriptViaGemini(source!.url);
+    }
+
+    const usable = tr !== null && tr.fullText.length >= MIN_TRANSCRIPT_CHARS;
+    const usableProvider = usable ? tr!.provider : null;
+
+    if (usable && tr) {
       await learnTranscriptRepo.upsert({
         sourceId,
         provider: tr.provider,
@@ -347,22 +367,30 @@ export async function advanceJob(
         segmentsJson: safeJsonStringify(tr.segments),
         fullText: tr.fullText,
       });
-      // Account the PAID transcript providers (gemini / supadata). Best-effort: a
-      // ledger write must never lose a transcript we already fetched + stored.
-      const cost = getTranscriptCostUsd(tr.provider);
-      if (cost > 0) {
-        await usageService
-          .recordTranscript({
-            provider: tr.provider,
-            estimatedCostUsd: cost,
-            model: tr.provider === "gemini" ? getGeminiTranscriptModel() : undefined,
-            meta: { purpose: "learn_transcript", sourceId },
-          })
-          .catch(() => {});
-      }
-      return true;
     }
-    return false;
+
+    // Ledger every paid provider we called (pure decision in transcriptCostRows):
+    // the usable one → costOutcome:"estimated"; any other reached-but-unusable paid
+    // provider → costOutcome:"unknown" (charge unconfirmed → recorded, visible +
+    // counts, fail-safe — never silently $0). Best-effort: a ledger write must never
+    // lose a transcript we already fetched + stored.
+    for (const row of transcriptCostRows(paidAttempts, usableProvider)) {
+      await usageService
+        .recordTranscript({
+          provider: row.provider,
+          estimatedCostUsd: row.estimatedCostUsd,
+          model: row.provider === "gemini" ? getGeminiTranscriptModel() : undefined,
+          meta: {
+            purpose: "learn_transcript",
+            sourceId,
+            costOutcome: row.costOutcome,
+            usable: row.usable,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return usable;
   }
 
   async function ensurePack(): Promise<string> {

@@ -66,13 +66,21 @@ function buildImagePrompt(handle: AccountHandle, draftText: string): string {
   ].join(" ");
 }
 
-/** Call fal.ai. Returns a URL on success, or null to fall back to prompt-only. */
-async function callFal(prompt: string): Promise<string | null> {
+/**
+ * Result of a fal.ai call. `reached` = did the request actually hit the provider
+ * (a response came back, OR the request was aborted AFTER being sent) — such a call
+ * may bill even when it yields no usable URL, so the caller must ledger it.
+ * `reached:false` = pre-flight (test runner / not configured); never billed.
+ */
+type FalCallResult = { url: string | null; reached: boolean };
+
+/** Call fal.ai. Returns the URL (if any) + whether the provider was actually reached. */
+async function callFal(prompt: string): Promise<FalCallResult> {
   // Never spend real fal credits inside the test runner, even if .env.local has a key.
-  if (process.env.VITEST) return null;
+  if (process.env.VITEST) return { url: null, reached: false };
   const falKey = process.env.FAL_KEY;
   const { falImageModel } = getCostLimits();
-  if (!falKey || !falImageModel) return null;
+  if (!falKey || !falImageModel) return { url: null, reached: false };
 
   try {
     const ctrl = new AbortController();
@@ -89,16 +97,18 @@ async function callFal(prompt: string): Promise<string | null> {
     // infer "images stopped" from UI silence. Log a redacted class here.
     if (!res.ok) {
       console.warn(`[imageService] fal.ai HTTP ${res.status}`);
-      return null;
+      return { url: null, reached: true };
     }
     const data = (await res.json()) as FalResult;
     const url = data.images?.[0]?.url;
-    if (typeof url === "string" && url.length > 0) return url;
+    if (typeof url === "string" && url.length > 0) return { url, reached: true };
     console.warn("[imageService] fal.ai response had no image URL");
-    return null;
+    return { url: null, reached: true };
   } catch (err) {
     console.warn("[imageService] fal.ai request failed:", redactError(err));
-    return null;
+    // A throw AFTER the request was sent (abort/timeout/socket reset) may still have
+    // triggered a billable generation; treat as reached (fail-safe accounting).
+    return { url: null, reached: true };
   }
 }
 
@@ -159,23 +169,23 @@ export const imageService = {
       };
     }
 
-    const url = await callFal(imagePrompt);
+    const falResult = await callFal(imagePrompt);
     const { falImageModel, falImageCostUsd } = getCostLimits();
 
-    // Only charge + persist when a real URL was produced.
-    if (url) {
+    // A real URL came back → charge + persist (reconciled-estimate).
+    if (falResult.url) {
       await usageService
         .recordImage({
           accountId: item.accountId,
           estimatedCostUsd: falImageCostUsd,
           model: falImageModel,
-          meta: { purpose: "image_gen", handle },
+          meta: { purpose: "image_gen", handle, costOutcome: "estimated", usable: true },
         })
         .catch(() => {});
-      await queueRepo.update(queueItemId, { generatedImageUrl: url });
+      await queueRepo.update(queueItemId, { generatedImageUrl: falResult.url });
       return {
         ok: true,
-        generatedImageUrl: url,
+        generatedImageUrl: falResult.url,
         imagePrompt,
         provider: "fal",
         reused: false,
@@ -183,7 +193,23 @@ export const imageService = {
       };
     }
 
-    // Generation attempt failed → prompt-only, no charge (no image produced).
+    // No usable URL. If we actually REACHED fal (F3 degraded tail: 200-with-no-URL,
+    // malformed 200, or abort-after-send), the generation may still have billed — so
+    // ledger it as costOutcome:"unknown" instead of silently $0. A pre-flight miss
+    // (test runner / not configured, reached:false) never billed → no row.
+    if (falResult.reached && falImageCostUsd > 0) {
+      await usageService
+        .recordImage({
+          accountId: item.accountId,
+          estimatedCostUsd: falImageCostUsd,
+          model: falImageModel,
+          meta: { purpose: "image_gen", handle, costOutcome: "unknown", usable: false },
+        })
+        .catch(() => {});
+    }
+
+    // Generation produced no image → prompt-only fallback (costUsd:0 to the caller;
+    // any uncertain spend is captured in the ledger row above).
     return {
       ok: true,
       generatedImageUrl: null,

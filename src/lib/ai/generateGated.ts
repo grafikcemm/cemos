@@ -18,6 +18,7 @@ import {
   settleAiSpend,
   releaseAiSpend,
 } from "@/lib/services/aiSpendReservationService";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * Budget-gated wrapper around `generateJson`.
@@ -131,9 +132,6 @@ export async function generateJsonGated<T>(
         : {}),
     });
   } catch (error) {
-    // Free the reservation — any real billed cost is recorded below and captured
-    // by UsageLog, so releasing keeps the budget correct without double-counting.
-    await releaseAiSpend(reservation);
     const errorRecord = typeof error === "object" && error !== null ? error : null;
     const billedCostUsd =
       errorRecord &&
@@ -142,10 +140,16 @@ export async function generateJsonGated<T>(
         ? errorRecord.actualCostUsd
         : 0;
     if (billedCostUsd > 0) {
+      // A billed-but-failed call (e.g. 200s across a fallback chain, then a final
+      // parse error). LEDGER-FIRST, then release — same invariant as the success
+      // path: write the real cost before dropping the hold. If the ledger write
+      // throws, leave the reservation OPEN (fail-safe hold until TTL) rather than
+      // releasing a billed cost into invisibility.
       const billedModel =
         errorRecord && "model" in errorRecord && typeof errorRecord.model === "string"
           ? errorRecord.model
           : model;
+      let ledgerWritten = false;
       try {
         // Non-sensitive error category (DH-014) so provider liveness (§13/BUG-05)
         // can surface WHY the last call failed (e.g. provider_credit = 402) without
@@ -161,36 +165,57 @@ export async function generateJsonGated<T>(
             purpose,
             budgetClass,
             failed: true,
+            costOutcome: "reconciled",
             errorClass,
             ...(preset ? { preset: preset.name } : {}),
             ...opts.meta,
           },
           platform: opts.platform,
         });
+        ledgerWritten = true;
       } catch {
-        // Preserve the generation failure; the provider key cap remains the
-        // final hard stop if the local ledger is temporarily unavailable.
+        // Preserve the generation failure; the reservation stays OPEN as a
+        // fail-safe hold, and the provider key cap remains the final hard stop.
       }
+      if (ledgerWritten) await releaseAiSpend(reservation);
+    } else {
+      // No billed cost (pre-flight throw / provider never charged) → free the hold.
+      await releaseAiSpend(reservation);
     }
     throw error;
   }
 
-  // Settle the reservation to the real cost (UsageLog below stays the source of
-  // truth for actual spend; the settled reservation stops counting as in-flight).
-  await settleAiSpend(reservation, res.actualCostUsd);
-
-  await usageService.recordOpenRouter({
-    accountId: opts.accountId,
-    estimatedCostUsd: res.actualCostUsd,
-    model: res.model,
-    meta: {
-      purpose,
-      budgetClass,
-      ...(preset ? { preset: preset.name } : {}),
-      ...opts.meta,
-    },
-    platform: opts.platform,
-  });
+  // LEDGER-FIRST, then settle (degraded-tail invariant). UsageLog is the SOLE
+  // budget authority — settled/released reservations no longer count. Write the
+  // authoritative row FIRST; only once it is durably persisted do we settle the
+  // hold. If the ledger write throws we deliberately do NOT settle: the
+  // reservation stays open and keeps counting as in-flight spend until its short
+  // TTL expires (a fail-safe OVER-count that self-heals) — a real billed cost is
+  // never settled into invisibility.
+  let ledgerWritten = false;
+  try {
+    await usageService.recordOpenRouter({
+      accountId: opts.accountId,
+      estimatedCostUsd: res.actualCostUsd,
+      model: res.model,
+      meta: {
+        purpose,
+        budgetClass,
+        costOutcome: "reconciled",
+        ...(preset ? { preset: preset.name } : {}),
+        ...opts.meta,
+      },
+      platform: opts.platform,
+    });
+    ledgerWritten = true;
+  } catch (recordErr) {
+    console.warn(
+      `[generateGated] UsageLog write failed after a billed OpenRouter call; reservation left OPEN as a fail-safe hold until TTL: ${redactError(recordErr)}`,
+    );
+  }
+  if (ledgerWritten) {
+    await settleAiSpend(reservation, res.actualCostUsd);
+  }
 
   return res;
 }

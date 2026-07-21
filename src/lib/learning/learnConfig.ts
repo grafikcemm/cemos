@@ -92,6 +92,41 @@ export function getTranscriptCostUsd(provider: string): number {
   return 0;
 }
 
+export type TranscriptCostRow = {
+  provider: string;
+  estimatedCostUsd: number;
+  costOutcome: "estimated" | "unknown";
+  usable: boolean;
+};
+
+/**
+ * Ledger rows for the PAID transcript providers ACTUALLY CALLED. Each reached
+ * provider may bill regardless of whether it yielded a usable transcript
+ * (degraded-tail invariant): the one that produced the usable transcript is
+ * `estimated`; any other reached-but-unusable provider is `unknown` (the charge
+ * cannot be confirmed → recorded so it stays visible + counts against the ceiling,
+ * never silently $0). Zero-cost/free providers are dropped. Pure — unit-testable
+ * apart from the orchestrator's async plumbing.
+ */
+export function transcriptCostRows(
+  paidAttempts: readonly string[],
+  usableProvider: string | null,
+): TranscriptCostRow[] {
+  const rows: TranscriptCostRow[] = [];
+  for (const provider of paidAttempts) {
+    const cost = getTranscriptCostUsd(provider);
+    if (cost <= 0) continue;
+    const usable = provider === usableProvider;
+    rows.push({
+      provider,
+      estimatedCostUsd: cost,
+      costOutcome: usable ? "estimated" : "unknown",
+      usable,
+    });
+  }
+  return rows;
+}
+
 /**
  * Supadata 3rd-party transkript API'si (supadata.ai). Innertube/timedtext Vercel
  * IP'sinde bloklu + Gemini bazı videoları PROHIBITED_CONTENT ile reddeder; Supadata

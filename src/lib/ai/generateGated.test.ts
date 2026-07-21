@@ -74,12 +74,28 @@ describe("generateJsonGated", () => {
       accountId: "acc-1",
       estimatedCostUsd: 0.002, // actualCostUsd
       model: "test/model",
-      meta: { purpose: "test", budgetClass: "background", contentItemId: "ci-1" },
+      meta: { purpose: "test", budgetClass: "background", costOutcome: "reconciled", contentItemId: "ci-1" },
       platform: "x",
     });
-    // Closure C: the reservation is settled to the actual cost on success.
+    // Closure C + degraded-tail: the ledger row is written FIRST, then the
+    // reservation is settled to the actual cost on success.
     expect(settleAiSpend).toHaveBeenCalledWith({ id: "res-1" }, 0.002);
     expect(releaseAiSpend).not.toHaveBeenCalled();
+  });
+
+  it("degraded-tail: ledger write failure after a billed call → does NOT settle (reservation left OPEN as fail-safe hold)", async () => {
+    vi.mocked(generateJson).mockResolvedValueOnce(fakeResult as never);
+    // The authoritative UsageLog write fails AFTER a real billed generation.
+    vi.mocked(usageService.recordOpenRouter).mockRejectedValueOnce(new Error("db down"));
+
+    const res = await generateJsonGated({ role: "cheapWriter", system: "s", user: "u", purpose: "test" });
+
+    expect(res).toBe(fakeResult); // the successful generation is still returned
+    expect(usageService.recordOpenRouter).toHaveBeenCalledTimes(1);
+    // Ledger-FIRST invariant: because the write failed, the reservation must NOT be
+    // settled — it stays open and keeps counting as in-flight spend until its TTL
+    // (fail-safe OVER-count), instead of settling a billed cost into invisibility.
+    expect(settleAiSpend).not.toHaveBeenCalled();
   });
 
   it("preset → model/fallback/structured/cache/provider preset'ten forward edilir", async () => {
