@@ -335,7 +335,12 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
           });
         }
         topMedia.sort((a, b) => Number(b.reach ?? 0) - Number(a.reach ?? 0));
-        if (account2 || topMedia.length > 0) {
+        // insightCaptured HESAP-SEVİYESİ insight yakalamayı ifade eder. account2
+        // (getAccountInsights) başarısızsa yalnız media listesi var diye all-zero
+        // bir account snapshot'ı YAZMA + insightCaptured=true DEME (sahte-success).
+        // Snapshot yalnız account2 başarılıysa oluşur → aynı gün içinde başarılı bir
+        // retry gerçek insight'ı yakalayabilir (zero-row idempotency kilidi olmaz).
+        if (account2) {
           await igInsightSnapshotRepo.upsertByDate(key, {
             followerCount: account2?.followersCount ?? 0,
             reach: account2?.reach ?? 0,

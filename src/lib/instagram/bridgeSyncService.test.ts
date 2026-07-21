@@ -215,13 +215,24 @@ describe("bridgeSyncService — dürüst hata durumları", () => {
     expect(igCommentRepo.upsertByCommentId).not.toHaveBeenCalled();
   });
 
-  it("kısmi insight izni: media insight null dönerse sync yine başarır", async () => {
-    const p = fakeProvider({ getMediaInsights: vi.fn(async () => null), getAccountInsights: vi.fn(async () => null) });
+  it("kısmi insight: media-insight null olsa da account-insight varsa snapshot yazılır", async () => {
+    const p = fakeProvider({ getMediaInsights: vi.fn(async () => null) });
     vi.mocked(selectInstagramReadProvider).mockResolvedValue(selection(p));
     const r = await syncInstagramViaBridge();
     expect(r.ok).toBe(true);
-    // hesap insight'ı yoksa ama medya listesi varsa snapshot yine yazılır (top media ile)
+    // Hesap-seviyesi insight yakalandı (per-media insight boş olsa da).
     expect(r.insightCaptured).toBe(true);
+  });
+
+  it("account-insight null → insightCaptured=false (all-zero snapshot / sahte-success YAZILMAZ)", async () => {
+    const p = fakeProvider({ getAccountInsights: vi.fn(async () => null) });
+    vi.mocked(selectInstagramReadProvider).mockResolvedValue(selection(p));
+    const r = await syncInstagramViaBridge();
+    // Sync yine başarır (diğer aşamalar) ama hesap insight'ı yoksa insightCaptured
+    // false ve all-zero snapshot YAZILMAZ → aynı gün başarılı retry yakalayabilir.
+    expect(r.ok).toBe(true);
+    expect(r.insightCaptured).toBe(false);
+    expect(igInsightSnapshotRepo.upsertByDate).not.toHaveBeenCalled();
   });
 
   it("tek yorum upsert hatası sync'i öldürmez — warning'e düşer", async () => {
