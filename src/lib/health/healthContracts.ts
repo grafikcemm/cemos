@@ -496,13 +496,21 @@ const PIPELINE_STATE_LABEL: Record<string, string> = {
  */
 export function deriveHealthProblems(contracts: SystemHealthContracts): HealthProblemItem[] {
   const out: HealthProblemItem[] = [];
-  for (const item of contracts.infrastructure.items) {
+  // `contracts` /api/health'ten DOĞRULANMADAN gelir (SystemHealthProvider onu ham
+  // JSON'dan `healthRes.contracts` olarak alır) ve KISMİ olabilir — ör. yalnız
+  // `instagramPlanning` taşıyan bir yük (plan sağlık şeridi yalnız onu tüketir).
+  // Bir bölüm eksikse "o eksende sorun yok" say — ASLA throw etme: tek bir sağlık-
+  // detay yardımcısı, global TopStrip/Bugün-tiki üzerinden tüm shell'i düşürmemeli.
+  // (phase3e-plan e2e bu crash'i yakaladı; birim testleri yalnız tam-şekilli
+  // sözleşme geçtiği için kaçmıştı.)
+  const view = contracts as Partial<SystemHealthContracts>;
+  for (const item of view.infrastructure?.items ?? []) {
     if (item.optionalUnconfigured) continue;
     if (item.status === "error" || item.status === "warn") {
       out.push({ key: item.key, label: item.label, detail: item.detail, severity: item.status });
     }
   }
-  for (const item of contracts.pipelineFreshness.items) {
+  for (const item of view.pipelineFreshness?.items ?? []) {
     if (item.state === "failing" || item.state === "delayed" || item.state === "never_ran") {
       out.push({
         key: `pipeline_${item.key}`,

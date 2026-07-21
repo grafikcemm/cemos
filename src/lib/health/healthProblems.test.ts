@@ -67,6 +67,28 @@ describe("deriveHealthProblems (canonical infra + pipeline)", () => {
     ]);
     expect(deriveHealthProblems(c)).toEqual([]);
   });
+
+  // Regresyon (phase3e-plan e2e): /api/health `contracts`'ı DOĞRULANMADAN gelir ve
+  // KISMİ olabilir. Bir bölüm eksikken derive ASLA throw etmemeli — aksi hâlde global
+  // TopStrip/Bugün-tiki tüm shell'i düşürür ("Cannot read properties of undefined
+  // (reading 'items')"). Bu birim testleri o crash'i sözleşme kısmiyken kilitler.
+  it("KISMİ sözleşme: yalnız instagramPlanning taşıyan yük throw ETMEZ → []", () => {
+    const partial = { instagramPlanning: { version: "instagram_plan_health.v1" } } as unknown as SystemHealthContracts;
+    expect(() => deriveHealthProblems(partial)).not.toThrow();
+    expect(deriveHealthProblems(partial)).toEqual([]);
+  });
+
+  it("KISMİ sözleşme: boş nesne throw ETMEZ → []", () => {
+    expect(deriveHealthProblems({} as unknown as SystemHealthContracts)).toEqual([]);
+  });
+
+  it("KISMİ sözleşme: infrastructure var ama pipelineFreshness yok → yalnız infra sorunları", () => {
+    const partial = {
+      infrastructure: { status: "error", items: [{ key: "cron_auth", label: "Cron yetkilendirme", status: "error" }] },
+    } as unknown as SystemHealthContracts;
+    const problems = deriveHealthProblems(partial);
+    expect(problems.map((p) => p.key)).toEqual(["cron_auth"]);
+  });
 });
 
 describe("healthProblemsLevel", () => {
