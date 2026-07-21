@@ -186,20 +186,31 @@ describe.skipIf(!RUN)("reserveFalSpend — real Postgres fal-lock serialization 
   it("fal and LLM budgets are ISOLATED: neither open reservation consumes the other's cap", async () => {
     budget(10); // LLM cap 10
     falBudget(10); // separate fal cap 10
-    // Nearly fill the LLM cap with an open essential reservation…
-    const llm = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 9, purpose: "itest_llm" });
+    // One open reservation on EACH axis (6 essential, 6 fal). Asymmetric follow-ups
+    // (3) make every assertion below DISCRIMINATE a cross-axis leak — a symmetric
+    // 9+9 would deny either way and prove nothing.
+    const llm = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 6, purpose: "itest_llm" });
+    const fal = await reserveFalSpend({ estimatedCostUsd: 6, purpose: "itest_fal" });
     expect(llm.id).toBeTruthy();
-    // …the fal reservation still fits its OWN untouched cap (LLM row is scoped out).
-    const fal = await reserveFalSpend({ estimatedCostUsd: 9, purpose: "itest_fal" });
     expect(fal.id).toBeTruthy();
-    // A second LLM reserve is denied by the essential row alone (9+9>10) — the open
-    // fal_image row neither leaked into the LLM cap nor rescued it.
+
+    // A 2nd essential of 3 must be ALLOWED: correct scoping counts only the 6 essential
+    // (6+3=9≤10). If the 6 fal row leaked into the LLM cap → 6+6+3=15>10 → denied. So
+    // this ALLOW discriminates a fal→LLM leak.
+    const llm2 = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 3, purpose: "itest_llm2" });
+    expect(llm2.id).toBeTruthy();
+    // Symmetrically, a 2nd fal of 3 must be ALLOWED (fal sees only 6 fal); if the
+    // essential rows leaked into the fal cap it would be denied → discriminates LLM→fal.
+    const fal2 = await reserveFalSpend({ estimatedCostUsd: 3, purpose: "itest_fal2" });
+    expect(fal2.id).toBeTruthy();
+
+    // Each axis is now genuinely near-full on its OWN two rows (9). A 3rd of 3 on each
+    // (9+3=12>10) is denied — proving each axis counts its own rows and nothing else.
     await expect(
-      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 9, purpose: "itest_llm2" }),
+      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 3, purpose: "itest_llm3" }),
     ).rejects.toBeInstanceOf(BudgetExceededError);
-    // …and a second fal reserve is denied by the fal row alone (9+9>10).
     await expect(
-      reserveFalSpend({ estimatedCostUsd: 9, purpose: "itest_fal2" }),
+      reserveFalSpend({ estimatedCostUsd: 3, purpose: "itest_fal3" }),
     ).rejects.toBeInstanceOf(BudgetExceededError);
   });
 });

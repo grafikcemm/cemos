@@ -73,6 +73,22 @@ describe("imageService credit discipline", () => {
     expect(settleAiSpend).not.toHaveBeenCalled();
   });
 
+  it("RELEASES the reservation (not settle) when callFal does not reach the provider", async () => {
+    // In the vitest runtime callFal short-circuits to reached:false (never spends real
+    // fal credits). The reservation must then be RELEASED — otherwise it would hold the
+    // fal cap until the 5-min TTL. Positive guard on the else-release branch so a future
+    // edit that drops it can't pass silently.
+    process.env.FAL_KEY = "test-key";
+    queueFindById.mockResolvedValue({ id: "q4", accountId: "acc1", content: "metin", generatedImageUrl: null });
+    const res = await imageService.generateForQueueItem("q4");
+    expect(res.ok).toBe(true);
+    expect(res.generatedImageUrl).toBeNull();
+    expect(reserveFalSpend).toHaveBeenCalledTimes(1);
+    expect(releaseAiSpend).toHaveBeenCalledTimes(1);
+    expect(settleAiSpend).not.toHaveBeenCalled();
+    expect(recordImage).not.toHaveBeenCalled(); // no billable spend → no ledger row
+  });
+
   it("throws when the queue item is missing", async () => {
     queueFindById.mockResolvedValue(null);
     await expect(imageService.generateForQueueItem("nope")).rejects.toThrow("queue_item_not_found");
