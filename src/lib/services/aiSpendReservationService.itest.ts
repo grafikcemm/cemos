@@ -19,18 +19,22 @@ vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
     "@/lib/config/costGate",
   );
-  return { ...actual, getBudgetStatus: vi.fn() };
+  return { ...actual, getBudgetStatus: vi.fn(), getFalBudgetStatus: vi.fn() };
 });
 vi.mock("@/lib/services/usageService", () => ({
-  usageService: { getMonthlyOpenRouterCost: vi.fn(async () => 0) },
+  usageService: {
+    getMonthlyOpenRouterCost: vi.fn(async () => 0),
+    getMonthlyFalCost: vi.fn(async () => 0),
+  },
 }));
 
 import {
   reserveAiSpend,
+  reserveFalSpend,
   settleAiSpend,
   getOpenReservationUsd,
 } from "./aiSpendReservationService";
-import { getBudgetStatus, BudgetExceededError } from "@/lib/config/costGate";
+import { getBudgetStatus, getFalBudgetStatus, BudgetExceededError } from "@/lib/config/costGate";
 import { usageService } from "@/lib/services/usageService";
 
 const RUN = shouldRunDbIntegration();
@@ -45,6 +49,17 @@ function budget(limit: number) {
     pacedLimitUsd: limit,
   } as never);
   vi.mocked(usageService.getMonthlyOpenRouterCost).mockResolvedValue(0);
+}
+
+/** Separate fal image budget: zero prior spend, cap `limit`. */
+function falBudget(limit: number) {
+  vi.mocked(getFalBudgetStatus).mockResolvedValue({
+    allowed: true,
+    spentUsd: 0,
+    limitUsd: limit,
+    remainingUsd: limit,
+  } as never);
+  vi.mocked(usageService.getMonthlyFalCost).mockResolvedValue(0);
 }
 
 describe.skipIf(!RUN)("reserveAiSpend — real Postgres advisory-lock serialization", () => {
@@ -141,5 +156,50 @@ describe.skipIf(!RUN)("reserveAiSpend — real Postgres advisory-lock serializat
       now: later,
     });
     expect(next.id).toBeTruthy();
+  });
+});
+
+describe.skipIf(!RUN)("reserveFalSpend — real Postgres fal-lock serialization + budget isolation", () => {
+  beforeEach(async () => {
+    await truncate(["AiSpendReservation", "UsageLog"]);
+    vi.clearAllMocks();
+  });
+
+  it("two concurrent fal reservers that TOGETHER overshoot the fal cap: exactly one wins", async () => {
+    // fal cap 10, each estimate 6 → only one fits. The loser must see the winner's
+    // open fal reservation UNDER the fal advisory lock and be denied (TOCTOU closed).
+    falBudget(10);
+    const results = await Promise.allSettled([
+      reserveFalSpend({ estimatedCostUsd: 6, purpose: "itest_fal_a" }),
+      reserveFalSpend({ estimatedCostUsd: 6, purpose: "itest_fal_b" }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(BudgetExceededError);
+    // Ground truth: exactly one OPEN fal_image reservation row.
+    expect(
+      await prisma.aiSpendReservation.count({ where: { status: "open", budgetClass: "fal_image" } }),
+    ).toBe(1);
+  });
+
+  it("fal and LLM budgets are ISOLATED: neither open reservation consumes the other's cap", async () => {
+    budget(10); // LLM cap 10
+    falBudget(10); // separate fal cap 10
+    // Nearly fill the LLM cap with an open essential reservation…
+    const llm = await reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 9, purpose: "itest_llm" });
+    expect(llm.id).toBeTruthy();
+    // …the fal reservation still fits its OWN untouched cap (LLM row is scoped out).
+    const fal = await reserveFalSpend({ estimatedCostUsd: 9, purpose: "itest_fal" });
+    expect(fal.id).toBeTruthy();
+    // A second LLM reserve is denied by the essential row alone (9+9>10) — the open
+    // fal_image row neither leaked into the LLM cap nor rescued it.
+    await expect(
+      reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 9, purpose: "itest_llm2" }),
+    ).rejects.toBeInstanceOf(BudgetExceededError);
+    // …and a second fal reserve is denied by the fal row alone (9+9>10).
+    await expect(
+      reserveFalSpend({ estimatedCostUsd: 9, purpose: "itest_fal2" }),
+    ).rejects.toBeInstanceOf(BudgetExceededError);
   });
 });

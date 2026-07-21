@@ -1,7 +1,13 @@
 import { queueRepo } from "@/lib/db/queueRepo";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { usageService } from "@/lib/services/usageService";
-import { getFalBudgetStatus } from "@/lib/config/costGate";
+import { BudgetExceededError, BudgetSystemUnavailableError } from "@/lib/config/costGate";
+import {
+  reserveFalSpend,
+  settleAiSpend,
+  releaseAiSpend,
+  type Reservation,
+} from "@/lib/services/aiSpendReservationService";
 import { getCostLimits } from "@/lib/config/costLimits";
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { redactError } from "@/lib/utils/redactSecrets";
@@ -155,25 +161,49 @@ export const imageService = {
       };
     }
 
-    // Separate fal budget gate — hard stop, no spend.
-    const budget = await getFalBudgetStatus();
-    if (!budget.allowed) {
-      return {
-        ok: false,
-        generatedImageUrl: null,
-        imagePrompt,
-        provider: "fal",
-        reused: false,
-        blocked: "budget",
-        costUsd: 0,
-      };
-    }
-
-    const falResult = await callFal(imagePrompt);
     const { falImageModel, falImageCostUsd } = getCostLimits();
 
-    // A real URL came back → charge + persist (reconciled-estimate).
+    // Atomic fal budget reservation — closes the check→callFal TOCTOU. A concurrent
+    // image gen that has reserved but not settled counts against this call's cap, so
+    // two near-simultaneous clicks at the budget boundary can't both overshoot the
+    // separate fal monthly budget. Reserve BEFORE the (up to 90s) provider call — the
+    // advisory lock is never held across that call. Over-budget OR unverifiable budget
+    // authority → blocked (fail-closed), no spend.
+    let reservation: Reservation;
+    try {
+      reservation = await reserveFalSpend({
+        estimatedCostUsd: falImageCostUsd,
+        purpose: "image_gen",
+        model: falImageModel,
+      });
+    } catch (err) {
+      if (err instanceof BudgetExceededError || err instanceof BudgetSystemUnavailableError) {
+        return {
+          ok: false,
+          generatedImageUrl: null,
+          imagePrompt,
+          provider: "fal",
+          reused: false,
+          blocked: "budget",
+          costUsd: 0,
+        };
+      }
+      throw err;
+    }
+
+    let falResult: FalCallResult;
+    try {
+      falResult = await callFal(imagePrompt);
+    } catch (err) {
+      // callFal already swallows provider errors; this guards an unexpected throw so a
+      // crash never leaves an OPEN reservation holding the fal cap until TTL expiry.
+      await releaseAiSpend(reservation);
+      throw err;
+    }
+
+    // A real URL came back → settle to actual cost, charge + persist.
     if (falResult.url) {
+      await settleAiSpend(reservation, falImageCostUsd);
       await usageService
         .recordImage({
           accountId: item.accountId,
@@ -181,7 +211,9 @@ export const imageService = {
           model: falImageModel,
           meta: { purpose: "image_gen", handle, costOutcome: "estimated", usable: true },
         })
-        .catch(() => {});
+        .catch((e) =>
+          console.warn("[imageService] recordImage failed — fal spend not ledgered:", redactError(e)),
+        );
       await queueRepo.update(queueItemId, { generatedImageUrl: falResult.url });
       return {
         ok: true,
@@ -195,9 +227,11 @@ export const imageService = {
 
     // No usable URL. If we actually REACHED fal (F3 degraded tail: 200-with-no-URL,
     // malformed 200, or abort-after-send), the generation may still have billed — so
-    // ledger it as costOutcome:"unknown" instead of silently $0. A pre-flight miss
-    // (test runner / not configured, reached:false) never billed → no row.
+    // SETTLE the reservation to the estimate and ledger it as costOutcome:"unknown"
+    // instead of silently $0. A pre-flight miss (test runner / not configured,
+    // reached:false) never billed → RELEASE the reservation (frees the cap).
     if (falResult.reached && falImageCostUsd > 0) {
+      await settleAiSpend(reservation, falImageCostUsd);
       await usageService
         .recordImage({
           accountId: item.accountId,
@@ -205,7 +239,11 @@ export const imageService = {
           model: falImageModel,
           meta: { purpose: "image_gen", handle, costOutcome: "unknown", usable: false },
         })
-        .catch(() => {});
+        .catch((e) =>
+          console.warn("[imageService] recordImage failed — fal spend not ledgered:", redactError(e)),
+        );
+    } else {
+      await releaseAiSpend(reservation);
     }
 
     // Generation produced no image → prompt-only fallback (costUsd:0 to the caller;

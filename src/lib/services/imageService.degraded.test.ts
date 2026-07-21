@@ -13,6 +13,8 @@ const queueFindById = vi.fn();
 const queueUpdate = vi.fn(async (_id?: string, _d?: unknown) => ({}));
 const accountFindById = vi.fn(async () => ({ id: "acc1", handle: "grafikcem" }));
 const recordImage = vi.fn(async (_o?: unknown) => {});
+const settleAiSpend = vi.fn(async (_r?: unknown, _c?: unknown) => {});
+const releaseAiSpend = vi.fn(async (_r?: unknown) => {});
 
 vi.mock("@/lib/db/queueRepo", () => ({
   queueRepo: {
@@ -22,8 +24,12 @@ vi.mock("@/lib/db/queueRepo", () => ({
 }));
 vi.mock("@/lib/db/accountRepo", () => ({ accountRepo: { findById: () => accountFindById() } }));
 vi.mock("@/lib/services/usageService", () => ({ usageService: { recordImage: (o: unknown) => recordImage(o) } }));
-vi.mock("@/lib/config/costGate", () => ({
-  getFalBudgetStatus: async () => ({ allowed: true, spentUsd: 0, limitUsd: 10, remainingUsd: 10 }),
+// fal budget flows through the atomic reservation (getFalBudgetStatus lives inside it
+// now). Reservation succeeds so the degraded-tail accounting under it can be asserted.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveFalSpend: async () => ({ id: "fal-res-1" }),
+  settleAiSpend: (r: unknown, c: unknown) => settleAiSpend(r, c),
+  releaseAiSpend: (r: unknown) => releaseAiSpend(r),
 }));
 vi.mock("@/lib/config/costLimits", () => ({
   getCostLimits: () => ({ falImageModel: "fal-ai/test", falImageCostUsd: 0.05 }),
@@ -40,6 +46,8 @@ describe("imageService — F3 degraded-tail accounting", () => {
     queueFindById.mockReset();
     queueUpdate.mockClear();
     recordImage.mockClear();
+    settleAiSpend.mockClear();
+    releaseAiSpend.mockClear();
     process.env.FAL_KEY = "test-key";
     delete process.env.VITEST; // let callFal reach the (mocked) provider path
   });
@@ -69,6 +77,10 @@ describe("imageService — F3 degraded-tail accounting", () => {
         meta: expect.objectContaining({ costOutcome: "unknown", usable: false }),
       }),
     );
+    // The billed-but-unusable tail must SETTLE the reservation (count the spend),
+    // never release it — releasing would free the cap for a spend that happened.
+    expect(settleAiSpend).toHaveBeenCalledTimes(1);
+    expect(releaseAiSpend).not.toHaveBeenCalled();
   });
 
   it("a real URL is ledgered as costOutcome:estimated and persisted", async () => {

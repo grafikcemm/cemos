@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   getBudgetStatus,
+  getFalBudgetStatus,
   BudgetExceededError,
   BudgetSystemUnavailableError,
   type AiBudgetClass,
@@ -33,6 +34,21 @@ import { redactError } from "@/lib/utils/redactSecrets";
  *  stops counting against budget after it expires. */
 const RESERVATION_TTL_MS = 5 * 60 * 1000;
 const LOCK_KEY = "ai_spend_reservation";
+
+// fal.ai image generation has its OWN monthly budget (getFalBudgetStatus), separate
+// from the OpenRouter/LLM cap. Its reservations live in the SAME AiSpendReservation
+// table (no migration) but are tagged with this distinct budgetClass and serialized
+// on a SEPARATE advisory lock, so the two budgets never share a critical section.
+// The LLM reservation sums below EXCLUDE this class so a fal hold can't consume the
+// LLM cap (and vice-versa: reserveFalSpend counts ONLY this class).
+export const FAL_BUDGET_CLASS = "fal_image";
+const FAL_LOCK_KEY = "fal_spend_reservation";
+
+/** Current-month fal spend filter — kept in sync with usageService.getMonthlyFalCost
+ *  (usageLogRepo.sumCostByProviderMonth(month, "fal")) so the in-lock read matches. */
+function falMonthWhere(yearMonth: string) {
+  return { date: { startsWith: yearMonth }, provider: "fal" };
+}
 
 export type ReserveInput = {
   budgetClass: AiBudgetClass;
@@ -75,7 +91,7 @@ export async function getOpenReservationUsd(now: number = Date.now()): Promise<n
   try {
     const agg = await prisma.aiSpendReservation.aggregate({
       _sum: { estimatedCostUsd: true },
-      where: { status: "open", expiresAt: { gt: new Date(now) } },
+      where: { status: "open", expiresAt: { gt: new Date(now) }, budgetClass: { not: FAL_BUDGET_CLASS } },
     });
     return agg._sum.estimatedCostUsd ?? 0;
   } catch {
@@ -117,7 +133,7 @@ export async function reserveAiSpend(input: ReserveInput): Promise<Reservation> 
       await acquireXactAdvisoryLock(tx, LOCK_KEY);
       const reservedAgg = await tx.aiSpendReservation.aggregate({
         _sum: { estimatedCostUsd: true },
-        where: { status: "open", expiresAt: { gt: new Date(now) } },
+        where: { status: "open", expiresAt: { gt: new Date(now) }, budgetClass: { not: FAL_BUDGET_CLASS } },
       });
       const spendAgg = await tx.usageLog.aggregate({
         _sum: { estimatedCostUsd: true },
@@ -197,5 +213,89 @@ export async function releaseAiSpend(reservation: Reservation, now: number = Dat
     });
   } catch (err) {
     console.error("releaseAiSpend hata:", redactError(err));
+  }
+}
+
+export type FalReserveInput = { estimatedCostUsd: number; purpose: string; model?: string; now?: number };
+
+/**
+ * Atomic fal.ai image-spend reservation — closes the imageService check→callFal
+ * TOCTOU. Without this, two near-simultaneous image generations both read the same
+ * pre-spend fal total (getFalBudgetStatus) and both pass the gate, overshooting the
+ * separate fal monthly cap. Mirrors reserveAiSpend: the fal budget read (incl. its
+ * DB spend query) runs OUTSIDE the lock; the critical section — advisory lock (its
+ * OWN key) + open-fal-reservation sum + this-month fal spend sum + insert — runs on
+ * one `tx` connection. Settle/release via settleAiSpend/releaseAiSpend (id-keyed,
+ * class-agnostic). Fails CLOSED on an unverifiable authority (one cold-start retry).
+ */
+export async function reserveFalSpend(input: FalReserveInput): Promise<Reservation> {
+  const now = input.now ?? Date.now();
+
+  let base;
+  try {
+    base = await getFalBudgetStatus();
+  } catch (err) {
+    throw new BudgetSystemUnavailableError(
+      `fal budget status read failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+  if (!base.allowed) {
+    throw new BudgetExceededError(base.spentUsd, base.limitUsd, "monthly_limit");
+  }
+  const hardLimit = base.limitUsd;
+  const yearMonth = new Date(now).toISOString().slice(0, 7);
+
+  const attempt = (): Promise<string> =>
+    prisma.$transaction(async (tx) => {
+      await acquireXactAdvisoryLock(tx, FAL_LOCK_KEY);
+      const reservedAgg = await tx.aiSpendReservation.aggregate({
+        _sum: { estimatedCostUsd: true },
+        where: { status: "open", expiresAt: { gt: new Date(now) }, budgetClass: FAL_BUDGET_CLASS },
+      });
+      const spendAgg = await tx.usageLog.aggregate({
+        _sum: { estimatedCostUsd: true },
+        where: falMonthWhere(yearMonth),
+      });
+      const reserved = reservedAgg._sum.estimatedCostUsd ?? 0;
+      const freshLocal = spendAgg._sum.estimatedCostUsd ?? 0;
+      const actualSpent = Math.max(freshLocal, base.spentUsd);
+      if (actualSpent + reserved + input.estimatedCostUsd > hardLimit) {
+        throw new BudgetExceededError(actualSpent + reserved, hardLimit, "monthly_limit");
+      }
+      const row = await tx.aiSpendReservation.create({
+        data: {
+          budgetClass: FAL_BUDGET_CLASS,
+          purpose: input.purpose,
+          model: input.model ?? null,
+          estimatedCostUsd: input.estimatedCostUsd,
+          status: "open",
+          expiresAt: new Date(now + RESERVATION_TTL_MS),
+        },
+      });
+      return row.id;
+    });
+
+  try {
+    return { id: await attempt() };
+  } catch (err) {
+    if (err instanceof BudgetExceededError) throw err;
+    if (isTransientConnection(err)) {
+      await new Promise((r) => setTimeout(r, 200));
+      try {
+        return { id: await attempt() };
+      } catch (err2) {
+        if (err2 instanceof BudgetExceededError) throw err2;
+        throw new BudgetSystemUnavailableError(
+          `fal reservation transient failure: ${err2 instanceof Error ? err2.message : String(err2)}`,
+        );
+      }
+    }
+    throw new BudgetSystemUnavailableError(
+      isMissingTable(err)
+        ? "AiSpendReservation table missing (migration not applied)"
+        : err instanceof Error
+          ? err.message
+          : String(err),
+    );
   }
 }

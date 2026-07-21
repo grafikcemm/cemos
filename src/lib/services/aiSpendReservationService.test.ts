@@ -20,11 +20,12 @@ vi.mock("@/lib/db/client", () => {
 });
 vi.mock("@/lib/config/costGate", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config/costGate")>("@/lib/config/costGate");
-  return { ...actual, getBudgetStatus: vi.fn() };
+  return { ...actual, getBudgetStatus: vi.fn(), getFalBudgetStatus: vi.fn() };
 });
 
 import {
   reserveAiSpend,
+  reserveFalSpend,
   settleAiSpend,
   releaseAiSpend,
   getOpenReservationUsd,
@@ -32,6 +33,7 @@ import {
 import { prisma } from "@/lib/db/client";
 import {
   getBudgetStatus,
+  getFalBudgetStatus,
   BudgetExceededError,
   BudgetSystemUnavailableError,
 } from "@/lib/config/costGate";
@@ -135,6 +137,47 @@ describe("reserveAiSpend (closure C)", () => {
     await expect(
       reserveAiSpend({ budgetClass: "essential", estimatedCostUsd: 15, purpose: "test" }),
     ).rejects.toBeInstanceOf(BudgetExceededError);
+  });
+});
+
+describe("reserveFalSpend (fal image TOCTOU closure)", () => {
+  const falOk = (over: Record<string, unknown> = {}) =>
+    ({ allowed: true, spentUsd: 1, limitUsd: 10, remainingUsd: 9, ...over }) as never;
+
+  it("reserves atomically under the SEPARATE fal budget when within cap", async () => {
+    vi.mocked(getFalBudgetStatus).mockResolvedValueOnce(falOk({ spentUsd: 1 }));
+    seedReads(0.3, 1); // 0.3 open fal reservations + 1 month fal spend
+    const r = await reserveFalSpend({ estimatedCostUsd: 0.15, purpose: "image_gen" });
+    expect(r.id).toBe("resv-1");
+    expect(prisma.$queryRaw).toHaveBeenCalled(); // fal advisory lock taken (own key)
+    // fal reservations are tagged with the distinct budgetClass → isolated from the LLM cap
+    expect(prisma.aiSpendReservation.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ budgetClass: "fal_image" }) }),
+    );
+  });
+
+  it("denies (BudgetExceeded) when the fal cap is already exhausted — no reservation", async () => {
+    vi.mocked(getFalBudgetStatus).mockResolvedValueOnce(falOk({ allowed: false, spentUsd: 10 }));
+    await expect(reserveFalSpend({ estimatedCostUsd: 0.15, purpose: "image_gen" })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
+    expect(prisma.aiSpendReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("denies when open fal reservations + this estimate overshoot the fal cap (the TOCTOU it closes)", async () => {
+    vi.mocked(getFalBudgetStatus).mockResolvedValueOnce(falOk({ spentUsd: 9.8, limitUsd: 10 }));
+    seedReads(0.1, 9.8); // 9.8 spent + 0.1 reserved + 0.15 estimate = 10.05 > 10 cap
+    await expect(reserveFalSpend({ estimatedCostUsd: 0.15, purpose: "image_gen" })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
+    expect(prisma.aiSpendReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("fails CLOSED (BudgetSystemUnavailable) when the fal budget read throws", async () => {
+    vi.mocked(getFalBudgetStatus).mockRejectedValueOnce(new Error("db unreachable"));
+    await expect(reserveFalSpend({ estimatedCostUsd: 0.15, purpose: "image_gen" })).rejects.toBeInstanceOf(
+      BudgetSystemUnavailableError,
+    );
   });
 });
 
