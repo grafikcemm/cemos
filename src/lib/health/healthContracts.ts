@@ -477,3 +477,47 @@ export function deriveHealthContracts(inputs: {
     instagramPlanning,
   };
 }
+
+// ── Drawer / Bugün-tiki için: canonical altyapı + akış SORUN listesi ──────────
+export type HealthProblemItem = { key: string; label: string; detail?: string; severity: "error" | "warn" };
+
+const PIPELINE_STATE_LABEL: Record<string, string> = {
+  failing: "hata veriyor",
+  delayed: "gecikmiş",
+  never_ran: "hiç çalışmadı",
+};
+
+/**
+ * Operatöre gösterilecek SİSTEM sorunları (altyapı + akış), topbar chip ile
+ * TUTARLI. Eski dar `deriveProblems` cronAuth / newsPipeline (24s'te 0 analiz) /
+ * metaToken / credential-süresi kategorilerini ATLIYORDU (fake-green) — bu,
+ * canonical sözleşmelerden türetir. Opsiyonel + yapılandırılmamış entegrasyonlar
+ * DAHİL EDİLMEZ (sistemi kırmızı yapmaz). Bugün-eylemi / plan AYRI eksendir.
+ */
+export function deriveHealthProblems(contracts: SystemHealthContracts): HealthProblemItem[] {
+  const out: HealthProblemItem[] = [];
+  for (const item of contracts.infrastructure.items) {
+    if (item.optionalUnconfigured) continue;
+    if (item.status === "error" || item.status === "warn") {
+      out.push({ key: item.key, label: item.label, detail: item.detail, severity: item.status });
+    }
+  }
+  for (const item of contracts.pipelineFreshness.items) {
+    if (item.state === "failing" || item.state === "delayed" || item.state === "never_ran") {
+      out.push({
+        key: `pipeline_${item.key}`,
+        label: `${item.label} ${PIPELINE_STATE_LABEL[item.state]}`,
+        detail: item.detail,
+        severity: "warn",
+      });
+    }
+  }
+  return out;
+}
+
+/** Sorun listesinden en yüksek önem düzeyi (nokta rengi/etiket için). */
+export function healthProblemsLevel(problems: HealthProblemItem[]): "ok" | "warn" | "error" {
+  if (problems.some((p) => p.severity === "error")) return "error";
+  if (problems.length > 0) return "warn";
+  return "ok";
+}

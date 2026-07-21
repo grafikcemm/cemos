@@ -5,6 +5,7 @@ import { Activity } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
 import Drawer from "@/components/ui/Drawer";
 import { healthDotColor } from "@/lib/services/systemHealth";
+import { deriveHealthProblems } from "@/lib/health/healthContracts";
 import { useSystemHealth } from "./SystemHealthProvider";
 
 type TopStripProps = {
@@ -99,6 +100,12 @@ function SystemStatusButton() {
   // gösterir. "Kuyruk tamamlandı" ve "günlük hedef tamam" SORUN DEĞİLDİR
   // (level none → sessiz chip); ilgisiz sorunlar tek sayaca ezilmez.
   const topbar = result.state === "healthy" || result.state === "warning" ? contracts?.topbar : null;
+  // Drawer detayı canonical infra+akış sorunlarından türetilir (chip ile tutarlı).
+  // Eski `result.problems` cronAuth / newsPipeline / metaToken kategorilerini
+  // atlıyordu → kırmızı chip + "tüm sistemler sağlıklı" drawer çelişkisi.
+  const problems: { label: string; detail?: string; severity: "error" | "warn" }[] = contracts
+    ? deriveHealthProblems(contracts)
+    : result.problems;
 
   const dot = topbar
     ? topbar.level === "error"
@@ -215,25 +222,8 @@ function SystemStatusButton() {
                 Yeniden dene
               </button>
             </div>
-          ) : result.problems.length === 0 ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 9,
-                padding: "12px",
-                background: "color-mix(in srgb, var(--status-ok) 8%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--status-ok) 25%, transparent)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--status-ok)",
-                fontSize: "var(--text-sm)",
-              }}
-            >
-              <Activity size={15} strokeWidth={2} />
-              Tüm sistemler sağlıklı görünüyor.
-            </div>
-          ) : (
-            result.problems.map((p, i) => (
+          ) : problems.length > 0 ? (
+            problems.map((p, i) => (
               <div
                 key={i}
                 style={{
@@ -259,6 +249,41 @@ function SystemStatusButton() {
                 )}
               </div>
             ))
+          ) : topbar && topbar.level === "action" ? (
+            <div
+              style={{
+                padding: "10px 12px",
+                background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                borderRadius: "var(--radius-sm)",
+              }}
+            >
+              <div style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--accent-text)" }}>
+                {topbar.label}
+              </div>
+              {topbar.detail && (
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", marginTop: 4 }}>
+                  {topbar.detail}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: "12px",
+                background: "color-mix(in srgb, var(--status-ok) 8%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--status-ok) 25%, transparent)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--status-ok)",
+                fontSize: "var(--text-sm)",
+              }}
+            >
+              <Activity size={15} strokeWidth={2} />
+              Tüm sistemler sağlıklı görünüyor.
+            </div>
           )}
         </div>
       </Drawer>

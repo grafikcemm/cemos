@@ -1,6 +1,7 @@
 "use client";
 
 import { healthDotColor } from "@/lib/services/systemHealth";
+import { deriveHealthProblems, healthProblemsLevel } from "@/lib/health/healthContracts";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 
@@ -23,7 +24,7 @@ type Props = {
 
 export default function MorningHeroStats({ queue }: Props) {
   const { drafts, loading } = queue;
-  const { result: health } = useSystemHealth();
+  const { result: health, contracts } = useSystemHealth();
 
   const pending = drafts.filter((d) => !isDone(d));
   const perAccount = ACCOUNT_ORDER.map((h) => ({
@@ -31,8 +32,27 @@ export default function MorningHeroStats({ queue }: Props) {
     count: pending.filter((d) => d.accountHandle === h).length,
   }));
 
-  const healthColor = healthDotColor(health);
-  const healthLabel = health.label;
+  // §8C: sağlık tiki topbar chip ile AYNI canonical infra+akış sinyalini gösterir
+  // (cronAuth / newsPipeline / metaToken / credential dahil). Eski dar `result`
+  // türetimi bu kategorileri atlıyordu → gerçek infra sorununda fake-green. Yükleme/
+  // erişilemez durumları hâlâ result state'ten (contracts henüz yok).
+  const problems = contracts ? deriveHealthProblems(contracts) : [];
+  const level = healthProblemsLevel(problems);
+  const useLegacyHealth = health.state === "checking" || health.state === "unavailable" || !contracts;
+  const healthColor = useLegacyHealth
+    ? healthDotColor(health)
+    : level === "error"
+      ? "var(--status-error)"
+      : level === "warn"
+        ? "var(--status-warn)"
+        : "var(--status-ok)";
+  const healthLabel = useLegacyHealth
+    ? health.label
+    : level === "ok"
+      ? "sağlıklı"
+      : problems.length === 1
+        ? problems[0].label
+        : `${problems.length} sorun`;
 
   const headline = loading
     ? "Taslaklar yükleniyor…"
