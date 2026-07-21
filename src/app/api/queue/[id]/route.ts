@@ -26,7 +26,7 @@ const updateSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
   try {
@@ -41,7 +41,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
@@ -98,7 +98,7 @@ import { scheduleService } from "@/lib/services/scheduleService";
 
 export async function DELETE(
   req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;

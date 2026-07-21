@@ -13,7 +13,7 @@ import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
  *
  * Pass { force: true } to regenerate over an existing image.
  */
-export async function POST(req: NextRequest, ctx: RouteContext<"/api/queue/[id]">) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
 

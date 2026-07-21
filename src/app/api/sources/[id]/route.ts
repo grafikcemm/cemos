@@ -14,7 +14,7 @@ const updateSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  ctx: RouteContext<"/api/sources/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
@@ -39,7 +39,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  ctx: RouteContext<"/api/sources/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
