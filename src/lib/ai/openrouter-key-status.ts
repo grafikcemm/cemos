@@ -1,3 +1,5 @@
+import { redactError } from "@/lib/utils/redactSecrets";
+
 export type OpenRouterKeyStatus = {
   limitUsd: number | null;
   limitRemainingUsd: number | null;
@@ -61,9 +63,15 @@ export async function getOpenRouterKeyStatus(
     };
     cached = { expiresAt: nowMs + cacheTtlMs(), value };
     return value;
-  } catch {
+  } catch (err) {
     // The provider enforces its own key cap. If this read-only endpoint is
-    // unavailable, keep the local DB-backed gate operational.
+    // unavailable, keep the local DB-backed gate operational — but SURFACE the
+    // degradation: the redundant provider-side cap check is off for the cache TTL,
+    // so an operator has no other signal it happened. Local enforcement stays intact.
+    console.warn(
+      "[openrouter-key-status] probe failed — degrading to local-only budget enforcement:",
+      redactError(err),
+    );
     cached = { expiresAt: nowMs + 30_000, value: null };
     return null;
   }

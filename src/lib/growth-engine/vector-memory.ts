@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { usageService } from "@/lib/services/usageService";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
 import type {
   MemoryLabel,
@@ -123,7 +124,9 @@ export async function createEmbedding(text: string): Promise<EmbeddingVector> {
         model: "openai/text-embedding-3-small",
         meta: { purpose: "embedding", costOutcome: usable ? "estimated" : "unknown", usable },
       })
-      .catch(() => {});
+      .catch((e) =>
+        console.warn("[vector-memory] embedding spend not ledgered (recordOpenRouter failed):", redactError(e)),
+      );
     if (usable) {
       return {
         provider: "openrouter",
