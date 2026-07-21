@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { enrichRepo } from "@/lib/news/newsAi";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // Trending GitHub repos via the GitHub search API (NOT html scraping). Repos
 // created in the last 7 days, AI-topic, sorted by stars. Optional GITHUB_TOKEN
@@ -81,7 +82,7 @@ export async function syncRepoRadar(opts: {
     repos.sort((a, b) => b.stargazers_count - a.stargazers_count);
   } catch (err) {
     result.errors++;
-    console.warn("[repoRadar] fetch başarısız:", err);
+    console.warn("[repoRadar] fetch başarısız:", redactError(err));
     return result;
   }
 
@@ -108,6 +109,14 @@ export async function syncRepoRadar(opts: {
         topics: topicsList,
       });
 
+      // Enrichment failed (LLM error or empty output) → do NOT persist an
+      // un-enriched repo as an "active" catalog entry (xValueScore:0 would read
+      // as a real low-value judgment). Count it and let the next sync retry.
+      if (!enrichment.success) {
+        result.errors++;
+        continue;
+      }
+
       const data = {
         repoName: repo.name,
         owner,
@@ -133,7 +142,7 @@ export async function syncRepoRadar(opts: {
       result.processed++;
     } catch (err) {
       result.errors++;
-      console.warn(`[repoRadar] ${repo.full_name} işlenemedi:`, err);
+      console.warn(`[repoRadar] ${repo.full_name} işlenemedi:`, redactError(err));
     }
   }
 

@@ -45,7 +45,12 @@ async function getNewsPipelineHealth(): Promise<NewsPipelineHealth> {
       }),
     ]);
 
-  const digestToday = Boolean(digest);
+  // Content-aware, not just row-existence: an empty digest row (all summary
+  // fields blank — e.g. a failed generation that still upserted before the
+  // buildDailyDigest fix) must NOT read as "today's digest is ready".
+  const digestToday = Boolean(
+    digest && (digest.newsSummary?.trim() || digest.repoSummary?.trim() || digest.aiTips?.trim()),
+  );
 
   let status: NewsPipelineHealth["status"] = "green";
   let message = "Haber pipeline'ı sağlıklı.";

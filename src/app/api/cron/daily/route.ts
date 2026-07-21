@@ -10,6 +10,8 @@ import { generateOpportunities } from "@/lib/news/opportunities";
 import { buildDailyDigest } from "@/lib/news/digest";
 import { syncToCanonical } from "@/lib/content/syncBridge";
 import { syncIgCompetitors } from "@/lib/instagram/competitor/igCompetitorService";
+import { redactError } from "@/lib/utils/redactSecrets";
+import { newsStagesDegraded } from "@/lib/news/newsStages";
 
 // With Fluid Compute (Vercel default for new projects) Hobby functions may run
 // up to 300s. If a deploy ever rejects this literal, drop it to 60 — the time
@@ -41,7 +43,7 @@ async function runNewsStages(newsDeadline: number): Promise<Record<string, unkno
   try {
     if (within()) summary.hackernews = await syncHackerNews({ maxItems: 20 });
   } catch (err) {
-    summary.hackernews = { error: err instanceof Error ? err.message : String(err) };
+    summary.hackernews = { error: redactError(err) };
   }
   try {
     // sync RSS + translate + analyze (cursor = processingStatus, resumable).
@@ -51,22 +53,22 @@ async function runNewsStages(newsDeadline: number): Promise<Record<string, unkno
     // and analyze always make real progress (the old 15s floor processed ~0).
     if (within()) summary.pipeline = await runPipelineTick(Math.max(90_000, newsDeadline - Date.now() - 45_000));
   } catch (err) {
-    summary.pipeline = { error: err instanceof Error ? err.message : String(err) };
+    summary.pipeline = { error: redactError(err) };
   }
   try {
     if (within()) summary.repos = await syncRepoRadar({ maxRepos: 6, deadlineMs: Math.min(newsDeadline, Date.now() + 20_000) });
   } catch (err) {
-    summary.repos = { error: err instanceof Error ? err.message : String(err) };
+    summary.repos = { error: redactError(err) };
   }
   try {
     if (within()) summary.opportunities = await generateOpportunities({ deadlineMs: Math.min(newsDeadline, Date.now() + 15_000) });
   } catch (err) {
-    summary.opportunities = { error: err instanceof Error ? err.message : String(err) };
+    summary.opportunities = { error: redactError(err) };
   }
   try {
     if (within()) summary.digest = await buildDailyDigest();
   } catch (err) {
-    summary.digest = { error: err instanceof Error ? err.message : String(err) };
+    summary.digest = { error: redactError(err) };
   }
   return summary;
 }
@@ -90,7 +92,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
   try {
     cronRunId = (await cronRunRepo.start("daily")).id;
   } catch (err) {
-    console.error("CronRun start yazılırken hata oluştu:", err);
+    console.error("CronRun start yazılırken hata oluştu:", redactError(err));
   }
 
   // News AI stages first (only on full daily runs, not single-account manual
@@ -101,7 +103,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     try {
       news = await runNewsStages(newsDeadline);
     } catch (err) {
-      news = { error: err instanceof Error ? err.message : String(err) };
+      news = { error: redactError(err) };
     }
   }
 
@@ -114,7 +116,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     try {
       contentSync = await syncToCanonical({ limitPerSource: 100, deadlineMs: ciDeadline });
     } catch (err) {
-      contentSync = { error: err instanceof Error ? err.message : String(err) };
+      contentSync = { error: redactError(err) };
     }
   }
 
@@ -127,7 +129,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
       const { syncInstagramViaBridge } = await import("@/lib/instagram/bridgeSyncService");
       igOwnSync = await syncInstagramViaBridge();
     } catch (err) {
-      igOwnSync = { error: err instanceof Error ? err.message : String(err) };
+      igOwnSync = { error: redactError(err) };
     }
   }
 
@@ -140,7 +142,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
         deadlineMs: Math.min(45_000, timeBudgetMs - (Date.now() - t0)),
       });
     } catch (err) {
-      igCompetitorSync = { error: err instanceof Error ? err.message : String(err) };
+      igCompetitorSync = { error: redactError(err) };
     }
   }
 
@@ -158,7 +160,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
       results.push(await pipelineService.runDailyForAccount(handle, { mine }));
     } catch (err) {
       errors++;
-      results.push({ handle, error: err instanceof Error ? err.message : String(err) });
+      results.push({ handle, error: redactError(err) });
     }
   }
 
@@ -172,6 +174,12 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     return o.ok === false || "error" in o;
   };
   if (subSyncDegraded(igOwnSync) || subSyncDegraded(igCompetitorSync)) {
+    partial = true;
+  }
+  // A dead/degraded news subsystem (a stage threw, or the digest failed) marks
+  // the run PARTIAL too — otherwise the news stages swallow their errors and the
+  // run reports a false-clean signal.
+  if (newsStagesDegraded(news)) {
     partial = true;
   }
 
