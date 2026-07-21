@@ -87,14 +87,22 @@ export const defaultResolveHost: ResolveHost = async (hostname) => {
   return records.map((r) => r.address);
 };
 
+/** A validated URL plus the single verified IP the caller must PIN the socket to
+ *  (closes the DNS-rebind TOCTOU — no second resolution at connect time). */
+export type SafePin = { url: URL; pinIp: string; pinFamily: 4 | 6 };
+
+const ipFamily = (ip: string): 4 | 6 => (ip.includes(":") ? 6 : 4);
+
 /**
- * URL'i fetch ÖNCESİ doğrular; ihlalde SsrfBlockedError fırlatır.
- * Redirect zincirinde HER hop için yeniden çağrılmalıdır.
+ * URL'i fetch ÖNCESİ doğrular ve socket'in bağlanması GEREKEN doğrulanmış IP'yi
+ * döndürür; ihlalde SsrfBlockedError fırlatır. Redirect zincirinde HER hop için
+ * yeniden çağrılmalıdır. Çağıran `pinIp`'e bağlanır (makePinnedFetch) → check ve
+ * connect AYNI IP'yi kullanır, rebind penceresi kapanır.
  */
-export async function assertSafeUrl(
+export async function assertSafePin(
   rawUrl: string,
   resolveHost: ResolveHost = defaultResolveHost
-): Promise<URL> {
+): Promise<SafePin> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -114,7 +122,8 @@ export async function assertSafeUrl(
     throw new SsrfBlockedError("private/metadata IP", hostname);
   }
   if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) || hostname.includes(":")) {
-    return url; // literal public IP — resolve gereksiz
+    // Literal public IP — resolve gereksiz; pin doğrudan literal IP'dir.
+    return { url, pinIp: hostname, pinFamily: ipFamily(hostname) };
   }
 
   let ips: string[];
@@ -126,5 +135,18 @@ export async function assertSafeUrl(
   if (ips.length === 0) throw new SsrfBlockedError("DNS kaydı yok", hostname);
   const bad = ips.find((ip) => isPrivateIp(ip));
   if (bad) throw new SsrfBlockedError(`private/metadata IP'ye çözüldü: ${bad}`, hostname);
-  return url;
+  // Tüm kayıtlar public doğrulandı → ilk kaydı PIN et (connect yeniden çözmez).
+  const pinIp = ips[0];
+  return { url, pinIp, pinFamily: ipFamily(pinIp) };
+}
+
+/**
+ * Geriye-uyumlu ince sarmalayıcı: yalnız doğrulanmış URL gerekiyorsa (pin'siz).
+ * Redirect zincirinde HER hop için yeniden çağrılmalıdır.
+ */
+export async function assertSafeUrl(
+  rawUrl: string,
+  resolveHost: ResolveHost = defaultResolveHost
+): Promise<URL> {
+  return (await assertSafePin(rawUrl, resolveHost)).url;
 }

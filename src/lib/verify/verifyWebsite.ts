@@ -23,7 +23,8 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
-import { assertSafeUrl, SsrfBlockedError, type ResolveHost } from "@/lib/verify/ssrfGuard";
+import { assertSafePin, SsrfBlockedError, type ResolveHost } from "@/lib/verify/ssrfGuard";
+import { makePinnedFetch } from "@/lib/verify/pinnedFetch";
 
 export const VERIFY_USER_AGENT = "CemOS-Verify/1.0 (website evidence check)";
 const MAX_HOPS = 5;
@@ -158,14 +159,17 @@ export function isDisallowedByRobots(robotsTxt: string, path: string): boolean {
 }
 
 async function checkRobots(
-  fetchImpl: typeof fetch,
+  injectedFetch: typeof fetch | undefined,
   target: URL,
   resolveHost?: ResolveHost
 ): Promise<boolean> {
   try {
     const robotsUrl = `${target.protocol}//${target.host}/robots.txt`;
-    await assertSafeUrl(robotsUrl, resolveHost);
-    const res = await timedFetch(fetchImpl, robotsUrl, {
+    const safe = await assertSafePin(robotsUrl, resolveHost);
+    // Pin the robots fetch to the verified IP too (same rebind window closes);
+    // an injected fetchImpl (tests) is used verbatim.
+    const f = injectedFetch ?? makePinnedFetch(safe.pinIp, safe.pinFamily);
+    const res = await timedFetch(f, safe.url.toString(), {
       method: "GET",
       redirect: "manual",
       headers: { "User-Agent": VERIFY_USER_AGENT },
@@ -193,7 +197,6 @@ export async function verifyWebsite(
   rawUrl: string,
   opts: VerifyOptions = {}
 ): Promise<VerifyWebsiteResult> {
-  const fetchImpl = opts.fetchImpl ?? fetch;
   const redirectChain: string[] = [];
 
   try {
@@ -206,16 +209,19 @@ export async function verifyWebsite(
   try {
     let firstHop = true;
     for (let hop = 0; hop <= MAX_HOPS; hop++) {
-      const safe = await assertSafeUrl(current, opts.resolveHost);
+      const safe = await assertSafePin(current, opts.resolveHost);
+      // Default path pins the socket to the just-verified IP (rebind-safe); an
+      // injected fetchImpl (tests) bypasses pinning and is used verbatim.
+      const hopFetch = opts.fetchImpl ?? makePinnedFetch(safe.pinIp, safe.pinFamily);
 
       if (firstHop) {
         firstHop = false;
-        if (await checkRobots(fetchImpl, safe, opts.resolveHost)) {
+        if (await checkRobots(opts.fetchImpl, safe.url, opts.resolveHost)) {
           return failure("robots_disallowed");
         }
       }
 
-      const res = await timedFetch(fetchImpl, safe.toString(), {
+      const res = await timedFetch(hopFetch, safe.url.toString(), {
         method: "GET",
         redirect: "manual",
         headers: { "User-Agent": VERIFY_USER_AGENT, Accept: "text/html,*/*" },
@@ -226,7 +232,7 @@ export async function verifyWebsite(
         if (!location) return failure("redirect_blocked");
         let nextUrl: string;
         try {
-          nextUrl = new URL(location, safe).toString();
+          nextUrl = new URL(location, safe.url).toString();
         } catch {
           return failure("redirect_blocked");
         }
@@ -238,7 +244,7 @@ export async function verifyWebsite(
 
       const evidence: VerificationEvidence = VerificationEvidenceSchema.parse({
         opens: res.status >= 200 && res.status < 300,
-        finalUrl: safe.toString(),
+        finalUrl: safe.url.toString(),
         redirectChain,
         signupRequired: "unknown",
         freeTier: "unknown",
