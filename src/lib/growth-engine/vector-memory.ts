@@ -313,6 +313,15 @@ export async function searchSimilarExamples(
       }
     }
 
+    // BOYUT KORUMASI (item 14 — viral-pattern dalıyla SİMETRİ): sorgu embedding'i
+    // local_fallback'e (256-dim) düşmüşse (key yok / 402), kalıcı 1536-dim vektör
+    // cosine'da sessizce 0 verir → sıralama bozulur, keyfi "en yakın" örnekler
+    // döner (uyarı YOK, throw YOK). Boyut uyuşmuyorsa kalıcıyı KULLANMA → aynı
+    // provider ile yeniden hesap iki tarafı tutarlı yapar (persist-öncesi davranış).
+    if (vectorValues && vectorValues.length !== queryEmbedding.values.length) {
+      vectorValues = null;
+    }
+
     // Kalıcı embedding yoksa GERÇEK embedding ile sorgu-anı vektörleme
     // (item 14): local-hash yalnız createEmbedding içindeki hata fallback'i.
     // Eski davranış (her zaman 256-dim local-hash) gerçek 1536-dim sorgu
