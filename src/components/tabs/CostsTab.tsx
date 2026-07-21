@@ -63,7 +63,15 @@ type LineItems = {
 
 type CostStats = {
   today: { totalUsd: number; socialDataTweets: number; socialDataUsd: number; openRouterUsd: number };
-  month: { totalUsd: number; budgetUsd: number; socialDataUsd: number; openRouterUsd: number };
+  month: {
+    totalUsd: number;
+    budgetUsd: number;
+    socialDataUsd: number;
+    openRouterUsd: number;
+    /** Bütçe kapısının uyguladığı OpenRouter harcaması = max(local, provider). */
+    openRouterEnforcedUsd?: number;
+    providerUsageUsd?: number | null;
+  };
   lineItems?: LineItems;
   // Faz 2E (ADR-034 §I): evaluation bütçesi — production curation'dan AYRI.
   evaluation?: {
@@ -234,7 +242,20 @@ export default function CostsTab() {
               <Zap size={14} strokeWidth={2} style={{ color: "var(--accent-2-text)" }} /> OpenRouter
             </span>
           ),
-          detail: <span style={{ color: "var(--text-muted)" }}>amaç / model kırılımı</span>,
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              amaç / model kırılımı
+              {month.openRouterEnforcedUsd != null &&
+                month.openRouterEnforcedUsd > (lineItems.openRouter.costUsd ?? month.openRouterUsd) + 0.00001 && (
+                  <>
+                    {" · "}
+                    <span style={{ color: "var(--status-warn-text)" }}>
+                      uygulanan (provider): {fmt(month.openRouterEnforcedUsd)}
+                    </span>
+                  </>
+                )}
+            </span>
+          ),
           cost: <span style={{ fontWeight: 500, color: "var(--accent-2-text)" }}>{fmt(lineItems.openRouter.costUsd ?? month.openRouterUsd)}</span>,
         },
         ...(lineItems.openRouter.byPurpose ?? []).map((p) => ({

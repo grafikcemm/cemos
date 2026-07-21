@@ -26,7 +26,9 @@ vi.mock("@/lib/config/costLimits", () => ({
 }));
 
 vi.mock("@/lib/config/costGate", () => ({
-  getBudgetStatus: vi.fn(() => Promise.resolve({ allowed: true })),
+  getBudgetStatus: vi.fn(() =>
+    Promise.resolve({ allowed: true, spentUsd: 0, limitUsd: 10, remainingUsd: 10, providerUsageMonthlyUsd: null }),
+  ),
 }));
 
 import { GET } from "./route";

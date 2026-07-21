@@ -196,6 +196,15 @@ export async function GET(req: NextRequest) {
         budgetUsd,
         socialDataUsd: lineItems.socialData.costUsd,
         openRouterUsd: lineItems.openRouter.costUsd,
+        // Bütçe kapısının GERÇEKTEN uyguladığı OpenRouter aylık harcaması:
+        // max(local ledger, provider /key toplamı). Local satır-kalemi provider'ın
+        // ALTINDA kalabilir (paylaşımlı key / eski yazılmamış çağrılar) → generation
+        // provider figürüne yakın bloklanırken headline az gösteriyordu. Bu alan
+        // uygulanan gerçeği yüzeye çıkarır (openRouterUsd satır-kalemi Σ=total
+        // uzlaşması için korunur).
+        openRouterEnforcedUsd: round5(budgetStatus.spentUsd),
+        providerUsageUsd:
+          budgetStatus.providerUsageMonthlyUsd != null ? round5(budgetStatus.providerUsageMonthlyUsd) : null,
         falUsd: lineItems.fal.costUsd,
         transcriptUsd: lineItems.transcript.costUsd,
       },
