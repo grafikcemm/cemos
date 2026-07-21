@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import type { ReelDossier } from "@/generated/prisma/client";
 import { pipelineTraceRepo, type PipelineTraceStage } from "@/lib/db/pipelineTraceRepo";
 import { computeReadiness, reelsContentHash } from "@/lib/reels/dossier-generator";
@@ -395,7 +396,7 @@ export async function approveDossier(input: {
 
   // ── Advisory-lock'lu idempotent onay (concurrent çift onayda tek kayıt) ──
   const result = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${d.id}))`;
+    await acquireXactAdvisoryLock(tx, d.id);
     const existing = await tx.trainingExample.findFirst({
       where: { metricsJson: { contains: `"dossierId":"${d.id}"` } },
       select: { id: true },

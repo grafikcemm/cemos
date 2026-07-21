@@ -17,6 +17,7 @@
 
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   assembleMonthlyPlan,
   type PlanInput,
@@ -617,7 +618,7 @@ export async function applyPlan(input: {
   };
 
   const result = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"reel_plan:" + input.accountId + ":" + input.month}))`;
+    await acquireXactAdvisoryLock(tx, "reel_plan:" + input.accountId + ":" + input.month);
 
     // Plan upsert (create ilk apply'da; update mevcut).
     let planId: string;
@@ -795,7 +796,7 @@ export async function transitionPlanStatus(input: {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"reel_plan:" + input.accountId + ":" + input.month}))`;
+    await acquireXactAdvisoryLock(tx, "reel_plan:" + input.accountId + ":" + input.month);
     const fresh = await tx.reelPlan.findUnique({ where: { id: plan.id }, select: { updatedAt: true, status: true } });
     if (!fresh) return { stale: true as const };
     const expected = Date.parse(input.expectedUpdatedAt);

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { daysInMonth } from "@/lib/utils/calendarGrid";
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     const txResult = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"plan_day:" + plan.id + ":" + dayOfMonth}))`;
+      await acquireXactAdvisoryLock(tx, "plan_day:" + plan.id + ":" + dayOfMonth);
       const consumed = await opportunityHandoffService.consume(handoff.id, {}, tx as never);
       if (consumed.alreadyConsumed) {
         return { slotId: consumed.handoff.resultRef, alreadyConsumed: true, reused: false };

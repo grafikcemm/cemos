@@ -13,6 +13,7 @@
 
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   parseAlternatives,
   serializeAlternatives,
@@ -59,7 +60,7 @@ async function withLockedAlternatives(input: {
     return { ok: false, code: "stale", message: "expectedUpdatedAt geçersiz." };
   }
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"reel_alt:" + input.dossierId}))`;
+    await acquireXactAdvisoryLock(tx, "reel_alt:" + input.dossierId);
     const d = await tx.reelDossier.findUnique({ where: { id: input.dossierId } });
     if (!d) return { ok: false as const, code: "not_found" as const, message: "Dossier bulunamadı." };
     if (d.accountId !== input.accountId) {

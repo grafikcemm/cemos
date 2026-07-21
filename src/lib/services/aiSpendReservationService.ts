@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   getBudgetStatus,
   BudgetExceededError,
@@ -113,7 +114,7 @@ export async function reserveAiSpend(input: ReserveInput): Promise<Reservation> 
   //    overshoot the cap. base.spentUsd (incl. provider usage) is the floor.
   const attempt = (): Promise<string> =>
     prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${LOCK_KEY}))`;
+      await acquireXactAdvisoryLock(tx, LOCK_KEY);
       const reservedAgg = await tx.aiSpendReservation.aggregate({
         _sum: { estimatedCostUsd: true },
         where: { status: "open", expiresAt: { gt: new Date(now) } },

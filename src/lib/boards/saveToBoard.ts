@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { Prisma } from "@/generated/prisma/client";
 import type { Board, BoardItem, ContentItem } from "@/generated/prisma/client";
 
@@ -99,7 +100,7 @@ export async function ensureDefaultLibraryBoard(accountId?: string | null): Prom
   const scope = accountId ?? null;
   return prisma.$transaction(async (tx) => {
     const lockKey = `board_default:${scope ?? "shared"}`;
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    await acquireXactAdvisoryLock(tx, lockKey);
     const existing = await tx.board.findFirst({
       where: { name: DEFAULT_LIBRARY_BOARD_NAME, accountId: scope, archivedAt: null },
       orderBy: { createdAt: "asc" },
@@ -151,7 +152,7 @@ export async function saveContentToBoard(rawInput: unknown): Promise<SaveToBoard
   try {
     const result = await prisma.$transaction(async (tx) => {
       const lockKey = `board_save:${board.id}:${contentItem.id}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      await acquireXactAdvisoryLock(tx, lockKey);
 
       const existing = await tx.boardItem.findFirst({
         where: { boardId: board.id, contentItemId: contentItem.id },

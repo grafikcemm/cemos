@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import type { Board, BoardItem, ContentItem, Prisma } from "@/generated/prisma/client";
 import { canonicalizeInstagramUrl } from "@/lib/inspiration/instagramUrl";
 import {
@@ -222,7 +223,7 @@ export async function captureInspiration(rawInput: unknown): Promise<CaptureResu
   const result = await prisma.$transaction(async (tx) => {
     // Aynı (board, gönderi) için eşzamanlı çift tıkı serileştir (Phase 3B deseni).
     const lockKey = `inspiration:${board.id}:${canonical.externalId}`;
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+    await acquireXactAdvisoryLock(tx, lockKey);
 
     const contentItem = await upsertManualContentItem(tx, {
       externalId: canonical.externalId,

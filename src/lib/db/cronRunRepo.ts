@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import type { CronRun } from "@/generated/prisma/client";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
 import { redactError } from "@/lib/utils/redactSecrets";
@@ -82,7 +83,7 @@ export const cronRunRepo = {
   ): Promise<{ run: CronRun | null; skipped: boolean }> {
     try {
       const run = await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`cronrun:${kind}`}))`;
+        await acquireXactAdvisoryLock(tx, `cronrun:${kind}`);
         const running = await tx.cronRun.findFirst({
           where: { kind, finishedAt: null, startedAt: { gt: new Date(Date.now() - staleMs) } },
         });

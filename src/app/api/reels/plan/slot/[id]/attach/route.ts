@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const provenance = extractProvenance(traces.flatMap((t) => t.stages));
 
     const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"slot_attach:" + dossierId}))`;
+      await acquireXactAdvisoryLock(tx, "slot_attach:" + dossierId);
 
       const slot = await tx.reelPlanSlot.findUnique({
         where: { id: slotId },

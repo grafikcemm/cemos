@@ -18,6 +18,7 @@
 
 import type { ReelDossier } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import {
   verifyWebsiteWithReuse,
@@ -220,7 +221,7 @@ export async function reverifyDossier(input: {
 
   // ── Kısa transaction: advisory lock + in-tx concurrency yeniden kontrolü ──
   const txResult = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"reel_verify:" + d.id}))`;
+    await acquireXactAdvisoryLock(tx, "reel_verify:" + d.id);
     const fresh = await tx.reelDossier.findUnique({ where: { id: d.id } });
     if (!fresh) return { applied: false as const, reason: "not_found" as const };
     if (fresh.updatedAt.getTime() !== expected) {

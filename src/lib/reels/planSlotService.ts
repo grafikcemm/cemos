@@ -10,6 +10,7 @@
  */
 
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { daysInMonth } from "@/lib/utils/calendarGrid";
 
 export type SlotOpError = {
@@ -94,7 +95,7 @@ export async function moveSlot(input: {
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"reel_plan:" + s.planId}))`;
+    await acquireXactAdvisoryLock(tx, "reel_plan:" + s.planId);
     const fresh = await tx.reelPlanSlot.findUnique({
       where: { id: s.id },
       select: { updatedAt: true, status: true, dayOfMonth: true },
