@@ -42,10 +42,9 @@ düşük-risk güvenlik) · P3 (polish/gelecek — release'i büyütmez).
 **Doc-vs-gerçek defektleri (düzeltilecek):**
 - `docs/CEMOS.md §2` — nav IA tablosu ESKİ (X/Haber/Sistem grupları). Gerçek IA: Bugün/Plan/
   Kütüphane/Toolbox/Profil-Sistem (`navConfig.ts` = truth). → **P3 doc** (yanıltıcı ama zararsız).
-- `docs/CEMOS.md §7` — "Uygulama kendi içinde login katmanı taşımaz, yalnız Vercel Deployment
-  Protection" **YANLIŞ**. Gerçek: `src/proxy.ts` + `src/lib/auth/session.ts` = tam parola+session
-  kapısı (scrypt hash + HMAC-SHA256 imzalı cookie + prod fail-closed). → **P2 doc** (güvenlik
-  belgesi yanıltıcı; gerçek postür belgelenenden GÜÇLÜ).
+- `docs/CEMOS.md §7` — ✅ ÇÖZÜLDÜ (ADR-049). Kimlik parola/scrypt'ten "Sign in with Vercel"
+  (OIDC) kapısına taşındı; §7 güncellendi. Uygulama anonim ziyaretçiyi KENDİ İÇİNDE bloklar
+  (session cookie gate + allow-list + prod fail-closed).
 
 ---
 
@@ -53,14 +52,14 @@ düşük-risk güvenlik) · P3 (polish/gelecek — release'i büyütmez).
 
 | Katman | Mekanizma | Kanıt (file) | Durum |
 |---|---|---|---|
-| Global gate | `src/proxy.ts` — allowlist (`/giris`, `/api/auth/*`, `/api/cron/*`); geçerli session cookie yoksa sayfa→/giris, /api/*→401; prod'da sır yoksa fail-closed 503/setup | `src/proxy.ts:25-59` | PASS (kod) |
-| Parola | scrypt hash (`scrypt$salt$hash`), sabit-zamanlı `verifyPassword` | `src/lib/auth/session.ts:24-41` | PASS (kod) |
-| Session | HMAC-SHA256 imzalı `<expiryMs>.<mac>`, 30g TTL, `timingSafeEqual`, expiry gelecekte | `src/lib/auth/session.ts:54-92` | PASS (kod) |
-| Mutation guard (2. katman) | `isOperatorOrCronAuthorized` (CSRF-sınıfı) — **104/104 mutation route** guard'lı (subagent B + `verify:acceptance` P0 backstop) | `sameOriginGuard.ts:28` | **PASS** |
-| Cron guard | `isCronAuthorized` (`CRON_SECRET`, prod fail-closed) | `cronAuth.ts:21` | **PASS** |
-| Credential şifreleme | `IntegrationCredential.value` AES-256-GCM (`v1:iv:tag:ct`, 32B key doğrulanır, per-msg IV, authTag verify) | `secretCrypto.ts:37-75` | **PASS** |
+| Global gate | `src/proxy.ts` — allowlist (`/giris`, `/api/auth/*`, `/api/cron/*`); geçerli session cookie yoksa sayfa→/giris, /api/*→401; prod'da `SESSION_SECRET` yoksa fail-closed | `src/proxy.ts` | PASS (kod) |
+| Kimlik (OIDC) | "Sign in with Vercel" — PKCE+state+nonce; `/userinfo` + allow-list (`AUTH_ALLOWED_VERCEL_USERS`, **FAIL-CLOSED**); başarılıysa `cemos_session` imzalanır (ADR-049) | `vercelOidc.ts`, `api/auth/{authorize,callback}` | PASS (kod) |
+| Session | HMAC-SHA256 imzalı `<expiryMs>.<mac>`, 30g TTL, `timingSafeEqual`, expiry gelecekte | `src/lib/auth/session.ts` | PASS (kod) |
+| Mutation guard (2. katman) | `isOperatorOrCronAuthorized` (CSRF-sınıfı) — **mutation route'ların hepsi** guard'lı (`verify:acceptance` P0 backstop) | `sameOriginGuard.ts` | **PASS** |
+| Cron guard | `isCronAuthorized` (`CRON_SECRET`, prod fail-closed) | `cronAuth.ts` | **PASS** |
+| Credential şifreleme | `IntegrationCredential.value` AES-256-GCM (`v1:iv:tag:ct`, 32B key doğrulanır, per-msg IV, authTag verify) | `secretCrypto.ts` | **PASS** |
 
-> E2E doğrulaması (login başarı/başarısız/throttle/logout/expiry) = §7 test döngüsünde.
+> E2E doğrulaması (kimliksiz `/`→`/giris` + parola alanı YOK + `/api`→401 + sign-in link `/api/auth/authorize`) = `access-gate.spec.ts` (ADR-049). Gerçek OAuth round-trip CI'da yapılmaz; globalSetup imzalı session ile kimlikli koşar.
 
 ---
 

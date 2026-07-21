@@ -61,15 +61,18 @@ Marka her yerde **CemOS**; kod içi legacy semboller bilinçli korunur:
 CemOS **tek-operatör** bir uygulamadır — User/Workspace tablosu yoktur.
 Erişim sınırı şu katmanlarla sağlanır:
 
-- **Uygulama-içi parola + session kapısı (ADR-013/017, GÜNCEL).** `src/proxy.ts`
-  (Next 16 proxy, Node runtime) tüm yolları `SESSION_COOKIE` doğrulamasının arkasına
-  alır — geçerli session yoksa sayfa→`/giris`, `/api/*`→401. Parola scrypt hash
-  (`ACCESS_PASSWORD_HASH`, düz parola env'de tutulmaz), session HMAC-SHA256 imzalı
-  (`SESSION_SECRET`, 30g TTL) — ikisi AYRI sır (`src/lib/auth/session.ts`). Prod'da
-  bu sırlar yoksa **fail-closed** (503/setup). Allow-list: `/giris`, `/api/auth/*`,
-  `/api/cron/*`. → Uygulama anonim ziyaretçiyi KENDİ İÇİNDE bloklar (eski "login
-  katmanı yok / yalnız Vercel Deployment Protection" notu yanlıştı; Phase 5E düzeltmesi).
-  Vercel Deployment Protection AÇIK tutmak yine de savunma-derinliği olarak önerilir.
+- **Uygulama-içi "Sign in with Vercel" (OIDC) kapısı (ADR-049, GÜNCEL; ADR-013/017 parola
+  kimliğini supersede eder).** `src/proxy.ts` (Next 16 proxy, Node runtime) tüm yolları
+  `SESSION_COOKIE` doğrulamasının arkasına alır — geçerli session yoksa sayfa→`/giris`,
+  `/api/*`→401. Kimlik Vercel IdP'den gelir: `/api/auth/authorize` (PKCE+state+nonce) →
+  Vercel consent → `/api/auth/callback` (token exchange + `/userinfo` + **allow-list
+  `AUTH_ALLOWED_VERCEL_USERS`, FAIL-CLOSED**) → yalnız başarılıysa `cemos_session`
+  HMAC-SHA256 imzalanır (`SESSION_SECRET`, 30g TTL; `src/lib/auth/session.ts`). Parola YOK;
+  Vercel access/refresh token'ları saklanmaz. Prod'da `SESSION_SECRET` yoksa **fail-closed**.
+  Allow-list route'ları: `/giris`, `/api/auth/*`, `/api/cron/*`. → Uygulama anonim
+  ziyaretçiyi KENDİ İÇİNDE bloklar. **Neden uygulama-içi:** Vercel Deployment Protection
+  "All Deployments" (production domain koruması) Pro/Enterprise gerektirir; Hobby'de
+  production public kalır → OIDC kapısı authentication authority'dir (ADR-049).
 - **Cron uçları** `CRON_SECRET` bearer ile korunur (`isCronAuthorized`, prod fail-closed).
 - **Mutation uçları** `isOperatorOrCronAuthorized` ile CSRF-sınıfı korumadadır
   (same-origin / Origin-host / cron bearer). Bu **kimlik doğrulama değil**, "üçüncü

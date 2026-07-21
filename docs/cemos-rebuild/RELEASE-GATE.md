@@ -117,8 +117,10 @@
   liveness + worker log) mantık/servis testleriyle + typecheck ile kapsandı
 
 ## 5. Gerekli production env (operatör VAR/YOK doğrulasın — DEĞER yazılmaz)
-**Zorunlu (çekirdek):** `DATABASE_URL` · `CREDENTIAL_ENC_KEY` · `CRON_SECRET` · oturum sırları
-(`proxy.ts`: parola hash + HMAC anahtarı — prod'da yoksa fail-closed).
+**Zorunlu (çekirdek):** `DATABASE_URL` · `CREDENTIAL_ENC_KEY` · `CRON_SECRET` · `SESSION_SECRET`
+(session HMAC; `proxy.ts` prod'da yoksa fail-closed) · **"Sign in with Vercel" OIDC (ADR-049):**
+`NEXT_PUBLIC_VERCEL_APP_CLIENT_ID` + `VERCEL_APP_CLIENT_SECRET` + `AUTH_ALLOWED_VERCEL_USERS`
+(allow-list boşsa kimse giremez). `ACCESS_PASSWORD_HASH` EMEKLİ (artık kullanılmaz).
 **Üretim (core hedef):** `OPENROUTER_API_KEY` (+ canlı ücretli için `OPENROUTER_KEY_ROTATED_AT`,
 `AI_EVAL_SPEND_ENABLED`, `PHASE2E_LIVE_EVAL_APPROVED`, `PHASE2E_LIVE_MAX_USD`).
 **Sosyal okuma:** `SOCIALDATA_API_KEY` · `META_ACCESS_TOKEN`+`META_IG_USER_ID` ·

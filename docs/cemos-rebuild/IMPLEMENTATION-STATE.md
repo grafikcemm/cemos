@@ -1,5 +1,21 @@
 # IMPLEMENTATION-STATE
 
+## AUTH RETIREMENT → "Sign in with Vercel" (OIDC) — ADR-049 (2026-07-21)
+
+**Branch `feature/cemos-rebuild`** (önceki HEAD `e8d729b` üstüne; PUSH/PR/deploy YOK; tree yalnız `?? shots/`). Kullanıcı kararı: uygulama-içi parola emekli; **Hobby'de kal ($0), uygulama-içi "Sign in with Vercel" (OIDC) kapısı.** Vercel plan kapısı resmî docs ile doğrulandı: Deployment Protection "All Deployments" (production domain koruması) = **Pro/Enterprise**; Hobby production'ı public bırakır → authentication authority uygulama-içi OIDC kapısıdır.
+
+**Yapılan:**
+- **Emekli:** parola scrypt (`hashPassword`/`verifyPassword`), `throttle.ts` (+test), `scripts/hash-access-password.ts`, `POST /api/auth/login`, `ACCESS_PASSWORD_HASH`, `?setup=1`, `session.test` parola vakaları.
+- **Yeni:** `src/lib/auth/vercelOidc.ts` (PKCE/state/nonce/allow-list/next-guard — saf, unit-test) + `GET /api/auth/authorize` + `GET /api/auth/callback` (+ callback route testi). Kimlik `/userinfo` + allow-list (**FAIL-CLOSED**) → başarılıysa `cemos_session` (session.ts HMAC reuse). Vercel access/refresh token'ları saklanmaz.
+- **Değişen:** `proxy.ts` (yalnız `SESSION_SECRET`; setup kaldırıldı), `requiredSecrets` (`ACCESS_PASSWORD_HASH`→OAuth client id/secret + allow-list; `SESSION_SECRET` kalır), `/giris` (parola formu → "Vercel ile giriş yap" server-component link), `.env.example`, `CEMOS.md §7`, ADR-049, acceptance matrix, screen-spec A7. E2E harness: password-login → imzalı `cemos_session` cookie minting; `access-gate.spec` yeni sözleşme.
+- **Korundu:** `SESSION_SECRET`, "Çıkış" logout, `/giris` route, `/api/auth/{authorize,callback,logout}`, tüm 2. katman guard'lar (`isOperatorOrCronAuthorized`, `CRON_SECRET`, budget/provider/SSRF/redaction). **`AuthAttempt` tablosu inert (DROP YOK — destructive).**
+
+**GATE (bu HEAD, gerçek exit):** typecheck **0** · lint **0** · verify:catalog **OK** · verify:acceptance **OK** (18 ekran / **82 mutation guard'lı** / 4 cron) · verify:ai-economics **OK** · unit **2285** (233 dosya) · build **0** (`ƒ Proxy` + `/api/auth/{authorize,callback}` + `/giris`). E2E: bu koşuda doğrulanır. **SIFIR migration.**
+
+**[USER-ACTION] (deploy önkoşulu):** Vercel "Sign in with Vercel" App (callback `https://cemos-woad.vercel.app/api/auth/callback`, scope `openid email profile`) → prod+preview env `NEXT_PUBLIC_VERCEL_APP_CLIENT_ID`+`VERCEL_APP_CLIENT_SECRET`+`AUTH_ALLOWED_VERCEL_USERS` (ör. `alicembozma@gmail.com`); `SESSION_SECRET` KALIR. Sonra deploy + smoke + OpenRouter bounded golden (≤$0.50) + Composio read-only.
+
+---
+
 ## LAST NON-EXTERNAL CLOSURE (2026-07-21) — düzeltilebilir non-external P0/P1/P2 = 0; launch işlemleri bekleniyor
 
 **Branch `feature/cemos-rebuild` @ `1c47b3b`** (önceki Final Proof `eb2117d` üstüne **4 commit**; `0127213` üstüne kümülatif 23). Push/PR/deploy YOK. Tree temiz (`?? shots/` — dokunulmadı, yalnız bu oturumun walkthrough kanıtı eklendi, commitlenMEDİ). Bu oturum: 4 bağımsız red-team ajanı (provider-accounting / redaction / dead-route / PostgreSQL-executability) + 1 builder (redaction wraps) → ana-thread kanıtlı doğrulama + düzeltme. Canlı ücretli AI **$0**; dış round-trip YOK (yalnız verify:catalog free /models read); YENİ migration YOK.

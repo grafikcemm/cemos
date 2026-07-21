@@ -149,27 +149,27 @@
 - **Kabul:** costs/system/settings ana navda YOK; buradan erişilir; çıkış cookie temizler.
 
 ### A7. Giriş (`/giris`) [sınıf: CORE / STATE:access-gate]
-- **Amaç:** tek-operatör erişim kapısı (P0).
-- **Yeni ev / eski karşılık:** `src/app/giris/page.tsx` (YENİ). Öncesi: app-level auth YOK.
+- **Amaç:** tek-operatör erişim kapısı (P0). Parola YOK — "Sign in with Vercel" (OIDC, ADR-049).
+- **Yeni ev / eski karşılık:** `src/app/giris/page.tsx`. Öncesi: parola formu (ADR-013/017, emekli).
 - **Desktop wireframe:**
 ```
             ◆ CemOS
-     ┌───────────────────┐
-     │  Parola           │
-     │  [•••••••••]       │
-     │  [   Giriş   ]     │
-     │  (hatalı: uyarı)   │
-     └───────────────────┘
+     ┌────────────────────────┐
+     │ Yetkili Vercel hesabın  │
+     │ ile giriş yap.          │
+     │ [ ▲ Vercel ile giriş ]  │
+     │ (hata: uyarı)           │
+     └────────────────────────┘
 ```
-- **Mobil wireframe:** aynı, ortalı, tam genişlik input.
-- **İçerik sırası:** marka → parola input → giriş → (hata/throttle mesajı).
-- **Birincil/ikincil eylemler:** Giriş (birincil, tek).
-- **Component ağacı:** minimal token-only form → `api/auth/login`.
-- **Veri kaynakları:** `ACCESS_PASSWORD_HASH` (scrypt karşılaştırma), `SESSION_SECRET` (cookie); DB throttle sayacı.
-- **Durumlar:** loading = buton spinner; empty = ilk hal; error = "Parola hatalı"; success = redirect `/`; stale = N/A; **blocked-external** = env eksikse "`ACCESS_PASSWORD_HASH` yapılandırılmamış" (prod fail-closed, `?setup=1`).
-- **Klavye:** Enter gönder; focus input; parola görünürlük toggle opsiyonel.
+- **Mobil wireframe:** aynı, ortalı, tam genişlik buton.
+- **İçerik sırası:** marka → açıklama → (hata mesajı) → "Vercel ile giriş yap" butonu.
+- **Birincil/ikincil eylemler:** Vercel ile giriş (birincil, tek; `<a>` → `/api/auth/authorize`).
+- **Component ağacı:** saf server-component (JS'siz) → `/api/auth/authorize` (PKCE+state+nonce) → Vercel consent → `/api/auth/callback`.
+- **Veri kaynakları:** `NEXT_PUBLIC_VERCEL_APP_CLIENT_ID` (authorize URL), `AUTH_ALLOWED_VERCEL_USERS` (callback allow-list, fail-closed), `SESSION_SECRET` (cookie imza). Vercel access/refresh token'ları saklanmaz.
+- **Durumlar:** loading = N/A (statik link); empty = ilk hal; error = `?e=` (`forbidden` = yetkili değil, `denied` = iptal, `oauth`/`state`/`nonce` = tekrar dene); success = callback → redirect `next`; **blocked-external** = `?e=config` (prod env eksik → "yapılandırılmamış", fail-closed).
+- **Klavye:** butona Tab/Enter.
 - **Responsive:** her boyutta ortalı.
-- **Kabul:** geçerli cookie olmadan `/` erişilemez; yanlış parola girmez; N hata sonrası throttle; dev bypass; secret değeri asla ekranda/logda.
+- **Kabul:** geçerli cookie olmadan `/` erişilemez; allow-list dışı Vercel hesabı reddedilir (`?e=forbidden`); `next` open-redirect korumalı; secret değeri asla ekranda/logda.
 
 ---
 

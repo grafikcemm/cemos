@@ -604,3 +604,24 @@
 **Yeni tooling:** `npm run verify:acceptance` — statik ekran/alias/cron/mutation-guard sözleşmesi (18 nav↔18 render, 19 alias çözülür, 4 cron↔route, 104 mutation guard'lı); auth/liveness İDDİA ETMEZ (manifest istisnaları açık). Lint: prune-prompts `let→const` + generated coverage silindi → **0/0** (`coverage/**` kalıcı ignore config-protection hook'la bloke, doc'lu).
 
 **Gate:** typecheck **0** · lint **0/0** · verify:catalog OK · **verify:acceptance OK** · unit **2188** (+7) · build **0** · tam e2e final koşusu (this-run). **SIFIR migration/DB yazımı/canlı round-trip/push/deploy.** 5 commit (`53f30b8`→`bd00737` + docs). Sınıflandırma gate sonrası kesinleşir.
+
+## ADR-049 — Auth: uygulama-içi parola/scrypt → "Sign in with Vercel" (OIDC) tek-operatör kapısı (2026-07-21)
+
+**Bağlam / karar (kullanıcı):** "CemOS içinde parola ile uğraşmak istemiyorum." Uygulama-içi parola/session kimliği emekli edildi. **Vercel plan kapısı doğrulandı (resmî docs, 2026-07-01):** Vercel Authentication "All Deployments" (production domain'i koruma) yalnız **Pro/Enterprise**; Hobby'de Standard Protection production'ı public bırakır. Kullanıcı Hobby'de kalıp ($0) **uygulama-içi "Sign in with Vercel" (OIDC)** kapısını seçti. Bu, ADR-013/017'nin parola/scrypt kimliğini **supersede eder**; session (HMAC) katmanı KORUNUR.
+
+**Tasarım:**
+- Kimlik: OAuth 2.0 + PKCE (S256) + state (CSRF) + nonce (replay). `GET /api/auth/authorize` → Vercel authorize; `GET /api/auth/callback` → token exchange + `/userinfo` + **allow-list (FAIL-CLOSED)** → yalnız başarılıysa KENDİ `cemos_session` HMAC cookie'si (`session.ts` yeniden kullanıldı). `offline_access` YOK; Vercel access/refresh token'ları hiçbir yere (cookie/log) yazılmaz → küçük saldırı yüzeyi.
+- Allow-list: `AUTH_ALLOWED_VERCEL_USERS` (virgül/boşluk ayrık; doğrulanmış email / preferred_username / sub eşleşmesi; **boşsa herkes reddedilir**).
+- `proxy.ts`: gate + allow-list (`/giris`, `/api/auth/*`, `/api/cron/*`) korunur; artık yalnız `SESSION_SECRET` gerekir; `ACCESS_PASSWORD_HASH` + `?setup=1` kaldırıldı.
+- `/giris`: parola formu → "Vercel ile giriş yap" (server-component `<a>`, JS'siz). "Çıkış" (logout) KORUNUR (kendi session'ımızı temizler).
+- `requiredSecrets`: `ACCESS_PASSWORD_HASH` çıktı; `SESSION_SECRET` kaldı; `NEXT_PUBLIC_VERCEL_APP_CLIENT_ID` + `VERCEL_APP_CLIENT_SECRET` + `AUTH_ALLOWED_VERCEL_USERS` eklendi.
+- **Emekli:** parola scrypt (`hashPassword`/`verifyPassword`), `throttle.ts`, `scripts/hash-access-password.ts`, `POST /api/auth/login`, ilgili testler. **`AuthAttempt` tablosu inert bırakıldı (DROP YOK — destructive; runtime tüketicisi kalmadı; fiziksel temizlik ayrı bakım kararı).**
+- Korunan güvenlik katmanları: `isOperatorOrCronAuthorized`, same-origin (CSRF, ≠ auth), `CRON_SECRET`, budget/provider gate, idempotency, readiness fail-closed, SSRF, secret redaction.
+
+**E2E:** gerçek OAuth round-trip CI'da yapılamaz → `globalSetup` sunucuyla AYNI `SESSION_SECRET` ile geçerli `cemos_session` imzalar (storageState); `access-gate.spec` kimliksiz sözleşmeyi test eder (`/`→`/giris`, parola alanı YOK, `/api`→401, sign-in link `/api/auth/authorize`).
+
+**Perimeter (dürüst):** `sameOriginGuard` authentication DEĞİL. Authentication authority uygulama-içi OIDC kapısıdır (Vercel Deployment Protection Hobby'de production domain'i kapsamaz). Preview'ın korunması production'ın korunduğu anlamına gelmez.
+
+**[USER-ACTION] (deploy önkoşulu):** Vercel'de "Sign in with Vercel" App kaydet (callback `https://cemos-woad.vercel.app/api/auth/callback`, scope `openid email profile`); prod+preview env'e `NEXT_PUBLIC_VERCEL_APP_CLIENT_ID` + `VERCEL_APP_CLIENT_SECRET` + `AUTH_ALLOWED_VERCEL_USERS` (ör. `alicembozma@gmail.com`) ekle; `SESSION_SECRET` KALIR.
+
+**Gate (bu HEAD):** typecheck **0** · lint **0** · verify:catalog/acceptance/ai-economics **OK** · unit **2285** · build **0** · e2e (bu koşu). ADR-013/017 append-only kayıt olarak KALIR (parola kimliği bu ADR ile superseded).
