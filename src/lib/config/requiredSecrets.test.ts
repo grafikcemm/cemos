@@ -6,9 +6,11 @@ const ALL_KEYS = [
   "OPENROUTER_API_KEY",
   "CRON_SECRET",
   "CREDENTIAL_ENC_KEY",
-  // Faz 1A erişim kapısı (ADR-013/017)
-  "ACCESS_PASSWORD_HASH",
+  // ADR-049 "Sign in with Vercel" (OIDC) tek-operatör erişim kapısı
   "SESSION_SECRET",
+  "NEXT_PUBLIC_VERCEL_APP_CLIENT_ID",
+  "VERCEL_APP_CLIENT_SECRET",
+  "AUTH_ALLOWED_VERCEL_USERS",
 ];
 
 describe("startup secret assertion (FIRST-SPRINT item 18)", () => {
@@ -52,8 +54,10 @@ describe("startup secret assertion (FIRST-SPRINT item 18)", () => {
       "OPENROUTER_API_KEY",
       "CRON_SECRET",
       "CREDENTIAL_ENC_KEY",
-      "ACCESS_PASSWORD_HASH",
       "SESSION_SECRET",
+      "NEXT_PUBLIC_VERCEL_APP_CLIENT_ID",
+      "VERCEL_APP_CLIENT_SECRET",
+      "AUTH_ALLOWED_VERCEL_USERS",
     ]);
     expect(() => assertRequiredSecrets()).not.toThrow();
   });
@@ -63,6 +67,8 @@ describe("startup secret assertion (FIRST-SPRINT item 18)", () => {
     process.env.DATABASE_URL = "postgres://test";
     const { fatal } = findMissingSecrets();
     expect(fatal).toContain("CRON_SECRET");
+    expect(fatal).toContain("SESSION_SECRET");
+    expect(fatal).toContain("AUTH_ALLOWED_VERCEL_USERS");
     expect(() => assertRequiredSecrets()).toThrow(/CRON_SECRET/);
   });
 

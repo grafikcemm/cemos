@@ -1,29 +1,29 @@
 import type { CSSProperties } from "react";
+import { safeNextPath, type AuthErrorCode } from "@/lib/auth/vercelOidc";
 
 /**
- * Tek-operatör erişim kapısı giriş ekranı (ADR-013/017). NATIVE form POST →
- * /api/auth/login → server 303 redirect (cookie ile). JS fetch/redirect YOK →
- * tarayıcı cookie'yi atomik taşır, dev Fast Refresh yarışı olmaz, JS'siz çalışır.
- * `?e=` hata kodu, `?next=` hedef, `?setup=1` prod yapılandırma-eksik.
- *
- * Server Component: `searchParams` SUNUCUDA okunur → SSR ve client AYNI HTML
- * üretir. (Eski "use client" + `typeof window` dallanması, hata satırını yalnız
- * client'ta render edip her yanlış-parola denemesinde bir hydration mismatch
- * yaratıyordu; artık JS'siz ve deterministik.)
+ * Tek-operatör erişim ekranı (ADR-049: "Sign in with Vercel" OIDC). Parola YOK.
+ * "Vercel ile giriş yap" → GET /api/auth/authorize (PKCE + state + nonce) →
+ * Vercel consent → /api/auth/callback → allow-list → cemos_session. Saf server
+ * component, JS gerektirmez. `?e=` hata kodu, `?next=` login sonrası hedef.
  */
-type SearchParams = Promise<{ e?: string; next?: string; setup?: string }>;
+type SearchParams = Promise<{ e?: string; next?: string }>;
+
+const ERROR_TEXT: Partial<Record<AuthErrorCode, string>> = {
+  forbidden: "Bu Vercel hesabı bu uygulamaya yetkili değil.",
+  denied: "Giriş iptal edildi.",
+  oauth: "Giriş tamamlanamadı. Lütfen tekrar dene.",
+  state: "Oturum doğrulaması başarısız. Lütfen tekrar dene.",
+  nonce: "Oturum doğrulaması başarısız. Lütfen tekrar dene.",
+};
 
 export default async function GirisPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const setup = sp.setup === "1" || sp.e === "setup";
-  const next = sp.next || "/";
-  const e = sp.e;
+  const next = safeNextPath(sp.next);
+  const isConfig = sp.e === "config";
   const errorText =
-    e === "invalid_password"
-      ? "Parola hatalı."
-      : e === "rate_limited"
-        ? "Çok fazla deneme. Bir süre sonra tekrar dene."
-        : null;
+    sp.e && !isConfig ? (ERROR_TEXT[sp.e as AuthErrorCode] ?? "Giriş başarısız. Lütfen tekrar dene.") : null;
+  const authorizeHref = `/api/auth/authorize?next=${encodeURIComponent(next)}`;
 
   const cardStyle: CSSProperties = {
     background: "var(--bg-surface)",
@@ -75,53 +75,41 @@ export default async function GirisPage({ searchParams }: { searchParams: Search
           CemOS
         </div>
 
-        {setup ? (
+        {isConfig ? (
           <div style={{ ...cardStyle, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
             <strong style={{ color: "var(--text-primary)" }}>Erişim yapılandırılmamış.</strong>
             <br />
-            Prod ortamında <code>ACCESS_PASSWORD_HASH</code> ve <code>SESSION_SECRET</code> tanımlı
-            değil. Uygulama fail-closed. Bu değerleri Vercel ortam değişkenlerine ekleyin
-            (<code>scripts/hash-access-password.ts</code> hash üretir).
+            Prod ortamında <code>SESSION_SECRET</code>, <code>NEXT_PUBLIC_VERCEL_APP_CLIENT_ID</code>,{" "}
+            <code>VERCEL_APP_CLIENT_SECRET</code> ve <code>AUTH_ALLOWED_VERCEL_USERS</code> tanımlı
+            olmalı. Uygulama fail-closed.
           </div>
         ) : (
-          <form method="POST" action="/api/auth/login" style={cardStyle}>
-            <input type="hidden" name="next" value={next} />
-            <label
-              htmlFor="password"
-              style={{ display: "block", fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}
-            >
-              Parola
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoFocus
-              required
-              autoComplete="current-password"
+          <div style={cardStyle}>
+            <p
               style={{
-                width: "100%",
-                height: 44,
-                padding: "0 14px",
-                border: "1px solid var(--border-strong)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-base)",
-                color: "var(--text-primary)",
-                fontSize: 15,
-                fontFamily: "var(--font-sans)",
+                fontSize: 14,
+                color: "var(--text-secondary)",
+                marginTop: 0,
+                marginBottom: 16,
+                lineHeight: 1.6,
               }}
-            />
+            >
+              CemOS tek-operatör erişimi. Yetkili Vercel hesabınla giriş yap — parola yok.
+            </p>
             {errorText && (
-              <div role="alert" style={{ color: "var(--status-error)", fontSize: 13, marginTop: 10 }}>
+              <div role="alert" style={{ color: "var(--status-error)", fontSize: 13, marginBottom: 12 }}>
                 {errorText}
               </div>
             )}
-            <button
-              type="submit"
+            <a
+              href={authorizeHref}
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 width: "100%",
                 height: 44,
-                marginTop: 16,
                 border: "none",
                 borderRadius: "var(--radius-md)",
                 background: "var(--accent)",
@@ -130,14 +118,18 @@ export default async function GirisPage({ searchParams }: { searchParams: Search
                 fontWeight: 500,
                 fontFamily: "var(--font-sans)",
                 cursor: "pointer",
+                textDecoration: "none",
               }}
             >
-              Giriş
-            </button>
+              <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>
+                ▲
+              </span>
+              Vercel ile giriş yap
+            </a>
             <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12, textAlign: "center" }}>
               Tek operatör erişimi
             </p>
-          </form>
+          </div>
         )}
       </div>
     </main>

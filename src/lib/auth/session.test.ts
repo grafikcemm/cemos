@@ -1,39 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  hashPassword,
-  verifyPassword,
-  signSession,
-  verifySession,
-  issueSession,
-} from "./session";
-
-describe("password hashing (scrypt)", () => {
-  it("verifies the correct password", () => {
-    const stored = hashPassword("dogru-parola");
-    expect(verifyPassword("dogru-parola", stored)).toBe(true);
-  });
-
-  it("rejects the wrong password", () => {
-    const stored = hashPassword("dogru-parola");
-    expect(verifyPassword("yanlis", stored)).toBe(false);
-  });
-
-  it("produces a different salt each call (non-deterministic hash)", () => {
-    expect(hashPassword("x")).not.toBe(hashPassword("x"));
-  });
-
-  it("is deterministic with an explicit salt (E2E fixture üretimi)", () => {
-    const salt = "00112233445566778899aabbccddeeff";
-    expect(hashPassword("x", salt)).toBe(hashPassword("x", salt));
-  });
-
-  it("rejects malformed / empty stored hash", () => {
-    expect(verifyPassword("x", undefined)).toBe(false);
-    expect(verifyPassword("x", "")).toBe(false);
-    expect(verifyPassword("x", "plain")).toBe(false);
-    expect(verifyPassword("x", "scrypt$deadbeef")).toBe(false);
-  });
-});
+import { signSession, verifySession, issueSession } from "./session";
 
 describe("session sign/verify (HMAC)", () => {
   const secret = "test-session-secret";

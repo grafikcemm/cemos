@@ -1,31 +1,26 @@
 import { test, expect } from "@playwright/test";
-import { E2E_PASSWORD } from "./global-setup";
 
 /**
- * Faz 1A erişim kapısı (ADR-013/017). Bu spec kimliksiz senaryoları test eder →
- * global storageState'i temizler (diğer spec'ler kimlikli koşar).
+ * Erişim kapısı (ADR-049: "Sign in with Vercel" OIDC). Parola YOK. Bu spec
+ * kimliksiz senaryoları test eder → global storageState'i temizler.
  */
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("kimliksiz istek / kök yolunu /giris'e yönlendirir", async ({ page }) => {
+test("kimliksiz istek / kök yolunu /giris'e yönlendirir (parola alanı YOK)", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/giris/);
-  await expect(page.getByLabel("Parola")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Vercel ile giriş yap/ })).toBeVisible();
+  // Parola sistemi emekli: eski parola alanı artık yok.
+  await expect(page.getByLabel("Parola")).toHaveCount(0);
 });
 
-test("yanlış parola /giris'te kalır ve hata gösterir", async ({ page }) => {
-  await page.goto("/giris");
-  await page.getByLabel("Parola").fill("kesinlikle-yanlis");
-  await page.getByRole("button", { name: "Giriş" }).click();
-  // native form → 500ms fail-delay + 303 redirect → /giris?e=invalid_password
-  await expect(page).toHaveURL(/\/giris\?e=invalid_password/, { timeout: 15_000 });
-  await expect(page.getByText("Parola hatalı")).toBeVisible();
+test("kimliksiz API isteği 401 döner", async ({ request }) => {
+  const res = await request.get("/api/health");
+  expect(res.status()).toBe(401);
 });
 
-test("doğru parola uygulamaya alır (Bugün)", async ({ page }) => {
+test("sign-in butonu Vercel authorize akışına yönlendirir", async ({ page }) => {
   await page.goto("/giris");
-  await page.getByLabel("Parola").fill(E2E_PASSWORD);
-  await page.getByRole("button", { name: "Giriş" }).click();
-  // Native form → 303 → "/"; soğuk anasayfa derlemesine tolerans (5s yetmez).
-  await expect(page).not.toHaveURL(/\/giris/, { timeout: 30_000 });
+  const link = page.getByRole("link", { name: /Vercel ile giriş yap/ });
+  await expect(link).toHaveAttribute("href", /\/api\/auth\/authorize/);
 });

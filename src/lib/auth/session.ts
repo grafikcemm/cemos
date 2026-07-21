@@ -1,44 +1,19 @@
 /**
- * Tek-operatör erişim kapısı — parola + session imzalama (ADR-013/017).
+ * Tek-operatör session imzalama (ADR-013/017 → ADR-049: Vercel OIDC geçişi).
  *
- * İki AYRI sır (kullanıcı sertleştirme kararı):
- *  - ACCESS_PASSWORD_HASH: operatör parolasının scrypt hash'i (düz parola env'de
- *    tutulmaz). `hashPassword` üretir, `verifyPassword` sabit-zamanlı doğrular.
- *  - SESSION_SECRET: session cookie'sinin HMAC-SHA256 anahtarı. Parola sırrından
- *    ayrıdır → biri sızsa diğeri korunur.
+ * SESSION_SECRET: session cookie'sinin HMAC-SHA256 anahtarı. "Sign in with Vercel"
+ * (OIDC) callback'i kimliği doğrulayıp allow-list'i geçtikten sonra bu imzalı
+ * session cookie'si verilir; proxy her istekte `verifySession` ile doğrular.
+ * Parola tabanlı kimlik (scrypt) ADR-049 ile emekli edildi — kimlik artık Vercel
+ * OIDC'den gelir, session katmanı (HMAC) burada korunur. Secret DEĞERLERİ asla
+ * loglanmaz.
  *
  * Saf/senkron (node:crypto). Proxy (Node.js runtime, Next 16) ve route
- * handler'lardan çağrılır. Secret DEĞERLERİ asla loglanmaz.
+ * handler'larından çağrılır.
  */
-import {
-  scryptSync,
-  randomBytes,
-  timingSafeEqual,
-  createHmac,
-} from "node:crypto";
+import { timingSafeEqual, createHmac } from "node:crypto";
 
-const SCRYPT_KEYLEN = 32;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
-
-/** Parolayı scrypt ile hash'le → `scrypt$<saltHex>$<hashHex>` (env'e yazılır). */
-export function hashPassword(password: string, saltHex?: string): string {
-  const salt = saltHex ? Buffer.from(saltHex, "hex") : randomBytes(16);
-  const hash = scryptSync(password, salt, SCRYPT_KEYLEN);
-  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
-}
-
-/** Parolayı saklanan hash'e karşı sabit-zamanlı doğrula. */
-export function verifyPassword(password: string, stored: string | undefined): boolean {
-  if (!stored) return false;
-  const parts = stored.split("$");
-  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
-  const salt = Buffer.from(parts[1], "hex");
-  const expected = Buffer.from(parts[2], "hex");
-  if (salt.length === 0 || expected.length !== SCRYPT_KEYLEN) return false;
-  const actual = scryptSync(password, salt, SCRYPT_KEYLEN);
-  // her ikisi de SCRYPT_KEYLEN uzunlukta → timingSafeEqual güvenli
-  return timingSafeEqual(actual, expected);
-}
 
 function b64url(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -57,7 +32,7 @@ export function signSession(expiryMs: number, secret: string): string {
   return `${payload}.${b64url(mac)}`;
 }
 
-/** Yeni session token'ı üret (login route'unda; şimdi + TTL). */
+/** Yeni session token'ı üret (callback route'unda; şimdi + TTL). */
 export function issueSession(secret: string, ttlMs: number = SESSION_TTL_MS): string {
   return signSession(Date.now() + ttlMs, secret);
 }

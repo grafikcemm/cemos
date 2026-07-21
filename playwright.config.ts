@@ -1,26 +1,21 @@
 import { defineConfig } from "@playwright/test";
-import { STORAGE_STATE } from "./tests/e2e/global-setup";
+import { STORAGE_STATE, E2E_SESSION_SECRET } from "./tests/e2e/global-setup";
 
 // E2E smoke suite. Data-independent: tests assert UI shells/placeholders, never
 // row counts, so they pass on an empty database too. Port 3211 avoids clashing
 // with a running dev server.
 //
-// Faz 1A: erişim kapısı E2E'de GERÇEK olarak aktif (webServer.env
-// ACCESS_PASSWORD_HASH + SESSION_SECRET). globalSetup bir kez login olur →
-// storageState; tüm spec'ler kimlikli koşar. access-gate.spec kimliksiz test
-// eder. reuseExistingServer:false → kapı deterministik (3211 boş olmalı).
+// ADR-049: erişim kapısı OIDC'ye taşındı. E2E'de gerçek OAuth round-trip yapılamaz;
+// globalSetup sunucuyla AYNI SESSION_SECRET ile geçerli bir cemos_session imzalar →
+// tüm spec'ler kimlikli koşar. access-gate.spec kimliksiz test eder.
+// reuseExistingServer:false → kapı deterministik (3211 boş olmalı).
 const PORT = 3211;
-
-// Sabit E2E parolası "e2e-test-pass" için scrypt hash (sabit salt).
-const E2E_PASSWORD_HASH =
-  "scrypt$00112233445566778899aabbccddeeff$afa305da0d5974456f5dbb2648ccd363005f6ab5c59dce3323fe6896e5d8d240";
 
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 45_000,
   // Soğuk `next dev` sunucusunda deterministiklik: tek worker route derlemesini
-  // serileştirir (paralel worker'lar tek sunucuda ilk-compile yarışı yaratıyordu),
-  // retries:1 nadir ilk-derleme flake'ini yutar (retry route'u ısınmış bulur).
+  // serileştirir; retries:1 nadir ilk-derleme flake'ini yutar.
   workers: 1,
   retries: 1,
   expect: { timeout: 10_000 },
@@ -38,8 +33,8 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
-      ACCESS_PASSWORD_HASH: E2E_PASSWORD_HASH,
-      SESSION_SECRET: "e2e-session-secret-not-a-real-key",
+      // Proxy yalnız session'ı doğrular → SESSION_SECRET yeter (globalSetup ile aynı).
+      SESSION_SECRET: E2E_SESSION_SECRET,
     },
   },
 });

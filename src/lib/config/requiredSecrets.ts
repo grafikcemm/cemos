@@ -1,5 +1,5 @@
 /**
- * Startup secret assertion (FIRST-SPRINT item 18).
+ * Startup secret assertion (FIRST-SPRINT item 18; ADR-049 güncellemesi).
  *
  * İSİM-BAZLI fail-fast: eksik zorunlu secret'lar isimleriyle raporlanır ve
  * production'da başlatma durdurulur. Secret DEĞERLERİ asla loglanmaz,
@@ -17,10 +17,14 @@ const REQUIRED_IN_PRODUCTION = [
   "OPENROUTER_API_KEY",
   "CRON_SECRET",
   "CREDENTIAL_ENC_KEY",
-  // Faz 1A tek-operatör erişim kapısı (ADR-013/017): prod'da zorunlu →
-  // yoksa proxy fail-closed /giris?setup=1 gösterir. Dev'de uyarılır (kapı kapalı).
-  "ACCESS_PASSWORD_HASH",
+  // ADR-049 "Sign in with Vercel" (OIDC) tek-operatör erişim kapısı: prod'da
+  // zorunlu. SESSION_SECRET session HMAC'ini imzalar; client id/secret OIDC
+  // akışını; AUTH_ALLOWED_VERCEL_USERS ise allow-list'i besler (boşsa kimse
+  // giremez → fail-closed). Dev'de eksikse uyarılır (kapı kapalı kalır).
   "SESSION_SECRET",
+  "NEXT_PUBLIC_VERCEL_APP_CLIENT_ID",
+  "VERCEL_APP_CLIENT_SECRET",
+  "AUTH_ALLOWED_VERCEL_USERS",
 ] as const;
 
 function isProductionRuntime(): boolean {
