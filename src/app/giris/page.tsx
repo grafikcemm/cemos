@@ -1,16 +1,23 @@
-"use client";
+import type { CSSProperties } from "react";
 
 /**
  * Tek-operatör erişim kapısı giriş ekranı (ADR-013/017). NATIVE form POST →
  * /api/auth/login → server 303 redirect (cookie ile). JS fetch/redirect YOK →
  * tarayıcı cookie'yi atomik taşır, dev Fast Refresh yarışı olmaz, JS'siz çalışır.
  * `?e=` hata kodu, `?next=` hedef, `?setup=1` prod yapılandırma-eksik.
+ *
+ * Server Component: `searchParams` SUNUCUDA okunur → SSR ve client AYNI HTML
+ * üretir. (Eski "use client" + `typeof window` dallanması, hata satırını yalnız
+ * client'ta render edip her yanlış-parola denemesinde bir hydration mismatch
+ * yaratıyordu; artık JS'siz ve deterministik.)
  */
-export default function GirisPage() {
-  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-  const setup = params?.get("setup") === "1" || params?.get("e") === "setup";
-  const next = params?.get("next") || "/";
-  const e = params?.get("e");
+type SearchParams = Promise<{ e?: string; next?: string; setup?: string }>;
+
+export default async function GirisPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams;
+  const setup = sp.setup === "1" || sp.e === "setup";
+  const next = sp.next || "/";
+  const e = sp.e;
   const errorText =
     e === "invalid_password"
       ? "Parola hatalı."
@@ -18,7 +25,7 @@ export default function GirisPage() {
         ? "Çok fazla deneme. Bir süre sonra tekrar dene."
         : null;
 
-  const cardStyle: React.CSSProperties = {
+  const cardStyle: CSSProperties = {
     background: "var(--bg-surface)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-lg)",

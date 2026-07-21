@@ -4,6 +4,7 @@ import { usageService } from "@/lib/services/usageService";
 import { getFalBudgetStatus } from "@/lib/config/costGate";
 import { getCostLimits } from "@/lib/config/costLimits";
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * fal.ai image-generation engine (Nano Banana Pro / NB2 by default).
@@ -83,11 +84,20 @@ async function callFal(prompt: string): Promise<string | null> {
       signal: ctrl.signal,
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
+    // Observability: a real fal.ai failure (bad/rotated key, quota, outage,
+    // malformed response) was previously invisible — an operator could only
+    // infer "images stopped" from UI silence. Log a redacted class here.
+    if (!res.ok) {
+      console.warn(`[imageService] fal.ai HTTP ${res.status}`);
+      return null;
+    }
     const data = (await res.json()) as FalResult;
     const url = data.images?.[0]?.url;
-    return typeof url === "string" && url.length > 0 ? url : null;
-  } catch {
+    if (typeof url === "string" && url.length > 0) return url;
+    console.warn("[imageService] fal.ai response had no image URL");
+    return null;
+  } catch (err) {
+    console.warn("[imageService] fal.ai request failed:", redactError(err));
     return null;
   }
 }

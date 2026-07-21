@@ -39,7 +39,11 @@ export async function POST(
         draftType: "TWEET",
         mode: modeId || "ai_news",
         estimatedCostUsd: 0.001,
-        usedMock: true,
+        // This is REAL content (a verbatim competitor source post, or an
+        // operator-edited AI draft) — never a fabricated mock. Mislabelling it
+        // usedMock:true inverts the field's contract for any future analytics
+        // built on it.
+        usedMock: false,
         scores: "{}",
       });
 

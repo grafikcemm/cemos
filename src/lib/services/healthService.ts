@@ -6,6 +6,7 @@ import { META_TOKEN_KEY } from "@/lib/instagram/igConfig";
 import { isCronSecretConfigured, isProductionRuntime } from "@/lib/utils/cronAuth";
 import * as fs from "fs";
 import * as path from "path";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 export type NewsPipelineHealth = {
   rawBacklog: number;
@@ -95,7 +96,7 @@ export const healthService = {
         }
       } catch (err) {
         openrouterOk = false;
-        openrouterMsg = `OpenRouter API erişim hatası: ${err instanceof Error ? err.message : String(err)}`;
+        openrouterMsg = `OpenRouter API erişim hatası: ${redactError(err)}`;
       }
     }
 
@@ -121,7 +122,7 @@ export const healthService = {
         }
       } catch (err) {
         socialdataOk = false;
-        socialdataMsg = `SocialData API erişim hatası: ${err instanceof Error ? err.message : String(err)}`;
+        socialdataMsg = `SocialData API erişim hatası: ${redactError(err)}`;
       }
     }
 
