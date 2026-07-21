@@ -69,12 +69,13 @@ import { usageService } from "@/lib/services/usageService";
 import { BudgetExceededError } from "@/lib/config/costGate";
 import igSeriesRaw from "@/data/ig-series.json";
 import type { IgComment, IgReplyDraft, IgDmDraft } from "@/generated/prisma/client";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const RISK_WARN_THRESHOLD = 40; // safety < 40 → "dikkat" bandı
 const IG_SERIES = igSeriesRaw as SeriesConfigEntry[];
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return redactError(e);
 }
 
 /** IG attribution hesabı (mevcut @grafikcem reuse — youtubeService deseni). */

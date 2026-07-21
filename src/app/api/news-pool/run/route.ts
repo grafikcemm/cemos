@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 import {
   syncDueSources,
@@ -89,7 +90,7 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cronRunId) {
-      await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
+      await cronRunRepo.finish(cronRunId, { ok: false, error: redactError(err) });
     }
     const budgetRes = budgetErrorResponse(err, { stage: stageParam });
     if (budgetRes) return budgetRes;

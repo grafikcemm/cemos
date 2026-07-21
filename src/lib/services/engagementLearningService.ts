@@ -11,6 +11,7 @@ import { safeJsonParse } from "@/lib/growth-engine/types";
 import { igInsightSnapshotRepo } from "@/lib/db/igInsightSnapshotRepo";
 import { xEngagement, igEngagement } from "@/lib/learning/engagement-formulas";
 import type { MediaInsightItem } from "@/lib/instagram/insight-pipeline";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // Drafts published in this window are candidates for engagement matching.
 const CANDIDATE_WINDOW_DAYS = 14;
@@ -150,9 +151,9 @@ export const engagementLearningService = {
           tweetCount: tweets.length,
           estimatedCostUsd: calculateCost(billedItems),
         })
-        .catch((err) => console.error("Engagement scan maliyeti kaydedilemedi:", err));
+        .catch((err) => console.error("Engagement scan maliyeti kaydedilemedi:", redactError(err)));
     } catch (err) {
-      console.error(`Engagement sync: @${handle} tweetleri alınamadı:`, err);
+      console.error(`Engagement sync: @${handle} tweetleri alınamadı:`, redactError(err));
       summary.errors++;
       summary.reason = "timeline_fetch_failed";
       return summary;
@@ -260,7 +261,7 @@ export const engagementLearningService = {
           });
         }
       } catch (err) {
-        console.error(`Engagement sync: ${item.id} işlenirken hata:`, err);
+        console.error(`Engagement sync: ${item.id} işlenirken hata:`, redactError(err));
         summary.errors++;
       }
     }
@@ -404,7 +405,7 @@ export const engagementLearningService = {
           });
         }
       } catch (err) {
-        console.error(`IG engagement sync: ${m.mediaId} işlenirken hata:`, err);
+        console.error(`IG engagement sync: ${m.mediaId} işlenirken hata:`, redactError(err));
         summary.errors++;
       }
     }

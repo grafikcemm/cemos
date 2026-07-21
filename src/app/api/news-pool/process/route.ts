@@ -3,6 +3,7 @@ import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { translateBatch, analyzeBatch } from "@/lib/news/pipeline";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 // POST /api/news-pool/process — UI-triggered drain of the translate → analyze
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (cronRunId) {
-      await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
+      await cronRunRepo.finish(cronRunId, { ok: false, error: redactError(err) });
     }
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;

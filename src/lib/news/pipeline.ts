@@ -764,7 +764,7 @@ export async function runPipelineTick(budgetMs = 45_000): Promise<TickSummary> {
       return await fn();
     } catch (err) {
       errorMessages.push(
-        `${name}: ${String(err instanceof Error ? err.message : err)}`,
+        `${name}: ${redactError(err)}`,
       );
       return { processed: 0, errors: 1, remaining: 0 };
     }
@@ -775,7 +775,7 @@ export async function runPipelineTick(budgetMs = 45_000): Promise<TickSummary> {
     await sweepStuck();
   } catch (err) {
     errorMessages.push(
-      `sweep: ${String(err instanceof Error ? err.message : err)}`,
+      `sweep: ${redactError(err)}`,
     );
   }
 
@@ -793,7 +793,7 @@ export async function runPipelineTick(budgetMs = 45_000): Promise<TickSummary> {
     await sweepStale();
   } catch (err) {
     errorMessages.push(
-      `post-sync sweep: ${String(err instanceof Error ? err.message : err)}`,
+      `post-sync sweep: ${redactError(err)}`,
     );
   }
 

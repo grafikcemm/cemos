@@ -38,6 +38,27 @@ describe("redactSecrets", () => {
     );
   });
 
+  it("masks bare Meta long-lived Graph tokens (EAA…)", () => {
+    const out = redactSecrets("igClient: token=EAABwzLixnjYBO1a2b3c4d5e6f7g8h9i0 rejected");
+    expect(out).not.toContain("EAABwzLixnjYBO1a2b3c4d5e6f7g8h9i0");
+    expect(out).toContain("[REDACTED_KEY]");
+  });
+
+  it("masks credentials in non-DB URL userinfo (https://user:pass@host)", () => {
+    const out = redactSecrets("redirect to https://admin:s3cretPw@internal.example.com/x");
+    expect(out).not.toContain("admin:s3cretPw");
+    expect(out).toContain("https://[REDACTED]@internal.example.com");
+  });
+
+  it("masks the OS username in local filesystem paths (Windows + Unix)", () => {
+    const win = redactSecrets("ENOENT: open 'C:\\Users\\alice\\.env.local'");
+    expect(win).not.toContain("alice");
+    expect(win).toContain("C:\\Users\\[REDACTED]");
+    const nix = redactSecrets("cannot read /home/deploy/secrets/key");
+    expect(nix).not.toContain("/home/deploy");
+    expect(nix).toContain("/home/[REDACTED]");
+  });
+
   it("leaves benign query params untouched", () => {
     const msg = "https://x.test/list?page=2&sort=desc&limit=50";
     expect(redactSecrets(msg)).toBe(msg);

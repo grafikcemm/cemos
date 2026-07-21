@@ -24,7 +24,17 @@ export function redactSecrets(msg: string): string {
       "$1[REDACTED]",
     )
     // Bearer tokens in Authorization headers / logged text.
-    .replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, "Bearer [REDACTED]");
+    .replace(/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, "Bearer [REDACTED]")
+    // Meta (Facebook/Instagram) long-lived Graph tokens ride BARE (EAA…), not inside a
+    // ?access_token= query, so the query rule above misses them (igClient / Graph errors).
+    .replace(/\bEAA[A-Za-z0-9]{20,}/g, "[REDACTED_KEY]")
+    // Credentials embedded in NON-DB URL userinfo (https://user:pass@host) — only DB
+    // schemes were masked above; a thrown fetch/redirect error can echo an http(s) one.
+    .replace(/\b(https?|ftps?|wss?):\/\/[^/\s:@"'<>]+:[^/\s@"'<>]+@/gi, "$1://[REDACTED]@")
+    // Local filesystem paths — an fs / Obsidian-export / ENOENT error echoes the OS
+    // username; mask the user segment (the structural prefix is kept for triage).
+    .replace(/([A-Za-z]:\\Users\\)[^\\/\s"'<>]+/gi, "$1[REDACTED]")
+    .replace(/(\/(?:home|Users)\/)[^/\s"'<>]+/g, "$1[REDACTED]");
 }
 
 /**

@@ -1,5 +1,6 @@
 import type { AccountProfile } from "@/lib/accounts";
 import { createMockBenchmark } from "@/lib/ai/mock-benchmark";
+import { redactError } from "@/lib/utils/redactSecrets";
 import {
   buildDraftSystemPrompt,
   buildDraftUserPrompt,
@@ -523,7 +524,7 @@ Lütfen bu metni cila kurallarına göre düzenle ve aşağıdaki JSON formatın
         finalEditorCost = costOf(editorRun);
       }
     } catch (editorErr) {
-      console.warn("[Draft Pipeline] Final Editor step failed:", editorErr);
+      console.warn("[Draft Pipeline] Final Editor step failed:", redactError(editorErr));
     }
     finalEditorMs = Date.now() - editorStart;
   }

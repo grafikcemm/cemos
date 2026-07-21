@@ -5,6 +5,7 @@ import {
   BudgetSystemUnavailableError,
   type AiBudgetClass,
 } from "@/lib/config/costGate";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * Atomic AI-spend reservation (closure C) — closes the budget TOCTOU.
@@ -181,7 +182,7 @@ export async function settleAiSpend(
       data: { status: "settled", actualCostUsd, settledAt: new Date(now) },
     });
   } catch (err) {
-    console.error("settleAiSpend hata:", err instanceof Error ? err.message : err);
+    console.error("settleAiSpend hata:", redactError(err));
   }
 }
 
@@ -194,6 +195,6 @@ export async function releaseAiSpend(reservation: Reservation, now: number = Dat
       data: { status: "released", settledAt: new Date(now) },
     });
   } catch (err) {
-    console.error("releaseAiSpend hata:", err instanceof Error ? err.message : err);
+    console.error("releaseAiSpend hata:", redactError(err));
   }
 }

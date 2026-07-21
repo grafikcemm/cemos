@@ -5,6 +5,7 @@ import {
   readComposioApiKey,
 } from "@/lib/composio/config";
 import { evaluateToolPolicy } from "@/lib/composio/allowlist";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * CemOS runtime MCP köprüsü (ADR-032) — Claude Code'dan TAMAMEN bağımsız,
@@ -58,7 +59,7 @@ export function redactSecrets(s: string): string {
 }
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return redactError(e);
 }
 
 // ── JSON-RPC / SSE taşıma ─────────────────────────────────────────────────────

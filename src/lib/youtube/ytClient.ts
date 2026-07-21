@@ -8,6 +8,7 @@
 
 import { getYoutubeApiKey } from "./ytConfig";
 import type { YtChannelRaw, YtVideoRaw } from "./ytTypes";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const API_BASE = "https://www.googleapis.com/youtube/v3";
 const FETCH_TIMEOUT_MS = 30_000;
@@ -48,7 +49,7 @@ function num(value: unknown): number {
 }
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return redactError(e);
 }
 
 function makeAbortSignal(): AbortSignal {

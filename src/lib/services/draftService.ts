@@ -1,4 +1,5 @@
 import { accountRepo } from "@/lib/db/accountRepo";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { generationRunRepo } from "@/lib/db/generationRunRepo";
@@ -260,7 +261,7 @@ export const draftService = {
     } catch (err) {
       pipelineError = err instanceof Error ? err.message : String(err);
       // Raw provider text stays in stderr only; the DB stores a category (DH-014).
-      console.warn("[draftService] pipeline failed, degrading to mock:", pipelineError);
+      console.warn("[draftService] pipeline failed, degrading to mock:", redactError(pipelineError));
       pipelineResult = { ...createMockBenchmark(profile), sourceInput, rankedCandidates: [] };
     }
     const blockedResult = (reason: string): GenerateDraftResult => ({
@@ -469,7 +470,7 @@ export const draftService = {
           },
         });
       } catch (err) {
-        console.warn("[draftService] eval14 batched judge atlandı (fail-open):", err instanceof Error ? err.message : err);
+        console.warn("[draftService] eval14 batched judge atlandı (fail-open):", redactError(err));
       }
     }
 
@@ -589,7 +590,7 @@ export const draftService = {
         packageId = pkg.packageId;
         packageSiblings = pkg.created;
       } catch (atomizeErr) {
-        console.warn("[draftService] atomize failed (keeping main draft):", atomizeErr);
+        console.warn("[draftService] atomize failed (keeping main draft):", redactError(atomizeErr));
       }
     }
 

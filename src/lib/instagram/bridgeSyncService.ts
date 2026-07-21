@@ -7,6 +7,7 @@ import { getComposioConfig, missingComposioEnvNames } from "@/lib/composio/confi
 import { selectInstagramReadProvider, type ProviderSelection } from "@/lib/instagram/providers/select";
 import { isKnownAccountHandleDb } from "@/lib/accounts/profileRepository";
 import type { IgMediaItem } from "@/lib/instagram/providers/types";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * Composio/Meta provider-soyutlamalı OWN-ACCOUNT Instagram sync'i (ADR-032).
@@ -124,11 +125,11 @@ async function bridgeToContentItems(mediaIds: string[], warnings: string[]): Pro
         await ingestContent(fromIgMedia(row));
         bridged++;
       } catch (e) {
-        warnings.push(`content_bridge:${mediaId}: ${e instanceof Error ? e.message : String(e)}`);
+        warnings.push(`content_bridge:${mediaId}: ${redactError(e)}`);
       }
     }
   } catch (e) {
-    warnings.push(`content_bridge_module: ${e instanceof Error ? e.message : String(e)}`);
+    warnings.push(`content_bridge_module: ${redactError(e)}`);
   }
   return bridged;
 }
@@ -162,7 +163,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
       accountHandle: handle,
       connectionState: "degraded",
       errorClass: "binding_unverifiable",
-      error: `Hesap binding'i doğrulanamadı (DB erişilemiyor): ${e instanceof Error ? e.message : String(e)}`,
+      error: `Hesap binding'i doğrulanamadı (DB erişilemiyor): ${redactError(e)}`,
     });
   }
   if (!handleKnown) {
@@ -196,7 +197,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
       boundAccountId: account.id,
       connectionState: "degraded",
       errorClass: "provider_selection_failed",
-      error: e instanceof Error ? e.message : String(e),
+      error: redactError(e),
     });
   }
 
@@ -250,7 +251,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
     externalUsername = profile.username;
     externalId = profile.igUserId;
   } catch (e) {
-    warnings.push(`profile: ${e instanceof Error ? e.message : String(e)}`);
+    warnings.push(`profile: ${redactError(e)}`);
   }
 
   // ── 4) Medya (bounded) + yorumlar (bounded) — idempotent upsert ───────────
@@ -264,7 +265,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
   try {
     media = await provider.listOwnMedia({ limit: mediaLimit });
   } catch (e) {
-    mediaError = e instanceof Error ? e.message : String(e);
+    mediaError = redactError(e);
     mediaErrorClass =
       (e as { errorClass?: string }).errorClass ?? "fetch_failed";
   }
@@ -285,7 +286,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
       mediaUpserted++;
       upsertedMediaIds.push(m.mediaId);
     } catch (e) {
-      warnings.push(`media:${m.mediaId}: ${e instanceof Error ? e.message : String(e)}`);
+      warnings.push(`media:${m.mediaId}: ${redactError(e)}`);
     }
     try {
       const comments = await provider.listMediaComments(m.mediaId, { limit: COMMENTS_PER_MEDIA });
@@ -302,11 +303,11 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
           });
           commentsUpserted++;
         } catch (e) {
-          warnings.push(`comment:${c.commentId}: ${e instanceof Error ? e.message : String(e)}`);
+          warnings.push(`comment:${c.commentId}: ${redactError(e)}`);
         }
       }
     } catch (e) {
-      warnings.push(`comments:${m.mediaId}: ${e instanceof Error ? e.message : String(e)}`);
+      warnings.push(`comments:${m.mediaId}: ${redactError(e)}`);
     }
   }
 
@@ -354,7 +355,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
         }
       }
     } catch (e) {
-      warnings.push(`insights: ${e instanceof Error ? e.message : String(e)}`);
+      warnings.push(`insights: ${redactError(e)}`);
     }
   }
 
@@ -399,7 +400,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
     },
     success: ok,
   }).catch((e) => {
-    warnings.push(`binding_persist: ${e instanceof Error ? e.message : String(e)}`);
+    warnings.push(`binding_persist: ${redactError(e)}`);
   });
 
   return result;

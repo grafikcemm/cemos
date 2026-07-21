@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { runPipelineTick } from "@/lib/news/pipeline";
 import { syncHackerNews } from "@/lib/news/hackernews";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // Light refresh: fetch RSS + translate + analyze + buzz-enrich, WITHOUT the heavy
 // per-account draft generation that /api/cron/daily runs at 06:00.
@@ -23,14 +24,14 @@ async function run(): Promise<{ ok: boolean; hackernews?: unknown; pipeline?: un
   try {
     out.hackernews = await syncHackerNews({ maxItems: 20 });
   } catch (err) {
-    out.hackernews = { error: err instanceof Error ? err.message : String(err) };
+    out.hackernews = { error: redactError(err) };
   }
   try {
     // Reserve ~5s for response persistence; pipeline self-bounds each stage.
     out.pipeline = await runPipelineTick(Math.max(30_000, deadline - Date.now() - 5_000));
   } catch (err) {
     out.ok = false;
-    out.pipeline = { error: err instanceof Error ? err.message : String(err) };
+    out.pipeline = { error: redactError(err) };
   }
   return out;
 }

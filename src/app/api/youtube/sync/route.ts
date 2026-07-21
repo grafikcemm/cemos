@@ -3,6 +3,7 @@ import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // Manuel YouTube sync (UI butonu / cron-secret). Advisory lock eşzamanlı koşuyu engeller.
 export const maxDuration = 300;
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     return ok({ ranAt: new Date().toISOString(), ...result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (cronRunId) await cronRunRepo.finish(cronRunId, { ok: false, error: msg });
+    if (cronRunId) await cronRunRepo.finish(cronRunId, { ok: false, error: redactError(err) });
     return fail(msg, 500);
   }
 }

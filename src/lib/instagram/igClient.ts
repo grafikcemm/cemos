@@ -17,6 +17,7 @@ import {
   getMetaPageId,
 } from "@/lib/instagram/igConfig";
 import { integrationCredentialRepo } from "@/lib/db/integrationCredentialRepo";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 export type IgFetch<T> = { ok: boolean; data?: T; error?: string };
 
@@ -55,7 +56,7 @@ const LONG_LIVED_FALLBACK_SECONDS = 60 * 86_400; // FB uzun ömürlü token ≈ 
 const ENC = encodeURIComponent;
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return redactError(e);
 }
 
 /** Fail-open GET — abort'lu, non-200/throw'da { ok:false }. */

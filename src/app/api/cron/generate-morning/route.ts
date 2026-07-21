@@ -3,6 +3,7 @@ import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // Dedicated morning generation cron. Split out of /api/cron/daily so the most
 // important output — the two accounts' drafts — runs FIRST in its own time
@@ -70,7 +71,7 @@ async function run(handleParam: string | null): Promise<RunOutcome> {
         errors++;
         // Don't surface raw error text (Prisma/provider internals) in the API
         // response or persisted CronRun (DH-014). Log it; store a sentinel.
-        console.error(`[generate-morning] ${handle} üretimi başarısız:`, err);
+        console.error(`[generate-morning] ${handle} üretimi başarısız:`, redactError(err));
         results.push({ handle, error: "internal_error" });
       }
     }
@@ -79,7 +80,7 @@ async function run(handleParam: string | null): Promise<RunOutcome> {
     // An unexpected throw outside the per-account try (e.g. a DB error) must not
     // leave a false-green CronRun — flag it so the finally records a failure.
     fatal = true;
-    console.error("[generate-morning] beklenmeyen çalışma hatası:", err);
+    console.error("[generate-morning] beklenmeyen çalışma hatası:", redactError(err));
     throw err;
   } finally {
     // try/finally → terminal CronRun state even if the loop throws or the
