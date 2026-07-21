@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import type { YtChannel } from "@/generated/prisma/client";
+import { redactSecrets } from "@/lib/utils/redactSecrets";
 
 export type UpsertYtChannelInput = {
   channelId: string;
@@ -71,7 +72,7 @@ export const ytChannelRepo = {
     try {
       await prisma.ytChannel.update({
         where: { channelId },
-        data: { errorCount: { increment: 1 }, lastError: message.slice(0, 500) },
+        data: { errorCount: { increment: 1 }, lastError: redactSecrets(message).slice(0, 500) },
       });
     } catch {
       // kanal kaydı yoksa sessizce geç (fail-open)

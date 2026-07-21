@@ -8,6 +8,7 @@
 
 import { getGeminiApiKey, getGeminiTranscriptModel } from "./learnConfig";
 import type { TranscriptResult, TimedSegment } from "./pipeline/transcript-fetch";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const GEMINI_TIMEOUT_MS = 120_000;
 // gemini-2.5-flash output tavanı 65536. 16384 uzun videoda segment listesini
@@ -149,7 +150,9 @@ export async function fetchTranscriptViaGemini(videoUrl: string): Promise<Transc
       fullText: segments.map((s) => s.text).join(" ").trim(),
     };
   } catch (err) {
-    console.warn(`[learn] gemini transcript error: ${err instanceof Error ? err.message : String(err)}`);
+    // Redacted: the API key rides in the request URL as ?key=, so a thrown
+    // fetch error can echo it (redactSecrets masks AIza... + ?key=).
+    console.warn(`[learn] gemini transcript error: ${redactError(err)}`);
     return null;
   } finally {
     clearTimeout(timer);

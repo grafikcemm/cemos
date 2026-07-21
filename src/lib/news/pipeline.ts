@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { translateNews, scoreNews } from "@/lib/news/newsAi";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { detectLanguage } from "@/lib/news/language";
 import { DEFAULT_SOURCES } from "@/lib/news/sources";
 import {
@@ -387,10 +388,7 @@ export async function syncDueSources(
         where: { id: source.id },
         data: {
           lastCheckedAt: new Date(),
-          lastError: String(err instanceof Error ? err.message : err).slice(
-            0,
-            500,
-          ),
+          lastError: redactError(err).slice(0, 500),
           errorCount: source.errorCount + 1,
         },
       });

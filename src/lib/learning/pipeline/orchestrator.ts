@@ -14,6 +14,7 @@ import { learnTranscriptRepo } from "@/lib/db/learnTranscriptRepo";
 import { learnPackRepo, type ItemInput } from "@/lib/db/learnPackRepo";
 import { learnJobRepo } from "@/lib/db/learnJobRepo";
 import { learnReviewRepo } from "@/lib/db/learnReviewRepo";
+import { redactError } from "@/lib/utils/redactSecrets";
 import {
   LEARN_PURPOSE,
   PIPELINE_VERSION,
@@ -208,7 +209,9 @@ export async function advanceJob(
         throw err;
       }
       attempts += 1;
-      const msg = err instanceof Error ? err.message : String(err);
+      // Redacted: msg is persisted into LearnProcessingJob.lastError, and Learn
+      // stages call generateJsonGated whose thrown error can carry provider text.
+      const msg = redactError(err);
       if (attempts >= MAX_STAGE_ATTEMPTS) {
         await learnSourceRepo.update(sourceId, { status: "failed" });
         return finish("failed", msg);

@@ -17,6 +17,7 @@ import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnCon
 import { runMemoryConsolidation } from "@/lib/memory/consolidation";
 import { runDnaDistillation } from "@/lib/memory/dnaDistillService";
 import { promoteValidatedPatterns } from "@/lib/services/patternPromotionService";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
 // continuously learn without anyone clicking a button —
@@ -95,7 +96,7 @@ async function runLearn(handleParam: string | null) {
   try {
     cronRunId = (await cronRunRepo.start("learn")).id;
   } catch (err) {
-    console.error("CronRun start yazılırken hata oluştu:", err);
+    console.error("CronRun start yazılırken hata oluştu:", redactError(err));
   }
 
   // Budget gate guards the LLM-heavy mining only. Engagement sync is a cheap
@@ -105,7 +106,7 @@ async function runLearn(handleParam: string | null) {
   try {
     miningAllowed = (await getBudgetStatus()).allowed;
   } catch (err) {
-    console.error("Budget durumu okunamadı, mining atlanıyor:", err);
+    console.error("Budget durumu okunamadı, mining atlanıyor:", redactError(err));
   }
   const miningLimit = getMiningLimit();
 
@@ -118,7 +119,7 @@ async function runLearn(handleParam: string | null) {
       try {
         ytSync = await youtubeService.syncCompetitors({ deadlineMs: ytDeadlineMs });
       } catch (err) {
-        ytSync = { error: err instanceof Error ? err.message : String(err) };
+        ytSync = { error: redactError(err) };
       }
     }
   }
@@ -131,7 +132,7 @@ async function runLearn(handleParam: string | null) {
     try {
       ytOwnEngagement = await ytOwnPerformanceService.sync();
     } catch (err) {
-      ytOwnEngagement = { error: err instanceof Error ? err.message : String(err) };
+      ytOwnEngagement = { error: redactError(err) };
     }
   }
 
@@ -144,7 +145,7 @@ async function runLearn(handleParam: string | null) {
       try {
         learnSweep = await learnService.sweepPendingJobs({ deadlineMs: learnDeadlineMs });
       } catch (err) {
-        learnSweep = { error: err instanceof Error ? err.message : String(err) };
+        learnSweep = { error: redactError(err) };
       }
     }
   }
@@ -172,13 +173,13 @@ async function runLearn(handleParam: string | null) {
         if (skipReason === "budget_exhausted") partial = true;
       }
     } catch (err) {
-      entry.miningError = err instanceof Error ? err.message : String(err);
+      entry.miningError = redactError(err);
       errors++;
     }
     try {
       entry.engagement = await engagementLearningService.syncForAccount(handle);
     } catch (err) {
-      entry.engagementError = err instanceof Error ? err.message : String(err);
+      entry.engagementError = redactError(err);
       errors++;
     }
     results.push(entry);
@@ -195,7 +196,7 @@ async function runLearn(handleParam: string | null) {
       try {
         out.push(await voiceProfileService.syncForAccount(handle));
       } catch (err) {
-        out.push({ handle, error: err instanceof Error ? err.message : String(err) });
+        out.push({ handle, error: redactError(err) });
       }
     }
     voiceProfiles = out;
@@ -211,7 +212,7 @@ async function runLearn(handleParam: string | null) {
       const { reconcileFeedbackSignals } = await import("@/lib/memory/signalBridge");
       memorySignalReconciliation = await reconcileFeedbackSignals();
     } catch (err) {
-      memorySignalReconciliation = { error: err instanceof Error ? err.message : String(err) };
+      memorySignalReconciliation = { error: redactError(err) };
     }
   }
 
@@ -226,7 +227,7 @@ async function runLearn(handleParam: string | null) {
         deadlineMs: Math.min(60_000, timeBudgetMs - (Date.now() - t0)),
       });
     } catch (err) {
-      memoryConsolidation = { error: err instanceof Error ? err.message : String(err) };
+      memoryConsolidation = { error: redactError(err) };
     }
   }
 
@@ -238,7 +239,7 @@ async function runLearn(handleParam: string | null) {
     try {
       dnaDistillation = await runDnaDistillation({ handles });
     } catch (err) {
-      dnaDistillation = { error: err instanceof Error ? err.message : String(err) };
+      dnaDistillation = { error: redactError(err) };
     }
   }
 
@@ -255,7 +256,7 @@ async function runLearn(handleParam: string | null) {
         const account = await prisma.account.findUnique({ where: { handle }, select: { id: true } });
         if (account) out.push(await promoteValidatedPatterns(account.id));
       } catch (err) {
-        out.push({ handle, error: err instanceof Error ? err.message : String(err) });
+        out.push({ handle, error: redactError(err) });
       }
     }
     patternPromotion = out;
@@ -281,7 +282,7 @@ async function runLearn(handleParam: string | null) {
         registryEval = { runId: res.runId, status: res.status, passed: res.passed, failed: res.failed };
       }
     } catch (err) {
-      registryEval = { error: err instanceof Error ? err.message : String(err) };
+      registryEval = { error: redactError(err) };
     }
   }
 
@@ -292,7 +293,7 @@ async function runLearn(handleParam: string | null) {
     try {
       newsCatchup = await runPipelineTick(60_000);
     } catch (err) {
-      newsCatchup = { error: err instanceof Error ? err.message : String(err) };
+      newsCatchup = { error: redactError(err) };
     }
   }
 
@@ -300,7 +301,7 @@ async function runLearn(handleParam: string | null) {
   try {
     pruned = await pruneOldRecords();
   } catch (err) {
-    pruned = { error: err instanceof Error ? err.message : String(err) };
+    pruned = { error: redactError(err) };
   }
 
   const ok = errors < handles.length * 2; // both phases of every account failing = broken run
