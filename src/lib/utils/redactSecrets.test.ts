@@ -18,6 +18,31 @@ describe("redactSecrets", () => {
     expect(redactSecrets("Authorization: Bearer eyJhbGciOi.payload.sig")).toContain("Bearer [REDACTED]");
   });
 
+  it("masks Google API keys (Gemini transcript / YouTube Data API)", () => {
+    const out = redactSecrets(
+      "fetch failed https://generativelanguage.googleapis.com/v1beta/models/x:generateContent?key=AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q",
+    );
+    expect(out).not.toContain("AIzaSy");
+    expect(out).toContain("[REDACTED");
+  });
+
+  it("masks credentials carried as URL query params (Meta access_token, generic token)", () => {
+    expect(redactSecrets("Graph error ?access_token=EAABsecretMetaToken123")).not.toContain(
+      "EAABsecretMetaToken123",
+    );
+    expect(redactSecrets("url?fb_exchange_token=abc123def456ghi&x=1")).not.toContain(
+      "abc123def456ghi",
+    );
+    expect(redactSecrets("https://x.test/cb?token=supersecretvalue&page=2")).toContain(
+      "token=[REDACTED]",
+    );
+  });
+
+  it("leaves benign query params untouched", () => {
+    const msg = "https://x.test/list?page=2&sort=desc&limit=50";
+    expect(redactSecrets(msg)).toBe(msg);
+  });
+
   it("leaves ordinary user messages unchanged", () => {
     const msg = "Geçersiz profil değeri.";
     expect(redactSecrets(msg)).toBe(msg);
