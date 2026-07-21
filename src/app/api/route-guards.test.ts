@@ -12,7 +12,6 @@ import { GET as growthDailyQueueGET } from "./growth/daily-queue/route";
 
 // Routes hardened in the P1 stability audit (previously unguarded read endpoints
 // that returned operator data to any caller). Each must now 403 a bare request.
-import { GET as competitorsGET } from "./competitors/route";
 import { GET as outliersGET } from "./content/outliers/route";
 import { GET as dailyDigestGET } from "./daily-digest/route";
 import { GET as flowRadarGET } from "./growth/flow-radar/route";
@@ -22,13 +21,11 @@ import { GET as pipelineTraceGET } from "./growth/pipeline-trace/route";
 import { GET as sourceIntelligenceGET } from "./growth/source-intelligence/route";
 import { GET as learnJobGET } from "./learn/jobs/[id]/route";
 import { GET as learnPackGET } from "./learn/packs/[id]/route";
-import { GET as promptLibraryGET } from "./prompt-library/route";
 import { GET as repoRadarGET } from "./repo-radar/route";
 import { GET as evalRunsGET } from "./eval/runs/route";
 import { GET as dnaObservationGET } from "./instagram/dna-observation/route";
 import { POST as dnaApplyPOST } from "./instagram/dna-observation/apply/route";
 import { POST as igContentGeneratePOST } from "./instagram/content/generate/route";
-import { GET as sourcePostsGET } from "./source-posts/route";
 import { GET as reelsDossierGET } from "./reels/dossier/route";
 import { GET as reelsDossierDetailGET } from "./reels/dossier/[id]/route";
 import { POST as reelsDossierApprovePOST } from "./reels/dossier/[id]/approve/route";
@@ -76,7 +73,6 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/costs", costsGET],
     ["/api/settings", settingsGET],
     ["/api/growth/daily-queue", growthDailyQueueGET],
-    ["/api/competitors", competitorsGET],
     ["/api/content/outliers", outliersGET],
     ["/api/daily-digest", dailyDigestGET],
     ["/api/growth/flow-radar", flowRadarGET],
@@ -86,7 +82,6 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/growth/source-intelligence", sourceIntelligenceGET],
     ["/api/learn/jobs/abc", (req) => learnJobGET(req, dummyIdCtx)],
     ["/api/learn/packs/abc", (req) => learnPackGET(req, dummyIdCtx)],
-    ["/api/prompt-library", promptLibraryGET],
     ["/api/repo-radar", repoRadarGET],
     ["/api/eval/runs", evalRunsGET],
     // /api/settings/operator-readiness KALDIRILDI (ADR-034 §F): tek tüketicisi
@@ -95,7 +90,6 @@ describe("operator-guarded read endpoints reject non-same-origin (DH-005)", () =
     ["/api/instagram/dna-observation", dnaObservationGET],
     ["/api/instagram/dna-observation/apply", dnaApplyPOST],
     ["/api/instagram/content/generate", igContentGeneratePOST],
-    ["/api/source-posts", sourcePostsGET],
     ["/api/reels/dossier", reelsDossierGET],
     ["/api/reels/dossier/abc", (req) => reelsDossierDetailGET(req, dummyIdCtx)],
     ["/api/reels/dossier/abc/approve", (req) => reelsDossierApprovePOST(req, dummyIdCtx)],
