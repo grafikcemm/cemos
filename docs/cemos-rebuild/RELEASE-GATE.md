@@ -1,5 +1,43 @@
 # RELEASE GATE — CemOS (2026-07-20)
 
+> **GÜNCELLEME (Operational Go-Live Preflight, 2026-07-21):** Gerçek HEAD **`0fb2baa`**
+> (5F `3760d3f` üstüne non-external closure zinciri: `ca6e697` dead-routes · `ce7550d` budget-503 ·
+> `ca0c579` accounting degraded-tail · `1c47b3b` redaction · `0fb2baa` docs; tam zincir
+> `IMPLEMENTATION-STATE.md`). Kod DEĞİŞMEDİ; working tree = `?? shots/` + bu preflight doc bloğu
+> (`M RELEASE-GATE.md`); **push/PR/deploy YOK · $0.**
+> Bu blok yalnız **read-only launch preflight** — kod baştan audit EDİLMEDİ, kod DEĞİŞMEDİ.
+>
+> **Read-only preflight — doğrulanan launch blocker'ları:**
+> - **Git:** branch `feature/cemos-rebuild` @ `0fb2baa`; upstream YOK (unpushed); remote `grafikcemm/cemos` ✓.
+> - **Migration:** `prisma migrate status` (read-only) = **14 bulundu · DB up-to-date · 0 pending** ✓.
+>   Bu, aşağıdaki §3'ün ESKİ "operator_setting pending" satırını GEÇERSİZ kılar — `operator_setting`
+>   **ve** `ai_spend_reservation` prod Neon'a zaten uygulanmış. **Deploy'da migration adımı GEREKMEZ.**
+> - **CI:** `.github/workflows/ci.yml` (lint→typecheck→test→build; secret gerekmez) +
+>   `db-integration.yml` (`postgres:16` servis → `migrate deploy` sıfırdan → 14 `*.itest.ts`; localhost-guard)
+>   İKİSİ de gerçek & doğru bağlı — sahte CI-READY iddiası DEĞİL. **CI-POSTGRES yalnız unpushed olduğu
+>   için NOT-RUN; PUSH açar** (from-zero migrate + guard fail-closed dahil).
+> - **DB guard:** `src/test/integration/guard.ts` gerçekten fail-closed (Gate-1 `DB_INTEGRATION=1`
+>   opt-in + Gate-2 ephemeral-host değilse THROW) — prod URL'e karşı kanıtlı korkuluk ✓.
+> - **Prod (MEVCUT CANLI deploy = ESKİ SHA, `0fb2baa` DEĞİL):** `/api/settings`+`/api/costs` → **403**
+>   (unauth veri kapısı ÇALIŞIYOR) ✓ · `/api/health` → 200 (kasıtlı public probe) · `/` → 200 (SPA shell).
+>   App 500 DEĞİL ⇒ çekirdek prod sırları (CREDENTIAL_ENC_KEY/oturum HMAC) prod'da MEVCUT. Deployment
+>   Protection header'ı görülmedi ⇒ muhtemelen KAPALI (operatör AÇMALI). `/`→`/giris` unauth yönlendirmesi
+>   yeni build'de `next start`+curl ile kanıtlı; **post-deploy smoke** teyit eder. (Not: mevcut prod
+>   API'de 401 yerine **403** — semantik fark, ikisi de "reddedildi"; eski deploy.)
+> - **Vercel:** linkli (`VERCEL_OIDC_TOKEN` mevcut); `vercel.json` = 4 cron ✓.
+> - **P3 residualleri** (OpenRouter unparseable-200 · SocialData estimate-only/health-probe · embedding
+>   full reserve/pre-gate · korunan `boards/[id]` + `news-pool/run` · public-URL log): launch-etkisi
+>   yeniden değerlendirildi → **hiçbiri P1/P2'ye yükselmiyor → backlog.** Kod değişmedi → regresyon gerekmez.
+>
+> **Gerçek gate (bu HEAD; önceki oturum koşuları, kod değişmediği için re-run gerekmedi):** typecheck
+> **0** · lint **0** · catalog OK (9 preset) · acceptance OK (**18 ekran / 82 mutation route tümü guard'lı /
+> 4 cron**) · ai-economics OK · unit **2273** · build **0** · e2e **159/159** (8 shard). Migration:
+> **14 additive · 0 pending.** Agent 13 · fiyatlı model 8.
+>
+> **Sınıflandırma: `CemOS launch-ready; şu tek konsolide operatör onayı bekleniyor`.** Düzeltilebilir
+> non-external P0/P1/P2 = **0**. Kalan TÜM launch blocker'ları DIŞ operatör işlemi (§11). Yetki verilene
+> kadar push/PR/deploy/canlı-çağrı YAPILMAZ. Yetki gelince aynı görevde CI → deploy → read-only smoke yürür.
+
 > Konsolide release-candidate onay isteği. **Bu program push/PR/deploy/canlı-yazma
 > YAPMADI.** Aşağıdaki hiçbir adım operatör (Ali) açık onayı olmadan yürütülmez.
 > Durum: **release candidate CODE COMPLETE** — "operational core live" ya da
