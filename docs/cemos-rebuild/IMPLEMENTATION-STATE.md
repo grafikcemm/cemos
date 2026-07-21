@@ -1,5 +1,33 @@
 # IMPLEMENTATION-STATE
 
+## FINAL PROOF (2026-07-21) — kesilen sertifikasyon tamamlandı; tam 159 E2E GERÇEKTEN koştu, non-external P0–P2 çekirdeği kapandı; launch onayı bekleniyor
+
+**Branch `feature/cemos-rebuild` @ `6efaf92`** (önceki cert `e17ebc4` üstüne **7 commit**; `0127213` üstüne kümülatif 18). Push/PR/deploy YOK. Tree temiz (`?? shots/` — dokunulmadı). Bu oturum: 4 bağımsız red-team ajanı (AI-accounting / redaction / dead-route+SSRF / silent-failure) → ana-thread kanıtlı düzeltmeler + false-positive geri çekme. Canlı ücretli AI **$0**; dış round-trip YOK; YENİ migration YOK.
+
+**TAM GATE YEŞİL (gerçek exit kodları):** typecheck **0** · lint **0** · verify:catalog **OK** (9 preset canlı) · verify:acceptance **OK** (18 ekran / **84 mutation route hepsi guard'lı** [98→84, 14 ölü route silindi] / 4 cron) · verify:ai-economics **OK** · migration scan **14 additive / 0 destructive** (yeni yok) · unit **2261** (228 dosya, +net) · build **0** (temiz `.next`, `ƒ Proxy (Middleware)` + `ƒ /giris` dynamic).
+
+**BİRİNCİ ZORUNLU SONUÇ — TAM E2E GERÇEKTEN TAMAMLANDI (önceki cert'i düzeltir):** Playwright **159 test / 20 spec**, deterministik **8 shard** (`--shard=k/8`), her biri foreground + gerçek exit: shard 1–8 = 21+20+25+15+23+21+18+16 = **159**, hepsi **EXIT 0** (`--list` toplamıyla birebir; her test tam bir kez; SKIP yok; pipe/tail/background exit-maskeleme YOK). Ayrıca `/giris` değişiminden sonra access-gate **3/3** yeniden doğrulandı. ⇒ "regresyon riski nil" iddiası artık tam-suite koşusuyla desteklenir.
+
+**İKİNCİ ZORUNLU SONUÇ — real-PG integration: CI-READY / NOT-RUN (dürüst):** yerelde PG/Docker/Testcontainers/embedded-pg **YOK** (probe: psql/pg_ctl/docker absent, 5432 dinlemede yok) → itest'ler prod Neon'a ASLA koşmaz. Offline kapatılan: `db-integration.yml` statik doğrulandı (postgres:16 service + localhost DATABASE_URL + DB_INTEGRATION=1 + `migrate deploy`→`test:db-integration`); 5 itest yapısal sağlam; **ephemeral guard artık unit-test'li** (`guard.test.ts` — remote/prod URL THROW, yalnız localhost/opt-in geçer → "prod'u asla mutate etme" sözleşmesi kanıtlı, DB'siz PASS). Gerçek-PG koşusu CI'da; burada **PASS SAYILMADI**.
+
+**Bu oturumda kapatılan (kanıtlı, non-external):**
+- **SSRF DNS-rebind (marquee)** — önceki "undici yok → yarım fix" residual'ı ÇÜRÜTÜLDÜ: rotalar Node runtime (Prisma import), `node:https` + custom `lookup` ile socket doğrulanmış IP'ye PIN'lenir (SNI/Host/cert hostname'de kalır). `assertSafePin` + `makePinnedFetch` (Happy-Eyeballs `all:true` aware, body-capped); `verifyWebsite` + `toolbox/refresh` her hop pin'ler (redirect re-validate+re-pin). `pinnedFetch.test` REBIND'i kanıtlar (gerçek DNS'de çözülmeyen hostname yalnız pin ile bağlanır). Enjekte `fetchImpl` (testler) verbatim.
+- **Dürüst degraded news** — `buildDailyDigest` başarısız üretimde BOŞ digest upsert ediyordu (health `Boolean(row)`→yeşil); artık başarısızsa persist YOK + health content-aware + `newsStagesDegraded` cron'u PARTIAL yapar + `syncRepoRadar` başarısız enrichment'ı "active" yazmaz.
+- **Redaction** — `redactSecrets` artık Google `AIza…` (Gemini/YouTube) + URL cred query-param (`?key=`/`access_token=`/`fb_exchange_token=`) maskeler; DB-persist ham hata sink'leri sarıldı (`NewsItem.errorMessage`, `CronRun.resultJson` [miningError/stage summaries], `LearnProcessingJob.lastError`, `YtChannel.lastError`, gemini key-in-URL log).
+- **`/giris` hydration mismatch** — client `typeof window` dallanması her yanlış-parolada React hydration hatası veriyordu → Server Component (searchParams sunucuda; JS'siz; access-gate 3/3, mismatch gitti).
+- **Sahte-başarı kuyruğu**: `imageService.callFal` sessiz yutma → redacted log; `send-to-queue` GERÇEK içeriği `usedMock:true` etiketliyordu → `false`.
+- **14 kanıtlı-ölü route + 6 coupled test SİLİNDİ** (queue/[id]/{approve,reject,mark-published,schedule,regenerate} · vector-memory/* · growth/feedback · content/search · voice-profiles · published-posts · youtube/discover; her biri UI/server/cron/MCP tüketici-yok kanıtıyla).
+
+**Residual (dürüst, non-external, çekirdeği bloke ETMEZ):**
+- Ücretli-sağlayıcı **degraded-tail muhasebesi** (Agent-A GAP-2/3, FP 0.15–0.35): Gemini/Supadata transkript + OpenRouter embeddings HTTP-ok'ta faturalanıp downstream-fail'de (≥200-char / malformed-200) ledger'a yazılmayabilir. Spine bypass-siz + `/api/costs` reconcile eder; bu yalnız degraded kuyruk. Fatura kesinliği belirsiz → mis-accounting riskiyle DEĞİŞTİRİLMEDİ.
+- **Console-only redaction** (~13 site: cron/generate-morning, engagementLearning, ytOwnPerformance, aiSpendReservation, supadata) — Vercel log, çoğu Prisma/network (Bearer header, URL değil); düşük gerçek-secret.
+- **Group-C ölü route** (competitors/prompt-library/source-posts + adjust-score/increment-usage) — KANITLA ölü ama `route-guards.test.ts` / paylaşılan `pattern-library` test cerrahisi gerektirir → ayrı sweep. `boards/[id]` + `news-pool/run` = belirsiz, KORUNDU.
+- `BudgetSystemUnavailableError` route'larda honest-500 (503-kod değil; harcama YOK; kozmetik).
+
+**Yalnız operatör (external, YETKİLENDİRİLMEDİ):** Neon parola rotasyonu · Vercel prod env (3 sır, yoksa instrumentation 500) + Deployment Protection · OpenRouter kredi (tek canlı golden) · Composio/Meta binding · Obsidian target · bounded live benchmark (USD tavanı) · push/PR/deploy. **NOT operational-core-live / NOT production-launched.**
+
+---
+
 ## PRE-LAUNCH ADVERSARIAL CERTIFICATION (2026-07-20) — non-external P0–P1 = 0, düzeltilebilir P2 kapandı; launch onayı bekleniyor
 
 **Branch `feature/cemos-rebuild`** (Owner/Perfection Pass `0127213` üstüne **10 commit**, HEAD bu doc commit'i). Push/PR/deploy YOK. Tree temiz (`?? shots/`). Yeni 8-subagent adversarial dalga (DB-concurrency / AI-accounting / security-SSRF / dead-route / product-false-success / cron-provider / test-realism / dormant-IG) → ana-thread kanıtlı düzeltmeler + false-positive geri çekme. Canlı ücretli AI **$0**; dış round-trip YOK.
