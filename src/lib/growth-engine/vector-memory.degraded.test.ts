@@ -10,6 +10,12 @@ const recordOpenRouter = vi.fn(async (_o?: unknown) => {});
 vi.mock("@/lib/services/usageService", () => ({
   usageService: { recordOpenRouter: (o: unknown) => recordOpenRouter(o) },
 }));
+// AI cost audit: createEmbedding artık ücretli fetch'ten ÖNCE fail-closed bütçe kapısı
+// koşar → testler paid yolu doğrulamak için bütçeyi "allowed" mock'lar.
+const getBudgetStatus = vi.fn(async (_o?: unknown) => ({ allowed: true }));
+vi.mock("@/lib/config/costGate", () => ({
+  getBudgetStatus: (o: unknown) => getBudgetStatus(o),
+}));
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     trainingExample: { findMany: vi.fn(), update: vi.fn() },
@@ -30,7 +36,19 @@ describe("createEmbedding — F4 degraded-tail accounting", () => {
 
   beforeEach(() => {
     recordOpenRouter.mockClear();
+    getBudgetStatus.mockClear();
+    getBudgetStatus.mockResolvedValue({ allowed: true }); // varsayılan: bütçe açık
     process.env.OPENROUTER_API_KEY = "test-key";
+  });
+
+  it("bütçe TÜKENDİ (allowed=false) → ücretli fetch YOK, ledger YOK, yerel fallback döner", async () => {
+    getBudgetStatus.mockResolvedValue({ allowed: false });
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const v = await createEmbedding("bütçe tükendi metni");
+    expect(fetchSpy).not.toHaveBeenCalled(); // paid endpoint'e HİÇ gidilmez
+    expect(recordOpenRouter).not.toHaveBeenCalled(); // harcama YOK → ledger YOK
+    expect(v.provider).toBe("local_fallback"); // deterministik yerel fallback
   });
   afterEach(() => {
     if (origKey === undefined) delete process.env.OPENROUTER_API_KEY;
