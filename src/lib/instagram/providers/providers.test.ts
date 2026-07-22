@@ -30,6 +30,9 @@ function fakeMcpClient(responses: Record<string, unknown>): ComposioMcpClient {
         if (r instanceof Error) throw r;
         return r;
       }
+      if (slug === "INSTAGRAM_GET_USER_INFO") {
+        return { id: "1784100000000000", username: "grafikcem" };
+      }
       throw new Error(`unexpected tool ${slug}`);
     }),
     listTools: vi.fn(async () => []),
@@ -73,16 +76,32 @@ describe("ComposioInstagramReadProvider — normalize + explicit account", () =>
     const media = await provider.listOwnMedia({ limit: 10 });
     expect(media).toHaveLength(1);
     expect(media[0]).toMatchObject({ mediaId: "m1", mediaProductType: "REELS", likeCount: 5 });
-    const call = vi.mocked(client.callTool).mock.calls[0];
-    expect((call[1] as Record<string, unknown>).connected_account_id).toBe("ca_test123");
+    const call = vi.mocked(client.callTool).mock.calls.find(([slug]) => slug === "INSTAGRAM_GET_IG_USER_MEDIA");
+    expect(call).toBeDefined();
+    expect((call?.[1] as Record<string, unknown>).connected_account_id).toBe("ca_test123");
+    expect((call?.[1] as Record<string, unknown>).ig_user_id).toBe("1784100000000000");
   });
 
   it("media limit üst sınırı aşılamaz (bounded fetch)", async () => {
     const client = fakeMcpClient({ INSTAGRAM_GET_IG_USER_MEDIA: { data: [] } });
     const provider = createComposioInstagramReadProvider({ client });
     await provider.listOwnMedia({ limit: 500 });
-    const args = vi.mocked(client.callTool).mock.calls[0][1] as Record<string, unknown>;
+    const mediaCall = vi.mocked(client.callTool).mock.calls.find(([slug]) => slug === "INSTAGRAM_GET_IG_USER_MEDIA");
+    const args = mediaCall?.[1] as Record<string, unknown>;
     expect(args.limit).toBeLessThanOrEqual(25);
+  });
+
+  it("hesap insight çağrısına profil id'sini ig_user_id olarak taşır", async () => {
+    const client = fakeMcpClient({
+      INSTAGRAM_GET_USER_INSIGHTS: {
+        data: [{ name: "reach", total_value: { value: 42 } }],
+      },
+    });
+    const provider = createComposioInstagramReadProvider({ client });
+    const insights = await provider.getAccountInsights();
+    expect(insights?.reach).toBe(42);
+    const insightCall = vi.mocked(client.callTool).mock.calls.find(([slug]) => slug === "INSTAGRAM_GET_USER_INSIGHTS");
+    expect((insightCall?.[1] as Record<string, unknown>).ig_user_id).toBe("1784100000000000");
   });
 
   it("insight yanıtı Graph şekli (values/total_value) toleranslı parse edilir", async () => {

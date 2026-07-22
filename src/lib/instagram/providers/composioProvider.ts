@@ -101,6 +101,7 @@ export function createComposioInstagramReadProvider(opts?: {
 }): InstagramReadProvider {
   const cfg = getComposioConfig();
   const client = opts?.client ?? new ComposioMcpClient();
+  let cachedIgUserId = "";
 
   function baseArgs(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return { connected_account_id: cfg.connectedAccountId, ...extra };
@@ -134,13 +135,15 @@ export function createComposioInstagramReadProvider(opts?: {
       try {
         const raw = unwrap(await client.callTool("INSTAGRAM_GET_USER_INFO", baseArgs()));
         const o = (raw ?? {}) as Record<string, unknown>;
-        return IgProfileSchema.parse({
+        const profile = IgProfileSchema.parse({
           igUserId: String(o.id ?? o.ig_id ?? o.user_id ?? ""),
           username: String(o.username ?? ""),
           name: String(o.name ?? o.username ?? ""),
           followersCount: typeof o.followers_count === "number" ? o.followers_count : 0,
           mediaCount: typeof o.media_count === "number" ? o.media_count : 0,
         });
+        cachedIgUserId = profile.igUserId;
+        return profile;
       } catch (e) {
         throw wrapError(e);
       }
@@ -149,9 +152,15 @@ export function createComposioInstagramReadProvider(opts?: {
     async listOwnMedia(opts2) {
       const limit = Math.min(Math.max(opts2?.limit ?? MEDIA_FETCH_MAX, 1), MEDIA_FETCH_MAX);
       try {
+        // Current Composio Instagram contract requires the Graph IG user id;
+        // the connected-account id selects the OAuth connection but is not the
+        // Instagram user id. Resolve it from the bound profile and cache only
+        // for this short-lived provider instance.
+        const igUserId = cachedIgUserId || (await this.getOwnProfile()).igUserId;
         const raw = await client.callTool(
           "INSTAGRAM_GET_IG_USER_MEDIA",
           baseArgs({
+            ig_user_id: igUserId,
             limit,
             fields: "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count",
           })
@@ -204,9 +213,11 @@ export function createComposioInstagramReadProvider(opts?: {
 
     async getAccountInsights() {
       try {
+        const igUserId = cachedIgUserId || (await this.getOwnProfile()).igUserId;
         const raw = await client.callTool(
           "INSTAGRAM_GET_USER_INSIGHTS",
           baseArgs({
+            ig_user_id: igUserId,
             metric: "reach,views,accounts_engaged,total_interactions,likes,comments,saves,shares",
             period: "day",
             metric_type: "total_value",
