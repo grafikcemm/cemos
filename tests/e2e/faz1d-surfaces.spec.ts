@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -24,6 +24,54 @@ const SETTLE_TIMEOUT = 30_000;
 async function waitSettled(page: import("@playwright/test").Page) {
   await expect(page.locator("[data-skeleton]")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
 }
+
+// Profil yüzeyleri GERÇEK veri gösterir (placeholder değil). Hermetik ortamda bu iki
+// uç mock'lanır: /api/integrations prisma (account/binding) SORGULAR → dummy DB'de
+// gerçek yanıt gelmez; /api/memory/knowledge DB-bağlı. fixtures catch-all'ını ezer
+// (beforeEach fixture page-setup'ından SONRA kaydolur). Sağlayıcı satırları yalnız
+// env ADI + `note` gösterir; hiçbir secret VALUE yok (X API `note`'ta "ödeme onayı",
+// tier2 `note`'ta "Vercel Workflows").
+test.beforeEach(async ({ page }) => {
+  await page.route(
+    (url) => url.pathname === "/api/integrations",
+    (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          providers: [
+            { key: "openrouter", name: "OpenRouter", group: "core", status: "connected", envNames: ["OPENROUTER_API_KEY"], note: "" },
+            { key: "socialdata", name: "SocialData", group: "core", status: "connected", envNames: ["SOCIALDATA_API_KEY"], note: "" },
+            { key: "composio", name: "Composio · Instagram (read-only)", group: "social", status: "connected", envNames: ["COMPOSIO_CONSUMER_API_KEY"], note: "" },
+            { key: "meta", name: "Meta / Instagram (direct)", group: "social", status: "missing", envNames: ["META_ACCESS_TOKEN"], note: "" },
+            { key: "xapi", name: "X API", group: "social", status: "blocked", envNames: [], note: "CemOS içinden doğrudan yayın için ödeme onayı gerekiyor. Şu an intent-only (X'te aç)." },
+            { key: "tier2_worker", name: "Tier-2 render worker", group: "optional", status: "blocked", envNames: [], note: "Otomatik reels/carousel medya-render aşaması henüz uygulanmadı. Vercel Workflows veya ayrı bir worker teknik olarak kullanılabilir; önce çıktı formatı ve maliyet kapısı kararı gerekir." },
+          ],
+          composio: { configured: false, missingEnvNames: ["COMPOSIO_CONSUMER_API_KEY"], provider: "auto", accountHandle: "", toolkitVersion: "", readOnly: true, binding: null },
+        },
+      }),
+  );
+  await page.route(
+    (url) => url.pathname === "/api/memory/knowledge",
+    (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          knowledge: {
+            accountHandle: "grafikcem",
+            summary: "@grafikcem için 0 aktif yazım kuralı kullanıyorum.",
+            activeFacts: [],
+            proposals: [],
+            performanceLessons: [],
+            candidatePatterns: [],
+            trainingCorpus: [],
+            recentSignals: { counts: {}, neutralizedCount: 0, latest: [] },
+            policy: { promotionMinEvidence: 3, note: "insan onayı" },
+            sectionErrors: {},
+          },
+        },
+      }),
+  );
+});
 
 test.describe("Plan yüzeyleri gerçek", () => {
   test("Takvim: ay ızgarası + kanal filtresi + reels planı eylemi", async ({ page }) => {

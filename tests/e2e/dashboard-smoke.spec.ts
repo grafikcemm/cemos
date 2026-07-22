@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { selectTab, selectUtility } from "./helpers/nav";
 
 // Data-independent smoke tests (TRAN-CODE-1.5): assert UI shells, navigation

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 // Shell etkileşim smoke'ları (rebuild 3-görevli IA): sidebar 3 alan + Toolbox +
 // Profil, Plan/Kütüphane subnav, Profil menü, Cmd-K, mobil 3+1 sheet, sistem

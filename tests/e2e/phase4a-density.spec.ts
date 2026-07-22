@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 
 /**
  * Phase 4A (ADR-040) — kabiliyet dağıtımı + bilgi yoğunluğu e2e'si. HERMETİK:
@@ -188,6 +188,6 @@ test.describe("Phase 4A — sidebar dağıtımı + yoğunluk", () => {
       );
       expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
     }
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 });

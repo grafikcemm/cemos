@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -152,7 +152,7 @@ test.describe("Phase 3E — plan builder + sağlık + slot ops", () => {
     await expect(strip).toBeVisible();
     await expect(strip).toContainText("Plan sağlığı");
     await expect(strip).toContainText("yayına hazır");
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("builder: önizle → uygula (fingerprint+expectedUpdatedAt) → AYRI aktive", async ({ page }) => {
@@ -231,6 +231,6 @@ test.describe("Phase 3E — plan builder + sağlık + slot ops", () => {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, `width ${width}`).toBeLessThanOrEqual(0);
     }
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 });

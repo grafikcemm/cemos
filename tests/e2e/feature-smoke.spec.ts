@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { selectTab, selectUtility } from "./helpers/nav";
 
 // Hermetic smoke tests for the revision-tour features (low_score archive,

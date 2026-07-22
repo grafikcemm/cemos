@@ -6,7 +6,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: [],
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
+    // tests/e2e/**/*.test.ts: E2E harness guard'ları (e2eEnv) unit suite'te koşar;
+    // playwright .spec.ts dosyaları (.test.ts DEĞİL) bilinçle dışarıda kalır.
+    include: ["src/**/*.test.ts", "src/**/*.spec.ts", "tests/e2e/**/*.test.ts"],
     // JUnit artifact enables run-over-run trend/flakiness analysis (TRAN-ITEM-1.11).
     reporters: ["default", ["junit", { outputFile: "reports/vitest-junit.xml" }]],
     coverage: {
