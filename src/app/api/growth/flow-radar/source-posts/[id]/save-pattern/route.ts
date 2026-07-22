@@ -66,15 +66,17 @@ export async function POST(
 
       // processFeedback extraction hatasını warnings'e yutar ve success:true döner;
       // desen gerçekten yazılmadıysa (viralPatternId yok) bu bir başarı DEĞİL —
-      // claim'i geri al ki gönderi "used"da kilitli kalmasın, operatör tekrar
-      // deneyebilsin. Warning metni ham sağlayıcı hatası taşıyabilir → istemciye
-      // geçirilmez, sabit mesaj döner.
+      // claim'i geri al ki gönderi "used"da kilitli kalmasın. Warning metni ham
+      // sağlayıcı hatası taşıyabilir → istemciye geçirilmez, sabit mesaj döner.
+      // NOT: feedback-service'in deterministik idempotency kapısı (FeedbackEvent
+      // extraction'dan önce yazılır) aynı içerik için retry'da extraction'ı yeniden
+      // KOŞMAZ — mesaj bu yüzden retriability vaat etmez; resume semantiği PR-B işi.
       if (!result.viralPatternId) {
         await prisma.sourcePost
           .updateMany({ where: { id, status: "used" }, data: { status: priorStatus } })
           .catch(() => {});
         return fail(
-          "Desen çıkarımı başarısız oldu; gönderi tekrar denenebilir durumda bırakıldı.",
+          "Desen çıkarımı başarısız oldu; gönderi kaydedilmedi.",
           502,
           { code: "pattern_extraction_failed" },
         );
