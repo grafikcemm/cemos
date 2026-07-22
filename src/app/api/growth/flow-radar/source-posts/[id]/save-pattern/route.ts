@@ -64,6 +64,22 @@ export async function POST(
         saveAsPattern: true,
       });
 
+      // processFeedback extraction hatasını warnings'e yutar ve success:true döner;
+      // desen gerçekten yazılmadıysa (viralPatternId yok) bu bir başarı DEĞİL —
+      // claim'i geri al ki gönderi "used"da kilitli kalmasın, operatör tekrar
+      // deneyebilsin. Warning metni ham sağlayıcı hatası taşıyabilir → istemciye
+      // geçirilmez, sabit mesaj döner.
+      if (!result.viralPatternId) {
+        await prisma.sourcePost
+          .updateMany({ where: { id, status: "used" }, data: { status: priorStatus } })
+          .catch(() => {});
+        return fail(
+          "Desen çıkarımı başarısız oldu; gönderi tekrar denenebilir durumda bırakıldı.",
+          502,
+          { code: "pattern_extraction_failed" },
+        );
+      }
+
       return ok({
         feedbackResult: result,
         message: "Pattern başarıyla kaydedildi ve gönderi used olarak işaretlendi.",

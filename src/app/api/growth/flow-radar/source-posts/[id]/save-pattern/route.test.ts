@@ -71,3 +71,52 @@ describe("POST save-pattern — Phase 5A idempotency guard", () => {
     expect(processFeedback).not.toHaveBeenCalled();
   });
 });
+
+describe("POST save-pattern — claim revert (post kaybolmaz)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isOperatorOrCronAuthorized).mockReturnValue(true);
+    vi.mocked(prisma.sourcePost.findUnique).mockResolvedValue({
+      id: "p1", accountId: "acc-1", text: "hook", status: "new", account: { handle: "grafikcem" },
+    } as any);
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any);
+  });
+
+  it("processFeedback FIRLATIRSA → claim priorStatus'a geri alınır, hata döner", async () => {
+    vi.mocked(processFeedback).mockRejectedValue(new Error("provider down"));
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(500);
+    expect((await res.json()).success).toBe(false);
+    // 1. çağrı claim, 2. çağrı revert: used → priorStatus ("new")
+    expect(prisma.sourcePost.updateMany).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "p1", status: "used" }, data: { status: "new" } }),
+    );
+  });
+
+  it("processFeedback yutarak başarısız olursa (viralPatternId undefined) → sahte 200 YOK, claim geri alınır", async () => {
+    // feedback-service extraction hatasını warnings'e yutar ve success:true döner —
+    // route'un buna kanmaması gerekir (CODE-M1).
+    vi.mocked(processFeedback).mockResolvedValue({
+      success: true,
+      viralPatternId: undefined,
+      warnings: ["Pattern extraction failed: budget blocked"],
+    } as any);
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(502);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.code).toBe("pattern_extraction_failed");
+    // Ham warning metni (provider hatası taşıyabilir) istemciye sızmaz.
+    expect(JSON.stringify(json)).not.toContain("budget blocked");
+    expect(prisma.sourcePost.updateMany).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "p1", status: "used" }, data: { status: "new" } }),
+    );
+  });
+
+  it("başarılı extraction (viralPatternId dolu) → revert YOK, tek updateMany (claim)", async () => {
+    vi.mocked(processFeedback).mockResolvedValue({ success: true, viralPatternId: "vp-9" } as any);
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(200);
+    expect(prisma.sourcePost.updateMany).toHaveBeenCalledTimes(1);
+  });
+});

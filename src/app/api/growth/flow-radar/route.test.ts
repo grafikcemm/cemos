@@ -407,7 +407,12 @@ describe("Flow Radar API Suite", () => {
     } as any);
 
     vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any); // M9: claim kazanır
-    vi.mocked(processFeedback).mockResolvedValue({ success: true, feedbackEventId: "fb-event-1" });
+    // viralPatternId zorunlu: route artık desen gerçekten yazılmadan 200 dönmez (CODE-M1).
+    vi.mocked(processFeedback).mockResolvedValue({
+      success: true,
+      feedbackEventId: "fb-event-1",
+      viralPatternId: "vp-1",
+    });
 
     const req = createPostRequest();
     const res = await POSTSavePattern(req, { params: Promise.resolve({ id: "post-1" }) });
