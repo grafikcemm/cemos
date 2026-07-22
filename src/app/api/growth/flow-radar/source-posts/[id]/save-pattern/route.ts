@@ -26,8 +26,7 @@ export async function POST(
     }
 
     // Phase 5A (ADR-044) idempotency: gönderi zaten "used" ise desen çıkarımı TEKRAR
-    // KOŞMAZ — ikinci ücretli extractPattern + duplicate ViralPattern üretilmez. İlk
-    // kayıt SourcePost.status="used" yazar; tekrar-tık dürüstçe no-op döner.
+    // KOŞMAZ — ikinci ücretli extractPattern + duplicate ViralPattern üretilmez.
     if (post.status === "used") {
       return ok({
         alreadySaved: true,
@@ -35,28 +34,48 @@ export async function POST(
       });
     }
 
-    // 2. Trigger Feedback API process to extract & save pattern + training example
-    const result = await processFeedback({
-      accountHandle: post.account.handle as any,
-      accountId: post.accountId,
-      feedbackType: "saved_as_pattern",
-      originalContent: post.text,
-      sourcePostId: post.id,
-      sourceContent: post.text,
-      saveTrainingExample: true,
-      saveAsPattern: true,
-    });
-
-    // 3. Mark the source post as "used" or keep it. Let's mark it as used so it disappears from new candidates!
-    await prisma.sourcePost.update({
-      where: { id },
+    // ATOMİK claim ücretli çağrıdan ÖNCE: iki hızlı tık / eşzamanlı sekme yarışında
+    // yalnız BİRİ used'a çevirebilir → ücretli extractPattern + duplicate
+    // ViralPattern/TrainingExample TAM BİR KEZ koşar. Eski check-then-act (önce oku
+    // → ücretli işle → sonra used yaz) her iki isteği de kapıdan geçirip çift
+    // OpenRouter harcaması yaptırıyordu.
+    const priorStatus = post.status;
+    const claim = await prisma.sourcePost.updateMany({
+      where: { id, status: { not: "used" } },
       data: { status: "used" },
     });
+    if (claim.count === 0) {
+      return ok({
+        alreadySaved: true,
+        message: "Bu gönderi zaten desen olarak kaydedildi.",
+      });
+    }
 
-    return ok({
-      feedbackResult: result,
-      message: "Pattern başarıyla kaydedildi ve gönderi used olarak işaretlendi.",
-    });
+    try {
+      // 2. Trigger Feedback API process to extract & save pattern + training example
+      const result = await processFeedback({
+        accountHandle: post.account.handle as any,
+        accountId: post.accountId,
+        feedbackType: "saved_as_pattern",
+        originalContent: post.text,
+        sourcePostId: post.id,
+        sourceContent: post.text,
+        saveTrainingExample: true,
+        saveAsPattern: true,
+      });
+
+      return ok({
+        feedbackResult: result,
+        message: "Pattern başarıyla kaydedildi ve gönderi used olarak işaretlendi.",
+      });
+    } catch (inner) {
+      // Ücretli işlem başarısız → claim'i GERİ AL (post kaybolmasın; operatör tekrar
+      // deneyebilsin), sonra normal hata yoluna (budget/redakte) devret.
+      await prisma.sourcePost
+        .updateMany({ where: { id, status: "used" }, data: { status: priorStatus } })
+        .catch(() => {});
+      throw inner;
+    }
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
