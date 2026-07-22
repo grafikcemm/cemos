@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -237,7 +237,7 @@ test.describe("Phase 3C — Kütüphane→İlham", () => {
     // AI kapısı kapalı: yalnız ENV ADLARI.
     await expect(page.getByTestId("ilham-ai-blocked")).toBeVisible();
     await expect(page.getByTestId("ilham-ai-blocked")).toContainText("INSTAGRAM_GENERATION_ENABLED");
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("analiz bekleyen kayıtta ücretsiz deterministik analiz tetiklenir", async ({ page }) => {

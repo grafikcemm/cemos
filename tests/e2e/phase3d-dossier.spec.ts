@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -212,7 +212,7 @@ test.describe("Phase 3D — kanıt kartı + yeniden doğrulama", () => {
     const signals = page.getByTestId("evidence-signals");
     await expect(signals).toContainText("bilinmiyor");
     await expect(signals).toContainText("HTTP 2xx erişim kanıtı DEĞİLDİR");
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("'Yeniden doğrula' force-refresh POST atar; başarıda panel tazelenir", async ({ page }) => {
@@ -457,7 +457,7 @@ test.describe("Phase 3D — Takvim mevcut-dossier bağlama + detach", () => {
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("reel-ai-mockup-araci-d1abcd.zip");
     expect(packRequested).toBe(true);
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("Production Pack: onaylı DEĞİLKEN indir butonu GÖRÜNMEZ (yalnız onaylı içerik)", async ({ page }) => {
@@ -489,6 +489,6 @@ test.describe("Phase 3D — genişlik taraması", () => {
       );
       expect(overflow, `takvim width=${width}`).toBe(0);
     }
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 });

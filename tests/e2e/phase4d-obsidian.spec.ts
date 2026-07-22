@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -109,7 +109,7 @@ test.describe("Phase 4D — export panel + channels", () => {
     await expect(page.getByTestId("export-run-github_vault")).toHaveCount(0);
     // ZIP sync değil uyarısı
     await expect(page.getByTestId("export-channel-zip")).toContainText(/sync.*DEĞİL|DEĞİL/);
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("yerel export: succeeded → 'başarılı' + yazılan sayısı", async ({ page }) => {
@@ -181,7 +181,7 @@ test.describe("Phase 4D — legacy emeklilik", () => {
     // Shell çökmez; "ViralLibraryTab" gibi ayrı UI değil, Kütüphane host görünür.
     await expect(page.locator("body")).toBeVisible();
     await expect(page.getByText("Viral Kütüphane").first()).toHaveCount(0); // eski ekran başlığı YOK
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("eski deep-link 'pattern-library' çözülür (silinen ekran ayrı erişilemez)", async ({ page }) => {

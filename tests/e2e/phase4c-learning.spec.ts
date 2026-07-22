@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -98,7 +98,7 @@ test.describe("Phase 4C — Learn intake + source modes", () => {
     await expect(page.getByText(/doğrulanmış transkripti sayılmaz/)).toBeVisible();
     await expect(page.getByTestId("notebooklm-text")).toBeVisible();
 
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("kanonik durumlar ayrı: budget_blocked + needs_review + ready rozetleri", async ({ page }) => {
@@ -147,7 +147,7 @@ test.describe("Phase 4C — Ready Pack", () => {
     await page.getByTestId("subnav-tab-kaynak").click();
     await expect(page.getByText("0:30")).toBeVisible();
 
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("ADR-045: içerik fikri → 'Taslağa dönüştür' server-otoriteli POST + Bugün'e deep-link", async ({ page }) => {

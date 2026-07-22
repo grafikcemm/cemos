@@ -410,7 +410,7 @@ export default function CostsTab() {
           <QuietStat
             label="Medyan edit-distance (kuzey yıldızı)"
             value={
-              kpis?.medianEditDistance !== null && kpis !== null
+              typeof kpis?.medianEditDistance === "number"
                 ? kpis.medianEditDistance.toFixed(2)
                 : "veri yok"
             }

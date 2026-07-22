@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -149,7 +149,7 @@ test.describe("Phase 4B — Unified Library save-to-board", () => {
 
     expect(saveCalls).toBe(2);
     expect(savedBodies[0]).toMatchObject({ source: { kind: "contentItem", contentItemId: "ci-1" } });
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("Tümü: arama payload'ındaki üyelik satırda 'Kayıtlı' rozeti gösterir", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -276,7 +276,7 @@ test.describe("Phase 3B — Seriler carousel stüdyosu", () => {
         expectedUpdatedAt: "2026-07-18T09:00:00.000Z",
         carousel: { cover: "Düzenlenmiş kapak" },
       });
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("needs_edit durumunda Onayla kapalı; ready + onay → insan onaylı", async ({ page }) => {

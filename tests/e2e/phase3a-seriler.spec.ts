@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, appConsoleErrors, type Page } from "./fixtures";
 import { selectTab } from "./helpers/nav";
 
 /**
@@ -193,7 +193,7 @@ test.describe("Phase 3A — Seriler'de gözlenen Instagram DNA'sı", () => {
     await expect(page.getByText("Onaylı hesap DNA'sı: v2", { exact: false })).toBeVisible();
     // Gözlem kural değil ibaresi.
     await expect(page.getByText("onaylanmadan üretim kuralı OLMAZ", { exact: false })).toBeVisible();
-    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+    expect(appConsoleErrors(errors)).toEqual([]);
   });
 
   test("yetersiz örneklem: apply kapalı", async ({ page }) => {

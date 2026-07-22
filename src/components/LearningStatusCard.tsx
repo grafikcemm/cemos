@@ -106,7 +106,7 @@ export default function LearningStatusCard() {
         </div>
       </div>
 
-      {status && status.topPatterns.length > 0 && (
+      {status && (status.topPatterns?.length ?? 0) > 0 && (
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border-faint)", paddingTop: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
             En güçlü pattern'ler (gerçek performansla güncellenir)

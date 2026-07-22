@@ -212,7 +212,7 @@ function InfraRow({ item }: { item: InfraItem }) {
 }
 
 export default function SystemTab() {
-  const { contracts, todayCost, refresh, result } = useSystemHealth();
+  const { contracts, todayCost, costStale, refresh, result } = useSystemHealth();
   const [kpis, setKpis] = useState<KpisResponse | null>(null);
   const [evalRuns, setEvalRuns] = useState<EvalRunsResponse | null>(null);
 
@@ -510,7 +510,7 @@ export default function SystemTab() {
         <Section title="Maliyet & kalite" status="ok" link={{ label: "Maliyetler", tab: "costs" }}>
           <MetricStrip
             items={[
-              { label: "bugün maliyet", value: todayCost != null ? `$${todayCost.toFixed(2)}` : "—" },
+              { label: "bugün maliyet", value: todayCost != null ? `$${todayCost.toFixed(2)}${costStale ? " · eski" : ""}` : "—" },
               { label: "golden pass", value: kpis?.goldenPassPct != null ? `%${kpis.goldenPassPct}` : "—" },
               {
                 label: "kabul oranı 30g",
