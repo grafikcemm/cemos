@@ -7,6 +7,7 @@ import {
   deriveTopbar,
   deriveOperatorActionReadiness,
   PIPELINE_FRESH_HOURS,
+  NEWS_FAILED_BACKLOG_WARN,
   type InfrastructureInput,
   type PipelineInput,
   type TodayCounts,
@@ -149,6 +150,26 @@ describe("pipelineFreshness sözleşmesi", () => {
       pipeInput({ news: { rawBacklog: 40, failedBacklog: 0, analyzedLast24h: 0, digestToday: false } }),
     );
     expect(c.items.find((i) => i.key === "news")?.state).toBe("failing");
+  });
+
+  // Regresyon: `failedBacklog` artık SON 24s hatası (healthService recency-scoped).
+  // Eşiği AŞMAYAN güncel hata (normal ölü-URL/paywall) akımı "gecikmiş" YAPMAMALI —
+  // aksi hâlde biriken eski kalıcı-hata cruft'u sağlıklı pipeline'ı sonsuza dek
+  // yanlış-kırmızı gösterir (canlı prod'da 332 eski failed → sürekli "gecikmiş" bug'ı).
+  it("eşik-altı güncel hata → haber akışı fresh kalır (eski cruft gecikmiş yapmaz)", () => {
+    const c = derivePipelineFreshness(
+      pipeInput({ news: { rawBacklog: 0, failedBacklog: NEWS_FAILED_BACKLOG_WARN, analyzedLast24h: 50, digestToday: true } }),
+    );
+    expect(c.items.find((i) => i.key === "news")?.state).toBe("fresh");
+  });
+
+  it("eşik-üstü GÜNCEL hata patlaması → haber akışı delayed (gerçek sorun hâlâ yakalanır)", () => {
+    const c = derivePipelineFreshness(
+      pipeInput({ news: { rawBacklog: 0, failedBacklog: NEWS_FAILED_BACKLOG_WARN + 5, analyzedLast24h: 50, digestToday: true } }),
+    );
+    const news = c.items.find((i) => i.key === "news");
+    expect(news?.state).toBe("delayed");
+    expect(news?.detail).toContain("işlenemedi");
   });
 });
 

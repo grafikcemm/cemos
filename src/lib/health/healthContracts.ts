@@ -20,6 +20,13 @@ export type SectionStatus = "ok" | "warn" | "error" | "unknown";
 
 // ── İsimlendirilmiş eşikler (magic number dağıtma) ────────────────────────────
 export const NEWS_RAW_BACKLOG_WARN = 30;
+/**
+ * RECENT (24h) haber işleme hatası eşiği. `failedBacklog` artık tüm-zaman değil son
+ * 24s'lik hatadır (healthService); kalıcı-hatalı eski kayıtlar (ölü URL/paywall) BİRİKİR
+ * ve akımı sonsuza dek "gecikmiş" göstermemelidir — yalnız GÜNCEL bir hata patlaması
+ * (eşiği aşan) gerçek sorundur. Normal günlük hata ~2-6/24s.
+ */
+export const NEWS_FAILED_BACKLOG_WARN = 20;
 /** Günlük cron ölçeği: son başarılı çalışma bundan eskiyse akış "gecikmiş". */
 export const PIPELINE_FRESH_HOURS = 26;
 
@@ -214,9 +221,11 @@ export function derivePipelineFreshness(input: PipelineInput): PipelineFreshness
       } else if ((rawBacklog ?? 0) > NEWS_RAW_BACKLOG_WARN && newsItem.state === "fresh") {
         newsItem.state = "delayed";
         newsItem.detail = `${rawBacklog} ham haber birikti (eşik ${NEWS_RAW_BACKLOG_WARN}).`;
-      } else if ((failedBacklog ?? 0) > 0 && newsItem.state === "fresh") {
+      } else if ((failedBacklog ?? 0) > NEWS_FAILED_BACKLOG_WARN && newsItem.state === "fresh") {
+        // failedBacklog = son 24s hata (healthService); eski kalıcı-hata cruft'u SAYILMAZ.
+        // Yalnız güncel bir hata patlaması (eşiği aşan) akımı "gecikmiş" yapar.
         newsItem.state = "delayed";
-        newsItem.detail = `${failedBacklog} haber hatalı durumda bekliyor.`;
+        newsItem.detail = `Son 24 saatte ${failedBacklog} haber işlenemedi (eşik ${NEWS_FAILED_BACKLOG_WARN}).`;
       }
     }
   }

@@ -12,6 +12,10 @@ export type NewsPipelineHealth = {
   rawBacklog: number;
   translatedLast24h: number;
   analyzedLast24h: number;
+  /** RECENT (last 24h) processing failures — NOT all-time. Permanently-failed
+   *  cruft (dead URLs / paywalls / non-articles) accumulates forever and is NOT a
+   *  current-pipeline problem; only a recent burst of failures is. Counting it
+   *  all-time falsely pinned the pipeline to "delayed" indefinitely. */
   failedBacklog: number;
   digestToday: boolean;
   status: "green" | "yellow" | "red";
@@ -38,7 +42,10 @@ async function getNewsPipelineHealth(): Promise<NewsPipelineHealth> {
       prisma.newsItem.count({
         where: { analysisStatus: "success", lastAttemptedAt: { gte: dayAgo } },
       }),
-      prisma.newsItem.count({ where: { processingStatus: "failed" } }),
+      // RECENT failures only (last 24h). Old permanently-failed items (dead URLs,
+      // paywalls) never clear and must NOT flag the pipeline "delayed" forever;
+      // only a fresh burst of failures indicates a real current problem.
+      prisma.newsItem.count({ where: { processingStatus: "failed", lastAttemptedAt: { gte: dayAgo } } }),
       getDigestForDate(),
       prisma.cronRun.findFirst({
         where: { kind: { in: ["news_run", "daily"] }, finishedAt: { not: null } },
