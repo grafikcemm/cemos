@@ -157,7 +157,10 @@ export const healthService = {
         }
       }
       if (!databaseOk) {
-        databaseMsg = lastErr instanceof Error ? lastErr.message : "Veritabanı hatası";
+        // Ham Prisma/DB hatası connection string taşıyabilir → redakte et (openrouter/
+        // socialdata kolları zaten redactError kullanıyordu; bu kol atlanmıştı). Bu mesaj
+        // 200 health gövdesine ({...health}) girer, o yüzden 500 catch'inden daha kritik.
+        databaseMsg = lastErr ? redactError(lastErr) : "Veritabanı hatası";
       }
     }
 
