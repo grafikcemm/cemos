@@ -8,8 +8,9 @@ import { NextRequest } from "next/server";
  */
 
 const findMany = vi.fn();
+const aggregate = vi.fn();
 vi.mock("@/lib/db/client", () => ({
-  prisma: { usageLog: { findMany: (a: unknown) => findMany(a) } },
+  prisma: { usageLog: { findMany: (a: unknown) => findMany(a), aggregate: (a: unknown) => aggregate(a) } },
 }));
 
 vi.mock("@/lib/config/costLimits", () => ({
@@ -80,5 +81,24 @@ describe("/api/costs evaluation bloğu (ADR-034 §I)", () => {
   it("guard: same-origin dışı 403", async () => {
     const res = await GET(new NextRequest("http://localhost:3000/api/costs"));
     expect(res.status).toBe(403);
+  });
+
+  it("scope=today: SADECE bugünün toplamını tek DB aggregate ile döner (findMany ÇAĞRILMAZ — egress kesintisi)", async () => {
+    aggregate.mockResolvedValue({ _sum: { estimatedCostUsd: 0.1234 } });
+    const req = new NextRequest("http://localhost:3000/api/costs?scope=today", {
+      headers: { "Sec-Fetch-Site": "same-origin" },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.today.totalUsd).toBe(0.1234);
+    expect(findMany).not.toHaveBeenCalled(); // aylık ~binlerce satırı Node'a çekmez
+    expect(aggregate).toHaveBeenCalledTimes(1);
+  });
+
+  it("scope=today guard: same-origin dışı 403", async () => {
+    const res = await GET(new NextRequest("http://localhost:3000/api/costs?scope=today"));
+    expect(res.status).toBe(403);
+    expect(aggregate).not.toHaveBeenCalled();
   });
 });

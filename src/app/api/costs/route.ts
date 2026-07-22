@@ -67,6 +67,26 @@ export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) {
     return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
   }
+
+  // Egress fast-path (SystemHealthProvider polling'i): SADECE bugünün toplam
+  // maliyeti — tek DB AGGREGATE. Ana yol aylık TÜM UsageLog satırlarını Node'a
+  // çeker (~binlerce satır/istek); 5 dk'da bir polling bunu Neon egress'ine
+  // çeviriyordu. Tam döküm (line items / daily series / evaluation) yalnız
+  // CostsTab'ın parametresiz çağrısında hesaplanır.
+  if (req.nextUrl.searchParams.get("scope") === "today") {
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const agg = await prisma.usageLog.aggregate({
+        _sum: { estimatedCostUsd: true },
+        where: { date: todayStr },
+      });
+      return NextResponse.json({ today: { totalUsd: Number((agg._sum.estimatedCostUsd ?? 0).toFixed(5)) } });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Maliyet alınamadı";
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
+    }
+  }
+
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
     const thisMonthStr = new Date().toISOString().slice(0, 7);
