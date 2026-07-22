@@ -146,6 +146,12 @@ describe("parseBeatSeconds / buildSrt", () => {
     expect(srt).toContain("00:00:03,000 --> 00:00:06,000");
   });
 
+  it("milisaniye yuvarlamasını sonraki saniyeye taşır; geçersiz ,1000 üretmez", () => {
+    const srt = buildSrt([{ t: "0-2.9999sn", action: "test" }], []);
+    expect(srt).toContain("00:00:00,000 --> 00:00:03,000");
+    expect(srt).not.toContain(",1000");
+  });
+
   it("timeline boş → boş string", () => {
     expect(buildSrt([], [])).toBe("");
   });

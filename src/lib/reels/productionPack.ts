@@ -115,11 +115,14 @@ export function parseBeatSeconds(
 }
 
 function srtTime(totalSeconds: number): string {
-  const clamped = Math.max(0, totalSeconds);
-  const h = Math.floor(clamped / 3600);
-  const m = Math.floor((clamped % 3600) / 60);
-  const s = Math.floor(clamped % 60);
-  const ms = Math.round((clamped - Math.floor(clamped)) * 1000);
+  // Round once at millisecond precision, then derive every component from the
+  // integer total. Rounding the fractional part independently can yield an
+  // invalid `,1000` SRT field instead of carrying into the next second.
+  const totalMs = Math.max(0, Math.round(totalSeconds * 1000));
+  const h = Math.floor(totalMs / 3_600_000);
+  const m = Math.floor((totalMs % 3_600_000) / 60_000);
+  const s = Math.floor((totalMs % 60_000) / 1000);
+  const ms = totalMs % 1000;
   const p2 = (n: number) => String(n).padStart(2, "0");
   return `${p2(h)}:${p2(m)}:${p2(s)},${String(ms).padStart(3, "0")}`;
 }
