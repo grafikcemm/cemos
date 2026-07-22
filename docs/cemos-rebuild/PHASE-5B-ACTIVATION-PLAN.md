@@ -20,7 +20,7 @@
 | **Obsidian · yerel vault** | Learn paketi → yerel Obsidian (Node fs) | `OBSIDIAN_VAULT_PATH` | **blocked-external** (env yok; ayrıca Vercel fs kalıcı DEĞİL → yalnız yerel çalıştırma) | yerel dosya yazma (managed, atomik, symlink-guard) | $0 |
 | **Obsidian · GitHub vault** | Learn paketi → GitHub repo commit | `OBSIDIAN_GITHUB_REPO` + `OBSIDIAN_GITHUB_TOKEN` | **blocked-external** (env yok) | GitHub Contents API (idempotent; değişmemiş dosya commit üretmez) | $0 |
 | **X API — doğrudan yayın** | CemOS içinden gerçek X publish | (yok) | **blocked** (kalıcı; "Onay ver" GERÇEK ödeme yapmaz) | dış publish | **ödeme onayı** (X API ücretli; ~$2–48/ay senaryosu CostsTab'de) |
-| **Tier-2 render worker** | Ağır reels/carousel render | (ayrı runtime) | **blocked-external** (Vercel serverless uzun-iş çalıştırmaz → ayrı deploy) | render + storage | worker altyapı maliyeti |
+| **Tier-2 otomatik medya render** | Ağır reels/carousel render | (uygulanmadı) | **blocked-product-decision** (Vercel Workflows veya ayrı worker mümkün; format/provider/storage seçilmedi) | render + storage | sağlayıcı + compute maliyeti |
 | SocialData / YouTube / Gemini / Supadata / Fal / Neon / CredEnc | (destek katmanı) | ilgili env | çoğu configured | okuma/üretim | küçük |
 
 ## 1. Güvenli aktivasyon SIRASI (bağımlılık-öncelikli)
@@ -45,9 +45,10 @@ diğerini engellemez (biri blocked kalsa da sonrakiler açılabilir).
 4. **Composio own-account IG** (BLOCKED-EXTERNAL) — kendi hesabın read-only sync.
    `COMPOSIO_*` env → `/api/integrations` binding doğrular → "Instagram verilerini
    senkronize et". Rollback: env kaldır → configured=false.
-5. **Tier-2 render worker** (BLOCKED-EXTERNAL, altyapı) — ayrı sürekli runtime deploy
-   (Railway/Fly/VM + `npm run worker`). Reels/carousel render otomasyonu. En son;
-   ağır + intent-only akışı bundan bağımsız çalışır.
+5. **Tier-2 otomatik medya render** (BLOCKED-PRODUCT-DECISION) — önce çıktı sözleşmesi,
+   render sağlayıcısı, depolama ve aylık maliyet tavanı seçilir. Ardından dayanıklı çok-adımlı
+   yürütme için Vercel Workflows veya ayrı worker değerlendirilir. Mevcut `npm run worker`
+   render motoru değildir. Intent-only akış bundan bağımsız çalışır.
 6. **X API doğrudan yayın** (BLOCKED-EXTERNAL, ödeme) — EN SON + ayrı ödeme kararı.
    Şu an intent-only ("X'te aç") tam yeterli. Ödeme onaylanana dek AÇILMAZ; ADR-025
    PublishAttempt state machine gerçek adapter'ı buna göre bekler.
@@ -111,7 +112,7 @@ sorgulanmadı. Kaynak: `/api/integrations` (`isOperatorOrCronAuthorized`; `has(n
 | Obsidian yerel | `OBSIDIAN_VAULT_PATH`, `OBSIDIAN_AUTO_EXPORT` | configured-in-code (opsiyonel); idempotent+bounded | `LearnExportAttempt` |
 | Obsidian GitHub | `OBSIDIAN_GITHUB_REPO`, `OBSIDIAN_GITHUB_TOKEN`\|`GITHUB_PERSONAL_ACCESS_TOKEN`, `OBSIDIAN_GITHUB_DIR` | configured-in-code (opsiyonel); idempotent | `LearnExportAttempt` |
 | Cron'lar | `CRON_SECRET` (+ `*_BUDGET_MS`) | configured-in-code; prod'da fail-closed | `CronRun` |
-| Tier-2 worker | (yok) | blocked-external (serverless uzun-iş yok) | `CronRun`, yerel heartbeat |
+| Tier-2 otomatik medya render | (yok) | blocked-product-decision (motor/provider/storage sözleşmesi yok) | henüz render işi/ledger yok |
 | X API doğrudan | (yok) | blocked-external (`payment_approval_required`, sıfır ağ) | — (adapter asla yazmaz) |
 | X intent akışı | (yok) | configured-in-code / çalışıyor ($0) | `PublishAttempt`/`PublishLog`/`PublishedPost` |
 

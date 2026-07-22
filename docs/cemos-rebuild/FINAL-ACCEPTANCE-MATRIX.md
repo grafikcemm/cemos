@@ -75,7 +75,7 @@ düşük-risk güvenlik) · P3 (polish/gelecek — release'i büyütmez).
 | Obsidian GitHub | `OBSIDIAN_GITHUB_REPO`, `OBSIDIAN_GITHUB_TOKEN`\|`GITHUB_PERSONAL_ACCESS_TOKEN`, `OBSIDIAN_GITHUB_DIR` | BLOCKED-EXTERNAL (env yok) | GitHub Contents API (idempotent) | `LearnExportAttempt` |
 | X API doğrudan yayın | (yok) | BLOCKED (`payment_approval_required`, sıfır ağ) | — | adapter asla yazmaz |
 | X intent akışı | (yok) | çalışıyor ($0) | — | `PublishAttempt`/`PublishLog` |
-| Tier-2 render worker | (ayrı runtime) | BLOCKED-EXTERNAL | render | `CronRun`/heartbeat |
+| Tier-2 otomatik medya render | (uygulanmadı) | BLOCKED-PRODUCT-DECISION | render + storage | henüz render işi/ledger yok |
 | SocialData/YouTube/Gemini/Supadata/Fal | ilgili env | (subagent C sınıflandırıyor) | okuma/üretim | — |
 
 ---

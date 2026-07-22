@@ -142,7 +142,7 @@
 | Meta business_discovery | configured-in-code (memory canlı iddia ediyor, bu program DOĞRULAMADI) |
 | Obsidian yerel/GitHub | BLOCKED-EXTERNAL (target/env yok) |
 | Haber/trend cron | configured; günde-1 12:00 UTC; canlı tetiklenmedi |
-| Tier-2 render worker | BLOCKED-EXTERNAL (serverless uzun-iş yok) |
+| Tier-2 otomatik medya render | BLOCKED-PRODUCT-DECISION (motor/provider/storage yok; Vercel Workflows teknik seçenek) |
 | X API doğrudan yayın | BLOCKED (payment_approval_required); intent-only çalışır |
 
 ## 8. Tahmini ilk-ay maliyeti

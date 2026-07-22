@@ -105,10 +105,8 @@ async function readComposioIntegration(): Promise<ComposioIntegration> {
   };
 }
 
-export async function GET(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
-
-  const providers: Provider[] = [
+function buildProviderInventory(): Provider[] {
+  return [
     {
       key: "openrouter",
       name: "OpenRouter",
@@ -222,9 +220,15 @@ export async function GET(req: NextRequest) {
       group: "optional",
       status: "blocked",
       envNames: [],
-      note: "Ağır üretim/render (reels/carousel) için ayrı, sürekli çalışan arka-plan worker (npm run worker / dağıtılmış runtime). Vercel serverless uzun-iş çalıştırmaz → ayrı deploy gerekir; şu an aktif değil (BLOCKED-EXTERNAL). Yayın/üretim intent-only akışı bundan etkilenmez.",
+      note: "Otomatik reels/carousel medya-render aşaması henüz uygulanmadı. Vercel Workflows veya ayrı bir worker teknik olarak kullanılabilir; önce çıktı formatı, render sağlayıcısı, depolama ve maliyet kapısı kararı gerekir. Mevcut dossier/plan/intent akışları bundan etkilenmez.",
     },
   ];
+}
+
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+
+  const providers = buildProviderInventory();
 
   const [composio, liveness] = await Promise.all([
     readComposioIntegration(),

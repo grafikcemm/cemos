@@ -625,3 +625,24 @@
 **[USER-ACTION] (deploy önkoşulu):** Vercel'de "Sign in with Vercel" App kaydet (callback `https://cemos-woad.vercel.app/api/auth/callback`, scope `openid email profile`); prod+preview env'e `NEXT_PUBLIC_VERCEL_APP_CLIENT_ID` + `VERCEL_APP_CLIENT_SECRET` + `AUTH_ALLOWED_VERCEL_USERS` (ör. `alicembozma@gmail.com`) ekle; `SESSION_SECRET` KALIR.
 
 **Gate (bu HEAD):** typecheck **0** · lint **0** · verify:catalog/acceptance/ai-economics **OK** · unit **2285** · build **0** · e2e (bu koşu). ADR-013/017 append-only kayıt olarak KALIR (parola kimliği bu ADR ile superseded).
+
+## ADR-050 — Tier-2 render sınıflandırması: ayrı host zorunlu değil, ürün kararı eksik (2026-07-22)
+
+**Bağlam:** Entegrasyon ekranı ve eski aktivasyon belgeleri, otomatik reels/carousel render için
+"Vercel serverless uzun-iş çalıştırmaz → ayrı deploy gerekir" diyordu. Bu artık Vercel'in güncel
+ürün sözleşmesiyle doğru değil: Vercel Workflows dayanıklı, çok-adımlı ve toplam çalışma süresi
+sınırsız işler sunar; adımlar Vercel Function sınırlarına tabidir. Queues daha düşük seviye bir
+alternatiftir fakat bu ölçekte ayrıca queue ağı kurmak gerekmez.
+
+**Karar:** Tier-2 durumu `BLOCKED-EXTERNAL` yerine `BLOCKED-PRODUCT-DECISION` olarak adlandırılır.
+Çünkü eksik olan bir credential veya zorunlu host değil; gerçek medya çıktı sözleşmesi, render
+sağlayıcısı, depolama, idempotency/ledger ve aylık maliyet tavanıdır. Mevcut `scripts/worker.ts`
+render motoru değildir; X tarama/taslak zamanlayıcısıdır. Bu karar otomatik render özelliğini
+"tamamlandı" yapmaz ve var olmayan render işi üretmez. Dossier, plan, readiness ve intent-only
+akışları bağımsız olarak çalışmaya devam eder.
+
+**Gelecek uygulama kapısı:** Önce tek bounded vertical slice seçilir (ör. bir onaylı carousel
+dossier → sürümlü görsel paket → kalıcı obje depolama). Sağlayıcı ve maliyet tavanı onaylandıktan
+sonra Vercel Workflows ile durable orchestration spike edilir; ölçülmüş uyumsuzluk çıkarsa ayrı
+worker değerlendirilir. Workflows/Queues ücretli kullanım ve beta/retention sınırları build
+anında resmi dokümandan yeniden doğrulanır.

@@ -111,6 +111,11 @@ test.describe("Profil yüzeyleri gerçek", () => {
     // X API kalıcı engelli + maliyet senaryosu.
     const xrow = page.getByTestId("integration-row-xapi");
     await expect(xrow).toBeVisible();
+    // Tier-2 dürüst sınıflandırma: render motoru eksik; Vercel zorunlu ayrı-host engeli değil.
+    const tier2 = page.getByTestId("integration-row-tier2_worker");
+    await expect(tier2).toBeVisible();
+    await expect(tier2).toContainText("Vercel Workflows");
+    await expect(tier2).not.toContainText("ayrı deploy gerekir");
     await expect(xrow.getByText(/engelli/)).toBeVisible();
     await expect(xrow.getByText(/ödeme onayı/)).toBeVisible();
     await expect(page.getByTestId("host-placeholder")).toHaveCount(0);

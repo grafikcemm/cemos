@@ -53,9 +53,10 @@
 - **Haber cron intra-day (Pro).** Kod tick idempotent + deadline-bounded; Vercel Hobby
   günde-1 sınırı yüzünden 12:00 UTC. Pro'da 3-6 saatlik schedule "en güncel" tazeliğini
   artırır. Operatör plan kararı.
-- **Tier-2 render worker deploy.** Ağır reels/carousel render için ayrı sürekli runtime
-  (Railway/Fly/VM + `npm run worker`). BLOCKED-EXTERNAL (altyapı maliyeti); intent/export
-  fallback bundan bağımsız çalışır.
+- **Tier-2 otomatik medya render.** Reels/carousel için çıktı formatı, render sağlayıcısı,
+  depolama ve maliyet kapısı henüz ürün kararı değil. Vercel Workflows (dayanıklı çok-adımlı
+  yürütme) veya ayrı worker teknik seçeneklerdir; mevcut `npm run worker` render motoru DEĞİL,
+  tarama/taslak zamanlayıcısıdır. Intent/export fallback bundan bağımsız çalışır.
 - **X API doğrudan yayın adapteri.** Ödeme + credential geldiğinde `xApiAdapter` gerçek
   publish'e açılır (şu an sabit `payment_approval_required`). Intent-only tam yeterli.
 
