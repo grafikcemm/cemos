@@ -256,7 +256,7 @@
     "name": "AI Arena Leaderboard",
     "url": "https://arena.ai/leaderboard",
     "description": "AI model karşılaştırma sıralaması",
-    "category": "Yapay Zeka",
+    "category": "AI Sıralama",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -278,14 +278,14 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "0df2bdb5-cb59-47d0-8af3-88512f82414d",
     "name": "AI News",
     "url": "https://www.artificialintelligence-news.com",
     "description": "Yapay zeka haberleri",
-    "category": "Yapay Zeka",
+    "category": "AI Eğitim",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -306,14 +306,14 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "f949cf92-81eb-464d-af5c-4f6bc8afbcd2",
     "name": "AIxploria",
     "url": "https://www.aixploria.com/en/",
     "description": "AI araçları dizini",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -334,7 +334,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "f96c0986-002d-4fc1-8055-a0d20aac9b70",
@@ -485,7 +485,7 @@
     "name": "Artificial Analysis",
     "url": "https://artificialanalysis.ai",
     "description": "AI model performans analizi",
-    "category": "Yapay Zeka",
+    "category": "AI Sıralama",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -507,7 +507,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "eee5c1f3-7e84-4981-9f02-744b787a391f",
@@ -1052,7 +1052,7 @@
     "name": "Clipdrop",
     "url": "https://clipdrop.co",
     "description": "AI görsel düzenleme",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Görsel AI",
     "tags": [
       "ai",
@@ -1073,7 +1073,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "51806cc9-b44a-4d75-9383-47f69be3ade0",
@@ -1529,7 +1529,7 @@
     "name": "ElevenLabs",
     "url": "https://elevenlabs.io",
     "description": "AI ses klonlama ve seslendirme",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Ses AI",
     "tags": [
       "ai",
@@ -1551,7 +1551,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "b29d714a-e754-4180-a7a0-9ca67824e5a7",
@@ -2287,7 +2287,7 @@
     "name": "Freepik AI Scaler",
     "url": "https://www.freepik.com/ai/ai-scaler",
     "description": "Ücretsiz AI görsel kalite yükseltme",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Görsel AI",
     "tags": [
       "ai",
@@ -2309,7 +2309,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "a4fd7923-de48-4db1-a28a-4e236b9b664c",
@@ -2457,7 +2457,7 @@
     "name": "Gemini",
     "url": "https://gemini.google.com",
     "description": "Google AI asistanı",
-    "category": "Yapay Zeka",
+    "category": "LLM",
     "subcategory": "Asistan",
     "tags": [
       "ai",
@@ -2478,7 +2478,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "d0a49f29-78d3-4713-a4e6-bfeff8518c74",
@@ -2740,7 +2740,7 @@
     "name": "HuggingFace",
     "url": "https://huggingface.co",
     "description": "Açık kaynak AI model platformu",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -2762,7 +2762,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "a9038615-9fbb-4781-8d2e-46e317aeee55",
@@ -2882,7 +2882,7 @@
     "name": "Ideogram",
     "url": "https://ideogram.ai",
     "description": "AI görsel üretimi",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Görsel AI",
     "tags": [
       "ai",
@@ -2903,7 +2903,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "83b28de9-6004-49fc-a0e8-866e791d7cfe",
@@ -3303,7 +3303,7 @@
     "name": "Krikey AI",
     "url": "https://krikey.ai",
     "description": "AI avatar oluşturma",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Video AI",
     "tags": [
       "ai",
@@ -3324,7 +3324,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "c5a18fec-a83a-407c-a4b3-87c307597ec5",
@@ -3584,7 +3584,7 @@
     "name": "Luma Labs",
     "url": "https://lumalabs.ai",
     "description": "AI video üretimi",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Video AI",
     "tags": [
       "ai",
@@ -3605,7 +3605,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "969d89f0-a574-498b-bb45-e8c89787539a",
@@ -3640,7 +3640,7 @@
     "name": "LuNiZz GitHub",
     "url": "https://github.com/LuNiZz",
     "description": "Türk AI geliştiricisi kaynakları",
-    "category": "Yapay Zeka",
+    "category": "AI Eğitim",
     "subcategory": "Türk Kaynak",
     "tags": [
       "ai",
@@ -3662,7 +3662,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "5a7119dd-d003-47c9-a941-25d3fb58e035",
@@ -4288,7 +4288,7 @@
     "name": "Motion Sites AI",
     "url": "https://motionsites.ai",
     "description": "Motion design AI kaynakları",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Prompt",
     "tags": [
       "motion",
@@ -4310,7 +4310,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "4879ebdc-5298-4b8c-84b6-a41bbea82f5b",
@@ -4769,7 +4769,7 @@
     "name": "OpenRouter",
     "url": "https://openrouter.ai",
     "description": "AI model API yönlendirici",
-    "category": "Yapay Zeka",
+    "category": "AI Sıralama",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -4791,14 +4791,14 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "995ea371-6404-4f37-8354-f2e34ce901f0",
     "name": "Opus Pro",
     "url": "https://opus.pro",
     "description": "Long-form videodan short clip",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Video AI",
     "tags": [
       "ai",
@@ -4820,7 +4820,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "e78f9c1d-f01d-4701-9e56-62ae9ee10c77",
@@ -4941,7 +4941,7 @@
     "name": "Perplexity",
     "url": "https://perplexity.ai",
     "description": "AI arama motoru",
-    "category": "Yapay Zeka",
+    "category": "LLM",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -4962,7 +4962,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "126a14dc-f1d0-4c2a-b14f-6809c7b15cfb",
@@ -5081,7 +5081,7 @@
     "name": "Playground AI",
     "url": "https://playground.com",
     "description": "AI görsel üretimi",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Görsel AI",
     "tags": [
       "ai",
@@ -5102,7 +5102,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "785ef907-06b5-458a-8990-e74126d57dc1",
@@ -5359,7 +5359,7 @@
     "name": "Promptastic",
     "url": "https://promptastic.ai/categories",
     "description": "Kategorize prompt kütüphanesi",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Prompt",
     "tags": [
       "prompt",
@@ -5380,7 +5380,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "9129581a-f24b-4146-96c3-aaa2034ca920",
@@ -6082,7 +6082,7 @@
     "name": "Testing Catalog",
     "url": "https://www.testingcatalog.com",
     "description": "AI araç keşif platformu",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Araştırma",
     "tags": [
       "ai",
@@ -6104,7 +6104,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "c811b6d7-4699-42f1-9543-363d643cbfc4",
@@ -6585,7 +6585,7 @@
     "name": "Upscayl",
     "url": "https://upscayl.org",
     "description": "AI görsel büyütme",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Görsel AI",
     "tags": [
       "ai",
@@ -6606,7 +6606,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "28fbb0d8-4b0c-4373-ac6c-383b1b393e81",
@@ -6836,7 +6836,7 @@
     "name": "Vizard",
     "url": "https://vizard.ai",
     "description": "Video yeniden düzenleme",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Video AI",
     "tags": [
       "ai",
@@ -6857,14 +6857,14 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "9a9a8326-18be-4bf3-abd3-5dd75916c3ee",
     "name": "VoiceMy.ai",
     "url": "https://voicemy.ai",
     "description": "AI ses oluşturma",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Ses AI",
     "tags": [
       "ai",
@@ -6885,7 +6885,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "11d3c577-461f-443a-9500-97c681de54ba",
@@ -6921,7 +6921,7 @@
     "name": "Waveformer",
     "url": "https://waveformer.replicate.dev",
     "description": "Promptla müzik oluştur",
-    "category": "Yapay Zeka",
+    "category": "AI Örnekleri",
     "subcategory": "Ses AI",
     "tags": [
       "ai",
@@ -6942,7 +6942,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "17dba200-138f-4f52-a2a3-a134d016004a",
@@ -7062,7 +7062,7 @@
     "name": "You.com",
     "url": "https://you.com",
     "description": "ChatGPT alternatifi AI asistanı",
-    "category": "Yapay Zeka",
+    "category": "LLM",
     "subcategory": "Asistan",
     "tags": [
       "ai",
@@ -7083,7 +7083,7 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
   },
   {
     "id": "275cef7e-d12c-4410-a671-a700a6bbbef2",
@@ -7118,7 +7118,7 @@
     "name": "Yusuf İpek",
     "url": "https://yusufipek.me",
     "description": "Türk AI kaynağı ve blog",
-    "category": "Yapay Zeka",
+    "category": "AI Eğitim",
     "subcategory": "Türk Kaynak",
     "tags": [
       "ai",
@@ -7140,6 +7140,781 @@
     "archived": false,
     "last_checked": null,
     "status": "active",
-    "updated_at": "2026-05-22T06:19:05.108639+00:00"
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Prompt Engineering Türkçe Rehber",
+    "title": "Prompt Engineering Türkçe Rehber",
+    "url": "https://github.com/atilsamancioglu/PromptEngineeringCourse/blob/main/TurkishGuide.md",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Atıl Samancıoğlu'nun Türkçe prompt engineering rehberi (GitHub).",
+    "tags": [
+      "eğitim",
+      "prompt",
+      "türkçe"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Google AI for All (TR)",
+    "title": "Google AI for All (TR)",
+    "url": "https://grow.google/intl/tr/ai-for-all/",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Google'ın herkes için ücretsiz AI temelleri eğitimi (TR).",
+    "tags": [
+      "eğitim",
+      "google"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "GSB e-Genç Başvurular",
+    "title": "GSB e-Genç Başvurular",
+    "url": "https://e-genc.gsb.gov.tr/Basvurular",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "GSB e-Genç: gençlere yönelik eğitim ve etkinlik başvuruları.",
+    "tags": [
+      "eğitim",
+      "başvuru"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Skool: Otomasyon",
+    "title": "Skool: Otomasyon",
+    "url": "https://www.skool.com/otomasyon/about",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Skool topluluğu: otomasyon ve AI iş akışları.",
+    "tags": [
+      "topluluk",
+      "otomasyon"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Skool: DOA",
+    "title": "Skool: DOA",
+    "url": "https://www.skool.com/doa/about?ref=0caffd58c4ff494092dc16fad52a62e9",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Skool topluluğu: DOA.",
+    "tags": [
+      "topluluk"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Skool: AI Automation Society",
+    "title": "Skool: AI Automation Society",
+    "url": "https://www.skool.com/ai-automation-society/about?el=best-claude-code-skills",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Skool: AI Automation Society topluluğu.",
+    "tags": [
+      "topluluk",
+      "ai"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Skool: Yapay Zeka Factory",
+    "title": "Skool: Yapay Zeka Factory",
+    "url": "https://www.skool.com/yapay-zeka-factory/about",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Skool: Yapay Zeka Factory topluluğu (TR).",
+    "tags": [
+      "topluluk",
+      "türkçe"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Claude Use Cases",
+    "title": "Claude Use Cases",
+    "url": "https://claude.com/resources/use-cases",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "Anthropic Claude kullanım senaryoları ve örnekleri.",
+    "tags": [
+      "claude",
+      "örnek"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Interaction Design Foundation",
+    "title": "Interaction Design Foundation",
+    "url": "https://ixdf.org",
+    "category": "AI Eğitim",
+    "subcategory": null,
+    "description": "IxDF — UX ve etkileşim tasarımı eğitimleri.",
+    "tags": [
+      "ux",
+      "eğitim"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Manus",
+    "title": "Manus",
+    "url": "https://manus.im/app",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "Manus — otonom AI ajan uygulaması.",
+    "tags": [
+      "ajan",
+      "llm"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Abacus ChatLLM",
+    "title": "Abacus ChatLLM",
+    "url": "https://apps.abacus.ai/chatllm/",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "Abacus ChatLLM — çoklu model sohbet arayüzü.",
+    "tags": [
+      "llm",
+      "chat"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Lovable",
+    "title": "Lovable",
+    "url": "https://lovable.dev",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "Lovable — prompt ile full-stack uygulama üretimi.",
+    "tags": [
+      "llm",
+      "kod"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Kimi",
+    "title": "Kimi",
+    "url": "https://www.kimi.com",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "Kimi — Moonshot uzun bağlamlı LLM sohbeti.",
+    "tags": [
+      "llm",
+      "chat"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "DeepSeek",
+    "title": "DeepSeek",
+    "url": "https://chat.deepseek.com",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "DeepSeek — güçlü açık ağırlıklı LLM sohbeti.",
+    "tags": [
+      "llm",
+      "chat"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Z.ai (GLM)",
+    "title": "Z.ai (GLM)",
+    "url": "https://chat.z.ai",
+    "category": "LLM",
+    "subcategory": null,
+    "description": "Z.ai (GLM) — LLM sohbet arayüzü.",
+    "tags": [
+      "llm",
+      "chat"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Meigen AI",
+    "title": "Meigen AI",
+    "url": "https://www.meigen.ai",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Meigen — AI görsel/üretim örnekleri.",
+    "tags": [
+      "ai",
+      "görsel"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Lukacho UI Templates",
+    "title": "Lukacho UI Templates",
+    "url": "https://ui.lukacho.com/templates",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Lukacho — premium UI şablonları.",
+    "tags": [
+      "ui",
+      "şablon"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Sprrrint",
+    "title": "Sprrrint",
+    "url": "https://sprrrint.com",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Sprrrint — landing ve şablon ilham galerisi.",
+    "tags": [
+      "ilham",
+      "landing"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Skiper UI",
+    "title": "Skiper UI",
+    "url": "https://skiper-ui.com",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Skiper UI — animasyonlu React bileşen kütüphanesi.",
+    "tags": [
+      "react",
+      "animasyon"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Animmaster Lib",
+    "title": "Animmaster Lib",
+    "url": "https://animmasterlib.dev",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Animmaster — animasyon bileşen kütüphanesi.",
+    "tags": [
+      "animasyon",
+      "ui"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Fountn Design",
+    "title": "Fountn Design",
+    "url": "https://fountn.design/design-resources/",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Fountn — tasarım kaynakları koleksiyonu.",
+    "tags": [
+      "tasarım",
+      "kaynak"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Lightswind",
+    "title": "Lightswind",
+    "url": "https://lightswind.com",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Lightswind — UI bileşen ve efekt kütüphanesi.",
+    "tags": [
+      "ui",
+      "efekt"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "Spline",
+    "title": "Spline",
+    "url": "https://spline.design",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "Spline — 3D tasarım ve web 3D sahneleri.",
+    "tags": [
+      "3d",
+      "tasarım"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "AI Template (aitmpl)",
+    "title": "AI Template (aitmpl)",
+    "url": "https://www.aitmpl.com",
+    "category": "AI Örnekleri",
+    "subcategory": null,
+    "description": "AI Template — hazır AI uygulama şablonları.",
+    "tags": [
+      "şablon",
+      "ai"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "getdesign.md",
+    "title": "getdesign.md",
+    "url": "https://getdesign.md",
+    "category": "Design.md",
+    "subcategory": null,
+    "description": "getdesign.md — tasarım sistemi markdown kaynağı.",
+    "tags": [
+      "design.md",
+      "tasarım"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "designmd.ai",
+    "title": "designmd.ai",
+    "url": "https://designmd.ai/explore",
+    "category": "Design.md",
+    "subcategory": null,
+    "description": "designmd.ai — AI tasarım rehberi (explore).",
+    "tags": [
+      "design.md",
+      "ai"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "designmd.me",
+    "title": "designmd.me",
+    "url": "https://designmd.me",
+    "category": "Design.md",
+    "subcategory": null,
+    "description": "designmd.me — tasarım markdown şablonları.",
+    "tags": [
+      "design.md",
+      "şablon"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "OpenRouter Apps",
+    "title": "OpenRouter Apps",
+    "url": "https://openrouter.ai/apps",
+    "category": "AI Sıralama",
+    "subcategory": null,
+    "description": "OpenRouter Apps — model kullanan uygulama sıralaması.",
+    "tags": [
+      "sıralama",
+      "llm"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "BenchLM",
+    "title": "BenchLM",
+    "url": "https://benchlm.ai",
+    "category": "AI Sıralama",
+    "subcategory": null,
+    "description": "BenchLM — LLM karşılaştırma ve benchmark sıralaması.",
+    "tags": [
+      "benchmark",
+      "llm"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "METR Research",
+    "title": "METR Research",
+    "url": "https://metr.org/research/",
+    "category": "AI Sıralama",
+    "subcategory": null,
+    "description": "METR — AI yetenek değerlendirme araştırmaları.",
+    "tags": [
+      "araştırma",
+      "değerlendirme"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "high",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
+  },
+  {
+    "name": "TrustMRR",
+    "title": "TrustMRR",
+    "url": "https://trustmrr.com",
+    "category": "AI Sıralama",
+    "subcategory": null,
+    "description": "TrustMRR — AI/SaaS gelir ve güven sıralaması.",
+    "tags": [
+      "sıralama",
+      "saas"
+    ],
+    "is_favorite": false,
+    "is_active": true,
+    "resource_type": "tool",
+    "platform": null,
+    "use_case": null,
+    "why_useful": null,
+    "x_value_score": 60,
+    "source_reliability": "medium",
+    "favorite": false,
+    "archived": false,
+    "status": "active",
+    "created_at": "2026-06-22T16:50:35.734Z",
+    "updated_at": "2026-06-22T16:50:35.734Z"
   }
 ]

@@ -3,7 +3,7 @@ import type { UsageLog } from "@/generated/prisma/client";
 
 export type CreateUsageLogInput = {
   accountId?: string;
-  type: "scan" | "generation" | "openrouter" | "image";
+  type: "scan" | "generation" | "openrouter" | "image" | "transcript";
   tweetCount?: number;
   estimatedCostUsd: number;
   date: string;
@@ -38,6 +38,23 @@ export const usageLogRepo = {
     return prisma.usageLog
       .aggregate({
         where: { date: { startsWith: yearMonth }, provider },
+        _sum: { estimatedCostUsd: true },
+      })
+      .then((r) => r._sum.estimatedCostUsd ?? 0);
+  },
+
+  /** Includes provider-tagged rows plus pre-migration generation/openrouter rows. */
+  sumOpenRouterCostByMonth(yearMonth: string): Promise<number> {
+    return prisma.usageLog
+      .aggregate({
+        where: {
+          date: { startsWith: yearMonth },
+          OR: [
+            { provider: "openrouter" },
+            { type: "openrouter" },
+            { type: "generation" },
+          ],
+        },
         _sum: { estimatedCostUsd: true },
       })
       .then((r) => r._sum.estimatedCostUsd ?? 0);

@@ -3,6 +3,12 @@ import { operatorReadinessService } from "./operatorReadinessService";
 import { prisma } from "@/lib/db/client";
 import { healthService } from "@/lib/services/healthService";
 
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     account: {
@@ -21,6 +27,16 @@ vi.mock("@/lib/services/healthService", () => ({
   healthService: {
     getHealth: vi.fn()
   }
+}));
+
+vi.mock("@/lib/config/costGate", () => ({
+  getBudgetStatus: vi.fn(async () => ({
+    allowed: true,
+    spentUsd: 0,
+    limitUsd: 10,
+    remainingUsd: 10,
+    providerLimitUsd: null,
+  })),
 }));
 
 describe("operatorReadinessService", () => {

@@ -3,6 +3,16 @@ export type CostLimits = {
   maxTweetsPerSource: number;
   maxSourcesPerAccount: number;
   monthlyBudgetUsd: number;
+  /** Monthly budget kept away from background work for core/manual generation. */
+  monthlyReserveUsd: number;
+  /** Maximum share of the monthly LLM budget available to background work. */
+  backgroundBudgetRatio: number;
+  /** Explicit, opt-in monthly allowance for live eval runs. */
+  evalMonthlyBudgetUsd: number;
+  /** Production defaults to false so test suites cannot silently consume credits. */
+  evalSpendEnabled: boolean;
+  /** Spread automated spend across the month instead of allowing an early burn. */
+  pacingEnabled: boolean;
   costPerItem: number;
   costPerGeneration: number;
   /** Separate monthly budget for fal.ai image generation (independent of the LLM budget). */
@@ -14,17 +24,48 @@ export type CostLimits = {
 };
 
 export function getCostLimits(): CostLimits {
+  const monthlyBudgetUsd = nonNegativeNumber(process.env.MONTHLY_AI_BUDGET_USD, 10);
   return {
     dailyTweetBudget: Number(process.env.SOCIALDATA_DAILY_TWEET_BUDGET ?? 150),
     maxTweetsPerSource: Number(process.env.SCAN_MAX_TWEETS_PER_SOURCE ?? 5),
     maxSourcesPerAccount: Number(process.env.SCAN_MAX_SOURCES_PER_ACCOUNT ?? 5),
-    monthlyBudgetUsd: Number(process.env.MONTHLY_AI_BUDGET_USD ?? 10),
+    monthlyBudgetUsd,
+    monthlyReserveUsd: Math.min(
+      monthlyBudgetUsd,
+      nonNegativeNumber(process.env.AI_MONTHLY_RESERVE_USD, 1),
+    ),
+    backgroundBudgetRatio: boundedNumber(
+      process.env.AI_BACKGROUND_BUDGET_RATIO,
+      0.3,
+      0,
+      1,
+    ),
+    evalMonthlyBudgetUsd: Math.min(
+      monthlyBudgetUsd,
+      nonNegativeNumber(process.env.AI_EVAL_MONTHLY_BUDGET_USD, 0.5),
+    ),
+    evalSpendEnabled: process.env.AI_EVAL_SPEND_ENABLED === "true",
+    pacingEnabled: process.env.AI_BUDGET_PACING_ENABLED !== "false",
     costPerItem: 0.0002,
     costPerGeneration: 0.0003,
     falMonthlyBudgetUsd: Number(process.env.FAL_MONTHLY_BUDGET_USD ?? 10),
     falImageModel: process.env.FAL_IMAGE_MODEL ?? "fal-ai/nano-banana-pro",
     falImageCostUsd: Number(process.env.FAL_IMAGE_COST_USD ?? 0.15),
   };
+}
+
+function nonNegativeNumber(raw: string | undefined, fallback: number): number {
+  const value = raw == null || raw.trim() === "" ? fallback : Number(raw);
+  return Number.isFinite(value) ? Math.max(0, value) : fallback;
+}
+
+function boundedNumber(
+  raw: string | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  return Math.min(max, Math.max(min, nonNegativeNumber(raw, fallback)));
 }
 
 /**

@@ -30,11 +30,12 @@ import {
   ListTree,
 } from "lucide-react";
 import PipelineTraceDrawer from "@/components/growth/PipelineTraceDrawer";
+import { useXAgentStore } from "@/store/xagent";
 import {
   PageHeader,
   Card,
-  MetricCard,
   EmptyState,
+  ErrorState,
   SectionHeader,
   SubNav,
   Badge,
@@ -44,7 +45,12 @@ import {
   Textarea,
   Skeleton,
   Drawer,
+  KanbanBoard,
+  KanbanCard,
+  type KanbanTone,
+  MetricStrip,
 } from "@/components/ui";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 type YtVideo = {
   videoId: string;
@@ -129,6 +135,7 @@ export default function YouTubeTab() {
   const [channels, setChannels] = useState<YtChannel[]>([]);
   const [suggestions, setSuggestions] = useState<YtChannel[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -145,6 +152,7 @@ export default function YouTubeTab() {
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const qs = new URLSearchParams();
       if (category !== "all") qs.set("category", category);
@@ -154,6 +162,8 @@ export default function YouTubeTab() {
       const json = await res.json();
       setConfigured(json.configured ?? true);
       setVideos(json.videos ?? []);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -250,6 +260,7 @@ export default function YouTubeTab() {
     return (
       <div style={{ width: "100%" }}>
         <PageHeader
+          size="compact"
           eyebrow="SOSYAL MEDYA"
           title="YouTube Fırsat Motoru"
           subtitle="Rakip kanalları tarayıp viral fırsatları yüzeye çıkaran outlier akışı."
@@ -260,11 +271,14 @@ export default function YouTubeTab() {
             title="YouTube API yapılandırılmamış"
             description="YOUTUBE_API_KEY ayarlı değil. Anahtar eklendiğinde rakip kanallar taranır ve fırsat akışı dolar. Motor anahtarsız boş durumda kalır — hata vermez."
             action={
-              <a href="/dashboard/settings" style={{ textDecoration: "none" }}>
-                <Button variant="primary" size="sm" iconLeft={<Settings size={15} strokeWidth={2} />}>
-                  Ayarlara git
-                </Button>
-              </a>
+              <Button
+                variant="primary"
+                size="sm"
+                iconLeft={<Settings size={15} strokeWidth={2} />}
+                onClick={() => useXAgentStore.getState().setActiveTab("settings")}
+              >
+                Ayarlara git
+              </Button>
             }
           />
         </Card>
@@ -275,6 +289,7 @@ export default function YouTubeTab() {
   return (
     <div style={{ width: "100%" }}>
       <PageHeader
+        size="compact"
         eyebrow="SOSYAL MEDYA"
         title="YouTube Fırsat Motoru"
         subtitle="Rakip kanalları tarayıp viral fırsatları yüzeye çıkaran outlier akışı."
@@ -326,6 +341,7 @@ export default function YouTubeTab() {
         <FeedSection
           videos={videos}
           loading={loading}
+          loadError={loadError}
           category={category}
           setCategory={setCategory}
           shorts={shorts}
@@ -369,6 +385,7 @@ export default function YouTubeTab() {
 function FeedSection({
   videos,
   loading,
+  loadError,
   category,
   setCategory,
   shorts,
@@ -384,6 +401,7 @@ function FeedSection({
 }: {
   videos: YtVideo[];
   loading: boolean;
+  loadError: boolean;
   category: string;
   setCategory: (v: string) => void;
   shorts: string;
@@ -398,33 +416,32 @@ function FeedSection({
   onDismiss: (videoId: string) => void;
 }) {
   const hotCount = videos.filter((v) => v.outlierScore >= 3).length;
+  const risingCount = videos.filter((v) => v.outlierScore >= 1.5 && v.outlierScore < 3).length;
+  const [view, setView] = useState<"grid" | "board">("grid");
+
+  // Pano: outlier tier'ına göre fırsat kolonları.
+  const YT_COLS: { id: string; label: string; tone: KanbanTone; match: (s: number) => boolean }[] = [
+    { id: "hot", label: "Sıcak (≥3×)", tone: "danger", match: (s) => s >= 3 },
+    { id: "rising", label: "Yükselen (1.5–3×)", tone: "yellow", match: (s) => s >= 1.5 && s < 3 },
+    { id: "normal", label: "Normal (<1.5×)", tone: "muted", match: (s) => s < 1.5 },
+  ];
+  const ytKanbanColumns = YT_COLS.map((col) => ({
+    id: col.id,
+    label: col.label,
+    tone: col.tone,
+    items: videos.filter((v) => col.match(v.outlierScore)),
+  })).filter((c) => c.items.length > 0);
 
   return (
     <>
-      {/* Editöryal stat şeridi */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-5)",
-        }}
-      >
-        <MetricCard
-          label="Akıştaki fırsat"
-          value={videos.length}
-          icon={<Radar size={16} strokeWidth={1.8} />}
-          accent
-        />
-        <MetricCard
-          label="Sıcak (≥3×)"
-          value={hotCount}
-          icon={<Flame size={16} strokeWidth={1.8} />}
-        />
-        <MetricCard
-          label="Görüntülenen"
-          value={loading ? "—" : videos.length}
-          icon={<Eye size={16} strokeWidth={1.8} />}
+      {/* Sessiz metrik şeridi (hero KPI kutuları kaldırıldı — arketip: quiet inline) */}
+      <div style={{ marginBottom: "var(--space-4)" }}>
+        <MetricStrip
+          items={[
+            { label: "akıştaki fırsat", value: loading ? "—" : videos.length },
+            { label: "sıcak ≥3×", value: loading ? "—" : hotCount },
+            { label: "yükselen 1.5–3×", value: loading ? "—" : risingCount },
+          ]}
         />
       </div>
 
@@ -434,7 +451,7 @@ function FeedSection({
           display: "flex",
           alignItems: "center",
           gap: "var(--space-2)",
-          marginBottom: "var(--space-5)",
+          marginBottom: "var(--space-4)",
           flexWrap: "wrap",
         }}
       >
@@ -468,22 +485,42 @@ function FeedSection({
         <Button variant="secondary" size="sm" onClick={onFilter}>
           Filtrele
         </Button>
+        <div style={{ display: "inline-flex", gap: 2, marginLeft: "auto", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 3 }}>
+          {([["grid", "Akış"], ["board", "Pano"]] as const).map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                padding: "5px 12px",
+                border: "none",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "var(--text-xs)",
+                fontWeight: 500,
+                fontFamily: "inherit",
+                background: view === v ? "var(--accent)" : "transparent",
+                color: view === v ? "var(--accent-fg)" : "var(--text-secondary)",
+              }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-            gap: "var(--space-3)",
-          }}
-        >
-          {[0, 1, 2, 3].map((i) => (
-            <Card key={i} variant="feature" padded>
-              <Skeleton lines={4} height={16} />
-            </Card>
+        <Card variant="feature" padded={false}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              style={{ padding: "12px 16px", borderTop: i === 0 ? "none" : "1px solid var(--border-faint)" }}
+            >
+              <Skeleton lines={2} height={14} />
+            </div>
           ))}
-        </div>
+        </Card>
+      ) : loadError ? (
+        <ErrorState onRetry={onFilter} />
       ) : videos.length === 0 ? (
         <Card variant="feature" padded>
           <EmptyState
@@ -504,36 +541,53 @@ function FeedSection({
             }
           />
         </Card>
+      ) : view === "board" ? (
+        <KanbanBoard
+          columns={ytKanbanColumns}
+          renderCard={(v) => (
+            <KanbanCard
+              key={v.videoId}
+              priority={{ label: `${v.outlierScore.toFixed(1)}×`, tone: v.outlierScore >= 3 ? "danger" : v.outlierScore >= 1.5 ? "yellow" : "muted" }}
+              tag={v.channel ? { label: v.channel.category, tone: "accent" } : undefined}
+              title={v.title}
+              meta={
+                <>
+                  <span>{v.channel?.title ?? "—"}</span>
+                  <span className="tnum">{v.viewCount.toLocaleString("tr-TR")} izlenme</span>
+                </>
+              }
+              onClick={() => onGenerate(v.videoId)}
+            />
+          )}
+        />
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-            gap: "var(--space-3)",
-          }}
-        >
-          {videos.map((v) => (
+        <Card variant="feature" padded={false}>
+          {videos.map((v, i) => (
             <VideoCard
               key={v.videoId}
               video={v}
+              first={i === 0}
               briefLoading={briefLoading}
               onGenerate={() => onGenerate(v.videoId)}
               onDismiss={() => onDismiss(v.videoId)}
             />
           ))}
-        </div>
+        </Card>
       )}
     </>
   );
 }
 
+/** Yoğun fırsat satırı — küçük thumb + tek satır başlık + skor chip'leri sağda. */
 function VideoCard({
   video: v,
+  first,
   briefLoading,
   onGenerate,
   onDismiss,
 }: {
   video: YtVideo;
+  first: boolean;
   briefLoading: boolean;
   onGenerate: () => void;
   onDismiss: () => void;
@@ -542,159 +596,151 @@ function VideoCard({
   const ToneIcon = tone.icon;
 
   return (
-    <Card variant="feature" padded={false}>
-      <div style={{ padding: "var(--space-4)" }}>
-        <div style={{ display: "flex", gap: "var(--space-3)" }}>
-          <div
-            style={{
-              position: "relative",
-              width: 124,
-              height: 70,
-              flexShrink: 0,
-              borderRadius: "var(--radius-md)",
-              overflow: "hidden",
-              border: "1px solid var(--border)",
-              background: "var(--bg-elevated)",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}
-              alt=""
-              width={124}
-              height={70}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-            <span
-              style={{
-                position: "absolute",
-                bottom: 4,
-                right: 4,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 22,
-                height: 22,
-                borderRadius: "var(--radius-sm)",
-                background: "color-mix(in srgb, var(--bg-base) 80%, transparent)",
-                color: "var(--text-primary)",
-              }}
-            >
-              <Play size={12} strokeWidth={2} fill="currentColor" />
-            </span>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: "var(--text-sm)",
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                lineHeight: 1.35,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {v.title}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                marginTop: 6,
-                fontSize: "var(--text-xs)",
-                color: "var(--text-muted)",
-                flexWrap: "wrap",
-              }}
-            >
-              <span style={{ color: "var(--text-secondary)" }}>{v.channel?.title ?? "—"}</span>
-              <span>·</span>
-              <span className="tnum">{ageLabel(v.publishedAt)}</span>
-              {v.isShort && (
-                <Badge variant="muted" size="xs">
-                  Short
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-3)",
+        padding: "10px 16px",
+        borderTop: first ? "none" : "1px solid var(--border-faint)",
+        flexWrap: "wrap",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: 86,
+          height: 48,
+          flexShrink: 0,
+          borderRadius: "var(--radius-sm)",
+          overflow: "hidden",
+          border: "1px solid var(--border)",
+          background: "var(--bg-elevated)",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`}
+          alt=""
+          width={86}
+          height={48}
+          loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+        <span
+          style={{
+            position: "absolute",
+            bottom: 3,
+            right: 3,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 18,
+            height: 18,
+            borderRadius: "var(--radius-sm)",
+            background: "color-mix(in srgb, var(--bg-base) 80%, transparent)",
+            color: "var(--text-primary)",
+          }}
+        >
+          <Play size={10} strokeWidth={2} fill="currentColor" />
+        </span>
+      </div>
 
-        {/* Skor + metrik şeridi */}
+      <div style={{ flex: 1, minWidth: 200 }}>
+        <div
+          style={{
+            fontSize: "var(--text-sm)",
+            fontWeight: 500,
+            color: "var(--text-primary)",
+            lineHeight: 1.35,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {v.title}
+        </div>
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "var(--space-2)",
-            marginTop: "var(--space-3)",
+            gap: 6,
+            marginTop: 3,
+            fontSize: "var(--text-xs)",
+            color: "var(--text-muted)",
+            flexWrap: "wrap",
           }}
         >
-          <span
-            className="tnum"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: "var(--text-sm)",
-              fontWeight: 700,
-              color: tone.color,
-              border: `1px solid color-mix(in srgb, ${tone.color} 40%, transparent)`,
-              background: `color-mix(in srgb, ${tone.color} 12%, transparent)`,
-              borderRadius: "var(--radius-md)",
-              padding: "3px 9px",
-            }}
-          >
-            <ToneIcon size={13} strokeWidth={2} />
-            {v.outlierScore.toFixed(2)}×
-          </span>
-          <span
-            className="tnum"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              fontSize: "var(--text-xs)",
-              color: "var(--text-muted)",
-            }}
-          >
-            <Eye size={13} strokeWidth={1.8} />
-            {Math.round(v.viewsPerDay).toLocaleString("tr-TR")} / gün
-          </span>
-        </div>
-
-        {/* Aksiyon şeridi */}
-        <div
-          style={{
-            display: "flex",
-            gap: "var(--space-2)",
-            marginTop: "var(--space-3)",
-            paddingTop: "var(--space-3)",
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onGenerate}
-            disabled={briefLoading}
-            loading={briefLoading}
-            iconLeft={briefLoading ? undefined : <Sparkles size={14} strokeWidth={2} />}
-            style={{ flex: 1 }}
-          >
-            Brief Üret
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDismiss}
-            iconLeft={<EyeOff size={14} strokeWidth={1.8} />}
-          >
-            Yoksay
-          </Button>
+          <span style={{ color: "var(--text-secondary)" }}>{v.channel?.title ?? "—"}</span>
+          <span>·</span>
+          <span className="tnum">{ageLabel(v.publishedAt)}</span>
+          {v.isShort && (
+            <Badge variant="muted" size="xs">
+              Short
+            </Badge>
+          )}
         </div>
       </div>
-    </Card>
+
+      {/* Skor chip'leri — sağda */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+        <span
+          className="tnum"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: "var(--text-xs)",
+            fontWeight: 500,
+            color: tone.color,
+            border: `1px solid color-mix(in srgb, ${tone.color} 40%, transparent)`,
+            background: `color-mix(in srgb, ${tone.color} 12%, transparent)`,
+            borderRadius: "var(--radius-sm)",
+            padding: "2px 8px",
+          }}
+        >
+          <ToneIcon size={12} strokeWidth={2} />
+          {v.outlierScore.toFixed(2)}×
+        </span>
+        <span
+          className="tnum"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: "var(--text-xs)",
+            color: "var(--text-muted)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <Eye size={13} strokeWidth={1.8} />
+          {Math.round(v.viewsPerDay).toLocaleString("tr-TR")} / gün
+        </span>
+      </div>
+
+      {/* Aksiyonlar */}
+      <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={onGenerate}
+          disabled={briefLoading}
+          loading={briefLoading}
+          iconLeft={briefLoading ? undefined : <Sparkles size={14} strokeWidth={2} />}
+        >
+          Brief Üret
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDismiss}
+          iconLeft={<EyeOff size={14} strokeWidth={1.8} />}
+        >
+          Yoksay
+        </Button>
+        <SaveToBoardButton source={{ kind: "ytVideo", videoId: v.videoId }} size="xs" title={v.title} />
+      </div>
+    </div>
   );
 }
 
@@ -725,9 +771,9 @@ function ChannelsSection({
             />
           </Card>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {channels.map((c) => (
-              <Card key={c.channelId} variant="default" padded>
+          <Card variant="feature" padded={false}>
+            {channels.map((c, i) => (
+              <div key={c.channelId} style={{ padding: "10px 16px", borderTop: i === 0 ? "none" : "1px solid var(--border-faint)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                   <div
                     style={{
@@ -749,7 +795,7 @@ function ChannelsSection({
                       flex: 1,
                       minWidth: 0,
                       fontSize: "var(--text-sm)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: "var(--text-primary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -788,7 +834,7 @@ function ChannelsSection({
                       alignItems: "center",
                       gap: 5,
                       fontSize: "var(--text-xs)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: c.enabled ? "var(--green)" : "var(--text-muted)",
                     }}
                   >
@@ -796,9 +842,9 @@ function ChannelsSection({
                     {c.enabled ? "aktif" : "pasif"}
                   </span>
                 </div>
-              </Card>
+              </div>
             ))}
-          </div>
+          </Card>
         )}
       </section>
 
@@ -809,9 +855,9 @@ function ChannelsSection({
             title="Önerilen Kanallar"
             description={`Algoritma ${suggestions.length} yeni aday buldu — onayla, akışa eklensin.`}
           />
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            {suggestions.map((c) => (
-              <Card key={c.channelId} variant="default" padded>
+          <Card variant="feature" padded={false}>
+            {suggestions.map((c, i) => (
+              <div key={c.channelId} style={{ padding: "10px 16px", borderTop: i === 0 ? "none" : "1px solid var(--border-faint)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
                   <div
                     style={{
@@ -833,7 +879,7 @@ function ChannelsSection({
                       flex: 1,
                       minWidth: 0,
                       fontSize: "var(--text-sm)",
-                      fontWeight: 600,
+                      fontWeight: 500,
                       color: "var(--text-primary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -851,9 +897,9 @@ function ChannelsSection({
                     Onayla
                   </Button>
                 </div>
-              </Card>
+              </div>
             ))}
-          </div>
+          </Card>
         </section>
       )}
     </div>
@@ -930,7 +976,7 @@ function BriefDetail({
                     padding: "6px 12px",
                     borderRadius: "var(--radius-md)",
                     fontSize: "var(--text-xs)",
-                    fontWeight: active ? 600 : 500,
+                    fontWeight: active ? 500 : 500,
                     fontFamily: "inherit",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
@@ -1014,7 +1060,7 @@ function BriefDetail({
                           alignItems: "center",
                           gap: 8,
                           fontSize: "var(--text-sm)",
-                          fontWeight: 700,
+                          fontWeight: 500,
                           color: "var(--text-primary)",
                         }}
                       >
@@ -1184,7 +1230,7 @@ function MiniCopy({ onCopy }: { onCopy: () => void }) {
         borderRadius: "var(--radius-sm)",
         padding: "2px 8px",
         fontSize: "var(--text-2xs)",
-        fontWeight: 600,
+        fontWeight: 500,
         fontFamily: "inherit",
         cursor: "pointer",
         transition: "background 0.15s var(--ease-out), border-color 0.15s",

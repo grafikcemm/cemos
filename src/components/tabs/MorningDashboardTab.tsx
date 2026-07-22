@@ -1,20 +1,52 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { useXAgentStore } from "@/store/xagent";
 import OperatorReadinessGate from "../gate/OperatorReadinessGate";
 import MorningHeroStats from "../morning/MorningHeroStats";
+import OpportunityHandoffBand from "../morning/OpportunityHandoffBand";
 import ReviewQueue from "../morning/ReviewQueue";
 import DigestSection from "../morning/DigestSection";
 import NewsHighlights from "../morning/NewsHighlights";
 import RepoHighlights from "../morning/RepoHighlights";
-import InstagramHighlights from "../morning/InstagramHighlights";
 import YouTubeHighlights from "../morning/YouTubeHighlights";
-import PageHeader from "../ui/PageHeader";
-import SectionHeader from "../ui/SectionHeader";
+import { useDailyQueueData } from "../morning/useDailyQueueData";
 import { useToast } from "../ui/Toast";
 
+/**
+ * Bugün yüzeyi (FIRST-SPRINT items 1-5) — sıra: aksiyon > sinyal > arşiv.
+ *  1. Tek satır sayaç (+ ● sağlık tiki)
+ *  2. ReadinessGate — yalnız SORUN varken görünür
+ *  3. ReviewQueue FOLD ÜSTÜ (NEXT UP + inline edit + Bugünlük bitti ✓)
+ *  4. "Tepki vermeye değer" — varsayılan KATLANMIŞ
+ *  5. Digest — katlanabilir arşiv
+ * Kuyruk verisi burada BİR KEZ yüklenir; sayaç + kuyruk paylaşır.
+ */
 export default function MorningDashboardTab() {
   const toast = useToast();
+  const queue = useDailyQueueData();
+  const [highlightsOpen, setHighlightsOpen] = useState(false);
+  // Fırsattan üretilen taslak kuyruğa gelince odak ona taşınır (ADR-028).
+  const [focusSeed, setFocusSeed] = useState<string | null>(null);
+
+  const handleGenerated = useCallback(
+    async (queueItemId: string) => {
+      await queue.fetchDrafts();
+      setFocusSeed(queueItemId);
+    },
+    [queue],
+  );
+
+  // ADR-045: başka bir yüzeyden (ör. Öğrenme paketi fikir→taslak) Bugün'e
+  // deep-link edilince yeni taslağa odaklan; tek-sefer tüket (store'u temizle).
+  const focusDraftId = useXAgentStore((s) => s.focusDraftId);
+  const clearFocusDraftId = useXAgentStore((s) => s.setFocusDraftId);
+  useEffect(() => {
+    if (!focusDraftId) return;
+    handleGenerated(focusDraftId);
+    clearFocusDraftId(null);
+  }, [focusDraftId, handleGenerated, clearFocusDraftId]);
 
   const showToast = useCallback(
     (text: string, type: "success" | "error") => {
@@ -25,42 +57,69 @@ export default function MorningDashboardTab() {
   );
 
   return (
-    <div style={{ width: "100%", paddingBottom: 60 }}>
-      <PageHeader
-        eyebrow="GÜNLÜK OPERASYON"
-        title="Bugün"
-        subtitle="Sıralı inceleme akışı — incele, düzenle, kopyala, paylaş. Yaklaşık 5 dakika."
-        surface
-      />
+    <div style={{ width: "100%" }}>
+      {/* Başlık YOK — breadcrumb yeter; aktif taslak ilk viewport'ta başlar. */}
+      <MorningHeroStats queue={queue} />
 
-      <MorningHeroStats />
+      <OperatorReadinessGate onGenerated={() => queue.fetchDrafts()} />
 
-      <OperatorReadinessGate />
+      <OpportunityHandoffBand onGenerated={handleGenerated} />
 
-      <ReviewQueue onToast={showToast} />
-      <DigestSection />
+      <ReviewQueue onToast={showToast} queue={queue} focusSeed={focusSeed} />
 
-      {/* Highlights — editöryal bento (eşit-grid değil) */}
-      <div style={{ marginTop: "var(--space-8)" }}>
-        <SectionHeader
-          eyebrow="GÜNÜN NABZI"
-          title="Öne çıkanlar"
-          description="Sosyal kanallar, haber havuzu ve repo radarından bugüne dair sinyaller."
-        />
-        <div
+      {/* "Tepki vermeye değer" — fold altı, varsayılan katlanmış (item 3). */}
+      <section style={{ marginTop: "var(--space-6)" }}>
+        <button
+          type="button"
+          onClick={() => setHighlightsOpen((v) => !v)}
+          aria-expanded={highlightsOpen}
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: "var(--space-5)",
-            alignItems: "start",
-            marginTop: "var(--space-5)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            width: "100%",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "12px 14px",
+            color: "var(--text-primary)",
+            fontSize: "var(--text-sm)",
+            fontWeight: 500,
+            cursor: "pointer",
+            textAlign: "left",
+            fontFamily: "inherit",
           }}
         >
-          <InstagramHighlights />
-          <YouTubeHighlights />
-          <NewsHighlights onToast={showToast} />
-          <RepoHighlights onToast={showToast} />
-        </div>
+          {highlightsOpen ? (
+            <ChevronDown size={16} strokeWidth={2} style={{ color: "var(--accent-text)", flexShrink: 0 }} />
+          ) : (
+            <ChevronRight size={16} strokeWidth={2} style={{ color: "var(--accent-text)", flexShrink: 0 }} />
+          )}
+          Tepki vermeye değer
+          <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)", fontWeight: 500 }}>
+            · haber / repo / YouTube sinyalleri
+          </span>
+        </button>
+
+        {highlightsOpen && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
+              gap: "var(--space-5)",
+              alignItems: "start",
+              marginTop: "var(--space-4)",
+            }}
+          >
+            <YouTubeHighlights />
+            <NewsHighlights onToast={showToast} />
+            <RepoHighlights onToast={showToast} />
+          </div>
+        )}
+      </section>
+
+      <div style={{ marginTop: "var(--space-5)" }}>
+        <DigestSection />
       </div>
     </div>
   );

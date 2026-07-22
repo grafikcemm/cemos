@@ -93,13 +93,22 @@ vi.mock("@/lib/growth-engine/feedback-service", () => ({
   processFeedback: vi.fn(() => Promise.resolve({ success: true, feedbackEventId: "evt-123" }))
 }));
 
-vi.mock("@/lib/services/publishService", () => ({
-  publishService: {
-    markManualPublished: vi.fn((id: string) => {
+// Faz 1E: manuel onay publish state machine'inden geçer (ADR-025).
+vi.mock("@/lib/publish/publishAttemptService", () => ({
+  publishAttemptService: {
+    confirmManualPublish: vi.fn((id: string) => {
       const existing = mockQueueItems.find((i) => i.id === id);
-      return Promise.resolve({ log: null, item: { ...existing, status: "manual_published", publishedAt: new Date() } });
-    })
-  }
+      return Promise.resolve({
+        alreadyPublished: false,
+        attempt: { id: "att-1", state: "succeeded" },
+        log: { id: "log-1" },
+        item: { ...existing, status: "manual_published", publishedAt: new Date() },
+        generatedImageUrl: null,
+      });
+    }),
+    prepareIntent: vi.fn(),
+    latestIntentAttempts: vi.fn(() => Promise.resolve(new Map())),
+  },
 }));
 
 vi.mock("@/lib/growth-engine/draft-critic", () => ({
@@ -110,6 +119,25 @@ vi.mock("@/lib/growth-engine/draft-critic", () => ({
     personaMatchScore: 80,
     hookStrengthScore: 78
   }))
+}));
+
+// Phase 5A (ADR-044): rescore route artık scoreDraftWithAI + getBudgetStatus
+// kullanır (critiqueDraft yerine) — dürüst blocked/degraded/judged. Testler
+// "AI judge koştu" senaryosunu mock'lar (publishScore 88 korunur, judged=true).
+vi.mock("@/lib/config/costGate", () => ({
+  getBudgetStatus: vi.fn(() => Promise.resolve({ allowed: true })),
+  inferAiBudgetClass: vi.fn(() => "background"),
+}));
+
+vi.mock("@/lib/growth-engine/scorer", () => ({
+  scoreDraftWithAI: vi.fn(() =>
+    Promise.resolve({
+      publishScore: 88, riskScore: 25, angle: "safe", personaMatchScore: 80,
+      hookStrengthScore: 78, clarityScore: 72, viralityScore: 65, noveltyScore: 60,
+      rewriteSuggestion: "", reason: "", confidence: 80, publishRecommendation: "publish",
+    }),
+  ),
+  scoreDraftFallback: vi.fn(() => ({ publishScore: 70, riskScore: 30, hookStrengthScore: 60 })),
 }));
 
 describe("Daily Queue UI API Suite (Exactly 30 Tests)", () => {

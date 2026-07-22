@@ -1,9 +1,16 @@
 import { queueRepo } from "@/lib/db/queueRepo";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { usageService } from "@/lib/services/usageService";
-import { getFalBudgetStatus } from "@/lib/config/costGate";
+import { BudgetExceededError, BudgetSystemUnavailableError } from "@/lib/config/costGate";
+import {
+  reserveFalSpend,
+  settleAiSpend,
+  releaseAiSpend,
+  type Reservation,
+} from "@/lib/services/aiSpendReservationService";
 import { getCostLimits } from "@/lib/config/costLimits";
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
  * fal.ai image-generation engine (Nano Banana Pro / NB2 by default).
@@ -43,7 +50,7 @@ function buildImagePrompt(handle: AccountHandle, draftText: string): string {
       `Account concept: ${concept}`,
       `Post context: "${cleaned}"`,
       "Style: dark, high-contrast, disciplined and stoic mood; strong geometric composition,",
-      "single cold accent (steel blue #60a5fa) on near-black; editorial, no faces, no text,",
+      "single cold accent (steel blue var(--status-info)) on near-black; editorial, no faces, no text,",
       "no motivational-poster cliché, no stock photo look, sharp focus.",
       "FULL-BLEED 1:1 square that fills the ENTIRE 1080x1080 frame edge-to-edge;",
       "absolutely no white border, no margins, no passe-partout, no frame, no mockup,",
@@ -65,13 +72,21 @@ function buildImagePrompt(handle: AccountHandle, draftText: string): string {
   ].join(" ");
 }
 
-/** Call fal.ai. Returns a URL on success, or null to fall back to prompt-only. */
-async function callFal(prompt: string): Promise<string | null> {
+/**
+ * Result of a fal.ai call. `reached` = did the request actually hit the provider
+ * (a response came back, OR the request was aborted AFTER being sent) — such a call
+ * may bill even when it yields no usable URL, so the caller must ledger it.
+ * `reached:false` = pre-flight (test runner / not configured); never billed.
+ */
+type FalCallResult = { url: string | null; reached: boolean };
+
+/** Call fal.ai. Returns the URL (if any) + whether the provider was actually reached. */
+async function callFal(prompt: string): Promise<FalCallResult> {
   // Never spend real fal credits inside the test runner, even if .env.local has a key.
-  if (process.env.VITEST) return null;
+  if (process.env.VITEST) return { url: null, reached: false };
   const falKey = process.env.FAL_KEY;
   const { falImageModel } = getCostLimits();
-  if (!falKey || !falImageModel) return null;
+  if (!falKey || !falImageModel) return { url: null, reached: false };
 
   try {
     const ctrl = new AbortController();
@@ -83,12 +98,23 @@ async function callFal(prompt: string): Promise<string | null> {
       signal: ctrl.signal,
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
+    // Observability: a real fal.ai failure (bad/rotated key, quota, outage,
+    // malformed response) was previously invisible — an operator could only
+    // infer "images stopped" from UI silence. Log a redacted class here.
+    if (!res.ok) {
+      console.warn(`[imageService] fal.ai HTTP ${res.status}`);
+      return { url: null, reached: true };
+    }
     const data = (await res.json()) as FalResult;
     const url = data.images?.[0]?.url;
-    return typeof url === "string" && url.length > 0 ? url : null;
-  } catch {
-    return null;
+    if (typeof url === "string" && url.length > 0) return { url, reached: true };
+    console.warn("[imageService] fal.ai response had no image URL");
+    return { url: null, reached: true };
+  } catch (err) {
+    console.warn("[imageService] fal.ai request failed:", redactError(err));
+    // A throw AFTER the request was sent (abort/timeout/socket reset) may still have
+    // triggered a billable generation; treat as reached (fail-safe accounting).
+    return { url: null, reached: true };
   }
 }
 
@@ -135,37 +161,63 @@ export const imageService = {
       };
     }
 
-    // Separate fal budget gate — hard stop, no spend.
-    const budget = await getFalBudgetStatus();
-    if (!budget.allowed) {
-      return {
-        ok: false,
-        generatedImageUrl: null,
-        imagePrompt,
-        provider: "fal",
-        reused: false,
-        blocked: "budget",
-        costUsd: 0,
-      };
-    }
-
-    const url = await callFal(imagePrompt);
     const { falImageModel, falImageCostUsd } = getCostLimits();
 
-    // Only charge + persist when a real URL was produced.
-    if (url) {
+    // Atomic fal budget reservation — closes the check→callFal TOCTOU. A concurrent
+    // image gen that has reserved but not settled counts against this call's cap, so
+    // two near-simultaneous clicks at the budget boundary can't both overshoot the
+    // separate fal monthly budget. Reserve BEFORE the (up to 90s) provider call — the
+    // advisory lock is never held across that call. Over-budget OR unverifiable budget
+    // authority → blocked (fail-closed), no spend.
+    let reservation: Reservation;
+    try {
+      reservation = await reserveFalSpend({
+        estimatedCostUsd: falImageCostUsd,
+        purpose: "image_gen",
+        model: falImageModel,
+      });
+    } catch (err) {
+      if (err instanceof BudgetExceededError || err instanceof BudgetSystemUnavailableError) {
+        return {
+          ok: false,
+          generatedImageUrl: null,
+          imagePrompt,
+          provider: "fal",
+          reused: false,
+          blocked: "budget",
+          costUsd: 0,
+        };
+      }
+      throw err;
+    }
+
+    let falResult: FalCallResult;
+    try {
+      falResult = await callFal(imagePrompt);
+    } catch (err) {
+      // callFal already swallows provider errors; this guards an unexpected throw so a
+      // crash never leaves an OPEN reservation holding the fal cap until TTL expiry.
+      await releaseAiSpend(reservation);
+      throw err;
+    }
+
+    // A real URL came back → settle to actual cost, charge + persist.
+    if (falResult.url) {
+      await settleAiSpend(reservation, falImageCostUsd);
       await usageService
         .recordImage({
           accountId: item.accountId,
           estimatedCostUsd: falImageCostUsd,
           model: falImageModel,
-          meta: { purpose: "image_gen", handle },
+          meta: { purpose: "image_gen", handle, costOutcome: "estimated", usable: true },
         })
-        .catch(() => {});
-      await queueRepo.update(queueItemId, { generatedImageUrl: url });
+        .catch((e) =>
+          console.warn("[imageService] recordImage failed — fal spend not ledgered:", redactError(e)),
+        );
+      await queueRepo.update(queueItemId, { generatedImageUrl: falResult.url });
       return {
         ok: true,
-        generatedImageUrl: url,
+        generatedImageUrl: falResult.url,
         imagePrompt,
         provider: "fal",
         reused: false,
@@ -173,7 +225,29 @@ export const imageService = {
       };
     }
 
-    // Generation attempt failed → prompt-only, no charge (no image produced).
+    // No usable URL. If we actually REACHED fal (F3 degraded tail: 200-with-no-URL,
+    // malformed 200, or abort-after-send), the generation may still have billed — so
+    // SETTLE the reservation to the estimate and ledger it as costOutcome:"unknown"
+    // instead of silently $0. A pre-flight miss (test runner / not configured,
+    // reached:false) never billed → RELEASE the reservation (frees the cap).
+    if (falResult.reached && falImageCostUsd > 0) {
+      await settleAiSpend(reservation, falImageCostUsd);
+      await usageService
+        .recordImage({
+          accountId: item.accountId,
+          estimatedCostUsd: falImageCostUsd,
+          model: falImageModel,
+          meta: { purpose: "image_gen", handle, costOutcome: "unknown", usable: false },
+        })
+        .catch((e) =>
+          console.warn("[imageService] recordImage failed — fal spend not ledgered:", redactError(e)),
+        );
+    } else {
+      await releaseAiSpend(reservation);
+    }
+
+    // Generation produced no image → prompt-only fallback (costUsd:0 to the caller;
+    // any uncertain spend is captured in the ledger row above).
     return {
       ok: true,
       generatedImageUrl: null,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountList, accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
@@ -8,8 +8,10 @@ import { syncHackerNews } from "@/lib/news/hackernews";
 import { syncRepoRadar } from "@/lib/news/repoRadar";
 import { generateOpportunities } from "@/lib/news/opportunities";
 import { buildDailyDigest } from "@/lib/news/digest";
-import { instagramService } from "@/lib/services/instagramService";
-import { IG_SYNC_DAILY_DEADLINE_MS } from "@/lib/instagram/igConfig";
+import { syncToCanonical } from "@/lib/content/syncBridge";
+import { syncIgCompetitors } from "@/lib/instagram/competitor/igCompetitorService";
+import { redactError } from "@/lib/utils/redactSecrets";
+import { newsStagesDegraded } from "@/lib/news/newsStages";
 
 // With Fluid Compute (Vercel default for new projects) Hobby functions may run
 // up to 300s. If a deploy ever rejects this literal, drop it to 60 — the time
@@ -41,7 +43,7 @@ async function runNewsStages(newsDeadline: number): Promise<Record<string, unkno
   try {
     if (within()) summary.hackernews = await syncHackerNews({ maxItems: 20 });
   } catch (err) {
-    summary.hackernews = { error: err instanceof Error ? err.message : String(err) };
+    summary.hackernews = { error: redactError(err) };
   }
   try {
     // sync RSS + translate + analyze (cursor = processingStatus, resumable).
@@ -51,22 +53,22 @@ async function runNewsStages(newsDeadline: number): Promise<Record<string, unkno
     // and analyze always make real progress (the old 15s floor processed ~0).
     if (within()) summary.pipeline = await runPipelineTick(Math.max(90_000, newsDeadline - Date.now() - 45_000));
   } catch (err) {
-    summary.pipeline = { error: err instanceof Error ? err.message : String(err) };
+    summary.pipeline = { error: redactError(err) };
   }
   try {
     if (within()) summary.repos = await syncRepoRadar({ maxRepos: 6, deadlineMs: Math.min(newsDeadline, Date.now() + 20_000) });
   } catch (err) {
-    summary.repos = { error: err instanceof Error ? err.message : String(err) };
+    summary.repos = { error: redactError(err) };
   }
   try {
     if (within()) summary.opportunities = await generateOpportunities({ deadlineMs: Math.min(newsDeadline, Date.now() + 15_000) });
   } catch (err) {
-    summary.opportunities = { error: err instanceof Error ? err.message : String(err) };
+    summary.opportunities = { error: redactError(err) };
   }
   try {
     if (within()) summary.digest = await buildDailyDigest();
   } catch (err) {
-    summary.digest = { error: err instanceof Error ? err.message : String(err) };
+    summary.digest = { error: redactError(err) };
   }
   return summary;
 }
@@ -81,10 +83,8 @@ type RunOutcome = {
 async function run(handleParam: string | null, mine: boolean): Promise<RunOutcome> {
   const t0 = Date.now();
   const timeBudgetMs = getTimeBudgetMs();
-  const handles: AccountHandle[] =
-    handleParam && handleParam in accountProfiles
-      ? [handleParam as AccountHandle]
-      : accountList.map((a) => a.handle);
+  // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
+  const { handles, degraded: accountSourceDegraded } = await resolveCronHandles(handleParam);
 
   // Heartbeat-FIRST: even a mid-run timeout leaves proof the cron fired, so the
   // dashboard never again claims "cron çalışmadı" while it actually ran.
@@ -92,7 +92,7 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
   try {
     cronRunId = (await cronRunRepo.start("daily")).id;
   } catch (err) {
-    console.error("CronRun start yazılırken hata oluştu:", err);
+    console.error("CronRun start yazılırken hata oluştu:", redactError(err));
   }
 
   // News AI stages first (only on full daily runs, not single-account manual
@@ -103,21 +103,51 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
     try {
       news = await runNewsStages(newsDeadline);
     } catch (err) {
-      news = { error: err instanceof Error ? err.message : String(err) };
+      news = { error: redactError(err) };
     }
   }
 
-  // Instagram yorum sync — LLM'siz çekme + deadline'lı sınıflandırma. News'ten sonra,
-  // hesap üretiminden önce. Sadece tam günlük koşuda (manuel tek-hesapta değil). Fail-open.
-  let igSync: unknown = null;
+  // İçerik Zekası köprüsü — mevcut tarama çıktılarını (X/IG/YT/news/repo) kanonik
+  // havuza besler (ingest → baseline → outlier → embedding). Tam günlük koşuda,
+  // hesap üretiminden önce, kalan bütçeyle sınırlı. Fail-open.
+  let contentSync: unknown = null;
   if (!handleParam && Date.now() - t0 < timeBudgetMs) {
-    const igDeadlineMs = Math.min(IG_SYNC_DAILY_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
-    if (igDeadlineMs > 0) {
-      try {
-        igSync = await instagramService.sync({ deadlineMs: igDeadlineMs });
-      } catch (err) {
-        igSync = { error: err instanceof Error ? err.message : String(err) };
-      }
+    const ciDeadline = Date.now() + Math.min(60_000, timeBudgetMs - (Date.now() - t0));
+    try {
+      contentSync = await syncToCanonical({ limitPerSource: 100, deadlineMs: ciDeadline });
+    } catch (err) {
+      contentSync = { error: redactError(err) };
+    }
+  }
+
+  // Own-account Instagram sync (ADR-032) — Composio/Meta provider köprüsü,
+  // READ-ONLY + LLM'siz + idempotent. Fail-open: yapılandırma yoksa dürüst
+  // errorClass ile boş döner, cron'u asla bozmaz. Yeni cron slotu YOK.
+  let igOwnSync: unknown = null;
+  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { syncInstagramViaBridge } = await import("@/lib/instagram/bridgeSyncService");
+      // Deadline'lı çağır (kardeş aşamalar gibi). Composio Connect fallback'i çağrı
+      // başına 2-3 RPC yaptığından 25 medyalık sync uzayabilir; kalan bütçeden 50s
+      // rezerv bırak (igCompetitorSync 45s + hesap üretimi) → IG sync ne hard-kill'e
+      // ne de kritik taslak üretimini açlığa iter. Bütçe boldsa tam sync tamamlanır.
+      const igDeadlineMs = Date.now() + Math.max(15_000, timeBudgetMs - (Date.now() - t0) - 50_000);
+      igOwnSync = await syncInstagramViaBridge({ deadlineMs: igDeadlineMs });
+    } catch (err) {
+      igOwnSync = { error: redactError(err) };
+    }
+  }
+
+  // IG rakip watchlist sync (Sprint 4, CONTENT-ENGINE §3) — business_discovery
+  // TEK onaylı okuma, LLM'SİZ (~$0), ≤20 hesap/gün. Fail-open; token yoksa boş.
+  let igCompetitorSync: unknown = null;
+  if (!handleParam && Date.now() - t0 < timeBudgetMs) {
+    try {
+      igCompetitorSync = await syncIgCompetitors({
+        deadlineMs: Math.min(45_000, timeBudgetMs - (Date.now() - t0)),
+      });
+    } catch (err) {
+      igCompetitorSync = { error: redactError(err) };
     }
   }
 
@@ -135,13 +165,38 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
       results.push(await pipelineService.runDailyForAccount(handle, { mine }));
     } catch (err) {
       errors++;
-      results.push({ handle, error: err instanceof Error ? err.message : String(err) });
+      results.push({ handle, error: redactError(err) });
     }
   }
 
-  const ok = errors < handles.length;
+  // Aggregate honesty: a failed own/competitor IG sync (e.g. a revoked Meta
+  // token) must not leave a clean "cron ran" signal. It doesn't flip `ok` (draft
+  // generation still worked and per-widget freshness stays honest), but it marks
+  // the run PARTIAL so the health surface reads degraded rather than green.
+  const subSyncDegraded = (r: unknown): boolean => {
+    if (!r || typeof r !== "object") return false;
+    const o = r as Record<string, unknown>;
+    // partial === true → deadline'a takılıp yarım kalan sync (ok=true olsa bile
+    // tam-sync değil) da run'ı PARTIAL işaretler → sağlık dürüst kalır.
+    return o.ok === false || o.partial === true || "error" in o;
+  };
+  if (subSyncDegraded(igOwnSync) || subSyncDegraded(igCompetitorSync)) {
+    partial = true;
+  }
+  // A dead/degraded news subsystem (a stage threw, or the digest failed) marks
+  // the run PARTIAL too — otherwise the news stages swallow their errors and the
+  // run reports a false-clean signal.
+  if (newsStagesDegraded(news)) {
+    partial = true;
+  }
+
+  const ok = handles.length === 0 ? true : errors < handles.length;
   if (cronRunId) {
-    await cronRunRepo.finish(cronRunId, { ok, partial, result: { news, igSync, results } });
+    await cronRunRepo.finish(cronRunId, {
+      ok,
+      partial,
+      result: { news, contentSync, igOwnSync, igCompetitorSync, results, accountSourceDegraded },
+    });
   }
   return { ok, partial, news, results };
 }

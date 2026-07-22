@@ -18,14 +18,14 @@ type EmptyStateProps = {
 export default function EmptyState({ icon, title, description, action, compact = false }: EmptyStateProps) {
   return (
     <div
+      data-state="empty"
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
+        alignItems: "flex-start",
+        textAlign: "left",
         gap: 12,
-        padding: compact ? "32px 20px" : "56px 28px",
+        padding: compact ? "28px 24px" : "48px 32px",
         color: "var(--text-secondary)",
       }}
     >
@@ -51,7 +51,7 @@ export default function EmptyState({ icon, title, description, action, compact =
         className="font-display"
         style={{
           fontSize: compact ? "var(--text-md)" : "var(--text-lg)",
-          fontWeight: 700,
+          fontWeight: 500,
           color: "var(--text-primary)",
           letterSpacing: "-0.01em",
         }}

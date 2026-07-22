@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import type { CronRun } from "@/generated/prisma/client";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const DEFAULT_RUNNING_STALE_MS = 10 * 60 * 1000; // a scan/cron should never exceed 10 min
 
@@ -36,7 +38,7 @@ export const cronRunRepo = {
         },
       });
     } catch (err) {
-      console.error("CronRun finish yazılırken hata oluştu:", err);
+      console.error("CronRun finish yazılırken hata oluştu:", redactError(err));
       return null;
     }
   },
@@ -61,8 +63,38 @@ export const cronRunRepo = {
       });
       return Boolean(running);
     } catch (err) {
-      console.error("CronRun lock kontrolünde hata oluştu:", err);
+      console.error("CronRun lock kontrolünde hata oluştu:", redactError(err));
       return false;
+    }
+  },
+
+  /**
+   * ATOMIC single-flight start. Takes a per-kind advisory lock, then starts a run
+   * only if no non-stale run of that kind is already in flight — closing the
+   * `hasRunning()→start()` TOCTOU so a Vercel retry or a manual recovery
+   * overlapping the cron cannot BOTH begin the same job (double LLM spend +
+   * duplicate writes). `{ skipped: true }` means "already running, do nothing".
+   * Fails OPEN on a DB/lock error: it proceeds (best-effort plain start) rather
+   * than blocking the cron, matching the pre-existing start() error behavior.
+   */
+  async startIfIdle(
+    kind: string,
+    staleMs = DEFAULT_RUNNING_STALE_MS,
+  ): Promise<{ run: CronRun | null; skipped: boolean }> {
+    try {
+      const run = await prisma.$transaction(async (tx) => {
+        await acquireXactAdvisoryLock(tx, `cronrun:${kind}`);
+        const running = await tx.cronRun.findFirst({
+          where: { kind, finishedAt: null, startedAt: { gt: new Date(Date.now() - staleMs) } },
+        });
+        if (running) return null;
+        return await tx.cronRun.create({ data: { kind } });
+      });
+      return run === null ? { run: null, skipped: true } : { run, skipped: false };
+    } catch (err) {
+      console.error("CronRun startIfIdle hata oluştu:", redactError(err));
+      const run = await prisma.cronRun.create({ data: { kind } }).catch(() => null);
+      return { run, skipped: false };
     }
   },
 

@@ -1,5 +1,4 @@
-import { type AccountHandle } from "@/lib/accounts";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { X_COUNCIL_SPEC } from "./council-config";
 
@@ -56,18 +55,20 @@ export function synthesize(lenses: LensVerdict[], usedLlm = false): CouncilVerdi
   return { score, verdict, lenses, rationale, usedLlm };
 }
 
-function lensInstruction(lens: Lens, handle: AccountHandle): string {
+function lensInstruction(lens: Lens, handle: string): string {
   const spec = X_COUNCIL_SPEC.lenses.find((l) => l.lens === lens);
   return spec ? spec.buildInstruction(handle) : "";
 }
 
-async function scoreLens(lens: Lens, text: string, handle: AccountHandle): Promise<LensVerdict> {
+async function scoreLens(lens: Lens, text: string, handle: string): Promise<LensVerdict> {
   try {
-    const run = await generateJson<{ score?: number; argument?: string }>({
+    const run = await generateJsonGated<{ score?: number; argument?: string }>({
       role: "cheapWriter",
       system: `Sen tek mercekli bir içerik jürisisin. ${lensInstruction(lens, handle)} Çıktı SADECE JSON: {"score":<0-100>,"argument":"<tek cümle>"}`,
       user: `İçerik:\n"""${text.slice(0, 500)}"""`,
       temperature: 0.2,
+      purpose: "judge_council_lens",
+      meta: { lens },
     });
     const score = typeof run.data.score === "number" ? run.data.score : LENS_DEFAULT_SCORE[lens];
     return { lens, score: Math.max(0, Math.min(100, score)), argument: run.data.argument ?? "" };
@@ -81,7 +82,7 @@ async function scoreLens(lens: Lens, text: string, handle: AccountHandle): Promi
  * no API key or an exhausted budget it returns a neutral synthesized verdict
  * instead of throwing, so mining never aborts.
  */
-export async function deliberate(text: string, handle: AccountHandle): Promise<CouncilVerdict> {
+export async function deliberate(text: string, handle: string): Promise<CouncilVerdict> {
   if (!process.env.OPENROUTER_API_KEY) {
     return synthesize(LENSES.map(defaultVerdict), false);
   }

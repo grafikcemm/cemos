@@ -6,11 +6,16 @@ import { META_TOKEN_KEY } from "@/lib/instagram/igConfig";
 import { isCronSecretConfigured, isProductionRuntime } from "@/lib/utils/cronAuth";
 import * as fs from "fs";
 import * as path from "path";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 export type NewsPipelineHealth = {
   rawBacklog: number;
   translatedLast24h: number;
   analyzedLast24h: number;
+  /** RECENT (last 24h) processing failures — NOT all-time. Permanently-failed
+   *  cruft (dead URLs / paywalls / non-articles) accumulates forever and is NOT a
+   *  current-pipeline problem; only a recent burst of failures is. Counting it
+   *  all-time falsely pinned the pipeline to "delayed" indefinitely. */
   failedBacklog: number;
   digestToday: boolean;
   status: "green" | "yellow" | "red";
@@ -37,7 +42,10 @@ async function getNewsPipelineHealth(): Promise<NewsPipelineHealth> {
       prisma.newsItem.count({
         where: { analysisStatus: "success", lastAttemptedAt: { gte: dayAgo } },
       }),
-      prisma.newsItem.count({ where: { processingStatus: "failed" } }),
+      // RECENT failures only (last 24h). Old permanently-failed items (dead URLs,
+      // paywalls) never clear and must NOT flag the pipeline "delayed" forever;
+      // only a fresh burst of failures indicates a real current problem.
+      prisma.newsItem.count({ where: { processingStatus: "failed", lastAttemptedAt: { gte: dayAgo } } }),
       getDigestForDate(),
       prisma.cronRun.findFirst({
         where: { kind: { in: ["news_run", "daily"] }, finishedAt: { not: null } },
@@ -45,7 +53,12 @@ async function getNewsPipelineHealth(): Promise<NewsPipelineHealth> {
       }),
     ]);
 
-  const digestToday = Boolean(digest);
+  // Content-aware, not just row-existence: an empty digest row (all summary
+  // fields blank — e.g. a failed generation that still upserted before the
+  // buildDailyDigest fix) must NOT read as "today's digest is ready".
+  const digestToday = Boolean(
+    digest && (digest.newsSummary?.trim() || digest.repoSummary?.trim() || digest.aiTips?.trim()),
+  );
 
   let status: NewsPipelineHealth["status"] = "green";
   let message = "Haber pipeline'ı sağlıklı.";
@@ -90,7 +103,7 @@ export const healthService = {
         }
       } catch (err) {
         openrouterOk = false;
-        openrouterMsg = `OpenRouter API erişim hatası: ${err instanceof Error ? err.message : String(err)}`;
+        openrouterMsg = `OpenRouter API erişim hatası: ${redactError(err)}`;
       }
     }
 
@@ -116,19 +129,36 @@ export const healthService = {
         }
       } catch (err) {
         socialdataOk = false;
-        socialdataMsg = `SocialData API erişim hatası: ${err instanceof Error ? err.message : String(err)}`;
+        socialdataMsg = `SocialData API erişim hatası: ${redactError(err)}`;
       }
     }
 
-    // 3. Database
+    // 3. Database — bounded retry so a transient Neon pool timeout (P2024) or a
+    // cold-start hiccup doesn't flip readiness red on a single flaky probe (DH-007).
     let databaseOk = false;
     let databaseMsg = "";
-    try {
-      await prisma.account.count();
-      databaseOk = true;
-      databaseMsg = "Veritabanı bağlantısı aktif.";
-    } catch (err) {
-      databaseMsg = err instanceof Error ? err.message : "Veritabanı hatası";
+    {
+      const DB_PROBE_ATTEMPTS = 3;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < DB_PROBE_ATTEMPTS; attempt++) {
+        try {
+          await prisma.account.count();
+          databaseOk = true;
+          databaseMsg =
+            attempt === 0
+              ? "Veritabanı bağlantısı aktif."
+              : `Veritabanı bağlantısı aktif (${attempt + 1}. denemede).`;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < DB_PROBE_ATTEMPTS - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+          }
+        }
+      }
+      if (!databaseOk) {
+        databaseMsg = lastErr instanceof Error ? lastErr.message : "Veritabanı hatası";
+      }
     }
 
     // 4. Worker / automation liveness
@@ -241,6 +271,11 @@ export const healthService = {
     // "cron çalışmadı" message (the most common false alarm pre-CronRun).
     if (isServerless && lastCronRun && lastCronRun.finishedAt && !lastCronRun.ok) {
       recommendation = `Son cron çalıştı fakat hata verdi: ${lastCronRun.error || "bilinmeyen hata"}. Panelden manuel tarama yapıp logları kontrol edin.`;
+    } else if (isServerless && lastCronRun && lastCronRun.finishedAt && lastCronRun.ok && lastCronRun.partial) {
+      // Overall ok, but a sub-stage degraded (e.g. an IG sync failed on a revoked
+      // Meta token) — surface it instead of an all-green signal.
+      recommendation =
+        "Son cron çalıştı ama bazı alt-adımlar kısmi/başarısız (ör. Instagram senkronu). Profil → Entegrasyonlar ve Sistem'den durumu kontrol edin.";
     }
 
     // Result-level news pipeline health (fail-open: a DB hiccup here must not

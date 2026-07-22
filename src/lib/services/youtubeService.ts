@@ -26,13 +26,14 @@ import { fetchTranscript } from "@/lib/youtube/transcript";
 import { generateBrief, type GenerateBriefResult } from "@/lib/youtube/brief-generator";
 import { OUTLIER, isYouTubeConfigured } from "@/lib/youtube/ytConfig";
 import type { SeedChannel } from "@/lib/youtube/ytTypes";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const SEED = seedData as SeedChannel[];
 const WINDOW_MS = OUTLIER.ROLLING_WINDOW_DAYS * 86_400_000;
 const UPLOADS_PER_CHANNEL = 30;
 
 function errMsg(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return redactError(e);
 }
 
 /** YouTube attribution hesabı (kullanıcı kararı: mevcut @grafikcem reuse). */

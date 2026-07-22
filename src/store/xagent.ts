@@ -1,10 +1,17 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { XAGENT_STORE_VERSION, migrateXAgentStore } from "./migrations";
+import { XAGENT_STORE_VERSION, XAGENT_STORE_NAME, migrateXAgentStore } from "./migrations";
 
 /* ── Types ──────────────────────────────────────────── */
 
-export type Channel = "grafikcem" | "maskulenkod";
+/**
+ * ADR-031: hesap listesi artık DB'den gelir; Channel client'ta GENİŞ tiptir
+ * (string). Client seçimi UX'tir, server otoritesi değildir — her server yolu
+ * handle'ı DB'den ayrıca doğrular. DEFAULT_CHANNELS yalnız bootstrap/ilk-boya
+ * fallback'idir.
+ */
+export type Channel = string;
+export const DEFAULT_CHANNELS: Channel[] = ["grafikcem", "maskulenkod"];
 export type DraftType = "TWEET" | "QUOTE" | "REPLY";
 export type QueueStatus = "new" | "approved" | "scheduled" | "published" | "rejected";
 export type SourceMode = "ALL" | "TWEET" | "QUOTE" | "REPLY";
@@ -84,10 +91,16 @@ interface XAgentStore {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 
-  // Instagram iç-sekme deep-link (ephemeral — persist edilmez). morning kartı set eder,
-  // InstagramTab okuyup uygular ve temizler.
-  igDeepLink: "comments" | "dm" | "stats" | null;
-  setIgDeepLink: (v: "comments" | "dm" | "stats" | null) => void;
+  // Geçici (persist EDİLMEZ) — çapraz-tab deep-link: Bugün'e geçildiğinde bu
+  // taslak odaklanır (ADR-045: fikir→taslak sonrası). Tek-sefer tüketilir.
+  focusDraftId: string | null;
+  setFocusDraftId: (id: string | null) => void;
+
+  // Birleşik host alt-görünümleri (persist edilir — folded sekmeler buraya iner)
+  libraryView: string; // "tweets" | "prompts" | "patterns"
+  setLibraryView: (v: string) => void;
+  radarView: string; // "news" | "content" | "repo"
+  setRadarView: (v: string) => void;
 
   // Kanal
   activeChannel: Channel;
@@ -210,9 +223,15 @@ export const useXAgentStore = create<XAgentStore>()(
       activeTab: "morning",
       setActiveTab: (tab) => set({ activeTab: tab }),
 
-      // Instagram deep-link (ephemeral)
-      igDeepLink: null,
-      setIgDeepLink: (v) => set({ igDeepLink: v }),
+      // Çapraz-tab taslak odağı (persist edilmez — geçici navigasyon niyeti).
+      focusDraftId: null,
+      setFocusDraftId: (id) => set({ focusDraftId: id }),
+
+      // Birleşik host alt-görünümleri
+      libraryView: "tweets",
+      setLibraryView: (v) => set({ libraryView: v }),
+      radarView: "news",
+      setRadarView: (v) => set({ radarView: v }),
 
       // Kanal
       activeChannel: "grafikcem",
@@ -353,12 +372,14 @@ export const useXAgentStore = create<XAgentStore>()(
       monthlyResetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString()
     }),
     {
-      name: "xagent-store",
+      name: XAGENT_STORE_NAME, // LEGACY INVARIANT: "xagent-store" (migrations.ts)
       version: XAGENT_STORE_VERSION,
       migrate: migrateXAgentStore,
       partialize: (state) => ({
         // Yalnızca gerçek UI tercihleri persist edilir
         activeTab: state.activeTab,
+        libraryView: state.libraryView,
+        radarView: state.radarView,
         activeChannel: state.activeChannel,
         // newsItems ve savedTweets kullanıcı UI kütüphanesi — persist OK
         newsItems: state.newsItems.slice(0, 200),

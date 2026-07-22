@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import type { ViralPattern } from "@/generated/prisma/client";
+import { redactError } from "@/lib/utils/redactSecrets";
 import {
   CreateViralPatternSchema,
   UpdateViralPatternSchema,
@@ -117,15 +118,35 @@ export const viralPatternRepo = {
    */
   async adjustSuccessScore(id: string, delta: number): Promise<ViralPattern | null> {
     try {
-      const existing = await prisma.viralPattern.findUnique({ where: { id } });
-      if (!existing) return null;
-      const next = Math.max(10, Math.min(95, existing.successScore + delta));
+      // Atomic clamped update — no read-modify-write, so two concurrent feedback
+      // events (or a feedback reweight racing the lessonGate perf sync) can't lose
+      // each other's delta. successScore stays in [10, 95].
+      const affected = await prisma.$executeRaw`
+        UPDATE "ViralPattern"
+        SET "successScore" = LEAST(95, GREATEST(10, ROUND("successScore" + ${delta})))::int
+        WHERE "id" = ${id}`;
+      if (affected === 0) return null;
+      return await prisma.viralPattern.findUnique({ where: { id } });
+    } catch (err) {
+      console.error("ViralPattern successScore güncellenirken hata oluştu:", redactError(err));
+      return null;
+    }
+  },
+
+  /**
+   * lessonGate promotion (Sprint 9): mark a candidate pattern as VALIDATED once
+   * it cleared the two-gate (repetition + significance) + brand veto. Idempotent
+   * and no-throw — a re-run on an already-validated pattern just refreshes
+   * validatedSupport. Only patternPromotionService should call this.
+   */
+  async markValidated(id: string, support: number): Promise<ViralPattern | null> {
+    try {
       return await prisma.viralPattern.update({
         where: { id },
-        data: { successScore: next },
+        data: { validatedAt: new Date(), validatedSupport: support },
       });
     } catch (err) {
-      console.error("ViralPattern successScore güncellenirken hata oluştu:", err);
+      console.error("ViralPattern validatedAt yazılırken hata oluştu:", redactError(err));
       return null;
     }
   },

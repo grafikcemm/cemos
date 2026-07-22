@@ -1,12 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { ytVideoRepo } from "@/lib/db/ytVideoRepo";
 import { isYouTubeConfigured } from "@/lib/youtube/ytConfig";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/youtube/videos?category=&minScore=&sinceDays=&shorts=only|exclude&limit=
 // Fırsat akışı: outlierScore'a göre azalan.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   const sp = req.nextUrl.searchParams;
   const category = sp.get("category") || undefined;
   const minScoreRaw = sp.get("minScore");
@@ -27,8 +30,7 @@ export async function GET(req: NextRequest) {
     limit: Number.isFinite(limit) ? limit : undefined,
   });
 
-  return NextResponse.json({
-    success: true,
+  return ok({
     configured: isYouTubeConfigured(),
     count: videos.length,
     videos,

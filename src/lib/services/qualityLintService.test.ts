@@ -2,8 +2,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock database/external dependencies
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn(),
+  estimateGenerateJsonCeiling: vi.fn(() => 0.01),
 }));
 
 vi.mock("@/lib/db/accountRepo", () => ({
@@ -21,10 +28,40 @@ vi.mock("@/lib/db/generationRunRepo", () => ({
 vi.mock("@/lib/services/usageService", () => ({
   usageService: {
     recordGeneration: vi.fn(),
+    recordOpenRouter: vi.fn(),
     getMonthlyCost: vi.fn().mockResolvedValue(0),
+    getMonthlyOpenRouterCost: vi.fn().mockResolvedValue(0),
+    getMonthlySpendByBudgetClass: vi.fn().mockResolvedValue(0),
     getTodayCost: vi.fn().mockResolvedValue(0),
   },
 }));
+
+// generateJsonGated reserves atomically before spending; mock the reservation so
+// this unit test needs no DB (reserveAiSpend fails CLOSED on the unset test
+// DATABASE_URL otherwise). Budget/reservation logic is covered by its own tests.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveAiSpend: vi.fn(async () => ({ id: "res-test" })),
+  settleAiSpend: vi.fn(),
+  releaseAiSpend: vi.fn(),
+}));
+
+// generateJsonGated now wraps generateJson with a budget gate; keep the gate open
+// in this unit test so the LLM judge path runs (budget logic covered elsewhere).
+vi.mock("@/lib/config/costGate", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/config/costGate")>(
+    "@/lib/config/costGate",
+  );
+  return {
+    ...actual,
+    assertGenerationAllowed: vi.fn(),
+    getBudgetStatus: vi.fn(async () => ({
+      allowed: true,
+      spentUsd: 0,
+      limitUsd: 10,
+      remainingUsd: 10,
+    })),
+  };
+});
 
 vi.mock("@/lib/ai/draft-pipeline", () => ({
   runDraftPipeline: vi.fn(),

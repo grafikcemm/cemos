@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import { useXAgentStore } from "@/store/xagent";
 import { fetchJson } from "@/lib/utils/safeFetch";
-import { PageHeader, Card, Button, MetricCard, EmptyState } from "../ui";
+import { PageHeader, Card, Button, MetricCard, EmptyState, ErrorState, Skeleton } from "../ui";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
+import { safeExternalHref } from "@/lib/utils/url";
 
 type CouncilVerdict = {
   sourcePostId: string;
@@ -245,7 +247,7 @@ export default function DiscoveryEngineTab() {
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
       <PageHeader
-        surface
+        size="compact"
         eyebrow="Keşfet"
         title="Keşif Motoru"
         subtitle={`Çok kaynaklı keşif (X · Reddit · YouTube · RSS) → çok-ajanlı müzakere konseyi → viral pattern madenciliği → @${channel} için persona-sadık taslak üretimi.`}
@@ -318,7 +320,7 @@ export default function DiscoveryEngineTab() {
         </Card>
       )}
 
-      <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-5)" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-4)" }}>
         <Button
           variant="primary"
           onClick={runFull}
@@ -341,9 +343,19 @@ export default function DiscoveryEngineTab() {
         </Button>
       </div>
 
-      {/* Faz ilerleme göstergesi */}
+      {/* Faz ilerleme göstergesi — ince yatay şerit (dev kart değil) */}
       {showStepper && (
-        <div style={{ display: "flex", gap: 10, marginBottom: "var(--space-4)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            marginBottom: "var(--space-4)",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-sm)",
+            overflow: "hidden",
+          }}
+        >
           {STEPS.map((s, i) => {
             const st = stepStatus(s.id);
             const c = STEP_COLORS[st];
@@ -355,37 +367,36 @@ export default function DiscoveryEngineTab() {
                   flex: 1,
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
-                  padding: "12px 14px",
-                  background: c.bg,
-                  border: `1px solid ${c.border}`,
-                  borderRadius: "var(--radius-lg)",
-                  fontSize: "var(--text-sm)",
+                  gap: 8,
+                  padding: "6px 12px",
+                  minHeight: "var(--control-h-sm)",
+                  background: st === "pending" ? "transparent" : c.bg,
+                  borderLeft: i === 0 ? "none" : "1px solid var(--border-faint)",
+                  fontSize: "var(--text-xs)",
                   color: c.fg,
-                  fontWeight: 600,
-                  boxShadow: "var(--highlight-top)",
-                  transition: "background var(--ease-out), border-color var(--ease-out), color var(--ease-out)",
+                  fontWeight: 500,
+                  transition: "background var(--ease-out), color var(--ease-out)",
                 }}
               >
                 <span
                   style={{
                     display: "grid",
                     placeItems: "center",
-                    width: 24,
-                    height: 24,
-                    borderRadius: "var(--radius-md)",
+                    width: 18,
+                    height: 18,
+                    borderRadius: "var(--radius-sm)",
                     background: "color-mix(in srgb, currentColor 12%, transparent)",
                     flexShrink: 0,
                   }}
                 >
                   {st === "done" ? (
-                    <Check size={15} strokeWidth={2.2} />
+                    <Check size={12} strokeWidth={2.2} />
                   ) : st === "error" ? (
-                    <XIcon size={15} strokeWidth={2.2} />
+                    <XIcon size={12} strokeWidth={2.2} />
                   ) : st === "running" ? (
-                    <StepIcon size={15} strokeWidth={2} />
+                    <StepIcon size={12} strokeWidth={2} />
                   ) : (
-                    <span className="tnum" style={{ fontSize: "var(--text-xs)", fontWeight: 700 }}>{i + 1}</span>
+                    <span className="tnum" style={{ fontSize: 10, fontWeight: 500 }}>{i + 1}</span>
                   )}
                 </span>
                 <span>{s.label}</span>
@@ -396,24 +407,17 @@ export default function DiscoveryEngineTab() {
         </div>
       )}
 
-      {error && (
-        <Card
-          variant="quiet"
-          style={{
-            marginBottom: "var(--space-4)",
-            background: "color-mix(in srgb, var(--danger) 7%, var(--bg-base))",
-            border: "1px solid color-mix(in srgb, var(--danger) 32%, transparent)",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 10,
-            color: "var(--danger)",
-            fontSize: "var(--text-sm)",
-            lineHeight: 1.55,
-          }}
-        >
-          <AlertTriangle size={16} strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }} />
-          <span>{error}</span>
+      {/* Koşarken kısmi sonuç yoksa iskelet — ekran asla boş kalmaz */}
+      {loading && !result && !miningOnly && (
+        <Card variant="quiet" padded style={{ marginBottom: "var(--space-4)" }}>
+          <Skeleton lines={3} height={14} />
         </Card>
+      )}
+
+      {error && (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <ErrorState description={error} />
+        </div>
       )}
 
       {result?.discovery && (
@@ -425,7 +429,7 @@ export default function DiscoveryEngineTab() {
             <Search size={15} strokeWidth={1.8} />
             Keşif
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: 12, marginBottom: 14 }}>
             <MetricCard label="Kaydedildi" value={result.discovery.inserted} accent />
             <MetricCard label="Ön-filtre sonrası" value={result.discovery.kept} />
           </div>
@@ -448,8 +452,8 @@ export default function DiscoveryEngineTab() {
                   color: "var(--text-secondary)",
                 }}
               >
-                <span style={{ fontWeight: 700, color: "var(--text-primary)" }}>{k}</span>
-                <span className="tnum" style={{ color: "var(--accent-text)", fontWeight: 700 }}>{v}</span>
+                <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{k}</span>
+                <span className="tnum" style={{ color: "var(--accent-text)", fontWeight: 500 }}>{v}</span>
               </span>
             ))}
           </div>
@@ -484,23 +488,22 @@ export default function DiscoveryEngineTab() {
           <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 }}>
             hook · persona · risk · novelty mercekleri
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 12, marginBottom: 16 }}>
             <MetricCard label="Pattern çıkarıldı" value={mining.mined} accent />
             <MetricCard label="Müzakere edildi" value={mining.deliberated} />
             <MetricCard label="Elendi" value={mining.skipped} />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {mining.verdicts.map((v) => (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {mining.verdicts.map((v, i) => (
               <div
                 key={v.sourcePostId}
                 style={{
                   display: "flex",
                   alignItems: "center",
+                  flexWrap: "wrap",
                   gap: 12,
-                  padding: "10px 12px",
-                  background: "var(--bg-base)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--border)",
+                  padding: "8px 2px",
+                  borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
                 }}
               >
                 <span
@@ -509,7 +512,7 @@ export default function DiscoveryEngineTab() {
                     alignItems: "center",
                     gap: 6,
                     fontSize: "var(--text-xs)",
-                    fontWeight: 700,
+                    fontWeight: 500,
                     color: verdictColor(v.verdict),
                     minWidth: 64,
                   }}
@@ -533,7 +536,7 @@ export default function DiscoveryEngineTab() {
                 >
                   {v.sourceType}
                 </span>
-                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                <span style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)", lineHeight: 1.5, flex: 1, minWidth: 0 }}>
                   {v.rationale}
                 </span>
               </div>
@@ -556,7 +559,7 @@ export default function DiscoveryEngineTab() {
               className="font-display tnum"
               style={{
                 fontSize: "var(--text-4xl)",
-                fontWeight: 800,
+                fontWeight: 500,
                 lineHeight: 1,
                 letterSpacing: "-0.03em",
                 color: "var(--accent-text)",
@@ -616,6 +619,137 @@ export default function DiscoveryEngineTab() {
           />
         </Card>
       )}
+
+      <OutlierHighlights />
     </div>
+  );
+}
+
+type OutlierItem = {
+  id: string;
+  multiplier: number;
+  metricValue: number;
+  baselineMedian: number;
+  contentItem?: {
+    id: string;
+    platform?: string | null;
+    title?: string | null;
+    body?: string | null;
+    url?: string | null;
+  } | null;
+};
+
+/**
+ * Öne Çıkanlar — eski İçerik Zekası sekmesinin sadeleşmiş hali. Arkaplandaki
+ * outlier motoru (cron'daki syncToCanonical) kendi ortalamasının belirgin
+ * üstünde performans gösteren içerikleri işaretler; burada insan diliyle
+ * listelenir. Veri yoksa bölüm hiç görünmez (teknik boş-durum jargonu yok).
+ */
+function OutlierHighlights() {
+  const [items, setItems] = useState<OutlierItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchJson<{ success: boolean; items?: OutlierItem[] }>("/api/content/outliers?limit=10")
+      .then((data) => {
+        if (mounted && data.success && data.items) setItems(data.items);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (items.length === 0) return null;
+
+  return (
+    <Card variant="feature" style={{ marginTop: "var(--space-5)" }}>
+      <div
+        className="eyebrow"
+        style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--accent-text)", marginBottom: 4 }}
+      >
+        <Sparkles size={15} strokeWidth={1.8} />
+        Öne Çıkanlar
+      </div>
+      <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 }}>
+        Takip edilen kaynaklarda kendi ortalamasının belirgin üstüne çıkan içerikler — üretim için en sıcak referanslar.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {items.map((o, i) => {
+          const title = o.contentItem?.title || o.contentItem?.body?.slice(0, 120) || "İçerik";
+          const times = o.multiplier >= 10 ? Math.round(o.multiplier) : Math.round(o.multiplier * 10) / 10;
+          const contentItemId = o.contentItem?.id;
+          return (
+            <div
+              key={o.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "8px 2px",
+                borderTop: i === 0 ? "none" : "1px solid var(--border-faint)",
+              }}
+            >
+              <span
+                className="tnum"
+                title={`Bu içerik, üreticisinin tipik performansının ${times} katına ulaştı`}
+                style={{
+                  flexShrink: 0,
+                  minWidth: 52,
+                  textAlign: "center",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: 500,
+                  color: "var(--accent-text)",
+                  background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                  border: "1px solid var(--accent-border)",
+                  borderRadius: "var(--radius-pill)",
+                  padding: "3px 10px",
+                }}
+              >
+                {times}×
+              </span>
+              {o.contentItem?.platform && (
+                <span className="eyebrow" style={{ color: "var(--text-muted)", fontSize: "var(--text-2xs)", flexShrink: 0 }}>
+                  {o.contentItem.platform}
+                </span>
+              )}
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: "var(--text-sm)",
+                  color: "var(--text-secondary)",
+                  lineHeight: 1.5,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {o.contentItem?.url ? (
+                  <a
+                    href={safeExternalHref(o.contentItem.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "inherit", textDecoration: "none" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "inherit")}
+                  >
+                    {title}
+                  </a>
+                ) : (
+                  title
+                )}
+              </span>
+              <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", flexShrink: 0 }}>
+                ortalaması {Math.round(o.baselineMedian).toLocaleString("tr-TR")} → {Math.round(o.metricValue).toLocaleString("tr-TR")}
+              </span>
+              {contentItemId && (
+                <SaveToBoardButton source={{ kind: "contentItem", contentItemId }} size="xs" title={title} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

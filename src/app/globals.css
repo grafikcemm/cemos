@@ -1,47 +1,110 @@
 @import "tailwindcss";
 
 :root {
-  /* ── Surfaces / borders / text (warm neutral dark) ──────────────── */
-  --bg-base: #0a0908;
-  --bg-surface: #121110;
-  --bg-elevated: #1a1817;
-  --bg-hover: #211e1c;
-  --border: #262321;
-  --border-strong: #34302d;
-  --text-primary: #ece9e6;
-  --text-secondary: #8f8a85;
-  --text-muted: #5a5550;
+  /* Tek tema: DESKTOP DARK EDITORIAL (ADR-020, light kararını supersede eder).
+     Native form/scrollbar/date-picker koyu render için. */
+  color-scheme: dark;
 
-  /* ── Brand accent — muted oxblood / garnet (PRIMARY, marka kilidi) ─ */
-  --accent: #9b2c34;
-  --accent-hover: #b23a42;
-  --accent-dark: #2a0e10;
-  --accent-border: rgba(155, 44, 52, 0.35);
-  --accent-fg: #f4e9ea; /* text/icon ON solid accent fill — never #000 */
-  --accent-text: #c95058; /* accent-as-text on dark, ~5:1 AA */
+  /* ── Ink — primary text RGB (#F2EFE8 kırık beyaz); ink-türevli rgba (scrollbar,
+     chart-grid) buradan LIGHT olarak türetilir (dark yüzeyde açık iz). ──────── */
+  --ink: 242, 239, 232;
 
-  /* ── Secondary accent — warm amber (ring/rozet/trend/hover) ─────── */
-  --accent-2: #f5803e;
-  --accent-2-hover: #f79356;
-  --accent-2-text: #f7a06a; /* amber-as-text on dark */
-  --accent-2-border: rgba(245, 128, 62, 0.35);
+  /* ── Surface ramp — DARK EDITORIAL sıcak antrasit/kömür (base < surface) ─── */
+  --bg-base: #101114; /* app frame / page canvas (sıcak kömür) */
+  --bg-workspace: #131519; /* ana çalışma paneli */
+  --bg-sunken: #0d0f13; /* sunken: input/track/quote (base'den koyu) */
+  --bg-surface: #191c21; /* default card */
+  --bg-elevated: #20242a; /* overlay / dropdown / modal panel */
+  --bg-hover: #242830; /* hover fill */
+  --bg-rail: #0d0f12; /* sidebar / topstrip rail (en koyu) */
+  --surface-overlay: rgba(16, 17, 20, 0.82); /* sticky topstrip (blur backdrop) */
 
-  /* ── Semantic status (error-red distinct from brand-red) ────────── */
-  --danger: #e5484d;
-  --red: #e5484d; /* legacy alias → danger */
-  --blue: #4c8dff;
-  --yellow: #f5b73d;
-  --green: #3fb27f; /* teal-leaning success */
+  /* ── Borders (ince nötr) + text (gerçek WCAG — dark, ADR-020) ───────────── */
+  --border: #2b3038;
+  --border-strong: #3a404a;
+  --border-faint: #1e2229; /* iç bölücüler (base ile border arası) */
+  --text-primary: #f2efe8; /* kırık beyaz — ~16:1 AAA */
+  --text-secondary: #b8b2a8; /* ~8:1 AA */
+  --text-muted: #918b82; /* ~4.9:1 AA (küçük normal metin geçer) */
+  --text-faint: #6a655e; /* YALNIZ dekoratif/disabled — anlam taşıyan metinde kullanılmaz */
 
-  /* ── Chart palette (mirrored in src/lib/theme/chartColors.ts) ───── */
-  --chart-1: #9b2c34;
-  --chart-2: #4c8dff;
-  --chart-3: #f5b73d;
-  --chart-4: #3fb27f;
-  --chart-grid: #262321;
-  --chart-axis: #5a5550;
+  /* ── Marka accent — TERRACOTTA (PRIMARY). Dark'ta İKİ katman:
+     solid-fill (#A8481F, beyaz fg — buton/aktif dolgu) + text/icon/link (#E4865E,
+     dark yüzeyde AA — inline metin/eyebrow/ikon/focus). Mor/violet YOK. ─────── */
+  --accent: #a8481f; /* solid dolgu (beyaz --accent-fg ile 7.5:1) */
+  --accent-hover: #bc5528; /* dark'ta hover daha parlak */
+  --accent-active: #8f3a16;
+  --accent-deep: #c86a3a; /* derin/ikincil vurgu (dark: daha açık) */
+  --accent-fg: #ffffff; /* terracotta dolgu üstünde metin/ikon */
+  --accent-text: #e4865e; /* metin-olarak-terracotta — dark bg-base'de ~6.6:1 */
 
-  /* ── Spacing scale (px) ─────────────────────────────────────────── */
+  /* Accent alpha tint'leri — dark yüzeyde terracotta iz (transparent ile mix). */
+  --accent-tint-05: color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent-tint-08: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-tint-12: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-tint-15: color-mix(in srgb, var(--accent) 20%, transparent);
+  --accent-tint-20: color-mix(in srgb, var(--accent) 26%, transparent);
+  --accent-tint-30: color-mix(in srgb, var(--accent) 42%, transparent);
+  --accent-dark: var(--accent-tint-15); /* koyu terracotta yüzey (aktif nav/badge zemini) */
+  --accent-border: var(--accent-tint-30);
+
+  /* ── İkincil accent — ADR-017 tek-accent: --accent-2 artık terracotta'ya alias ─ */
+  --accent-2: var(--accent);
+  --accent-2-hover: var(--accent-hover);
+  --accent-2-text: var(--accent-text);
+  --accent-2-fg: var(--accent-fg);
+  --accent-2-border: var(--accent-border);
+  --accent-2-dark: var(--accent-dark);
+
+  /* ── Semantik durum (dark, gerçek WCAG — chip metni bg-base'de ≥4.5:1) ──── */
+  --status-ok: #3fb068; /* success (nokta/ikon) */
+  --status-ok-text: #56cb8c; /* ok metni/chip — dark yüzeyde ≥6:1 */
+  --status-warn: #c88a2e; /* warning / stale (nokta) */
+  --status-warn-text: #e0a94a; /* warn metni/chip — dark yüzeyde ≥7:1 */
+  --status-error: #e5595e; /* error / destructive — dark yüzeyde ≥5:1 (metin+nokta) */
+  --status-info: var(--accent-text); /* tek-accent: light terracotta (metin-güvenli) */
+  --danger: var(--status-error);
+  --danger-hover: #ef7378;
+  --red: var(--status-error); /* legacy alias → danger */
+  --blue: var(--status-info); /* legacy alias → info (accent) */
+  --yellow: var(--status-warn); /* legacy alias → warning */
+  --green: var(--status-ok); /* legacy alias → success */
+
+  /* ── Kontrollü açık-ada yüzeyleri (referans ADR-021: koyu kanvasta ivory/peach
+     KARAR kartları). YALNIZ karar/karşılaştırma odağı — sayfayı light'a çevirme,
+     her kartı beyaz yapma. Gerçek WCAG (theme-tokens.test): koyu metin açık ada
+     üstünde ≥4.5:1; bunlar bilinçli açık ADA (dark-kilit dışı). ──────────────── */
+  --inverse-surface: #f2ece1; /* sıcak ivory ada — ready "Sıradaki" kartı */
+  --inverse-surface-2: #e8dfd0; /* ada içi gömük satır (meta/kaynak şeridi) */
+  --inverse-text: #221f1a; /* ada üstü ana metin (near-black warm) */
+  --inverse-muted: #635c51; /* ada üstü ikincil metin (≥4.5:1) */
+  --inverse-border: #dbd1bf; /* ada içi ince ayraç */
+  --peach-surface: #f6dcc6; /* peach ada — needs_edit dikkat kartı */
+  --peach-surface-2: #f0cdb0; /* peach gömük satır */
+  --peach-text: #5a3315; /* peach üstü ana metin (koyu kahve) */
+  --peach-muted: #6f4d2f; /* peach üstü ikincil metin (≥4.5:1) */
+  --peach-border: #e7bf9d; /* peach ince ayraç */
+
+  /* ── Shell geometrisi (referans ADR-021) ────────────────────────────────── */
+  --sidebar-w: 244px; /* near-black rail genişliği (referans 232–252) */
+
+  /* ── Chart palette — dark: açık terracotta + nötr; dekoratif çoklu-renk YOK  */
+  --chart-1: #d2703f; /* accent terracotta (dark: açık) */
+  --chart-2: #918b82; /* nötr gri */
+  --chart-3: #4fb07a; /* status-ok (açık) */
+  --chart-4: #d69a45; /* status-warn (açık) */
+  --chart-grid: rgba(242, 239, 232, 0.07);
+  --chart-axis: rgba(242, 239, 232, 0.34);
+
+  /* ── Desktop içerik genişliği varyantları (1B.5, desktop-only) ──────────── */
+  --content-reading: 960px; /* Bugün/drawer okuma */
+  --content-standard: 1080px; /* Profil/Ayarlar/Toolbox */
+  /* ADR-040: operasyonel/veri-yoğun yüzeyler (Takvim/Kütüphane/araştırma) 1440/
+     1920'de daralmasın — 1280 → 1440. Okuma yüzeyleri (Bugün) standard kalır. */
+  --content-wide: 1440px; /* Takvim/Kütüphane tablo/advanced araştırma */
+  --content-max: var(--content-standard); /* geriye dönük alias */
+
+  /* ── Spacing scale (px) ─────────────────────────────────────────────────── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -53,51 +116,71 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* ── Radius scale (bento — büyük yuvarlaklık) ───────────────────── */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px; /* varsayılan kart */
-  --radius-2xl: 24px; /* hero / showcase */
+  /* ── Editöryal ritim — daha ferah ───────────────────────────────────────── */
+  --space-section: 56px; /* operasyonel yoğunluk */
+  --space-section-sm: 36px;
+  --space-page-x: 32px; /* shell yatay gutter (dashboard: kompakt) */
+  --space-page-top: 24px; /* shell üst boşluk */
+  --card-pad: 24px; /* varsayılan kart iç padding (was 20) */
+  --card-pad-lg: 32px; /* hero/feature kart iç */
+  --stack: 20px; /* kartlar arası varsayılan dikey gap */
 
-  /* ── Typography scale ───────────────────────────────────────────── */
-  --text-2xs: 9px;
+  /* ── Radius (dashboard: kontroller 8px, kartlar yumuşak) ─────────────────── */
+  --radius-sm: 8px; /* kontrol: buton / input / select / badge */
+  --radius-md: 11px; /* orta yüzeyler */
+  --radius-lg: 16px; /* kart / panel / tablo */
+  --radius-xl: 18px; /* feature kart / görsel köşe */
+  --radius-2xl: 22px; /* elevated kart / modal */
+  --radius-pill: 9999px; /* pill buton / toggle / dot */
+
+  /* ── Kontrol boyutları + scrim ──────────────────────────────────────────── */
+  --control-h: 40px; /* standart kontrol yüksekliği */
+  --control-h-sm: 32px; /* küçük kontrol */
+  --scrim: rgba(0, 0, 0, 0.72); /* drawer/modal/overlay perdesi (dark) */
+
+  /* ── Typography scale (px) ──────────────────────────────────────────────── */
+  --text-2xs: 10px;
   --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 15px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
   --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 28px;
-  /* Display scale (premium, başlıklar + hero statlar) */
-  --text-3xl: 34px;
-  --text-4xl: 44px;
-  /* Editöryal display (magazine hero başlıkları) */
-  --text-display-lg: 40px;
-  --text-display-xl: 56px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 27px; /* Eden H3 */
+  --text-display-md: 36px; /* Eden H2 / hero-olmayan sayfa başlıkları */
+  --text-4xl: 40px;
+  --text-display-lg: 54px; /* Eden H1 / magazine hero */
+  --text-display-xl: 64px;
 
-  /* ── Fonts ──────────────────────────────────────────────────────── */
-  --font-display: var(--font-sora), "Sora", system-ui, -apple-system, sans-serif;
+  /* ── Fonts: gövde Inter (sans), display Inter, kod IBM Plex Mono ─────────── */
+  --font-sans: var(--font-app-sans), "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-app-sans), "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-ibm-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* ── Premium yüzey gradyanları / atmosfer ───────────────────────── */
-  --gradient-accent: linear-gradient(135deg, rgba(155, 44, 52, 0.16), rgba(155, 44, 52, 0.02));
-  --gradient-accent-2: linear-gradient(135deg, rgba(245, 128, 62, 0.16), rgba(245, 128, 62, 0.02));
+  /* Başlık ağırlığı — soft premium hiyerarşi 600'e izin verir (700 hâlâ yasak). */
+  --font-weight-heading: 600;
+
+  /* ── Yüzey gradyanları — dark: çok hafif, token-bazlı; dekoratif/mor YOK ─── */
+  --gradient-accent: linear-gradient(135deg, var(--accent-tint-08), transparent 60%);
+  --gradient-accent-2: linear-gradient(135deg, var(--accent-tint-08), transparent 70%);
   --gradient-surface: linear-gradient(160deg, var(--bg-elevated), var(--bg-surface));
-  /* Saf dark — hero radial tamamen kaldırıldı (şeffaf no-op) */
-  --gradient-hero: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0));
+  --gradient-hero: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)); /* no-op */
 
-  /* ── Elevation / depth (katmanlı ambient+key) ───────────────────── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 36px rgba(0, 0, 0, 0.5);
-  --shadow-accent: 0 6px 16px rgba(155, 44, 52, 0.35), 0 2px 4px rgba(155, 44, 52, 0.25);
-  --shadow-drawer: -8px 0 32px rgba(0, 0, 0, 0.6);
-  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.04); /* "yukarıdan ışıklı" panel */
-  --ring-focus: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent);
+  /* ── Elevation — dark editorial: siyah, ince, glow YOK; hafif üst highlight  */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4); /* L1 */
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45); /* L2 */
+  --shadow-lg: 0 8px 28px -8px rgba(0, 0, 0, 0.55); /* L3 */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --glow-cyan: 0 1px 2px rgba(0, 0, 0, 0.4); /* legacy adı — dark'ta sade gölge (glow değil) */
+  --shadow-accent: 0 1px 3px rgba(0, 0, 0, 0.45); /* hover — glow yok */
+  --shadow-modal: 0 16px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-drawer: -8px 0 40px rgba(0, 0, 0, 0.5);
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.02); /* dark: çok hafif kenar (globals allow) */
+  --ring-focus: 0 0 0 3px var(--accent-tint-30); /* a11y focus ring (terracotta tint) */
 
-  /* ── Editöryal ritim + motion + doku ────────────────────────────── */
-  --space-section: 64px;
-  --space-section-sm: 40px;
+  /* ── Motion + doku ──────────────────────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
   --eyebrow-tracking: 0.14em;
@@ -105,46 +188,66 @@
 }
 
 @theme inline {
-  /* Colors → Tailwind utilities (bg-accent, text-danger, border-default…) */
-  --color-base: #0a0908;
-  --color-surface: #121110;
-  --color-elevated: #1a1817;
-  --color-bg-hover: #211e1c;
-  --color-border-default: #262321;
-  --color-border-strong: #34302d;
-  --color-text-primary: #ece9e6;
-  --color-text-secondary: #8f8a85;
-  --color-text-muted: #5a5550;
+  /* Colors → Tailwind utilities (bg-surface, text-danger, border-default…) */
+  --color-base: #101114;
+  --color-workspace: #131519;
+  --color-sunken: #0d0f13;
+  --color-surface: #191c21;
+  --color-elevated: #20242a;
+  --color-bg-hover: #242830;
+  --color-rail: #0d0f12;
+  --color-border-default: #2b3038;
+  --color-border-strong: #3a404a;
+  --color-border-faint: #1e2229;
+  --color-text-primary: #f2efe8;
+  --color-text-secondary: #b8b2a8;
+  --color-text-muted: #918b82;
+  --color-text-faint: #6a655e;
 
-  --color-accent: #9b2c34;
-  --color-accent-hover: #b23a42;
-  --color-accent-dark: #2a0e10;
-  --color-accent-fg: #f4e9ea;
-  --color-accent-text: #c95058;
+  --color-accent: #a8481f;
+  --color-accent-hover: #bc5528;
+  --color-accent-dark: color-mix(in srgb, #a8481f 20%, transparent);
+  --color-accent-fg: #ffffff;
+  --color-accent-text: #e4865e;
 
-  --color-accent-2: #f5803e;
-  --color-accent-2-text: #f7a06a;
+  --color-accent-2: #a8481f;
+  --color-accent-2-text: #e4865e;
+  --color-accent-2-fg: #ffffff;
 
-  --color-danger: #e5484d;
-  --color-success: #3fb27f;
-  --color-xred: #e5484d;
-  --color-xblue: #4c8dff;
-  --color-xyellow: #f5b73d;
+  --color-danger: #e5595e;
+  --color-success: #3fb068;
+  --color-xred: #e5595e;
+  --color-xblue: #e4865e;
+  --color-xyellow: #c88a2e;
 
-  --color-chart-1: #9b2c34;
-  --color-chart-2: #4c8dff;
-  --color-chart-3: #f5b73d;
-  --color-chart-4: #3fb27f;
+  /* Kontrollü açık-ada yüzeyleri → Tailwind (bg-inverse-surface, text-peach-text…) */
+  --color-inverse-surface: #f2ece1;
+  --color-inverse-surface-2: #e8dfd0;
+  --color-inverse-text: #221f1a;
+  --color-inverse-muted: #635c51;
+  --color-inverse-border: #dbd1bf;
+  --color-peach-surface: #f6dcc6;
+  --color-peach-surface-2: #f0cdb0;
+  --color-peach-text: #5a3315;
+  --color-peach-muted: #6f4d2f;
+  --color-peach-border: #e7bf9d;
 
-  /* Radius → rounded-* utilities (bento) */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --color-chart-1: #d2703f;
+  --color-chart-2: #918b82;
+  --color-chart-3: #4fb07a;
+  --color-chart-4: #d69a45;
+
+  /* Radius → rounded-* utilities */
+  --radius-sm: 8px;
+  --radius-md: 11px;
+  --radius-lg: 16px;
   --radius-xl: 18px;
-  --radius-2xl: 24px;
+  --radius-2xl: 22px;
+  --radius-pill: 9999px;
 
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-sora), "Sora", system-ui, sans-serif;
+  --font-sans: var(--font-app-sans), "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-app-sans), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: var(--font-ibm-mono), "IBM Plex Mono", ui-monospace, monospace;
 }
 
 * {
@@ -156,27 +259,34 @@ body {
   padding: 0;
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
-  line-height: 1.55;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.625;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Premium başlık fontu yardımcı sınıfı (yalnızca başlık/hero statlarında). */
+/* Display başlık — Inter, hafif negatif tracking. Soft premium: başlık
+   ağırlığı 600 (inline fontWeight ile ezilebilir; eyebrow 500'de kalır). */
 .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  font-weight: var(--font-weight-heading);
 }
 
-/* Editöryal eyebrow — uppercase, tracked, muted üst-etiket */
+/* Mono — IBM Plex Mono (kod/teknik string). */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Eyebrow — sans (Inter), uppercase, tracked, sage. Eden ağırlığı 500'de tutar. */
 .eyebrow {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: var(--eyebrow-tracking);
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--accent-text);
 }
 
 /* Tabular sayılar — metrik/maliyet/skor hizası */
@@ -200,6 +310,65 @@ body {
   animation: editorial-rise 0.34s var(--ease-out) both;
 }
 
+/* Haber kaynak şeridi — sürekli kayan marquee. Yalnız transform (compositor).
+   Global prefers-reduced-motion kuralı iteration-count'u 1'e indirir → durur. */
+@keyframes news-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.news-marquee {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.news-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: news-marquee 42s linear infinite;
+}
+.news-marquee:hover .news-marquee-track {
+  animation-play-state: paused;
+}
+
+/* Haber sayfası — rakip "AI Gündem" gibi sıcak coral/gold tema (sayfaya özel,
+   EDEN'i bozmaz). Tokenlar yalnız .news-warm alt ağacında geçerli. */
+.news-warm {
+  --nw-accent: #d97757; /* coral */
+  --nw-accent-2: #f0a93a; /* gold */
+  --nw-soft: rgba(217, 119, 87, 0.13);
+  --nw-border: rgba(217, 119, 87, 0.28);
+}
+.nw-hero {
+  background: radial-gradient(
+    120% 78% at 50% -12%,
+    rgba(217, 119, 87, 0.24),
+    rgba(240, 169, 58, 0.07) 34%,
+    transparent 62%
+  );
+  border-radius: var(--radius-lg);
+}
+.nw-card {
+  transition: transform 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+.nw-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--nw-border);
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.55);
+}
+.nw-pagebtn {
+  transition: background 0.16s, border-color 0.16s, color 0.16s;
+}
+.nw-pagebtn:not(:disabled):hover {
+  border-color: var(--nw-border);
+  color: var(--nw-accent-2);
+}
+
 ::selection {
   background: var(--accent);
   color: var(--accent-fg);
@@ -216,18 +385,33 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #322e2b;
+  background: rgba(var(--ink), 0.1);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #423d39;
+  background: rgba(var(--ink), 0.18);
 }
 
-/* Textarea focus */
+/* Textarea focus — remove mouse-focus outline noise only */
 textarea:focus,
 input:focus {
   outline: none;
+}
+
+/* A11y: keyboard focus her yüzeyde görünür. Dark'ta solid accent (#A8481F) çok
+   koyu (~2.5:1) → light terracotta accent-text (#E4865E, ≥3:1 UI-görünür). */
+:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  box-shadow: var(--ring-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* Eden no-bold: <strong>/<b> stay at medium weight (500). */
+strong,
+b {
+  font-weight: 500;
 }
 
 /* Spinner animation */
@@ -278,5 +462,299 @@ input:focus {
   }
 }
 
-/* Masaüstü-only: mobil responsive bilinçli olarak kaldırıldı (W4 kararı).
-   Uygulama geniş masaüstü layout varsayar; min-genişlik desktop. */
+/* ── Sidebar (ADR-021 referans sadakat) — ortak sınıflar; yoğun inline style +
+   JS hover yerine CSS. Dikey ritim + gruplu ayırıcılar referanstan. ────────── */
+.cx-sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--bg-rail);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+.cx-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 12px 14px;
+}
+/* Nav satırı — referans: ferah slab, nötr grafit aktif dolgu. */
+.cx-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  height: 40px;
+  padding: 0 11px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+  transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out);
+}
+.cx-nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.cx-nav-item[aria-current="page"] {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--highlight-top);
+}
+.cx-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-nav-badge {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+.cx-divider {
+  height: 1px;
+  background: var(--border-faint);
+  margin: 11px 6px;
+  flex-shrink: 0;
+}
+.cx-section-label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 11px;
+  margin: 6px 0 5px;
+}
+/* Hesap bağlam kartı — referanstaki işlenmiş account card. */
+.cx-account-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-faint);
+  background: var(--bg-surface);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.14s var(--ease-out), background 0.14s var(--ease-out);
+}
+.cx-account-card:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+}
+.cx-account-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(150deg, var(--accent-hover), var(--accent-active));
+  color: var(--accent-fg);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ── ADR-040: sidebar yoğunluk — aktif alan alt-nav + Araştırma grubu + Şimdi
+   özeti. 3 top-level korunur; alt hedefler hiyerarşik + keşfedilebilir olur. ── */
+
+/* Araştırma grubu öğeleri — birincil satırdan bir tık küçük. */
+.cx-nav-item-sm {
+  height: 34px;
+}
+
+/* Aktif alanın alt hedefleri (Plan: Takvim/Fırsatlar/Seriler · Kütüphane: …). */
+.cx-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 1px 0 3px;
+}
+.cx-subnav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s var(--ease-out), color 0.14s var(--ease-out);
+}
+.cx-subnav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.cx-subnav-item[aria-current="page"] {
+  color: var(--text-primary);
+}
+.cx-subnav-item[aria-current="page"] .cx-subnav-rail {
+  background: var(--accent-text);
+}
+.cx-subnav-rail {
+  width: 2px;
+  height: 15px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-left: 8px;
+  background: var(--border-strong);
+  transition: background 0.14s var(--ease-out);
+}
+
+/* Grup başlığı (Araştırma katlama tetikleyicisi). */
+.cx-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 5px 11px 4px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+}
+.cx-group-header:hover .cx-section-label {
+  color: var(--text-muted);
+}
+
+/* "Şimdi" özeti — Profil'in üstünde, gerçek/canonical health verisi. */
+.cx-now {
+  flex-shrink: 0;
+  padding: 12px 12px 10px;
+  margin: 0 4px;
+  border-top: 1px solid var(--border-faint);
+}
+.cx-now-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.14s var(--ease-out);
+}
+.cx-now-row:hover {
+  background: var(--bg-hover);
+}
+.cx-now-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.cx-now-empty {
+  padding: 4px 8px 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* Workspace paneli — ana içerik frame'den koyu, yuvarlak köşeli panel içinde
+   yaşar (dark dashboard referansı). overflow:clip scroll container OLUŞTURMAZ,
+   sticky TopStrip çalışmaya devam eder. */
+.app-workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-workspace);
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-lg);
+  margin: 10px 10px 10px 0;
+  overflow: clip;
+}
+
+/* Kütüphane/İlham çalışma alanı (Phase 4B / ADR-041): geniş ekranda ana grid +
+   bağlamsal sağ rail; ≤1200px'de rail ana akışın altına güvenli biçimde düşer. */
+.ilham-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--stack);
+  align-items: start;
+}
+.ilham-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack);
+  min-width: 0;
+}
+@media (min-width: 1200px) {
+  .ilham-workspace {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+/* Mobil responsive (FE-01): 320px'de yatay taşmayı giderir. Shell zaten
+   off-canvas drawer + hamburger wiring'ine sahip (AppShell/TopStrip); burada
+   yalnız görünürlük + gutter breakpoint'i tanımlanır. */
+/* Mobil bottom nav — varsayılan gizli; ≤640px'de görünür. */
+.app-bottomnav {
+  display: none;
+}
+
+/* Yalnız masaüstü öğeleri (topbar arama, workspace sub-nav) — ≤640px'de gizlenir. */
+@media (max-width: 640px) {
+  .app-desktop-only {
+    display: none !important;
+  }
+  .app-bottomnav {
+    display: flex;
+  }
+  .app-content {
+    padding-bottom: 84px !important; /* bottom nav'a yer aç */
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --space-page-x: 16px; /* dar ekranda gutter daralt */
+  }
+  .app-sidebar-desktop {
+    display: none; /* mobilde sidebar yerine bottom nav kullanılır */
+  }
+  .app-workspace {
+    margin: 0; /* mobilde panel çerçevesi yok — tam genişlik */
+    border: none;
+    border-radius: 0;
+  }
+}

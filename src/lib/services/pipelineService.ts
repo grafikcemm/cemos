@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/db/client";
-import { accountProfiles, type AccountHandle } from "@/lib/accounts";
+import { getRuntimeProfile } from "@/lib/accounts/profileRepository";
 import { draftService } from "@/lib/services/draftService";
 import { discoveryService, type DiscoverySummary } from "@/lib/services/discoveryService";
 import { miningService, type MiningSummary } from "@/lib/services/miningService";
+import { composeNewsGrounding } from "@/lib/news/draftBridge";
+import { routeItem } from "@/lib/agents/router";
 import { getLocalDayBounds } from "@/lib/utils/date";
 
 export type DailyRunSummary = {
-  handle: AccountHandle;
+  handle: string;
   discovery: DiscoverySummary | null;
   mining: MiningSummary | null;
   dailyMax: number;
@@ -16,6 +18,8 @@ export type DailyRunSummary = {
   created: number;
   blocked: number;
   errors: number;
+  /** Haber havuzundan (NewsItem) üretilen taslak sayısı — created'a dahildir. */
+  newsCreated: number;
   reason: string;
 };
 
@@ -27,11 +31,24 @@ export const pipelineService = {
    * it from `npm run discover` or a thin scheduler hitting /api/cron/daily.
    */
   async runDailyForAccount(
-    handle: AccountHandle,
-    opts?: { discover?: boolean; mine?: boolean; dailyMax?: number }
+    handle: string,
+    opts?: {
+      discover?: boolean;
+      mine?: boolean;
+      dailyMax?: number;
+      deadlineMs?: number;
+      /**
+       * FIRST-SPRINT item 17 — idempotency: `generate-morning:{date}:{account}`.
+       * true iken, bugün bu hesap için EN AZ BİR QueueItem zaten üretilmişse
+       * discovery/mining/LLM'e HİÇ girmeden erken döner → ikinci çağrı sıfır
+       * yeni QueueItem + sıfır UsageLog + sıfır LLM harcaması.
+       */
+      idempotent?: boolean;
+    }
   ): Promise<DailyRunSummary> {
-    const profile = accountProfiles[handle];
-    if (!profile) throw new Error(`Profile not found: ${handle}`);
+    // ADR-031: profil otoritesi DB — bilinmeyen/draft/inaktif hesap fail-closed
+    // (AccountProfileError), sessizce başka personaya düşülmez.
+    const profile = await getRuntimeProfile(handle, { requireGenerationReady: true });
 
     const account = await prisma.account.findUnique({
       where: { handle },
@@ -40,6 +57,31 @@ export const pipelineService = {
     if (!account) throw new Error(`Account not found: ${handle}`);
 
     const dailyMax = opts?.dailyMax ?? account.schedule?.dailyMaxPosts ?? profile.defaultDraftCount ?? 3;
+
+    // Idempotency erken-çıkışı LLM/discovery'den ÖNCE koşar (item 17).
+    if (opts?.idempotent) {
+      const { start: dayStart } = getLocalDayBounds("Europe/Istanbul", new Date());
+      const existingToday = await prisma.queueItem.count({
+        where: { accountId: account.id, createdAt: { gte: dayStart } },
+      });
+      if (existingToday > 0) {
+        const dateKey = new Date().toISOString().slice(0, 10);
+        return {
+          handle,
+          discovery: null,
+          mining: null,
+          dailyMax,
+          todayDrafts: existingToday,
+          target: 0,
+          attempts: 0,
+          created: 0,
+          blocked: 0,
+          errors: 0,
+          newsCreated: 0,
+          reason: `idempotent_skip:generate-morning:${dateKey}:${handle}`,
+        };
+      }
+    }
 
     // 1) Discover external content, 2) deliberate + mine viral patterns, 3) generate.
     const discovery =
@@ -64,6 +106,7 @@ export const pipelineService = {
       created: 0,
       blocked: 0,
       errors: 0,
+      newsCreated: 0,
       reason: "",
     };
 
@@ -89,12 +132,19 @@ export const pipelineService = {
     for (const post of candidates) {
       if (summary.created >= target) break;
       if (summary.attempts >= target + 5) break;
+      // In-flight cancellation: stop starting new drafts once the cron deadline
+      // is reached so the invocation can persist its result before being killed.
+      if (opts?.deadlineMs && Date.now() > opts.deadlineMs) {
+        summary.reason = summary.reason || "deadline";
+        break;
+      }
       summary.attempts++;
       try {
         const result = await draftService.generateDraft({
           accountHandle: handle,
           sourcePostId: post.id,
           draftType: "TWEET",
+          deadlineMs: opts?.deadlineMs,
         });
         if (result.blocked) {
           summary.blocked++;
@@ -110,6 +160,61 @@ export const pipelineService = {
       } catch {
         summary.errors++;
         await prisma.sourcePost.update({ where: { id: post.id }, data: { status: "error" } });
+      }
+    }
+
+    // VISION #8 köprüsü — kota SourcePost adaylarıyla dolmadıysa günlük haber
+    // havuzundan tamamla: analiz edilmiş + kullanılmamış NewsItem'lar buzz/viral
+    // sırasıyla taslağa döner (manuel "Üret →" butonuyla aynı grounding).
+    if (summary.created < target && summary.reason !== "budget_exhausted") {
+      const newsCandidates = await prisma.newsItem.findMany({
+        where: {
+          processingStatus: "analyzed",
+          isUsed: false,
+          queueItems: { none: { accountId: account.id } },
+        },
+        orderBy: [{ buzzScore: "desc" }, { viralScore: "desc" }],
+        take: 10,
+      });
+
+      for (const news of newsCandidates) {
+        if (summary.created >= target) break;
+        if (summary.attempts >= target + 10) break;
+        if (opts?.deadlineMs && Date.now() > opts.deadlineMs) {
+          summary.reason = summary.reason || "deadline";
+          break;
+        }
+        const grounding = composeNewsGrounding(news);
+        // Account Router: haber başka hesaba net uyuyorsa bu hesap atlar
+        // (fail-open — anahtar/bütçe yoksa best=null döner ve engellemez).
+        const route = await routeItem(grounding);
+        if (route.best && route.best !== handle) continue;
+        summary.attempts++;
+        try {
+          const result = await draftService.generateDraft({
+            accountHandle: handle,
+            sourceTweet: grounding,
+            sourceHandle: news.newsSourceId ?? "news",
+            draftType: "TWEET",
+            mode: news.suggestedFormat || undefined,
+            newsItemId: news.id,
+            imageUrl: news.imageUrl ?? undefined,
+            deadlineMs: opts?.deadlineMs,
+          });
+          if (result.blocked) {
+            summary.blocked++;
+            if (result.reason === "budget") {
+              summary.reason = "budget_exhausted";
+              break;
+            }
+          } else {
+            summary.created++;
+            summary.newsCreated++;
+            await prisma.newsItem.update({ where: { id: news.id }, data: { isUsed: true } });
+          }
+        } catch {
+          summary.errors++;
+        }
       }
     }
 

@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
-import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
+import { getDisplayName } from "@/lib/growth-engine/account-adapter";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   try {
     const { searchParams } = new URL(req.url);
     const accountHandle = searchParams.get("accountHandle") || "all";
@@ -17,13 +20,7 @@ export async function GET(req: NextRequest) {
     const idToAccount = new Map<string, { id: string; handle: string; displayName: string }>();
     const handleToId = new Map<string, string>();
     for (const acc of accounts) {
-      let displayName = acc.handle;
-      try {
-        const profile = getAccountProfile(acc.handle);
-        if (profile) {
-          displayName = profile.displayName;
-        }
-      } catch {}
+      const displayName = getDisplayName(acc.handle);
       idToAccount.set(acc.id, { id: acc.id, handle: acc.handle, displayName });
       handleToId.set(acc.handle, acc.id);
     }
@@ -38,8 +35,7 @@ export async function GET(req: NextRequest) {
         where.accountId = accountId;
       } else {
         // Return empty response immediately if invalid account handle
-        return NextResponse.json({
-          success: true,
+        return ok({
           summary: {
             totalPatterns: 0,
             activePatterns: 0,
@@ -138,8 +134,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary: {
         totalPatterns,
         activePatterns,
@@ -152,6 +147,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

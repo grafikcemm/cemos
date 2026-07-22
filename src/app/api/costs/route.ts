@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { getCostLimits } from "@/lib/config/costLimits";
+import { getBudgetStatus } from "@/lib/config/costGate";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 // SocialData per-tweet unit price (mirrors calculateCost in socialdata.ts).
 const SOCIALDATA_UNIT_PRICE = 0.0002;
@@ -15,14 +18,34 @@ type UsageLogRow = {
   meta: string | null;
 };
 
-function parsePurpose(meta: string | null): string | null {
-  if (!meta) return null;
+function parseMeta(meta: string | null): { purpose: string | null; preset: string | null; budgetClass: string | null } {
+  if (!meta) return { purpose: null, preset: null, budgetClass: null };
   try {
-    const parsed = JSON.parse(meta) as { purpose?: unknown };
-    return typeof parsed.purpose === "string" ? parsed.purpose : null;
+    const parsed = JSON.parse(meta) as { purpose?: unknown; preset?: unknown; budgetClass?: unknown };
+    return {
+      purpose: typeof parsed.purpose === "string" ? parsed.purpose : null,
+      preset: typeof parsed.preset === "string" ? parsed.preset : null,
+      budgetClass: typeof parsed.budgetClass === "string" ? parsed.budgetClass : null,
+    };
   } catch {
-    return null;
+    return { purpose: null, preset: null, budgetClass: null };
   }
+}
+
+/**
+ * Faz 2E (ADR-034 §I): evaluation harcaması ayrı sınıflanır — meta.budgetClass
+ * "evaluation" VEYA purpose "eval_" prefix'i. Production kürasyon harcaması
+ * (research_opportunity_curation) evaluation DEĞİLDİR — ayrı gösterilir.
+ */
+function isEvaluationRow(row: UsageLogRow): boolean {
+  const meta = parseMeta(row.meta);
+  return meta.budgetClass === "evaluation" || (meta.purpose ?? "").startsWith("eval_");
+}
+
+const CURATION_PURPOSE = "research_opportunity_curation";
+
+function parsePurpose(meta: string | null): string | null {
+  return parseMeta(meta).purpose;
 }
 
 // A log row counts as SocialData spend if explicitly tagged, or if it is a scan row.
@@ -40,7 +63,10 @@ function purposeOf(row: UsageLogRow): string {
   return parsePurpose(row.meta) ?? (row.type === "generation" ? "draft_generation" : "other");
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
     const thisMonthStr = new Date().toISOString().slice(0, 7);
@@ -58,6 +84,7 @@ export async function GET() {
 
     const limits = getCostLimits();
     const budgetUsd = limits.monthlyBudgetUsd;
+    const budgetStatus = await getBudgetStatus({ budgetClass: "essential" });
 
     // ── PROVIDER LINE ITEMS (month-to-date) ───────────────────────────────────
     // SocialData: tweets fetched × unit price.
@@ -71,6 +98,9 @@ export async function GET() {
 
     const byPurposeMap = new Map<string, { purpose: string; costUsd: number; calls: number }>();
     const byModelMap = new Map<string, { model: string; costUsd: number; calls: number }>();
+    // Preset kırılımı (Sprint 2): UsageLog.meta.preset gated preset çağrılarında
+    // yazılır; preset'siz gated çağrılar (rol yolu) tek kalemde toplanır.
+    const byPresetMap = new Map<string, { preset: string; costUsd: number; calls: number }>();
     for (const row of orLogs) {
       const purpose = purposeOf(row);
       const pEntry = byPurposeMap.get(purpose) ?? { purpose, costUsd: 0, calls: 0 };
@@ -83,11 +113,25 @@ export async function GET() {
       mEntry.costUsd += row.estimatedCostUsd;
       mEntry.calls += 1;
       byModelMap.set(model, mEntry);
+
+      const preset = parseMeta(row.meta).preset ?? "(rol yolu)";
+      const prEntry = byPresetMap.get(preset) ?? { preset, costUsd: 0, calls: 0 };
+      prEntry.costUsd += row.estimatedCostUsd;
+      prEntry.calls += 1;
+      byPresetMap.set(preset, prEntry);
     }
 
     const round5 = (n: number) => Number(n.toFixed(5));
     const sortByCost = <T extends { costUsd: number }>(arr: T[]) =>
       arr.sort((a, b) => b.costUsd - a.costUsd).map((e) => ({ ...e, costUsd: round5(e.costUsd) }));
+
+    // fal.ai image + transcript (gemini/supadata) spend: summed into the month
+    // total but previously shown in NO line item, so Σ(line items) < total. Break
+    // them out so the Costs breakdown reconciles against the grand total.
+    const falLogs = logs.filter((l) => l.type === "image" || l.provider === "fal");
+    const falCostUsd = falLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const transcriptLogs = logs.filter((l) => l.type === "transcript");
+    const transcriptCostUsd = transcriptLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
 
     const lineItems = {
       socialData: {
@@ -101,6 +145,17 @@ export async function GET() {
         costUsd: round5(orTotalUsd),
         byPurpose: sortByCost([...byPurposeMap.values()]),
         byModel: sortByCost([...byModelMap.values()]),
+        byPreset: sortByCost([...byPresetMap.values()]),
+      },
+      fal: {
+        provider: "fal",
+        images: falLogs.length,
+        costUsd: round5(falCostUsd),
+      },
+      transcript: {
+        provider: "transcript",
+        count: transcriptLogs.length,
+        costUsd: round5(transcriptCostUsd),
       },
     };
 
@@ -141,8 +196,32 @@ export async function GET() {
         budgetUsd,
         socialDataUsd: lineItems.socialData.costUsd,
         openRouterUsd: lineItems.openRouter.costUsd,
+        // Bütçe kapısının GERÇEKTEN uyguladığı OpenRouter aylık harcaması:
+        // max(local ledger, provider /key toplamı). Local satır-kalemi provider'ın
+        // ALTINDA kalabilir (paylaşımlı key / eski yazılmamış çağrılar) → generation
+        // provider figürüne yakın bloklanırken headline az gösteriyordu. Bu alan
+        // uygulanan gerçeği yüzeye çıkarır (openRouterUsd satır-kalemi Σ=total
+        // uzlaşması için korunur).
+        openRouterEnforcedUsd: round5(budgetStatus.spentUsd),
+        providerUsageUsd:
+          budgetStatus.providerUsageMonthlyUsd != null ? round5(budgetStatus.providerUsageMonthlyUsd) : null,
+        falUsd: lineItems.fal.costUsd,
+        transcriptUsd: lineItems.transcript.costUsd,
       },
       lineItems,
+      budgetStatus,
+      // Faz 2E (ADR-034 §I): evaluation bütçesi/harcaması — production curation
+      // harcamasından AYRI (farklı purpose/budget class).
+      evaluation: {
+        enabled: limits.evalSpendEnabled,
+        monthlyBudgetUsd: limits.evalMonthlyBudgetUsd,
+        monthSpendUsd: round5(logs.filter(isEvaluationRow).reduce((a, l) => a + l.estimatedCostUsd, 0)),
+        curationMonthSpendUsd: round5(
+          orLogs
+            .filter((l) => parseMeta(l.meta).purpose === CURATION_PURPOSE)
+            .reduce((a, l) => a + l.estimatedCostUsd, 0)
+        ),
+      },
       dailySeries,
       limits: {
         dailyTweetBudget: limits.dailyTweetBudget,

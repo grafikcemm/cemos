@@ -1,7 +1,8 @@
 import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 
 /**
  * örn1-style deep structural analysis of an EXTERNAL viral item. This is the
@@ -33,8 +34,8 @@ function clamp10(n: unknown, fallback: number): number {
 }
 
 /** Deterministic fallback so mining works with no API key / spent budget. */
-export function heuristicAnalysis(text: string, handle: AccountHandle): ViralAnalysis {
-  const keywords = NICHE_QUERIES[handle]?.keywords ?? [];
+export function heuristicAnalysis(text: string, handle: string): ViralAnalysis {
+  const keywords = (NICHE_QUERIES as Record<string, { keywords: string[] }>)[handle]?.keywords ?? [];
   const lower = text.toLowerCase();
   const hits = keywords.filter((k) => lower.includes(k.toLowerCase())).length;
   const interest = Math.max(3, Math.min(9, 3 + hits));
@@ -54,14 +55,15 @@ export function heuristicAnalysis(text: string, handle: AccountHandle): ViralAna
   };
 }
 
-function buildSystemPrompt(handle: AccountHandle): string {
-  const p = accountProfiles[handle];
+function buildSystemPrompt(handle: string): string {
+  const p = accountProfiles[handle as AccountHandle];
   return [
     "Sen medya okuryazarlığı yüksek bir içerik analiz uzmanısın. Verilen dış içeriği derinlemesine, yapısal olarak analiz et.",
     `Hedef hesap: @${handle} (${p.persona} — ${p.concept}).`,
     "Şunları çıkar: özet, duygu, ana argümanlar, trend potansiyeli, hedef kitle ilgisi, haber değeri, yeni açı önerileri, hook, yapı, duygu, viralite nedeni.",
     `Çıktı SADECE şu JSON:`,
     `{"summary":"","sentiment":"positive|negative|mixed","key_arguments":[],"trending_potential":<1-10>,"audience_interest":<1-10>,"news_value":<1-10>,"angle_suggestions":[],"hook":"","structure":"","emotion":"","virality_reason":""}`,
+    UNTRUSTED_DATA_NOTICE,
   ].join("\n");
 }
 
@@ -79,17 +81,18 @@ type RawAnalysis = {
   virality_reason?: string;
 };
 
-export async function analyzeViralItem(text: string, handle: AccountHandle): Promise<ViralAnalysis> {
+export async function analyzeViralItem(text: string, handle: string): Promise<ViralAnalysis> {
   if (!process.env.OPENROUTER_API_KEY) return heuristicAnalysis(text, handle);
   const budget = await getBudgetStatus();
   if (!budget.allowed) return heuristicAnalysis(text, handle);
 
   try {
-    const run = await generateJson<RawAnalysis>({
+    const run = await generateJsonGated<RawAnalysis>({
       role: "cheapWriter",
       system: buildSystemPrompt(handle),
-      user: `İçerik:\n"""${text.slice(0, 900)}"""`,
+      user: `İçerik:\n${wrapUntrustedData(text.slice(0, 900))}`,
       temperature: 0.4,
+      purpose: "extract_viral_analysis",
     });
     const d = run.data;
     const sentiment: Sentiment =

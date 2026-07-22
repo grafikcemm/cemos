@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { runDeterministicHeuristics } from "@/lib/safety/heuristics";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 const updateSchema = z.object({
   editedContent: z.string().optional(),
@@ -25,36 +26,35 @@ const updateSchema = z.object({
 
 export async function GET(
   _req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
   try {
     const item = await queueRepo.findById(id);
-    if (!item) return NextResponse.json({ success: false, error: "Bulunamadı" }, { status: 404 });
-    return NextResponse.json({ success: true, item });
+    if (!item) return fail("Bulunamadı", 404);
+    return ok({ item });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  ctx: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
-  const body = await req.json().catch(() => null);
-  const parsed = updateSchema.safeParse(body);
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = updateSchema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Geçersiz istek" }, { status: 400 });
+    return fail("Geçersiz istek", 400);
   }
 
   try {
     const existing = await queueRepo.findById(id);
-    if (!existing) return NextResponse.json({ success: false, error: "Bulunamadı" }, { status: 404 });
+    if (!existing) return fail("Bulunamadı", 404);
 
     const updateData = { ...parsed.data };
 
@@ -87,25 +87,26 @@ export async function PATCH(
     }
 
     const item = await queueRepo.update(id, updateData);
-    return NextResponse.json({ success: true, item });
+    return ok({ item });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }
 
 import { scheduleService } from "@/lib/services/scheduleService";
 
 export async function DELETE(
-  _req: NextRequest,
-  ctx: RouteContext<"/api/queue/[id]">
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
 ) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
   try {
     await scheduleService.deleteDraft(id);
-    return NextResponse.json({ success: true });
+    return ok();
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

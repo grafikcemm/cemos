@@ -21,6 +21,23 @@ model Account {
   platform  String   @default("x")
   createdAt DateTime @default(now())
 
+  // ── Phase 2C (ADR-031): Account = runtime source of truth. Kural listeleri
+  // StyleProfile'da (toneRules/formatRules/forbiddenRules/modes, seed'li JSON);
+  // buradaki alanlar TS accountProfiles'ın kalan profil verisini taşır. Hepsi
+  // additive + default'lu — eski satırlar migration sonrası geçerli kalır.
+  displayName       String    @default("")
+  language          String    @default("Turkish")
+  autonomy          String    @default("")
+  defaultDraftCount Int       @default(3)
+  // FormatTierId[] JSON — üretimde izinli uzunluk tier'ları.
+  formatsJson       String    @default("[]")
+  benchmarkInput    String    @default("")
+  // "active" → üretime girebilir; "draft"/"configuration_required" → fail-closed.
+  profileStatus     String    @default("draft")
+  isActive          Boolean   @default(true)
+  profileVersion    Int       @default(1)
+  profileUpdatedAt  DateTime?
+
   styleProfile         StyleProfile?
   sources              Source[]
   sourcePosts          SourcePost[]
@@ -30,11 +47,39 @@ model Account {
   generationRuns       GenerationRun[]
   usageLogs            UsageLog[]
   publishLogs          PublishLog[]
+  publishAttempts      PublishAttempt[]
   viralPatterns        ViralPattern[]
   trainingExamples     TrainingExample[]
-  feedbackEvents       FeedbackEvent[]
   evalTests            EvalTest[]
+  feedbackEvents       FeedbackEvent[]
   contentOpportunities ContentOpportunity[]
+  opportunityHandoffs  OpportunityHandoff[]
+  platformBindings     AccountPlatformBinding[]
+}
+
+// ── Phase 2C (ADR-032): CemOS hesabı ↔ dış platform bağlantısı eşlemesi.
+// Credential/token SAKLANMAZ (tokenlar Composio/Meta tarafında kalır; secret'lar
+// env/IntegrationCredential'da). Yalnız bağlantı kimliği + durum + sync metadata.
+model AccountPlatformBinding {
+  id                   String    @id @default(cuid())
+  accountId            String
+  account              Account   @relation(fields: [accountId], references: [id])
+  platform             String // "instagram"
+  provider             String // "composio" | "meta"
+  externalAccountId    String    @default("") // Composio connected account id / IG user id (secret değil)
+  externalHandle       String    @default("") // bağlı IG username
+  connectionStatus     String    @default("unverified") // unverified | connected | degraded | blocked
+  toolkitVersion       String    @default("")
+  lastVerifiedAt       DateTime?
+  lastSuccessfulSyncAt DateTime?
+  lastErrorClass       String    @default("")
+  lastSyncSummaryJson  String    @default("{}")
+  metadataJson         String    @default("{}")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@unique([accountId, platform, provider])
+  @@index([platform, provider])
 }
 
 model StyleProfile {
@@ -118,6 +163,10 @@ model QueueItem {
   scores            String      @default("{}")
   lintReport        String?
   candidatesJson    String      @default("[]")
+  // Faz 1C: yapısal thread segmentleri (JSON: ThreadSegment[]; Zod-typed).
+  // Additive-only, nullable — okuma: parseThreadSegments (readiness yapısal
+  // thread doğrulaması). Üretim hattının doğrudan segment üretmesi Faz 2.
+  threadSegments    String?
   lastError         String?
   approvedAt        DateTime?
   // News→draft bridge: which NewsItem this draft was grounded on (if any).
@@ -126,10 +175,19 @@ model QueueItem {
   // Visual content: carried-over source image and/or AI-generated image.
   imageUrl          String?
   generatedImageUrl String?
+  // Phase 5B (ADR-045): deterministik "fikir → taslak" köprüsü idempotency anahtarı.
+  // NULL-distinct unique (Postgres NULL'ları ayrık sayar) → yalnız fikir-tohumlu
+  // taslaklar kısıtlanır; cron/pipeline taslakları null bırakır. Değer örn.
+  // "learn:{packId}:{ideaId}:{accountId}" | "idea:{ideaId}". Çift-tık/retry →
+  // pre-check + P2002 backstop mevcut taslağı döner (duplicate YOK).
+  originKey         String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  generationRun GenerationRun?
+  generationRun   GenerationRun?
+  publishAttempts PublishAttempt[]
+
+  @@unique([originKey])
 }
 
 model Schedule {
@@ -206,6 +264,70 @@ model PublishLog {
   createdAt    DateTime  @default(now())
 }
 
+// Faz 1E (ADR-025): yayın denemesi state machine kaydı. Intent penceresi açmak
+// YALNIZ prepared satırı yaratır — PublishLog/PublishedPost ancak succeeded
+// geçişinin transaction'ı içinde oluşur. Additive-only.
+model PublishAttempt {
+  id                     String    @id @default(cuid())
+  queueItemId            String
+  queueItem              QueueItem @relation(fields: [queueItemId], references: [id])
+  accountId              String
+  account                Account   @relation(fields: [accountId], references: [id])
+  adapter                String // "intent" | "x_api"
+  state                  String // "prepared" | "succeeded" | "failed"
+  idempotencyKey         String
+  contentHash            String
+  readinessPolicyVersion String
+  readinessSnapshotJson  String    @default("{}")
+  externalId             String?
+  errorCode              String?
+  errorMessage           String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  completedAt            DateTime?
+
+  @@unique([accountId, adapter, idempotencyKey])
+  @@index([queueItemId, state])
+  @@index([accountId, state])
+}
+
+// Fırsat → hedef yüzey kalıcı aktarımı (ADR-028, Faz 2A).
+// "Hazırlanmış ama henüz tüketilmemiş" cross-surface işi hiçbir mevcut model
+// temsil etmiyordu (Idea = içerik tohumu, ContentOpportunity = haber-tweet
+// fikri) — küçük additive workflow modeli. Kaynak verinin kendisi kopyalanmaz;
+// sourceKind+sourceId orijinaline işaret eder; seed metni LLM'e giderken
+// wrapUntrustedData zorunludur.
+model OpportunityHandoff {
+  id                String    @id @default(cuid())
+  accountId         String
+  account           Account   @relation(fields: [accountId], references: [id])
+  action            String // "generate" | "plan" | "series"
+  status            String    @default("pending") // pending | consumed | cancelled
+  sourceKind        String // "news" | "youtube" | "radar" | "discovery"
+  sourceId          String
+  sourcePlatform    String    @default("")
+  title             String
+  topicSeed         String    @default("")
+  whyNow            String    @default("")
+  whyNowDetail      String    @default("")
+  rawTab            String    @default("")
+  suggestedPlatform String    @default("X")
+  score             Int       @default(0)
+  curationMethod    String    @default("deterministic") // deterministic | agent
+  payloadJson       String    @default("{}") // schemaVersion'lı ekstra alanlar (Zod ile okunur)
+  fingerprint       String
+  resultQueueItemId String?
+  resultRef         String? // consume sonucu (slot id / seriesKey)
+  blockedReason     String?
+  consumedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([accountId, action, fingerprint])
+  @@index([accountId, action, status])
+  @@index([status, createdAt])
+}
+
 // Growth Intelligence Engine models
 
 model ViralPattern {
@@ -231,10 +353,22 @@ model ViralPattern {
   sourcePostId         String? // provenance: which external item this was mined from
   sourceType           String? // x | reddit | youtube | rss
   platform             String   @default("x") // owning platform (Faz F): x | instagram | youtube
+  // lessonGate iki-kapı promosyonu (Sprint 9): aday → doğrulanmış. Tek şanslı
+  // post kural olamaz; validatedAt yalnız repetition+significance+marka-vetosu
+  // geçince yazılır (patternPromotionService). null = hâlâ aday.
+  validatedAt          DateTime?
+  validatedSupport     Int      @default(0) // promosyon anındaki destek sayısı
+  // Kalıcı retrieval embedding'i (Sprint 9): sorgu-anı yeniden vektörleme
+  // maliyetini süreçler arası sıfırlar. embeddingHash = pattern metninin hash'i;
+  // metin değişince (updatedAt) hash tutmaz → embedding bayat sayılır, yeniden
+  // hesaplanır. null = henüz kalıcılaşmamış (sorgu-anı cache'e düşer).
+  embeddingJson        String?
+  embeddingHash        String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   @@index([platform])
+  @@index([validatedAt])
 }
 
 model TrainingExample {
@@ -249,9 +383,12 @@ model TrainingExample {
   metricsJson   String   @default("{}")
   embeddingJson String?
   platform      String   @default("x")
+  // Sprint 4 (CONTENT-ENGINE §5.1): seri-bazlı few-shot havuzu (additive).
+  seriesKey     String?
   createdAt     DateTime @default(now())
 
   @@index([platform])
+  @@index([seriesKey])
 }
 
 model FeedbackEvent {
@@ -264,8 +401,22 @@ model FeedbackEvent {
   originalContent String?
   editedContent   String   @default("")
   reason          String   @default("")
+  // Kuzey-yıldızı metriği (Sprint 9): normalize edit-distance artık reason JSON'a
+  // gömülü değil, sorgulanabilir kolonda. Eski satırlar reason'dan okunmaya devam
+  // eder (KPI okuyucusu kolon-önce, JSON-fallback). null = edit sinyali yok.
+  editDistance    Float?
   platform        String   @default("x")
+  // Phase 5A (ADR-044): açık geri bildirim çift-tık/retry idempotency — client key
+  // üretir → sunucu pre-check + P2002 backstop (LearnReviewAttempt/PublishAttempt
+  // deseni). NULL-distinct: key'siz (legacy/opsiyonel) satırlar serbest çoğaltılır.
+  idempotencyKey  String?
+  // Phase 5B (ADR-045): operatör bir sinyali "yanlış/gürültü" işaretleyince set
+  // edilir → köprü (signalBridge) bu event'i GELECEK hafıza önerilerine SOKMAZ.
+  // Ham kaydı silmez (audit korunur); yalnız öğrenme etkisini keser. null = etkin.
+  neutralizedAt   DateTime?
   createdAt       DateTime @default(now())
+
+  @@unique([idempotencyKey])
 }
 
 model EvalTest {
@@ -301,6 +452,8 @@ model PipelineTrace {
 
   @@index([subjectType, subjectId, createdAt])
   @@index([createdAt])
+  // Faz 2E: agent_registry trace kapsama sorguları (pipelineId + zaman) için.
+  @@index([pipelineId, createdAt])
 }
 
 // Serverless cron/scan heartbeat + result log. Written heartbeat-first so even
@@ -360,6 +513,13 @@ model NewsItem {
   imageUrl           String?
   viralScore         Int?
   xValueScore        Int?
+  // "Çok konuşulan" ekseni — viral/xValue tweet potansiyeli ölçer; buzz dünya
+  // gündemini ölçer: çapraz-kaynak teyidi + tazelik + dış popülerlik (HN/Reddit).
+  buzzScore          Int?
+  hnPoints           Int?
+  hnComments         Int?
+  redditScore        Int?
+  externalSignalsAt  DateTime?
   whyPeopleCare      String?
   tweetAngle         String?
   suggestedFormat    String? // micro | punch | spark | storm | thread
@@ -383,6 +543,7 @@ model NewsItem {
 
   @@index([processingStatus])
   @@index([viralScore])
+  @@index([buzzScore])
   @@index([fetchedAt])
 }
 
@@ -452,6 +613,11 @@ model ToolboxResource {
   isFavorite        Boolean  @default(false)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
+
+  // Toolbox list query filters by isActive (+ optional category) and orders by
+  // favorite/score. Composite index keeps the bucketed/lazy queries off a full
+  // table scan as the catalog grows.
+  @@index([isActive, category])
 }
 
 // Production-ready prompt library (seeded from static JSON + user additions).
@@ -468,6 +634,34 @@ model PromptTemplate {
   createdAt  DateTime @default(now())
 }
 
+// ── Anahtar Kelime Kütüphanesi (IA v2) ── Tasarım-prompt anahtar kelimeleri;
+// TR/EN çift + (RU/JA/ZH/KO e-ticaret kategorilerinde) yerel-dil terim.
+// scripts/import-keywords.ts ile scripts/data/keywords.txt'den idempotent seed.
+model KeywordEntry {
+  id        String   @id @default(cuid())
+  slug      String   @unique // kategori-termEn kebab
+  category  String
+  termTr    String
+  termEn    String
+  termLocal String? // yalnız yerel-dil kolonu olan kategorilerde
+  tags      String   @default("[]")
+  source    String   @default("seed") // seed | user
+  createdAt DateTime @default(now())
+
+  @@index([category])
+}
+
+// Prompt formülleri (F-1..F-50): şablon + örnek prompt listesi.
+model PromptFormula {
+  id           String   @id @default(cuid())
+  code         String   @unique // F-1, F-22, F-LOCAL-2...
+  name         String
+  pattern      String // ör. "style + industry"
+  examplesJson String   @default("[]")
+  category     String   @default("general")
+  createdAt    DateTime @default(now())
+}
+
 // AI model rankings snapshot (static fallback + optional live fetch).
 model AiModelSnapshot {
   id           String   @id @default(cuid())
@@ -475,6 +669,39 @@ model AiModelSnapshot {
   rankingsJson String   @default("[]")
   source       String   @default("static")
   createdAt    DateTime @default(now())
+}
+
+// Durable, server-authoritative operator preferences (Phase 5F §6). Replaces the
+// serverless-broken `.env.local` write for MODEL_PROFILE: on Vercel the FS is
+// read-only outside /tmp and env is not re-read per request, so the old POST
+// reported success while production routing never changed. Single additive
+// key/value row per setting (key "model_profile"). Non-secret routing prefs only.
+model OperatorSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Atomic AI-spend reservation (closure C). Closes the budget TOCTOU: an
+// advisory-locked reserve claims the estimated cost BEFORE the provider call,
+// settled to actual after (or released on failure). getBudgetStatus counts open
+// (unexpired) reservations, so concurrent essential calls can't both pass the
+// check and overshoot the monthly/pacing/class cap. Runtime fail-opens to the
+// legacy assert if this table is absent, so deploy-before-migration is safe.
+model AiSpendReservation {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  budgetClass      String
+  purpose          String
+  model            String?
+  estimatedCostUsd Float
+  actualCostUsd    Float?
+  status           String    @default("open") // open | settled | released
+  expiresAt        DateTime
+  settledAt        DateTime?
+
+  @@index([status, expiresAt])
+  @@index([createdAt])
 }
 
 // Daily aggregated digest shown on the morning dashboard.
@@ -724,4 +951,894 @@ model IgInsightSnapshot {
   rawJson         String   @default("{}") // ham insight — drift teşhisi
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ── CemOS Learn (Faz L) — eğitici YouTube videosu → kaynaklandırılmış kalıcı
+// öğrenme. Global veri, Account relation YOK (Yt/News deseni). JSON = String
+// kolonu (safeJsonParse). Tamamı additive; mevcut modeller dokunulmaz. Tek
+// kullanıcı: userId yalnız ileri-uyum (RLS yok, auth yok). LEARN_ENABLED flag'i
+// arkasında çalışır.
+
+// Eklenen kaynak (şu an yalnız YouTube). @@unique([kind, externalId]) →
+// aynı video iki kez eklenince yeni kayıt değil, mevcut kaynak döner (idempotent).
+model LearnSource {
+  id           String   @id @default(cuid())
+  userId       String? // ileri-uyum scope; null = tek kullanıcı
+  kind         String   @default("youtube") // youtube | url | text (gelecek)
+  externalId   String // YouTube videoId
+  url          String
+  title        String   @default("")
+  channelTitle String   @default("")
+  durationSec  Int      @default(0)
+  lang         String?
+  metaJson     String   @default("{}") // ham metadata snapshot
+  status       String   @default("new") // new | processing | ready | failed
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transcript LearnTranscript?
+  packs      LearnPack[]
+  jobs       LearnProcessingJob[]
+
+  @@unique([kind, externalId])
+  @@index([status])
+}
+
+// Ham transkript (zaman-kodlu segmentler + düz metin). Kaynak başına bir tane.
+model LearnTranscript {
+  id           String      @id @default(cuid())
+  sourceId     String      @unique
+  source       LearnSource @relation(fields: [sourceId], references: [id])
+  provider     String      @default("innertube") // innertube | timedtext | supadata | gemini | manual
+  lang         String?
+  segmentsJson String      @default("[]") // [{startSec,endSec,text}] chunk öncesi ham
+  fullText     String      @default("")
+  charCount    Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  chunks LearnChunk[]
+}
+
+// Zaman-kodlu chunk (grounding birimi). idx sıralı; sectionIdx → section synthesis.
+model LearnChunk {
+  id           String          @id @default(cuid())
+  transcriptId String
+  transcript   LearnTranscript @relation(fields: [transcriptId], references: [id])
+  sourceId     String // sorgu kolaylığı için düz kolon
+  idx          Int // 0-tabanlı sıra
+  startSec     Float           @default(0)
+  endSec       Float           @default(0)
+  text         String
+  sectionIdx   Int             @default(0) // map-reduce gruplaması
+  createdAt    DateTime        @default(now())
+
+  @@unique([sourceId, idx])
+  @@index([sourceId, sectionIdx])
+}
+
+// Üretilen Learning Pack. @@unique([sourceId, pipelineVersion]) → cache anahtarı:
+// aynı transkript + aynı versiyon yeniden işlenmez (gereksiz LLM harcaması yok).
+model LearnPack {
+  id              String      @id @default(cuid())
+  sourceId        String
+  source          LearnSource @relation(fields: [sourceId], references: [id])
+  pipelineVersion String      @default("")
+  promptVersion   String      @default("")
+  status          String      @default("draft") // draft | qa_pending | ready | qa_failed
+  category        String      @default("diger") // yapay_zeka | kisisel_gelisim | ... (slug)
+  summaryL1       String      @default("") // 30sn / tek cümle
+  summaryL2       String      @default("") // yönetici özeti
+  summaryL3       String      @default("") // bölüm bölüm
+  notesJson       String      @default("[]") // yapılandırılmış not ağacı (birim okuma)
+  qaReportJson    String      @default("{}") // grounding coverage, flagged, verdict
+  masteryScore    Float       @default(0) // kavramlardan toplanan 0..100
+  modelUsed       String      @default("")
+  costUsd         Float       @default(0)
+  warningsJson    String      @default("[]")
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  concepts       LearnConcept[]
+  items          LearnItem[]
+  exportAttempts LearnExportAttempt[]
+
+  @@unique([sourceId, pipelineVersion])
+  @@index([status])
+}
+
+// Çıkarılan kavram. groundingJson kanıt bağı; masteryScore review-driven.
+model LearnConcept {
+  id            String    @id @default(cuid())
+  packId        String
+  pack          LearnPack @relation(fields: [packId], references: [id])
+  label         String
+  definition    String    @default("")
+  importance    Int       @default(50) // 0..100
+  groundingJson String    @default("[]") // [{chunkIdx, support?}]
+  masteryScore  Float     @default(0) // kavram-bazlı mastery (review yazar)
+  createdAt     DateTime  @default(now())
+
+  items LearnItem[]
+
+  @@index([packId])
+}
+
+// Flashcard / quiz item'ı. groundingType: source_supported | external_context |
+// inference | uncertain. correctIdx yalnız quiz_mcq'da dolu.
+model LearnItem {
+  id            String        @id @default(cuid())
+  packId        String
+  pack          LearnPack     @relation(fields: [packId], references: [id])
+  conceptId     String?
+  concept       LearnConcept? @relation(fields: [conceptId], references: [id])
+  kind          String // flashcard | quiz_mcq
+  front         String        @default("") // flashcard ön / quiz kök
+  back          String        @default("") // flashcard arka / cevap gerekçesi
+  optionsJson   String        @default("[]") // quiz şıkları
+  correctIdx    Int? // quiz doğru şık indeksi
+  difficulty    Int           @default(2) // 1..5 (soru seçimi)
+  groundingType String        @default("source_supported")
+  groundingJson String        @default("[]") // [{chunkIdx}]
+  createdAt     DateTime      @default(now())
+
+  schedule LearnReviewSchedule?
+  attempts LearnReviewAttempt[]
+
+  @@index([packId, kind])
+}
+
+// Aralıklı tekrar zamanlaması. dueAt @index → "şimdi due" sorgusu.
+model LearnReviewSchedule {
+  id             String    @id @default(cuid())
+  itemId         String    @unique
+  item           LearnItem @relation(fields: [itemId], references: [id])
+  ladderStep     Int       @default(0) // [1,3,7,14,30] gün ladder indeksi
+  intervalDays   Int       @default(1)
+  ease           Float     @default(2.5) // FSRS-lite stability proxy
+  dueAt          DateTime
+  lastReviewedAt DateTime?
+  lapses         Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  @@index([dueAt])
+}
+
+// Tek tekrar denemesi (grade 0=again 1=hard 2=good 3=easy).
+// idempotencyKey (4C-H): çift-gönderim koruması — aynı key ikinci kez schedule'ı İLERLETMEZ.
+// NULL-distinct → key'siz denemeler (legacy/opsiyonel) serbest çoğaltılabilir.
+model LearnReviewAttempt {
+  id             String    @id @default(cuid())
+  itemId         String
+  item           LearnItem @relation(fields: [itemId], references: [id])
+  grade          Int
+  correct        Boolean   @default(false)
+  responseMs     Int       @default(0)
+  idempotencyKey String?
+  reviewedAt     DateTime  @default(now())
+
+  @@unique([idempotencyKey])
+  @@index([itemId, reviewedAt])
+}
+
+// Resumable işleme job'ı. currentStage + status ile artımlı ilerler; heartbeatAt
+// lease (bayat → cron sweep devralır). @@unique([sourceId, pipelineVersion]) →
+// kaynak+versiyon başına tek aktif job (idempotent).
+model LearnProcessingJob {
+  id              String      @id @default(cuid())
+  sourceId        String
+  source          LearnSource @relation(fields: [sourceId], references: [id])
+  currentStage    String      @default("source_created")
+  status          String      @default("pending") // pending | running | done | failed
+  attempts        Int         @default(0) // mevcut aşama retry sayacı (cap, tüm job değil)
+  lastError       String?
+  stageStateJson  String      @default("{}") // kısmi ilerleme (örn. biten section'lar)
+  pipelineVersion String      @default("")
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  heartbeatAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([sourceId, pipelineVersion])
+  @@index([status, currentStage])
+}
+
+// Obsidian export denemesi (4D) — kalıcı audit + idempotency. Kanal başına
+// (pack + hedef + manifest) TEK satır (@@unique upsert): aynı manifest retry
+// duplicate write/attempt üretmez → "already_current" idempotency. idempotencyKey
+// (NULL-distinct) client çift-gönderim koruması. Secret/token/tam-path YOK;
+// targetFingerprint = hedefin secret-olmayan kararlı hash'i (yerel path / repo değil).
+model LearnExportAttempt {
+  id                String    @id @default(cuid())
+  packId            String
+  pack              LearnPack @relation(fields: [packId], references: [id])
+  channel           String // zip | local_vault | github_vault
+  targetFingerprint String // hedefin secret-olmayan hash'i
+  manifestHash      String // bundle deterministik özeti
+  state             String // succeeded | already_current | partial | conflict | failed
+  writtenCount      Int       @default(0)
+  unchangedCount    Int       @default(0)
+  failedCount       Int       @default(0)
+  conflictCount     Int       @default(0)
+  errorClass        String?
+  idempotencyKey    String?
+  startedAt         DateTime  @default(now())
+  finishedAt        DateTime?
+
+  @@unique([packId, channel, targetFingerprint, manifestHash])
+  @@unique([idempotencyKey])
+  @@index([packId, channel])
+}
+
+// ── Content Intelligence (Eden-inspired) — Faz CI ──
+// Tamamı additive; mevcut modeller DOKUNULMAZ. Global veri (Account relation YOK,
+// Yt/News/Ig deseni) — hesap kapsamı plain `accountId` String + index ile. JSON =
+// String kolonu (safeJsonParse). Soft-provenance: ContentItem mevcut tablolara FK
+// eklemeden originTable+originId ile bağlanır → tek CREATE TABLE, kolay rollback.
+
+// Birleşik kanonik içerik birimi. Tüm platform kaynakları (X/IG/YT/News/Repo/manuel)
+// bu modele normalize olur. @@unique([platform, externalId]) → idempotent dedup:
+// aynı kaynak iki kez işlenince yeni satır değil, mevcut döner.
+model ContentItem {
+  id              String    @id @default(cuid())
+  platform        String // x | instagram | youtube | news | repo | manual
+  externalId      String // ham platform id (prefix'siz)
+  canonicalUrl    String? // tekilleştirme yardımcı anahtarı
+  sourceType      String    @default("external") // external | own | manual
+  // Soft-provenance: hangi mevcut tablodan türedi (FK eklemeden lineage).
+  originTable     String? // "SourcePost" | "NewsItem" | "YtVideo" | "IgMedia" | "RepoRadarItem"
+  originId        String? // origin tablosundaki id
+  creatorId       String? // FK → Creator (Faz 3); şimdilik null olabilir
+  creator         Creator?  @relation(fields: [creatorId], references: [id])
+  contentType     String    @default("post") // post | video | article | repo | thread
+  format          String    @default("") // x_single | x_thread | ig_reel | ig_carousel | ig_static | yt_long | yt_short | news_article | repo
+  title           String    @default("")
+  body            String    @default("")
+  transcript      String    @default("")
+  language        String?
+  author          String    @default("") // Creator bağlanmadan önceki görünen yazar/handle
+  mediaUrlsJson   String    @default("[]") // [url, ...]
+  metricsJson     String    @default("{}") // { likes, retweets, views, comments, shares, stars, ... }
+  rawMetadataJson String    @default("{}")
+  ingestionStatus String    @default("normalized") // normalized | enriched | failed
+  analysisStatus  String    @default("pending") // pending | analyzed | failed
+  publishedAt     DateTime?
+  firstSeenAt     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  outlierScores ContentOutlierScore[]
+  boardItems    BoardItem[]
+  ideaSources   IdeaSource[]
+  embedding     ContentEmbedding?
+
+  @@unique([platform, externalId])
+  @@index([platform, format])
+  @@index([creatorId])
+  @@index([analysisStatus])
+  @@index([publishedAt])
+  @@index([originTable, originId])
+}
+
+// İçerik üreticisi (platform hesaplarından AYRI — Eden ilkesi). Bir creator çoklu
+// platform profiline sahip olabilir; şimdilik platform+handle ile tekil.
+model Creator {
+  id          String   @id @default(cuid())
+  platform    String // x | instagram | youtube
+  handle      String // @handle veya kanal id (kanonik)
+  displayName String   @default("")
+  followers   Float    @default(0) // Float: Int32 taşma koruması
+  metaJson    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contentItems ContentItem[]
+  baselines    CreatorBaseline[]
+
+  @@unique([platform, handle])
+  @@index([platform])
+}
+
+// Creator × format medyan performansı (outlier paydası). Platform+format başına
+// bir baseline; window kapanışında yeniden hesaplanır (versiyonlanır).
+model CreatorBaseline {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id])
+  platform    String
+  format      String // x_single | x_thread | ig_reel | ...
+  metric      String   @default("engagement") // engagement | views | likes
+  medianValue Float    @default(0)
+  sampleSize  Int      @default(0)
+  windowDays  Int      @default(30)
+  version     Int      @default(1)
+  computedAt  DateTime @default(now())
+
+  @@unique([creatorId, format, metric])
+  @@index([platform, format])
+}
+
+// İçerik birimi başına açıklanabilir outlier skoru. multiplier = metric / medyan.
+model ContentOutlierScore {
+  id              String      @id @default(cuid())
+  contentItemId   String
+  contentItem     ContentItem @relation(fields: [contentItemId], references: [id])
+  metric          String      @default("engagement")
+  metricValue     Float       @default(0)
+  baselineMedian  Float       @default(0)
+  multiplier      Float       @default(0) // metricValue / baselineMedian
+  sampleSize      Int         @default(0)
+  insufficient    Boolean     @default(false) // min örneklem altı → güvenilmez
+  explanationJson String      @default("{}") // { window, sampleSize, formula, ... }
+  version         Int         @default(1)
+  computedAt      DateTime    @default(now())
+
+  @@unique([contentItemId, metric])
+  @@index([multiplier])
+}
+
+// ── Boards / Swipe-file ── (Kütüphane savedTweets → kalıcı boards)
+// Hesap-kapsamlı plain accountId (FK yok, global desen).
+model Board {
+  id          String    @id @default(cuid())
+  accountId   String? // null = paylaşılan/genel board
+  name        String
+  description String    @default("")
+  icon        String    @default("")
+  position    Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sections BoardSection[]
+  items    BoardItem[]
+
+  @@index([accountId])
+}
+
+model BoardSection {
+  id        String   @id @default(cuid())
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id])
+  name      String   @default("")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  items BoardItem[]
+
+  @@index([boardId])
+}
+
+// Board içindeki birim: kanonik ContentItem referansı VEYA serbest (url/not/görsel).
+model BoardItem {
+  id            String        @id @default(cuid())
+  boardId       String
+  board         Board         @relation(fields: [boardId], references: [id])
+  sectionId     String?
+  section       BoardSection? @relation(fields: [sectionId], references: [id])
+  contentItemId String? // varsa kanonik içerik
+  contentItem   ContentItem?  @relation(fields: [contentItemId], references: [id])
+  itemType      String        @default("content") // content | url | image | note | idea | draft
+  title         String        @default("")
+  url           String        @default("")
+  note          String        @default("")
+  metaJson      String        @default("{}")
+  position      Int           @default(0)
+  createdAt     DateTime      @default(now())
+
+  // "Tek kanonik içerik / pano" değişmezi DB düzeyinde (Phase 4B / ADR-041).
+  // PostgreSQL unique index NULL'ları AYRIK sayar → contentItemId=null serbest
+  // (url/not/görsel) satırlar etkilenmez; yalnız gerçek contentItemId'li duplicate
+  // (boardId, contentItemId) çifti reddedilir. Tüm ekleme yollarında (addItem/
+  // captureInspiration/saveToBoard) tekilliğin tek kaynağı.
+  @@unique([boardId, contentItemId])
+  @@index([boardId])
+  @@index([sectionId])
+  @@index([contentItemId])
+}
+
+// ── Idea ── kaynak + voice'a bağlı, özgünleştirilmiş fikir (Draft'tan ÖNCE).
+// QueueItem = Draft olarak korunur; Idea onun üstünde yeni katman.
+model Idea {
+  id                 String   @id @default(cuid())
+  accountId          String // hangi sosyal hesap için
+  title              String   @default("")
+  angle              String   @default("")
+  hook               String   @default("")
+  bodyOutline        String   @default("")
+  platform           String   @default("x")
+  format             String   @default("")
+  objective          String   @default("") // save | reply | follow | profile_visit
+  whyNow             String   @default("")
+  status             String   @default("new") // new | drafted | dismissed
+  voiceProfileId     String? // Faz 4 voice; şimdilik null
+  scoresJson         String   @default("{}") // opportunity score breakdown
+  // Lineage: hangi reverse-engineer/transformation'dan türedi.
+  transformationType String? // reverse_engineer | boost | manual | brief
+  promptVersion      String   @default("")
+  modelUsed          String   @default("")
+  costUsd            Float    @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  sources IdeaSource[]
+
+  @@index([accountId, status])
+  @@index([platform])
+}
+
+// Idea ↔ kaynak ContentItem köprüsü (provenance; bir idea çoklu kaynak alıntılar).
+model IdeaSource {
+  id            String      @id @default(cuid())
+  ideaId        String
+  idea          Idea        @relation(fields: [ideaId], references: [id])
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id])
+  role          String      @default("primary") // primary | supporting
+  createdAt     DateTime    @default(now())
+
+  @@unique([ideaId, contentItemId])
+  @@index([contentItemId])
+}
+
+// ── Voice & Visual Identity (Faz CI-4) ── Hardcoded prompts.ts → DB profilleri.
+// Hesap-kapsamlı plain accountId. Array alanlar JSON String (proje deseni).
+model VoiceProfile {
+  id                String   @id @default(cuid())
+  accountId         String
+  name              String   @default("default")
+  mission           String   @default("")
+  pointOfView       String   @default("")
+  coreIdeasJson     String   @default("[]")
+  audience          String   @default("")
+  personality       String   @default("")
+  vocabularyJson    String   @default("[]")
+  toneTagsJson      String   @default("[]")
+  rhythm            String   @default("")
+  formatHabitsJson  String   @default("[]")
+  preferredJson     String   @default("[]") // preferred patterns
+  avoidJson         String   @default("[]") // avoid patterns
+  anchorStories     String   @default("")
+  writingSamples    String   @default("")
+  notes             String   @default("")
+  // Sprint 4 (CONTENT-ENGINE §5.2): mikro-stil kolonları (additive — VoiceProfile
+  // = Voice DNA; yeni ses tablosu YOK).
+  sentenceLength      String @default("")
+  formality           String @default("")
+  directness          String @default("")
+  hookType            String @default("")
+  ctaType             String @default("")
+  emojiPolicy         String @default("")
+  punctuationStyle    String @default("")
+  claimEvidencePolicy String @default("")
+  mode              String   @default("personal") // personal | brand | client
+  version           Int      @default(1)
+  isActive          Boolean  @default(true)
+  sourceAttribution String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([accountId, isActive])
+}
+
+model VisualStyleProfile {
+  id                 String   @id @default(cuid())
+  accountId          String
+  name               String   @default("default")
+  brandColorsJson    String   @default("[]")
+  typography         String   @default("")
+  layoutPatternsJson String   @default("[]")
+  aspectRatiosJson   String   @default("[]")
+  textDensity        String   @default("")
+  headlineLength     String   @default("")
+  imageStyle         String   @default("")
+  motifsJson         String   @default("[]")
+  ctaStyle           String   @default("")
+  forbiddenJson      String   @default("[]")
+  referencesJson     String   @default("[]")
+  isActive           Boolean  @default(true)
+  version            Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([accountId, isActive])
+}
+
+// ── Performance & Learning (Faz CI-6) ── Published Post ≠ ContentItem (Eden ilkesi).
+model PublishedPost {
+  id               String   @id @default(cuid())
+  accountId        String
+  draftQueueItemId String? // hangi QueueItem'dan yayımlandı (provenance, FK yok)
+  ideaId           String? // köken idea (provenance)
+  platform         String   @default("x")
+  externalId       String? // platform post id
+  url              String   @default("")
+  content          String   @default("")
+  publishedAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  snapshots PerformanceSnapshot[]
+
+  @@index([accountId, publishedAt])
+  @@index([platform])
+}
+
+// Zaman-pencereli metrik anlık görüntüsü (1h/6h/24h/3d/7d/30d). predicted↔actual kalibrasyonu.
+model PerformanceSnapshot {
+  id              String        @id @default(cuid())
+  publishedPostId String
+  publishedPost   PublishedPost @relation(fields: [publishedPostId], references: [id])
+  window          String // 1h | 6h | 24h | 3d | 7d | 30d
+  metricsJson     String        @default("{}")
+  normalizedScore Float         @default(0)
+  capturedAt      DateTime      @default(now())
+
+  @@unique([publishedPostId, window])
+  @@index([publishedPostId])
+}
+
+// ── Viral Kütüphane (IA v2) ── Yıldızlanan viral tweetler; eskiden yalnız
+// localStorage'daydı (Zustand savedTweets). id = tweet id → idempotent upsert;
+// ViralLibraryTab mount'ında tek-seferlik localStorage göçü bunu kullanır.
+model SavedViralTweet {
+  id           String   @id // tweet id
+  channel      String? // grafikcem | maskulenkod
+  authorHandle String
+  text         String
+  likeCount    Int      @default(0)
+  retweetCount Int      @default(0)
+  viewCount    Int      @default(0)
+  viralScore   Int      @default(0)
+  url          String   @default("")
+  source       String   @default("")
+  mediaUrl     String?
+  mediaType    String?
+  note         String   @default("")
+  tags         String   @default("[]")
+  savedAt      DateTime @default(now())
+
+  @@index([savedAt])
+  @@index([channel])
+}
+
+// ── Semantic Discover (Faz CI-3) ── Searchable document embedding.
+// v1: JSON vektör + JS cosine (repo'nun mevcut vector-memory deseni). pgvector =
+// sonraki perf optimizasyonu (extension + Unsupported("vector")).
+model ContentEmbedding {
+  id            String      @id @default(cuid())
+  contentItemId String      @unique
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id])
+  model         String      @default("")
+  dim           Int         @default(0)
+  embeddingJson String      @default("[]") // Float[] JSON
+  searchableDoc String      @default("") // title+body+transcript+tags birleşimi
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([contentItemId])
+}
+
+// ── Memory Foundation (Sprint 3, FINAL-MEMORY-SPEC §4) ── Tier-2 relational
+// truth. Additive-only; DELETE asla (supersede zinciri). Identity hafızası
+// yavaş + insan-onaylı; performance hafızası hızlı + decay'li.
+model MemoryFact {
+  id                String    @id @default(cuid())
+  accountHandle     String? // "grafikcem" | "maskulenkod"; null = global (nadir)
+  type              String // "preference" | "semantic" | "procedural"
+  statement         String // atomik tek cümle, Türkçe
+  embeddingJson     String? // Float[] JSON — recall için opsiyonel
+  embeddingModel    String? // §7: model+dims etiketi zorunlu (space karışmaz)
+  embeddingDims     Int?
+  confidence        Float     @default(0) // §4.1 formülü
+  evidenceCount     Int       @default(0)
+  sourceProvenance  String // "operator" | "own_metric" | "self_judge" | "external"
+  status            String    @default("proposed") // proposed | active | superseded | rejected
+  tValid            DateTime  @default(now())
+  tInvalid          DateTime? // supersede anında set; DELETE asla
+  supersedesId      String? // versiyon zinciri (rollback bunu takip eder)
+  createdBy         String // "operator" | "consolidation" | "feedback_pipeline"
+  approvedBy        String? // identity promotion'da zorunlu
+  decayHalfLifeDays Int? // perf-leaning fact'lerde; identity'de null (≈∞)
+  // ADR-029: ifade kimliği (account+type+fold'lanmış statement hash'i).
+  // Nullable UNIQUE — eşzamanlı aynı sinyalin iki proposal üretmesini DB
+  // düzeyinde keser (P2002 kaybeden mevcut satıra corroborate olur). Eski
+  // satırlar null kalır (backfill YOK); corroborate anında fırsatçı doldurulur.
+  canonicalKey      String?   @unique
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  evidence MemoryEvidence[]
+
+  @@index([accountHandle, status])
+  @@index([type, status])
+}
+
+// ADR-029: MemoryEvidence — kaynaklı kanıt defteri. MemoryFact.evidenceCount
+// artık bu defterin distinct-satır ÖZETİDİR (defteri olan fact'te). Aynı
+// olayın retry'ı kanıt sayısını artıramaz (unique). Eski fact'ler için sahte
+// kaynak backfill EDİLMEZ — defteri olmayan kayıt UI'da "eski kayıt · kaynak
+// ayrıntısı yok" olarak dürüst gösterilir. DELETE yok.
+model MemoryEvidence {
+  id           String     @id @default(cuid())
+  memoryFactId String
+  memoryFact   MemoryFact @relation(fields: [memoryFactId], references: [id])
+  sourceType   String // feedback_event | operator_assertion | operator_revision | validated_pattern | legacy_unattributed
+  sourceId     String // kaynak kaydın id'si (ör. FeedbackEvent.id)
+  signalType   String // not_my_tone | hook_weak | too_ai | make_stronger | make_clearer | explicit_reason | operator_add | operator_adopt | operator_revision
+  direction    String // positive | negative | edit | performance | operator
+  excerpt      String     @default("") // güvenli kısa alıntı (servis ≤280 kırpar)
+  metadataJson String     @default("{}") // schemaVersion'lı, Zod ile okunur
+  observedAt   DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+
+  @@unique([memoryFactId, sourceType, sourceId, signalType])
+  @@index([memoryFactId, createdAt])
+  @@index([sourceType, sourceId])
+}
+
+// Per-account identity/procedural yazım DNA'sı (human-gated güncelleme).
+model CaptionDna {
+  id               String   @id @default(cuid())
+  accountHandle    String   @unique
+  openingHookTypes String   @default("[]") // string[] JSON
+  lengthRange      String   @default("{}") // {min,max,median} JSON
+  sentenceRhythm   String?
+  emojiPolicy      String   @default("none") // "none" | "sparse" | "free"
+  ctaStyle         String?
+  lineBreakPattern String?
+  signaturePhrases String   @default("[]") // string[] JSON
+  forbiddenPhrases String   @default("[]") // string[] JSON
+  toneVector       String? // number[] JSON
+  languageRegister String   @default("casual") // "formal" | "casual" | "argo_ok"
+  confidence       Float    @default(0)
+  evidenceCount    Int      @default(0)
+  provenance       String   @default("operator") // MemoryFact ile aynı enum
+  version          Int      @default(1)
+  updatedAt        DateTime @updatedAt
+}
+
+// ── Series DNA (Sprint 4, CONTENT-ENGINE §5.1 — report 09 §10.1 verbatim) ──
+// FK-free accountId + JSON-string dizileri (VoiceProfile/VisualStyleProfile
+// deseniyle birebir). İlk seri: Best AI Tools (D5).
+model SeriesProfile {
+  id                      String   @id @default(cuid())
+  accountId               String
+  seriesKey               String // "best_ai_tools" | "premium_colors" ...
+  name                    String   @default("") // "Best AI Tools"
+  platform                String   @default("instagram") // instagram | x
+  // WHY
+  purpose                 String   @default("")
+  audience                String   @default("")
+  objective               String   @default("") // save | follow | share | profile_visit
+  // STRUCTURE
+  format                  String   @default("carousel") // carousel | single | reel | thread
+  slideCountRange         String   @default("") // "6-8"
+  coverFormula            String   @default("") // the hook/cover template
+  slideArchetypesJson     String   @default("[]") // ["cover","tool+why","proof","CTA"]
+  hierarchyNotes          String   @default("")
+  variableElementsJson    String   @default("[]") // her postta DEĞİŞMESİ zorunlu öğeler
+  ctaFormula              String   @default("")
+  // VISUAL (link, don't duplicate)
+  visualStyleProfileId    String? // -> VisualStyleProfile
+  // CAPTION (link, don't duplicate)
+  voiceProfileId          String? // -> VoiceProfile
+  captionDnaJson          String   @default("{}") // seri-özel caption override'ları
+  hashtagDnaJson          String   @default("[]")
+  // ANTI-REPETITION / MEMORY
+  pastTopicsJson          String   @default("[]")
+  bannedRepetitionJson    String   @default("[]")
+  // QUALITY
+  productionChecklistJson String   @default("[]")
+  evaluationRubricJson    String   @default("[]")
+  learnedRulesJson        String   @default("[]") // PRELUDE-inferred, operator-onaylı
+  // GOVERNANCE
+  promptVersion           String   @default("v1")
+  isActive                Boolean  @default(true)
+  version                 Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([accountId, isActive])
+  @@index([seriesKey])
+}
+
+// ── IG Rakip Watchlist (Sprint 4, CONTENT-ENGINE §3) ── Creator'a ince join.
+// Policy: yalnız Meta business_discovery (sanctioned); scraping ASLA; PII yok.
+model IgWatchAccount {
+  id            String    @id @default(cuid())
+  creatorId     String?   @unique // → Creator (platform "instagram"); probe başarısızsa null
+  username      String    @unique
+  isInspiration Boolean   @default(false)
+  isCompetitor  Boolean   @default(true)
+  notes         String    @default("")
+  probeStatus   String    @default("pending") // pending | ok | unavailable
+  probeError    String    @default("") // Türkçe operatör mesajı
+  lastSyncAt    DateTime?
+  addedAt       DateTime  @default(now())
+
+  @@index([probeStatus])
+}
+
+// ── Reels Dossier (Sprint 5, CONTENT-ENGINE §4.2) ── Üretime-hazır Reels planı.
+// Evidence gate: araç adlıysa verificationId ZORUNLU; readiness KOD hesaplar
+// (LLM asla flip edemez). Kanıt expiry'si dossier expiry'sini izler.
+model ReelDossier {
+  id                       String    @id @default(cuid())
+  accountId                String
+  title                    String    @default("")
+  pillar                   String    @default("")
+  format                   String    @default("reel") // reel | carousel | reel+carousel
+  painPoint                String    @default("")
+  objective                String    @default("") // reach | saves | sends | profile-visit
+  whyNow                   String    @default("")
+  // Tool + VERIFICATION (otoriter, LLM'siz)
+  primaryToolJson          String    @default("{}") // {name,url}
+  verificationId           String? // → WebsiteVerification
+  verificationEvidenceJson String    @default("{}")
+  alternativesJson         String    @default("[]") // [{name,url,verificationId}]
+  // Creative
+  hook                     String    @default("")
+  script                   String    @default("")
+  timelineJson             String    @default("[]")
+  scenePlanJson            String    @default("[]")
+  screenRecordingPlanJson  String    @default("[]")
+  voiceover                String    @default("")
+  onScreenCopyJson         String    @default("[]")
+  cover                    String    @default("")
+  cta                      String    @default("")
+  caption                  String    @default("")
+  hashtagGroupJson         String    @default("[]")
+  slidesJson               String    @default("[]") // carousel: {n,copy,visual}[]
+  // Production ops
+  assetChecklistJson       String    @default("[]")
+  productionEstimate       String    @default("")
+  expiry                   DateTime?
+  risk                     String    @default("")
+  finalReadiness           String    @default("not_ready") // ready | needs_verify | not_ready
+  costUsd                  Float     @default(0)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([accountId, createdAt])
+  @@index([finalReadiness])
+}
+
+// ── Aylık Reels Planı (Sprint 6, CONTENT-ENGINE §6) ── Deterministik assembler
+// çıktısı (LLM YOK). Slotlar dossier/seriye bağlanır; staleness kanıt
+// expiry'sinden okunur.
+model ReelPlan {
+  id        String   @id @default(cuid())
+  accountId String
+  month     String // "2026-08"
+  status    String   @default("draft") // draft | active | archived
+  mixJson   String   @default("{}") // {evergreen,seasonal,reactive} gerçekleşen oranlar
+  notesJson String   @default("[]") // assembler uyarıları (repetition histogram vb.)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  slots ReelPlanSlot[]
+
+  @@unique([accountId, month])
+}
+
+model ReelPlanSlot {
+  id           String    @id @default(cuid())
+  planId       String
+  plan         ReelPlan  @relation(fields: [planId], references: [id])
+  dayOfMonth   Int
+  pillar       String    @default("")
+  mixBucket    String    @default("evergreen") // evergreen | seasonal | reactive
+  seriesKey    String? // → SeriesProfile.seriesKey (format önceden tanımlı, bölüm değişir)
+  dossierId    String? // → ReelDossier
+  topicHint    String    @default("")
+  status       String    @default("planned") // planned | drafted | done | skipped
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([planId, dayOfMonth])
+}
+
+// ── Website Verifier (Sprint 4, CONTENT-ENGINE §4.1) ── Tier-1 HTTP kanıtı.
+// Deterministik, LLM'siz; dossier'ler verificationId ile bu satıra bağlanır.
+model WebsiteVerification {
+  id            String   @id @default(cuid())
+  url           String
+  finalUrl      String   @default("")
+  opens         Boolean  @default(false)
+  redirectChain String   @default("[]") // string[] JSON
+  evidenceJson  String   @default("{}") // VerificationEvidence JSON
+  checkedAt     DateTime @default(now())
+  expiry        DateTime // +30g; geçmişse "yeniden doğrula" rozeti
+  createdAt     DateTime @default(now())
+
+  @@index([url, checkedAt])
+  @@index([expiry])
+}
+
+// Per-account (+ opsiyonel seri) hashtag DNA'sı — performance-leaning, decay'li.
+model HashtagDna {
+  id                String   @id @default(cuid())
+  accountHandle     String
+  seriesId          String? // → SeriesProfile (CONTENT-ENGINE spec'i, ileri sprint)
+  coreTags          String   @default("[]") // string[] JSON
+  rotatingTags      String   @default("[]") // string[] JSON
+  tagCountRange     String   @default("{}") // {min,max} JSON
+  placement         String   @default("end") // "inline" | "end" | "first_comment"
+  casing            String?
+  bannedTags        String   @default("[]") // string[] JSON
+  perTagPerformance String   @default("{}") // {tag:{avgEngagement,n}} JSON
+  confidence        Float    @default(0)
+  evidenceCount     Int      @default(0)
+  decayHalfLifeDays Int      @default(45)
+  updatedAt         DateTime @updatedAt
+
+  @@unique([accountHandle, seriesId])
+}
+
+/// Tek-operatör erişim kapısı brute-force throttle (ADR-013/017). Ham IP
+/// SAKLANMAZ — ipKey = HMAC(ip, SESSION_SECRET). Global pencere için özel
+/// ipKey "__global__" satırı kullanılır. Additive, default'lu, production-safe.
+/// Not: tablo push edilene dek throttle fail-open degrade eder (birincil kapı
+/// parola hash'idir); login yine sabit gecikmeyle brute-force'u yavaşlatır.
+model AuthAttempt {
+  id          String    @id @default(cuid())
+  ipKey       String    @unique // HMAC(ip, secret) — asla ham IP
+  failCount   Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@index([updatedAt])
+}
+
+// ── Faz 2E (ADR-034): kalıcı eval koşu geçmişi ─────────────────────────────
+// EvalTest'in son-sonucu overwrite etmesi tek audit kaynağı olamaz; her eval
+// koşusu tarihsel olarak adreslenebilir. summaryJson/detailsJson bounded ve
+// sanitize edilir — raw secret, tam prompt veya hassas dış platform payload'u
+// SAKLANMAZ. Additive-only.
+model EvalRun {
+  id            String    @id @default(cuid())
+  kind          String // "registry_contract" | "golden_live" | "curator_live" | "thread_smoke"
+  mode          String // "deterministic" | "live"
+  trigger       String // "manual" | "cron"
+  status        String    @default("running") // "running" | "passed" | "partial" | "failed" | "blocked_external"
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  model         String?
+  preset        String?
+  passedCount   Int       @default(0)
+  failedCount   Int       @default(0)
+  skippedCount  Int       @default(0)
+  totalCostUsd  Float     @default(0)
+  policyVersion String    @default("")
+  summaryJson   String    @default("{}")
+  errorClass    String?
+  createdAt     DateTime  @default(now())
+
+  cases EvalCaseResult[]
+
+  @@index([kind, startedAt])
+  @@index([status, startedAt])
+}
+
+// Koşu içi tek case sonucu. traceStatus, executor'ın trace yazımının GÖZLENEN
+// sonucudur (persisted | failed | skipped_policy | not_applicable) — global
+// "lost trace" sayacı iddiası değildir (bkz. ADR-034 dürüst sınırlama).
+model EvalCaseResult {
+  id          String   @id @default(cuid())
+  runId       String
+  run         EvalRun  @relation(fields: [runId], references: [id])
+  caseKey     String
+  fixtureId   String?
+  agentId     String?
+  status      String // "passed" | "failed" | "skipped" | "blocked_external"
+  score       Float?
+  latencyMs   Int?
+  costUsd     Float    @default(0)
+  traceStatus String   @default("not_applicable")
+  detailsJson String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@unique([runId, caseKey])
+  @@index([agentId, createdAt])
 }

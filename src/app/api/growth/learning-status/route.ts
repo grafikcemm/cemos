@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +32,8 @@ function serializeCronRun(run: {
  * counts/lookups, zero LLM calls — cheap enough to render on every Settings
  * visit. Makes the continuous-learning loop VISIBLE to the operator.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   try {
     const weekAgo = new Date(Date.now() - WEEK_MS);
     const [lastDaily, lastLearn, patternsMinedLast7d, engagementEventsLast7d, topPatterns] =
@@ -49,8 +52,7 @@ export async function GET() {
         }),
       ]);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       lastDaily: serializeCronRun(lastDaily),
       lastLearn: serializeCronRun(lastLearn),
       patternsMinedLast7d,
@@ -59,6 +61,6 @@ export async function GET() {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Öğrenme durumu alınamadı";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

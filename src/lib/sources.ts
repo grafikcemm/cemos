@@ -36,3 +36,8 @@ export const WATCHED_SOURCES: Record<AccountHandle, WatchedSource[]> = {
   ],
 
 };
+
+/** String-handle erişimi (ADR-031): tohumlu olmayan hesap → boş liste (fail-soft). */
+export function getWatchedSources(handle: string): WatchedSource[] {
+  return (WATCHED_SOURCES as Record<string, WatchedSource[]>)[handle] ?? [];
+}

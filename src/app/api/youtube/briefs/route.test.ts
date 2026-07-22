@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { POST } from "./route";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
-import { BudgetExceededError } from "@/lib/config/costGate";
+import { BudgetExceededError, BudgetSystemUnavailableError } from "@/lib/config/costGate";
 
 vi.mock("@/lib/services/youtubeService", () => ({
   youtubeService: { briefForVideo: vi.fn() },
@@ -46,12 +46,25 @@ describe("POST /api/youtube/briefs", () => {
     expect(youtubeService.briefForVideo).not.toHaveBeenCalled();
   });
 
-  it("bütçe aşıldıysa 429 code:budget", async () => {
+  it("bütçe aşıldıysa 402 code:budget (kanonik budget mapping; 429 rate-limit'e ayrıldı)", async () => {
     vi.mocked(youtubeService.briefForVideo).mockRejectedValue(new BudgetExceededError(5, 2));
     const res = await POST(makeReq({ videoId: "v1" }));
-    expect(res.status).toBe(429);
+    expect(res.status).toBe(402);
     const json = await res.json();
     expect(json.code).toBe("budget");
+  });
+
+  it("bütçe otoritesi doğrulanamıyorsa 503 code:budget_unavailable (retryable, detay sızmaz)", async () => {
+    vi.mocked(youtubeService.briefForVideo).mockRejectedValue(
+      new BudgetSystemUnavailableError("reservation table missing"),
+    );
+    const res = await POST(makeReq({ videoId: "v1" }));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.code).toBe("budget_unavailable");
+    expect(json.retryable).toBe(true);
+    // internal detail must not reach the user-facing message
+    expect(json.error).not.toContain("reservation table missing");
   });
 
   it("yetkisiz istek 403", async () => {

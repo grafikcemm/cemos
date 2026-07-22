@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
 const patchSchema = z.object({
   isRead: z.boolean().optional(),
@@ -12,20 +13,19 @@ const patchSchema = z.object({
 
 // PATCH /api/news-pool/[id]  — toggle isRead/isUsed or retry a failed item.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const { id } = await ctx.params;
-  const body = await req.json().catch(() => null);
-  const parsed = patchSchema.safeParse(body);
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Geçersiz istek" }, { status: 400 });
+    return fail("Geçersiz istek", 400);
   }
 
   try {
     const existing = await prisma.newsItem.findUnique({ where: { id } });
     if (!existing) {
-      return NextResponse.json({ success: false, error: "Bulunamadı" }, { status: 404 });
+      return fail("Bulunamadı", 404);
     }
 
     const data: Record<string, unknown> = {};
@@ -42,9 +42,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const item = await prisma.newsItem.update({ where: { id }, data });
-    return NextResponse.json({ success: true, item });
+    return ok({ item });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

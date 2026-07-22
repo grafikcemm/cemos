@@ -11,16 +11,20 @@ const mockRun = {
   error: null,
 };
 
-vi.mock("@/lib/db/client", () => ({
-  prisma: {
-    cronRun: {
-      create: vi.fn(() => Promise.resolve(mockRun)),
-      update: vi.fn(() => Promise.resolve({ ...mockRun, ok: true })),
-      findFirst: vi.fn(() => Promise.resolve(mockRun)),
-      deleteMany: vi.fn(() => Promise.resolve({ count: 3 })),
-    },
-  },
-}));
+vi.mock("@/lib/db/client", () => {
+  const cronRun = {
+    create: vi.fn(() => Promise.resolve(mockRun)),
+    update: vi.fn(() => Promise.resolve({ ...mockRun, ok: true })),
+    findFirst: vi.fn(() => Promise.resolve(mockRun)),
+    deleteMany: vi.fn(() => Promise.resolve({ count: 3 })),
+  };
+  const prisma = {
+    cronRun,
+    $queryRaw: vi.fn(() => Promise.resolve([])),
+    $transaction: vi.fn((cb: (tx: typeof prisma) => unknown) => Promise.resolve(cb(prisma))),
+  };
+  return { prisma };
+});
 
 import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "./cronRunRepo";
@@ -95,6 +99,30 @@ describe("cronRunRepo", () => {
     vi.mocked(prisma.cronRun.findFirst).mockRejectedValueOnce(new Error("db down"));
     const result = await cronRunRepo.hasRunning("manual_scan");
     expect(result).toBe(false);
+  });
+
+  it("startIfIdle starts a run atomically when idle (advisory-locked)", async () => {
+    vi.mocked(prisma.cronRun.findFirst).mockResolvedValueOnce(null); // nothing in flight
+    const res = await cronRunRepo.startIfIdle("generate_morning");
+    expect(res.skipped).toBe(false);
+    expect(res.run).toEqual(mockRun);
+    expect(prisma.$queryRaw).toHaveBeenCalled(); // advisory lock taken before the check
+    expect(prisma.cronRun.create).toHaveBeenCalledWith({ data: { kind: "generate_morning" } });
+  });
+
+  it("startIfIdle SKIPS (no start) when a run of the kind is already in flight", async () => {
+    // default findFirst returns a running row → treated as in-flight
+    const res = await cronRunRepo.startIfIdle("generate_morning");
+    expect(res.skipped).toBe(true);
+    expect(res.run).toBeNull();
+    expect(prisma.cronRun.create).not.toHaveBeenCalled();
+  });
+
+  it("startIfIdle fails OPEN (proceeds) on a transaction/lock error", async () => {
+    vi.mocked(prisma.$transaction).mockRejectedValueOnce(new Error("lock timeout"));
+    const res = await cronRunRepo.startIfIdle("generate_morning");
+    expect(res.skipped).toBe(false); // never blocks the cron
+    expect(res.run).toEqual(mockRun); // best-effort plain start
   });
 
   it("pruneOlderThan deletes runs older than the cutoff", async () => {

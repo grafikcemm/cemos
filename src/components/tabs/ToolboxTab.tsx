@@ -1,197 +1,211 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Wrench,
   RefreshCw,
   Loader2,
   Star,
   Search as SearchIcon,
-  CheckCircle2,
-  XCircle,
-  ExternalLink,
-  ShieldCheck,
-  Sparkles,
-  Gauge,
   SearchX,
 } from "lucide-react";
-import { PageHeader, Card, EmptyState, Badge, Skeleton } from "@/components/ui";
+import {
+  PageHeader,
+  Card,
+  EmptyState,
+  ErrorState,
+  Skeleton,
+  SubNav,
+  Button,
+  Input,
+  useToast,
+} from "@/components/ui";
 import { fetchJson } from "@/lib/utils/safeFetch";
-
-type Tool = {
-  id: string;
-  title: string;
-  url: string;
-  resourceType: string;
-  category: string;
-  platform: string | null;
-  useCase: string | null;
-  description: string;
-  whyUseful: string | null;
-  tags: string[];
-  xValueScore: number;
-  sourceReliability: string;
-  contentFormat: string | null;
-  linkStatus: string | null;
-  lastCheckedAt: string | null;
-  isFavorite: boolean;
-};
+import { TOOLBOX_BUCKETS, chipLabel } from "@/lib/toolbox/buckets";
+import ToolboxFolderRow, { type FolderItem } from "./toolbox/ToolboxFolderRow";
+import ToolboxToolCard from "./toolbox/ToolboxToolCard";
+import { type Tool } from "./toolbox/types";
 
 type ListResponse = { success: boolean; items?: Tool[]; error?: string };
+type CountsResponse = {
+  success: boolean;
+  buckets?: { key: string; label: string; count: number }[];
+  total?: number;
+  favoritesCount?: number;
+  error?: string;
+};
 
-const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
-
-type SelectOption = { value: string; label: string };
-
-const PLATFORM_OPTIONS: SelectOption[] = [
-  { value: "all", label: "Tümü" },
-  { value: "X", label: "X / Twitter" },
-  { value: "IG", label: "Instagram" },
-  { value: "YT", label: "YouTube" },
-  { value: "genel", label: "Genel" },
-];
-
-const RELIABILITY_OPTIONS: SelectOption[] = [
-  { value: "all", label: "Tümü" },
-  { value: "high", label: "Yüksek" },
-  { value: "medium", label: "Orta" },
-  { value: "low", label: "Düşük" },
-];
-
-const CHECKED_OPTIONS: SelectOption[] = [
-  { value: "all", label: "Tümü" },
-  { value: "alive", label: "Canlı" },
-  { value: "dead", label: "Ölü" },
-  { value: "unknown", label: "Bilinmiyor" },
-];
-
-const reliabilityColor = (r: string) =>
-  r === "high" ? "var(--green)" : r === "medium" ? "var(--yellow)" : "var(--danger)";
-
-const linkColor = (s: string | null) =>
-  s === "alive" ? "var(--green)" : s === "dead" ? "var(--danger)" : "var(--text-muted)";
-
-function uniqueOptions(items: Tool[], pick: (t: Tool) => string | null): SelectOption[] {
-  const set = new Set<string>();
-  items.forEach((t) => {
-    const v = pick(t);
-    if (v) set.add(v);
-  });
-  return [{ value: "all", label: "Tümü" }, ...Array.from(set).sort().map((v) => ({ value: v, label: v }))];
-}
+const FAV_KEY = "__fav";
+const ALL = "__all";
 
 export default function ToolboxTab() {
-  const [allItems, setAllItems] = useState<Tool[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Folder model: counts load up front (cheap aggregate); the selected bucket's
+  // rows load on demand. AI is the featured default. Multi-category buckets get
+  // a SubNav sub-category strip; search + favorites are flat overlays/folders.
+  const [counts, setCounts] = useState<CountsResponse | null>(null);
+  const [loadingCounts, setLoadingCounts] = useState(true);
+
+  const [bucketItems, setBucketItems] = useState<Record<string, Tool[]>>({});
+  const [loadingBucket, setLoadingBucket] = useState<string | null>(null);
+  const [bucketErrors, setBucketErrors] = useState<Record<string, boolean>>({});
+
+  const [activeKey, setActiveKey] = useState<string>("ai");
+  const [activeSubCat, setActiveSubCat] = useState<string>(ALL);
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Tool[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const [favItems, setFavItems] = useState<Tool[]>([]);
+  const [favLoading, setFavLoading] = useState(false);
+  const [favError, setFavError] = useState(false);
+
   const [refreshing, setRefreshing] = useState(false);
-  const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [favKey, setFavKey] = useState<string | null>(null);
 
-  const [category, setCategory] = useState("all");
-  const [platform, setPlatform] = useState("all");
-  const [useCase, setUseCase] = useState("all");
-  const [format, setFormat] = useState("all");
-  const [reliability, setReliability] = useState("all");
-  const [checked, setChecked] = useState("all");
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const showToast = (text: string, type: "success" | "error") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  // Small dataset (~hundreds of rows): fetch the whole active set once and
-  // filter in-memory, so the derived dropdown option lists stay complete and
-  // stable regardless of the active filters.
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchJson<ListResponse>("/api/toolbox?limit=300");
-      if (data.success && data.items) setAllItems(data.items);
-      else showToast(data.error || "Kaynaklar alınamadı.", "error");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
-    } finally {
-      setLoading(false);
-    }
+  // App-level toast (mesajlar birebir korunur). Ref üzerinden çağrılır ki
+  // provider re-render'ları useCallback kimliklerini bozup yükleme
+  // efektlerini tekrar tetiklemesin.
+  const toast = useToast();
+  const toastRef = useRef(toast);
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+  const showToast = useCallback((text: string, type: "success" | "error") => {
+    if (type === "success") toastRef.current.success(text);
+    else toastRef.current.error(text);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const categoryTabs = useMemo<SelectOption[]>(() => {
-    const set = new Set<string>();
-    allItems.forEach((t) => t.category && set.add(t.category));
-    return [{ value: "all", label: "Tümü" }, ...Array.from(set).sort().map((c) => ({ value: c, label: c }))];
-  }, [allItems]);
-
-  const useCaseOptions = useMemo(() => uniqueOptions(allItems, (t) => t.useCase), [allItems]);
-  const formatOptions = useMemo(() => uniqueOptions(allItems, (t) => t.contentFormat), [allItems]);
-
-  const liveCount = useMemo(() => {
-    let alive = 0;
-    let dead = 0;
-    allItems.forEach((t) => {
-      if (t.linkStatus === "alive") alive++;
-      else if (t.linkStatus === "dead") dead++;
-    });
-    return { alive, dead };
-  }, [allItems]);
-
-  const filtered = allItems.filter((t) => {
-    if (category !== "all" && t.category !== category) return false;
-    if (platform !== "all" && t.platform !== platform) return false;
-    if (useCase !== "all" && t.useCase !== useCase) return false;
-    if (format !== "all" && t.contentFormat !== format) return false;
-    if (reliability !== "all" && t.sourceReliability !== reliability) return false;
-    if (checked !== "all" && (t.linkStatus ?? "unknown") !== checked) return false;
-    if (favoritesOnly && !t.isFavorite) return false;
-    if (search) {
-      const s = search.toLocaleLowerCase("tr-TR");
-      const hay = [t.title, t.description, t.useCase, t.platform, ...t.tags]
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase("tr-TR");
-      if (!hay.includes(s)) return false;
-    }
-    return true;
-  });
-
-  const refresh = async () => {
-    setRefreshing(true);
+  const loadCounts = useCallback(async () => {
+    setLoadingCounts(true);
     try {
-      const data = await fetchJson<{ success: boolean; alive?: number; dead?: number; error?: string }>(
-        "/api/toolbox/refresh",
-        { method: "POST" }
-      );
-      if (data.success) {
-        showToast(`Bağlantılar kontrol edildi: ${data.alive ?? 0} canlı / ${data.dead ?? 0} ölü.`, "success");
-        await load();
-      } else {
-        showToast(data.error || "Yenileme başarısız.", "error");
-      }
+      const data = await fetchJson<CountsResponse>("/api/toolbox?counts=1");
+      if (data.success) setCounts(data);
+      else showToast(data.error || "Sayımlar alınamadı.", "error");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
     } finally {
-      setRefreshing(false);
+      setLoadingCounts(false);
     }
+  }, [showToast]);
+
+  const loadBucket = useCallback(
+    async (key: string) => {
+      setLoadingBucket(key);
+      setBucketErrors((prev) => ({ ...prev, [key]: false }));
+      try {
+        const data = await fetchJson<ListResponse>(`/api/toolbox?bucket=${key}&limit=200`);
+        if (data.success && data.items) {
+          setBucketItems((prev) => ({ ...prev, [key]: data.items! }));
+        } else {
+          setBucketErrors((prev) => ({ ...prev, [key]: true }));
+          showToast(data.error || "Grup yüklenemedi.", "error");
+        }
+      } catch (err) {
+        setBucketErrors((prev) => ({ ...prev, [key]: true }));
+        showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      } finally {
+        setLoadingBucket(null);
+      }
+    },
+    [showToast]
+  );
+
+  const loadFavorites = useCallback(async () => {
+    setFavLoading(true);
+    setFavError(false);
+    try {
+      const data = await fetchJson<ListResponse>("/api/toolbox?favorite=true&limit=300");
+      if (data.success && data.items) setFavItems(data.items);
+      else {
+        setFavError(true);
+        showToast(data.error || "Favoriler alınamadı.", "error");
+      }
+    } catch (err) {
+      setFavError(true);
+      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+    } finally {
+      setFavLoading(false);
+    }
+  }, [showToast]);
+
+  // Mount: counts + featured AI bucket.
+  useEffect(() => {
+    loadCounts();
+    loadBucket("ai");
+  }, [loadCounts, loadBucket]);
+
+  // Debounced search.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => {
+    if (!debouncedSearch) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    fetchJson<ListResponse>(`/api/toolbox?search=${encodeURIComponent(debouncedSearch)}&limit=100`)
+      .then((data) => {
+        if (cancelled) return;
+        if (data.success && data.items) setSearchResults(data.items);
+        else showToast(data.error || "Arama başarısız.", "error");
+      })
+      .catch((err) => {
+        if (!cancelled) showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      })
+      .finally(() => {
+        if (!cancelled) setSearching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, showToast]);
+
+  const selectFolder = (key: string) => {
+    setActiveKey(key);
+    setActiveSubCat(ALL);
+    if (key === FAV_KEY) loadFavorites();
+    else if (!bucketItems[key]) loadBucket(key);
   };
 
-  const toggleFavorite = async (id: string) => {
+  const applyFavoriteToggle = (id: string, isFavorite: boolean) => {
+    const patch = (list: Tool[]) => list.map((t) => (t.id === id ? { ...t, isFavorite } : t));
+    setBucketItems((prev) => {
+      const next: Record<string, Tool[]> = {};
+      for (const k of Object.keys(prev)) next[k] = patch(prev[k]);
+      return next;
+    });
+    setSearchResults((prev) => patch(prev));
+    setFavItems((prev) => (isFavorite ? patch(prev) : prev.filter((t) => t.id !== id)));
+    setCounts((prev) =>
+      prev && typeof prev.favoritesCount === "number"
+        ? { ...prev, favoritesCount: Math.max(0, prev.favoritesCount + (isFavorite ? 1 : -1)) }
+        : prev
+    );
+  };
+
+  const toggleFavorite = async (id: string, current: boolean) => {
     setFavKey(id);
+    applyFavoriteToggle(id, !current); // optimistic
     try {
-      const data = await fetchJson<{ success: boolean; isFavorite?: boolean }>(`/api/toolbox/${id}/favorite`, {
-        method: "POST",
-      });
-      if (data.success) {
-        setAllItems((prev) => prev.map((t) => (t.id === id ? { ...t, isFavorite: data.isFavorite ?? !t.isFavorite } : t)));
-      } else {
+      const data = await fetchJson<{ success: boolean; isFavorite?: boolean }>(
+        `/api/toolbox/${id}/favorite`,
+        { method: "POST" }
+      );
+      if (!data.success) {
+        applyFavoriteToggle(id, current);
         showToast("Favori güncellenemedi.", "error");
+      } else if (typeof data.isFavorite === "boolean" && data.isFavorite !== !current) {
+        applyFavoriteToggle(id, data.isFavorite);
       }
     } catch {
+      applyFavoriteToggle(id, current);
       showToast("Favori güncellenemedi.", "error");
     } finally {
       setFavKey(null);
@@ -223,332 +237,222 @@ export default function ToolboxTab() {
     }
   };
 
-  return (
-    <div style={{ width: "100%", paddingBottom: 60 }}>
-      {toast && <Toast toast={toast} />}
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const data = await fetchJson<{ success: boolean; alive?: number; dead?: number; error?: string }>(
+        "/api/toolbox/refresh",
+        { method: "POST" }
+      );
+      if (data.success) {
+        showToast(`Bağlantılar kontrol edildi: ${data.alive ?? 0} canlı / ${data.dead ?? 0} ölü.`, "success");
+        await loadCounts();
+        setBucketItems({});
+        if (activeKey === FAV_KEY) loadFavorites();
+        else loadBucket(activeKey);
+      } else {
+        showToast(data.error || "Yenileme başarısız.", "error");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-      {/* Top bar: editöryal manşet + canlı veri künyesi + yenile aksiyonu */}
+  const renderCard = (t: Tool) => (
+    <ToolboxToolCard
+      key={t.id}
+      tool={t}
+      favBusy={favKey === t.id}
+      onToggleFavorite={() => toggleFavorite(t.id, t.isFavorite)}
+      generatingKey={generatingKey}
+      onGenerate={generate}
+    />
+  );
+
+  const isSearchMode = debouncedSearch.length > 0;
+  const total = counts?.total ?? 0;
+  const favoritesCount = counts?.favoritesCount ?? 0;
+
+  // Folder tiles from counts + a Favorites tile (icons/accent from TOOLBOX_BUCKETS).
+  const folderItems: FolderItem[] = [
+    ...(counts?.buckets ?? []).map((b) => {
+      const meta = TOOLBOX_BUCKETS.find((x) => x.key === b.key);
+      return { key: b.key, label: b.label, count: b.count, icon: meta?.icon, accent2: meta?.accent2 };
+    }),
+    { key: FAV_KEY, label: "Favoriler", count: favoritesCount, icon: "Star" },
+  ];
+
+  // Active folder content + sub-category strip (multi-category buckets only).
+  const activeItems = activeKey === FAV_KEY ? favItems : bucketItems[activeKey] ?? [];
+  const activeBucket = TOOLBOX_BUCKETS.find((b) => b.key === activeKey);
+  const presentSubCats =
+    activeBucket && activeBucket.categories.length > 1
+      ? activeBucket.categories
+          .map((c) => ({ c, n: activeItems.filter((t) => t.category === c).length }))
+          .filter((x) => x.n > 0)
+      : [];
+  const subNavItems =
+    presentSubCats.length > 1
+      ? [
+          { id: ALL, label: "Tümü", badge: activeItems.length },
+          ...presentSubCats.map((x) => ({ id: x.c, label: chipLabel(x.c), badge: x.n })),
+        ]
+      : [];
+  const visibleItems = activeSubCat === ALL ? activeItems : activeItems.filter((t) => t.category === activeSubCat);
+
+  const activeError = activeKey === FAV_KEY ? favError : !!bucketErrors[activeKey];
+  const activeLoading =
+    activeKey === FAV_KEY
+      ? favLoading
+      : loadingBucket === activeKey || (!bucketItems[activeKey] && !activeError);
+
+  return (
+    <div style={{ width: "100%", paddingBottom: "var(--space-10)" }}>
       <PageHeader
         eyebrow="ARAÇ KUTUSU"
         title="Toolbox"
-        subtitle="İçerik üretimini besleyen araç ve kaynaklar — filtrele, doğrula, hesaplara fikir kuyruğu aç."
-        actions={
-          <button onClick={refresh} disabled={refreshing} style={refreshBtnStyle}>
-            {refreshing ? <Loader2 size={15} strokeWidth={2} style={{ animation: "spin 0.6s linear infinite" }} /> : <RefreshCw size={15} strokeWidth={2} />}
-            {refreshing ? "Kontrol ediliyor…" : "Yenile"}
-          </button>
-        }
+        subtitle="İçerik üretimini besleyen araç ve kaynaklar — gruba göre seç, alt-kategoride filtrele, hesaplara fikir kuyruğu kur."
+        size="compact"
         meta={
           <>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: liveCount.alive > 0 ? "var(--green)" : "var(--text-muted)",
-                  boxShadow: liveCount.alive > 0 ? "0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent)" : undefined,
-                }}
-              />
-              <span className="eyebrow" style={{ color: "var(--text-muted)" }}>Canlı veri bağlantısı</span>
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--green)", fontWeight: 600 }}>
-              <CheckCircle2 size={14} strokeWidth={2} />
-              <span className="tnum">{liveCount.alive}</span> canlı
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--danger)", fontWeight: 600 }}>
-              <XCircle size={14} strokeWidth={2} />
-              <span className="tnum">{liveCount.dead}</span> ölü
-            </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
-              <Wrench size={14} strokeWidth={2} />
-              <span className="tnum">{filtered.length}</span> araç / kaynak
+              <Wrench size={13} strokeWidth={2} />
+              <span className="tnum">{total}</span> araç / kaynak
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)", fontWeight: 500 }}>
+              <Star size={13} strokeWidth={2} fill="currentColor" />
+              <span className="tnum">{favoritesCount}</span> favori
             </span>
           </>
         }
       />
 
-      {/* Category shortcut tabs */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-        {categoryTabs.map((c) => (
-          <button key={c.value} onClick={() => setCategory(c.value)} style={tabStyle(category === c.value)}>
-            {c.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Advanced filters — rafine kontrol şeridi */}
-      <div style={{ background: "var(--gradient-surface), var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "var(--space-3)", marginBottom: "var(--space-4)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", boxShadow: "var(--highlight-top)" }}>
-        <Field label="Platform">
-          <Select value={platform} onChange={setPlatform} options={PLATFORM_OPTIONS} />
-        </Field>
-        <Field label="Kullanım Amacı">
-          <Select value={useCase} onChange={setUseCase} options={useCaseOptions} />
-        </Field>
-        <Field label="İçerik Formatı">
-          <Select value={format} onChange={setFormat} options={formatOptions} />
-        </Field>
-        <Field label="Güven Skoru">
-          <Select value={reliability} onChange={setReliability} options={RELIABILITY_OPTIONS} />
-        </Field>
-        <Field label="Son Kontrol">
-          <Select value={checked} onChange={setChecked} options={CHECKED_OPTIONS} />
-        </Field>
-        <Field label="Arama" grow>
-          <div style={{ position: "relative", display: "flex", alignItems: "center", width: "100%" }}>
-            <SearchIcon size={14} strokeWidth={2} style={{ position: "absolute", left: 9, color: "var(--text-muted)", pointerEvents: "none" }} />
-            <input type="text" placeholder="Araç ara..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ ...inputStyle, paddingLeft: 28 }} />
-          </div>
-        </Field>
-        <button onClick={() => setFavoritesOnly((v) => !v)} style={favToggleStyle(favoritesOnly)}>
-          <Star size={13} strokeWidth={2} fill={favoritesOnly ? "currentColor" : "none"} />
-          Sadece Favoriler
-        </button>
-      </div>
-
-      {loading ? (
-        <ToolboxSkeletonGrid />
-      ) : filtered.length === 0 ? (
-        <Card variant="quiet" padded={false}>
-          <EmptyState
-            icon={<SearchX size={24} strokeWidth={1.8} />}
-            title="Filtreye uygun kaynak yok"
-            description="Aktif filtreler hiçbir araçla eşleşmedi. Filtreleri gevşet ya da yeni kaynak doğrulamak için bağlantıları yenile."
-            action={
-              <button onClick={refresh} disabled={refreshing} style={refreshBtnStyle}>
-                {refreshing ? <Loader2 size={15} strokeWidth={2} style={{ animation: "spin 0.6s linear infinite" }} /> : <RefreshCw size={15} strokeWidth={2} />}
-                {refreshing ? "Kontrol ediliyor…" : "Bağlantıları yenile"}
-              </button>
-            }
+      {/* Toolbar: arama + yenile — tek kompakt satır */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: "var(--space-4)",
+        }}
+      >
+        <div style={{ position: "relative", display: "flex", alignItems: "center", flex: 1, minWidth: 200 }}>
+          <Input
+            type="text"
+            placeholder="Tüm araçlarda ara…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            iconLeft={<SearchIcon size={14} strokeWidth={2} />}
+            style={{
+              minHeight: "var(--control-h-sm)",
+              padding: "0 30px 0 32px",
+              fontSize: "var(--text-xs)",
+            }}
           />
-        </Card>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
-          {filtered.map((t) => (
-            <Card key={t.id} interactive style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-                <a
-                  href={t.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: "inline-flex", alignItems: "flex-start", gap: 6, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
-                >
-                  {t.title}
-                  <ExternalLink size={13} strokeWidth={2} style={{ color: "var(--text-muted)", flexShrink: 0, marginTop: 2 }} />
-                </a>
-                <button
-                  onClick={() => toggleFavorite(t.id)}
-                  disabled={favKey === t.id}
-                  title={t.isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"}
-                  style={{ background: "none", border: "none", cursor: favKey === t.id ? "wait" : "pointer", color: t.isFavorite ? "var(--accent-text)" : "var(--text-muted)", padding: 0, lineHeight: 1, display: "inline-flex", flexShrink: 0, transition: "color 0.15s var(--ease-out)" }}
-                >
-                  <Star size={15} strokeWidth={2} fill={t.isFavorite ? "currentColor" : "none"} />
-                </button>
-              </div>
-
-              {t.description && (
-                <div>
-                  <Kicker>Bu kaynak ne?</Kicker>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.5 }}>{t.description}</div>
-                </div>
-              )}
-
-              {t.useCase && (
-                <div>
-                  <Kicker>Bundan ne üretebilirim?</Kicker>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--accent-text)", background: "var(--gradient-accent), var(--accent-dark)", padding: "3px 8px", borderRadius: "var(--radius-sm)", border: "1px solid var(--accent-border)" }}>
-                    <Sparkles size={12} strokeWidth={2} />
-                    {t.useCase}
-                  </span>
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: "auto" }}>
-                <Badge variant="muted" size="xs">{t.category}</Badge>
-                {t.platform && <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t.platform}</span>}
-                <span title={`Güven: ${t.sourceReliability}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 700, color: reliabilityColor(t.sourceReliability) }}>
-                  <ShieldCheck size={13} strokeWidth={2} />
-                  {t.sourceReliability}
-                </span>
-                <span title={`Bağlantı: ${t.linkStatus ?? "bilinmiyor"}`} style={{ width: 7, height: 7, borderRadius: "50%", background: linkColor(t.linkStatus), boxShadow: `0 0 0 3px color-mix(in srgb, ${linkColor(t.linkStatus)} 20%, transparent)` }} />
-                {t.xValueScore > 0 && (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 700, color: "var(--accent-text)", marginLeft: "auto" }}>
-                    <Gauge size={13} strokeWidth={2} />
-                    DEĞER <span className="tnum">{t.xValueScore}</span>
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {ACCOUNTS.map((acc) => {
-                  const busy = generatingKey === `${t.id}-${acc}`;
-                  return (
-                    <button key={acc} onClick={() => generate(t.id, acc)} disabled={!!generatingKey} style={genBtnStyle}>
-                      {busy ? <Loader2 size={12} strokeWidth={2} className="spin" /> : <Sparkles size={12} strokeWidth={2} />}
-                      {busy ? "…" : `Fikir → ${acc}`}
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
-          ))}
+          {searching && (
+            <Loader2
+              size={14}
+              strokeWidth={2}
+              style={{ position: "absolute", right: 10, color: "var(--text-muted)", animation: "spin 0.6s linear infinite" }}
+            />
+          )}
         </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={refresh}
+          loading={refreshing}
+          iconLeft={<RefreshCw size={14} strokeWidth={2} />}
+        >
+          {refreshing ? "Kontrol ediliyor…" : "Yenile"}
+        </Button>
+      </div>
+
+      {isSearchMode ? (
+        /* Search overlay (flat) */
+        searching && searchResults.length === 0 ? (
+          <ToolboxSkeletonGrid />
+        ) : searchResults.length === 0 ? (
+          <Card variant="quiet" padded={false}>
+            <EmptyState
+              icon={<SearchX size={24} strokeWidth={1.8} />}
+              title="Eşleşen araç yok"
+              description={`"${debouncedSearch}" için sonuç bulunamadı. Farklı bir anahtar kelime dene.`}
+            />
+          </Card>
+        ) : (
+          <ToolGrid>{searchResults.map(renderCard)}</ToolGrid>
+        )
+      ) : (
+        <>
+          {/* Folder shortcuts */}
+          <ToolboxFolderRow
+            items={folderItems}
+            activeKey={activeKey}
+            onSelect={selectFolder}
+            loading={loadingCounts && !counts}
+          />
+
+          {/* Sub-category strip (multi-category buckets) */}
+          {subNavItems.length > 1 && (
+            <SubNav items={subNavItems} activeId={activeSubCat} onSelect={setActiveSubCat} />
+          )}
+
+          {/* Grid */}
+          {activeLoading ? (
+            <ToolboxSkeletonGrid />
+          ) : activeError ? (
+            <ErrorState
+              title={activeKey === FAV_KEY ? "Favoriler alınamadı" : "Grup yüklenemedi"}
+              description="Araç listesi şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+              onRetry={() => (activeKey === FAV_KEY ? loadFavorites() : loadBucket(activeKey))}
+            />
+          ) : visibleItems.length === 0 ? (
+            <Card variant="quiet" padded={false}>
+              <EmptyState
+                icon={activeKey === FAV_KEY ? <Star size={24} strokeWidth={1.8} /> : <Wrench size={24} strokeWidth={1.8} />}
+                title={activeKey === FAV_KEY ? "Henüz favori yok" : "Bu grupta araç yok"}
+                description={
+                  activeKey === FAV_KEY
+                    ? "Araçların yıldızına dokunarak favorilere ekleyebilirsin."
+                    : "Başka bir grup ya da alt-kategori dene."
+                }
+              />
+            </Card>
+          ) : (
+            <ToolGrid>{visibleItems.map(renderCard)}</ToolGrid>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  background: "var(--bg-base)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-primary)",
-  padding: "5px 8px",
-  fontSize: "var(--text-xs)",
-  fontFamily: "inherit",
-  outline: "none",
-  width: "100%",
-};
-
-const refreshBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "6px 12px",
-  background: "var(--bg-elevated)",
-  border: "1px solid var(--border-strong)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-secondary)",
-  fontSize: "var(--text-xs)",
-  fontWeight: 600,
-  fontFamily: "inherit",
-  cursor: "pointer",
-  height: 32,
-  transition: "background 0.15s var(--ease-out), border-color 0.15s",
-};
-
-const genBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 5,
-  padding: "5px 8px",
-  background: "var(--gradient-accent), var(--accent-dark)",
-  border: "1px solid var(--accent-border)",
-  color: "var(--accent-text)",
-  borderRadius: "var(--radius-md)",
-  fontSize: "var(--text-2xs)",
-  fontWeight: 700,
-  fontFamily: "inherit",
-  cursor: "pointer",
-  flex: 1,
-  transition: "border-color 0.15s var(--ease-out)",
-};
-
-function tabStyle(active: boolean): React.CSSProperties {
-  return {
-    padding: "5px 12px",
-    background: active ? "var(--gradient-accent), var(--accent-dark)" : "transparent",
-    border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`,
-    color: active ? "var(--accent-text)" : "var(--text-secondary)",
-    borderRadius: "var(--radius-md)",
-    fontSize: "var(--text-xs)",
-    fontWeight: active ? 700 : 500,
-    fontFamily: "inherit",
-    cursor: "pointer",
-    textTransform: "capitalize",
-    transition: "background 0.15s var(--ease-out), border-color 0.15s, color 0.15s",
-  };
-}
-
-function favToggleStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "6px 12px",
-    background: active ? "var(--gradient-accent), var(--accent-dark)" : "transparent",
-    border: `1px solid ${active ? "var(--accent-border)" : "var(--border-strong)"}`,
-    color: active ? "var(--accent-text)" : "var(--text-secondary)",
-    borderRadius: "var(--radius-md)",
-    fontSize: "var(--text-xs)",
-    fontWeight: 600,
-    fontFamily: "inherit",
-    cursor: "pointer",
-    height: 30,
-    transition: "background 0.15s var(--ease-out), border-color 0.15s, color 0.15s",
-  };
-}
-
-function Field({ label, grow, children }: { label: string; grow?: boolean; children: React.ReactNode }) {
+function ToolGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: grow ? 1 : undefined, minWidth: grow ? 150 : undefined }}>
-      <label className="eyebrow" style={{ color: "var(--text-muted)" }}>{label}</label>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "var(--space-2)" }}>
       {children}
-    </div>
-  );
-}
-
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: SelectOption[] }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  );
-}
-
-function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginBottom: 4 }}>
-      {children}
-    </div>
-  );
-}
-
-function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
-  const ok = toast.type === "success";
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 999,
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "12px 18px",
-        borderRadius: "var(--radius-lg)",
-        fontSize: "var(--text-sm)",
-        fontWeight: 600,
-        background: "var(--gradient-surface), var(--bg-elevated)",
-        border: `1px solid ${ok ? "var(--green)" : "var(--danger)"}`,
-        color: ok ? "var(--green)" : "var(--danger)",
-        boxShadow: "var(--shadow-lg)",
-      }}
-    >
-      {ok ? <CheckCircle2 size={16} strokeWidth={2} /> : <XCircle size={16} strokeWidth={2} />}
-      <span style={{ color: "var(--text-primary)" }}>{toast.text}</span>
     </div>
   );
 }
 
 function ToolboxSkeletonGrid() {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "var(--space-3)" }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <Card key={i} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <ToolGrid>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Card key={i} style={{ display: "flex", flexDirection: "column", gap: 10, padding: 13 }}>
           <Skeleton width="70%" height={14} />
-          <Skeleton height={36} />
-          <Skeleton width="45%" height={20} />
+          <Skeleton height={32} />
+          <Skeleton width="45%" height={18} />
           <div style={{ display: "flex", gap: 6, marginTop: "auto" }}>
-            <Skeleton width="48%" height={26} />
-            <Skeleton width="48%" height={26} />
+            <Skeleton width="48%" height={24} />
+            <Skeleton width="48%" height={24} />
           </div>
         </Card>
       ))}
-    </div>
+    </ToolGrid>
   );
 }

@@ -1,3 +1,16 @@
+/**
+ * Phase 2C (ADR-031): Bu modül artık RUNTIME source of truth DEĞİLDİR.
+ * Runtime otoritesi DB'dir (`Account` + `StyleProfile`,
+ * `@/lib/accounts/profileRepository` üzerinden okunur). Buradaki
+ * `accountProfiles` üç rolde yaşamaya devam eder:
+ *   1. DB seed/backfill kaynağı (prisma/seed.ts),
+ *   2. test fixture'ı,
+ *   3. DB'ye ULAŞILAMADIĞINDA (bağlantı hatası) tohumlu iki hesap için
+ *      işaretli (degraded) kullanılabilirlik fallback'i.
+ * `AccountHandle` literal union'ı yalnız bootstrap sabitlerinin
+ * (Record anahtarları) tipidir — güvenlik sınırı DEĞİLDİR; trust-boundary
+ * doğrulaması `assertKnownAccountHandleDb` (DB, fail-closed) ile yapılır.
+ */
 export type AccountHandle = "grafikcem" | "maskulenkod";
 
 /**
@@ -5,7 +18,7 @@ export type AccountHandle = "grafikcem" | "maskulenkod";
  * character band; `maxChars: 0` means variable-length (thread), in which case
  * callers fall back to the account's own maxChars cap.
  */
-export type FormatTierId = "micro" | "punch" | "spark" | "storm" | "thread";
+export type FormatTierId = "micro" | "punch" | "spark" | "storm" | "thunder" | "mega" | "thread";
 
 export type FormatTier = {
   id: FormatTierId;
@@ -13,6 +26,8 @@ export type FormatTier = {
   description: string;
   minChars: number;
   maxChars: number;
+  /** X Premium (uzun post) gerektirir — dwell-time odaklı uzun formatlar. */
+  requiresPremium?: boolean;
 };
 
 export const FORMAT_TIERS: Record<FormatTierId, FormatTier> = {
@@ -20,6 +35,10 @@ export const FORMAT_TIERS: Record<FormatTierId, FormatTier> = {
   punch: { id: "punch", label: "Punch", description: "Direkt etki, tek vuruş", minChars: 140, maxChars: 280 },
   spark: { id: "spark", label: "Spark", description: "Değer + fikir, kısa analiz", minChars: 400, maxChars: 600 },
   storm: { id: "storm", label: "Storm", description: "Derin analiz, uzun form", minChars: 600, maxChars: 900 },
+  // Dwell-time formatları (xpatla-parity): X algoritması okumada geçen süreyi
+  // ödüllendirir → uzun, hikâye/analiz akışı okuyucuyu daha uzun tutar.
+  thunder: { id: "thunder", label: "Thunder", description: "Uzun hikâye/analiz — okuma süresi hedefli", minChars: 900, maxChars: 1500, requiresPremium: true },
+  mega: { id: "mega", label: "Mega", description: "Maksimum uzun form — derin thread-tek-post", minChars: 1400, maxChars: 2000, requiresPremium: true },
   thread: { id: "thread", label: "Thread", description: "5-8 tweet zincir akışı", minChars: 0, maxChars: 0 },
 };
 
@@ -32,11 +51,16 @@ export type AccountMode = {
 };
 
 export type AccountProfile = {
-  handle: AccountHandle;
+  /**
+   * Profil nesnelerinde handle GENİŞ tiptir (string): runtime profilleri artık
+   * DB'den gelir ve yeni hesap handle'ları derleme zamanında bilinemez.
+   * Bootstrap Record'ların anahtarı yine `AccountHandle` literal'idir.
+   */
+  handle: string;
   xHandle: string;
   persona: string;
   concept: string;
-  language: "Turkish";
+  language: string;
   maxChars: number;
   defaultDraftCount: number;
   autonomy: string;
@@ -84,9 +108,23 @@ export const accountProfiles: Record<AccountHandle, AccountProfile> = {
       "Kaynakta olmayan sayı veya iddia uydurma.",
       "'Bu tweet', 'Bu içerik', 'Bir düşünce' gibi içeriğe kendini işaret eden meta ifade yazma.",
     ],
-    // Verified hesap → tüm tier'lar açık; uzun form thread ile.
-    formats: ["micro", "punch", "spark", "storm", "thread"],
+    // Verified hesap → tüm tier'lar açık; uzun form thread + premium dwell-time.
+    formats: ["micro", "punch", "spark", "storm", "thunder", "mega", "thread"],
     modes: [
+      {
+        id: "thunder",
+        label: "Thunder (uzun)",
+        format: "thunder",
+        instruction:
+          "Dwell-time formatı: okuyucuyu ekranda tutan uzun tek-post. Güçlü hook → akıcı hikâye/analiz → net payoff. Somut örnek/sayı/araç dökümü; paragraf ritmi ile okunabilir. 900-1500 karakter. X Premium.",
+      },
+      {
+        id: "mega",
+        label: "Mega (maks uzun)",
+        format: "mega",
+        instruction:
+          "Maksimum uzun form: derin, kaydedilmeyi hak eden tek-post makale. Hook → çok bölümlü döküm (→ maddeler / mini başlıklar) → güçlü kapanış. 1400-2000 karakter. Sadece gerçekten değer varsa; dolgu yok. X Premium.",
+      },
       {
         id: "tool_spotlight",
         label: "Tool Spotlight",
@@ -129,68 +167,68 @@ export const accountProfiles: Record<AccountHandle, AccountProfile> = {
   maskulenkod: {
     handle: "maskulenkod",
     xHandle: "@maskulenkod",
-    persona: "Maskulen realist + sistem ogretmeni (erkekligi sistem olarak ogreten)",
+    persona: "Maskülen realist + sistem öğretmeni (erkekliği sistem olarak öğreten)",
     concept:
-      "Erkekligi SISTEM olarak ogret: disiplin, kimlik, sosyal guc ana eksen; yaninda gercekci cinsiyet/iliski dinamigi (hipergami, secilme, statu) sert ama dengeli. Thread'ler e-kitap/funnel sinyali.",
+      "Erkekliği SİSTEM olarak öğret: disiplin, kimlik, sosyal güç ana eksen; yanında gerçekçi cinsiyet/ilişki dinamiği (hipergami, seçilme, statü) sert ama dengeli. Thread'ler e-kitap/funnel sinyali.",
     language: "Turkish",
     // thread modu uzun form ister; thread disi modlar instruction'da ≤280 ile sinirli.
     maxChars: 1200,
     defaultDraftCount: 3,
-    autonomy: "Haftalik onay sonrasi autopilot",
+    autonomy: "Haftalık onay sonrası autopilot",
     toneRules: [
-      "Dogrudan, net ve yumusatmasiz yaz; ama yikici degil. Sistem-odakli: duygu degil mekanik.",
-      "Erkege seslen: suclamak degil, fark ettir, sistem ve cikis yolu ver.",
-      "Iddiali ama sloganci degil; gercekci ama magdur edebiyati degil.",
+      "Doğrudan, net ve yumuşatmasız yaz; ama yıkıcı değil. Sistem-odaklı: duygu değil mekanik.",
+      "Erkeğe seslen: suçlamak değil, fark ettir, sistem ve çıkış yolu ver.",
+      "İddialı ama slogancı değil; gerçekçi ama mağdur edebiyatı değil.",
       "Sözlük çapan: öz saygı, disiplin, odak, sınır çizmek, ucuz dopamin, vizyon, irade, statü, seçilme. Bu kavramlardan en az birine yaslan.",
     ],
     formatRules: [
-      "thread disi modlarda (sistem_analizi/sosyal_gozlem/hot_take/disiplin_notu) tek tweet, ≤280 yaz.",
-      "thread modunda hook → numarali somut dokum → tek cumlelik cikis; bookmark+takip+e-kitap funnel.",
-      "Her satir kendi basina agir dursun; dolgu cumle yazma.",
+      "thread dışı modlarda (sistem_analizi/sosyal_gozlem/hot_take/disiplin_notu) tek tweet, ≤280 yaz.",
+      "thread modunda hook → numaralı somut döküm → tek cümlelik çıkış; bookmark+takip+e-kitap funnel.",
+      "Her satır kendi başına ağır dursun; dolgu cümle yazma.",
     ],
     forbiddenRules: [
-      "Kadin dusmanligi, hakaret veya asagilama (enayi, surtuk vb.) yazma.",
-      "Magdur edebiyati veya 'kadinlar yuzunden' bahaneciligi yapma.",
-      "Terapist dili ve kisisel gelisim klisesi kullanma.",
-      "Herkesin durumu farkli gibi yumusatma yapma.",
+      "Kadın düşmanlığı, hakaret veya aşağılama (enayi, sürtük vb.) yazma.",
+      "Mağdur edebiyatı veya 'kadınlar yüzünden' bahaneciliği yapma.",
+      "Terapist dili ve kişisel gelişim klişesi kullanma.",
+      "Herkesin durumu farklı gibi yumuşatma yapma.",
       "Cringe manosphere jargonu yazma: 'Hustle', 'Sigma', 'Alfa', 'Redpill', 'Beta' gibi terimler yasak.",
     ],
-    // thread disi modlar ≤280 (punch); uzun form yalniz thread.
-    formats: ["micro", "punch", "spark", "storm", "thread"],
+    // thread disi modlar ≤280 (punch); uzun form thread + premium dwell-time.
+    formats: ["micro", "punch", "spark", "storm", "thunder", "mega", "thread"],
     modes: [
       {
         id: "sistem_analizi",
         label: "Sistem Analizi",
         format: "punch",
-        instruction: "Bu hatayi neden her erkek yapar? formatinda kisa keskin teshis. Davranisi duyguya degil sisteme bagla. Aci ama gerekli; ≤280.",
+        instruction: "Bu hatayı neden her erkek yapar? formatında kısa keskin teşhis. Davranışı duyguya değil sisteme bağla. Acı ama gerekli; ≤280.",
       },
       {
         id: "sosyal_gozlem",
-        label: "Sosyal Gozlem",
+        label: "Sosyal Gözlem",
         format: "punch",
-        instruction: "Gunluk guc dinamikleri uzerine 'sunu fark ettim:' gozlemi. Gercekci cinsiyet/iliski dinamigi (hipergami, secilme, statu) burada sert ama dengeli; kadin dusmanligi degil gozlem. ≤280.",
+        instruction: "Günlük güç dinamikleri üzerine 'şunu fark ettim:' gözlemi. Gerçekçi cinsiyet/ilişki dinamiği (hipergami, seçilme, statü) burada sert ama dengeli; kadın düşmanlığı değil gözlem. ≤280.",
       },
       {
         id: "thread",
         label: "Thread",
         format: "thread",
-        instruction: "EN KRITIK. 'Maskulenligin 5 yanlis anlasilan gercegi' / '5 gunluk disiplin sistemi' formatinda uzun form. Hook → numarali dokum → cikis. Bookmark + takip + e-kitap funnel.",
+        instruction: "EN KRİTİK. 'Maskülenliğin 5 yanlış anlaşılan gerçeği' / '5 günlük disiplin sistemi' formatında uzun form. Hook → numaralı döküm → çıkış. Bookmark + takip + e-kitap funnel.",
       },
       {
         id: "hot_take",
         label: "Hot Take",
         format: "punch",
-        instruction: "'Motivasyon icerikleri zararli cunku...' tarzi tartismali, kisisel net gorus. RT ve reply ceker; slogan degil gerekce. ≤280.",
+        instruction: "'Motivasyon içerikleri zararlı çünkü...' tarzı tartışmalı, kişisel net görüş. RT ve reply çeker; slogan değil gerekçe. ≤280.",
       },
       {
         id: "disiplin_notu",
         label: "Disiplin Notu",
         format: "punch",
-        instruction: "Pratik sistem kurma notu: 'soyle kurulur' formati. Somut, uygulanabilir, mekanik; anonim/sistem voice'a uyumlu. ≤280.",
+        instruction: "Pratik sistem kurma notu: 'şöyle kurulur' formatı. Somut, uygulanabilir, mekanik; anonim/sistem voice'a uyumlu. ≤280.",
       },
     ],
     benchmarkInput:
-      "Cogu erkek guclu olamiyor cunku disiplini bir hisse bagliyor, kurulabilir bir sisteme degil.",
+      "Çoğu erkek güçlü olamıyor çünkü disiplini bir hisse bağlıyor, kurulabilir bir sisteme değil.",
   },
 };
 
@@ -214,4 +252,49 @@ export function resolveFormatTier(profile: AccountProfile, modeId?: string): For
  */
 export function effectiveMaxChars(profile: AccountProfile, tier: FormatTier): number {
   return tier.maxChars > 0 ? tier.maxChars : profile.maxChars;
+}
+
+/** True when `modeId` names a real mode on this account. */
+export function isKnownMode(profile: AccountProfile, modeId?: string | null): boolean {
+  return Boolean(modeId) && profile.modes.some((m) => m.id === modeId);
+}
+
+/**
+ * Pick a generation mode for an account — source-aware with a rotation fallback,
+ * so the resulting length tier is always intentional and NEVER the accidental
+ * `micro` (140-char) default that silently truncated drafts.
+ *
+ * Note: at runtime the multi-angle writer already drafts one candidate per mode
+ * and the judge selects the strongest for the source (`winner.mode`). This helper
+ * is the deliberate pre-selection / fallback used when no winning mode is known.
+ */
+export function selectMode(
+  profile: AccountProfile,
+  opts?: { sourceType?: string | null; seed?: number }
+): AccountMode {
+  const modes = profile.modes;
+  if (modes.length === 0) {
+    throw new Error(`Account ${profile.handle} has no generation modes.`);
+  }
+  // Source-aware: repo/GitHub signals map to a repo/source mode when present.
+  const sourceType = (opts?.sourceType ?? "").toLowerCase();
+  if (/repo|github/.test(sourceType)) {
+    const repoMode = modes.find((m) => /repo|kaynak/.test(m.id));
+    if (repoMode) return repoMode;
+  }
+  // Otherwise rotate across the account's modes for format/length variety.
+  // Exclude the `micro` tier (accidental 140-char trap) AND premium dwell-time
+  // tiers (thunder/mega) from the default rotation — those are opt-in only
+  // (explicit input.mode / UI), never auto-selected. Fall back to full set only
+  // if an account has nothing else.
+  const rotatable = modes.filter((m) => {
+    if (m.format === "micro") return false;
+    return !FORMAT_TIERS[m.format]?.requiresPremium;
+  });
+  const pool = rotatable.length > 0 ? rotatable : modes;
+  const seed =
+    typeof opts?.seed === "number" && Number.isFinite(opts.seed)
+      ? Math.abs(Math.trunc(opts.seed))
+      : 0;
+  return pool[seed % pool.length];
 }

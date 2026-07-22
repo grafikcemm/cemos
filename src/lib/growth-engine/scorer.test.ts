@@ -10,7 +10,7 @@ import {
   calculateOpportunityScore,
   calculatePublishScore
 } from "./scorer";
-import { ACCOUNT_HANDLES } from "./account-profiles";
+import { ACCOUNT_HANDLES } from "./account-adapter";
 
 // ---------------------------------------------------------------------------
 // Mock AI module — all tests use fallback by default
@@ -18,6 +18,10 @@ import { ACCOUNT_HANDLES } from "./account-profiles";
 
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn().mockRejectedValue(new Error("AI disabled in tests"))
+}));
+// Dalga 2: scorer AI yolu artık budget-gated sarmalayıcıdan geçer.
+vi.mock("@/lib/ai/generateGated", () => ({
+  generateJsonGated: vi.fn().mockRejectedValue(new Error("AI disabled in tests"))
 }));
 
 // ---------------------------------------------------------------------------
@@ -584,8 +588,8 @@ describe("scoreSourcePost (async)", () => {
   });
 
   it("uses AI result when available", async () => {
-    const { generateJson } = await import("@/lib/ai/openrouter");
-    const mockGenerateJson = vi.mocked(generateJson);
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
+    const mockGenerateJson = vi.mocked(generateJsonGated);
 
     mockGenerateJson.mockResolvedValueOnce({
       data: {

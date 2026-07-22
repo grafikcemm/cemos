@@ -9,6 +9,7 @@ import {
 } from "./feedback-service";
 import { scoreDraft } from "@/lib/growth-engine/scorer";
 import { extractPattern, patternExtractionToViralPatternInput } from "@/lib/growth-engine/pattern-extractor";
+import { accountRepo } from "@/lib/db/accountRepo";
 import { feedbackEventRepo } from "@/lib/db/feedbackEventRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
@@ -17,9 +18,16 @@ import type { FeedbackApiInput } from "./types";
 // ---------------------------------------------------------------------------
 // Mock repos and engines
 // ---------------------------------------------------------------------------
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
+
 vi.mock("@/lib/db/feedbackEventRepo", () => ({
   feedbackEventRepo: {
-    create: vi.fn()
+    create: vi.fn(),
+    findByIdempotencyKey: vi.fn()
   }
 }));
 
@@ -32,6 +40,12 @@ vi.mock("@/lib/db/trainingExampleRepo", () => ({
 vi.mock("@/lib/db/viralPatternRepo", () => ({
   viralPatternRepo: {
     create: vi.fn()
+  }
+}));
+
+vi.mock("@/lib/db/accountRepo", () => ({
+  accountRepo: {
+    findByHandle: vi.fn()
   }
 }));
 
@@ -202,6 +216,37 @@ describe("Feedback Service Helpers", () => {
       const result = buildFeedbackEventInput(input);
       expect(result.originalContent).toBe("Edited Only");
     });
+
+    it("populates the queryable editDistance field for edited feedback (and mirrors it into reason)", () => {
+      const input: FeedbackApiInput = {
+        accountId: "acc-123",
+        accountHandle: "grafikcem",
+        feedbackType: "edited",
+        originalContent: "Bugün Midjourney v8 çıktı.",
+        editedContent: "Bugün Midjourney v8 çıktı — 4 saatlik işi 12 dakikaya indirdim.",
+        saveTrainingExample: true,
+        saveAsPattern: false,
+      };
+
+      const result = buildFeedbackEventInput(input);
+      expect(typeof result.editDistance).toBe("number");
+      expect(result.editDistance).toBeGreaterThan(0);
+      // Geriye uyum: reason JSON'a da yansır.
+      expect(JSON.parse(result.reason).editDistance).toBe(result.editDistance);
+    });
+
+    it("leaves editDistance null for non-edit feedback", () => {
+      const result = buildFeedbackEventInput({
+        accountId: "acc-123",
+        accountHandle: "grafikcem",
+        feedbackType: "approved",
+        originalContent: "x",
+        editedContent: "x",
+        saveTrainingExample: true,
+        saveAsPattern: false,
+      });
+      expect(result.editDistance).toBeNull();
+    });
   });
 
   describe("buildTrainingExampleFromFeedback", () => {
@@ -236,7 +281,9 @@ describe("processFeedback (Main Flow)", () => {
     vi.clearAllMocks();
 
     // Default mock behavior
+    vi.mocked(accountRepo.findByHandle).mockResolvedValue({ id: "acc-123", handle: "grafikcem" } as any);
     vi.mocked(feedbackEventRepo.create).mockResolvedValue({ id: "mock-feedback-id" } as any);
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue(null);
     vi.mocked(trainingExampleRepo.create).mockResolvedValue({ id: "mock-training-id" } as any);
     vi.mocked(viralPatternRepo.create).mockResolvedValue({ id: "mock-pattern-id" } as any);
     vi.mocked(scoreDraft).mockResolvedValue({ publishScore: 90 } as any);
@@ -437,5 +484,110 @@ describe("processFeedback (Main Flow)", () => {
         sourcePostId: "any-plain-string-post-555"
       })
     );
+  });
+
+  // ── Phase 5A (ADR-044): açık geri bildirim idempotency ────────────────────
+  it("returns idempotent replay and skips ALL side-effects when idempotencyKey already exists", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue({ id: "existing-fb" } as any);
+
+    const response = await processFeedback({
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "approved",
+      originalContent: "Second identical click",
+      idempotencyKey: "q-1:approved",
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.feedbackEventId).toBe("existing-fb");
+    expect(response.warnings).toContain("idempotent_replay");
+    // Hiçbir yan etki: yeni event / training example / scoreDraft ÇAĞRILMAZ.
+    expect(feedbackEventRepo.create).not.toHaveBeenCalled();
+    expect(trainingExampleRepo.create).not.toHaveBeenCalled();
+    expect(scoreDraft).not.toHaveBeenCalled();
+  });
+
+  it("creates exactly once across a double-submit with the same idempotencyKey", async () => {
+    // 1. gönderim: prior yok → oluştur. 2. gönderim: prior DB'de var → replay.
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: "mock-feedback-id" } as any);
+
+    const input = {
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "hook_weak",
+      originalContent: "Aynı chip iki kez",
+      idempotencyKey: "q-1:hook_weak",
+    };
+
+    const first = await processFeedback(input);
+    const second = await processFeedback(input);
+
+    expect(first.success).toBe(true);
+    expect(second.success).toBe(true);
+    expect(second.warnings).toContain("idempotent_replay");
+    // create YALNIZ bir kez — çift-tık duplicate ÜRETMEZ.
+    expect(feedbackEventRepo.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("P2002 race backstop: create unique violation returns existing without re-running side-effects", async () => {
+    // Pre-check null (yarış), create P2002 fırlatır, catch içindeki lookup mevcut döner.
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: "raced-fb" } as any);
+    vi.mocked(feedbackEventRepo.create).mockRejectedValueOnce({ code: "P2002" } as any);
+
+    const response = await processFeedback({
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "approved",
+      originalContent: "Concurrent submit",
+      idempotencyKey: "q-1:approved",
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.feedbackEventId).toBe("raced-fb");
+    expect(response.warnings).toContain("idempotent_replay");
+    expect(trainingExampleRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("derives a server-side idempotency key when the client omits one (double-submit safe)", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue(null);
+    const response = await processFeedback({
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "approved",
+      originalContent: "No key legacy call",
+    });
+    expect(response.success).toBe(true);
+    // The gate ALWAYS engages now: a deterministic "auto:" key is derived and
+    // pre-checked, so a double-submit / retry can't duplicate the side-effects.
+    expect(feedbackEventRepo.findByIdempotencyKey).toHaveBeenCalled();
+    const key = vi.mocked(feedbackEventRepo.findByIdempotencyKey).mock.calls.at(-1)?.[0];
+    expect(key).toMatch(/^auto:/);
+    expect(feedbackEventRepo.create).toHaveBeenCalledTimes(1);
+    const created = vi.mocked(feedbackEventRepo.create).mock.calls[0][0];
+    expect(created.idempotencyKey).toMatch(/^auto:/);
+  });
+
+  it("dedupes an identical no-key double-submit via the derived key", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: "fb-first" } as any);
+    const input = {
+      accountId: "acc-123",
+      accountHandle: "grafikcem",
+      feedbackType: "approved" as const,
+      originalContent: "same content",
+      reason: "same reason",
+    };
+    const first = await processFeedback(input);
+    const second = await processFeedback(input);
+    expect(first.success).toBe(true);
+    expect(second.warnings).toContain("idempotent_replay");
+    // Both derived the SAME key → the second short-circuits; the side-effecting
+    // create runs exactly once.
+    expect(feedbackEventRepo.create).toHaveBeenCalledTimes(1);
   });
 });

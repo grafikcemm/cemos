@@ -1,24 +1,40 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+
+const UpdatePatternSchema = z.object({
+  patternName: z.string().max(200).optional(),
+  category: z.string().max(100).optional(),
+  hookType: z.string().max(100).optional(),
+  structureJson: z.union([z.string(), z.record(z.any())]).optional(),
+  emotion: z.string().max(200).optional(),
+  viralityTrigger: z.string().max(500).optional(),
+  exampleGood: z.string().max(5000).optional(),
+  exampleBad: z.string().max(5000).optional(),
+  successScore: z.number().optional(),
+  isActive: z.boolean().optional(),
+});
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
-    const body = await req.json();
+    const parsedBody = await parseJsonBody(req);
+    if (!parsedBody.ok) return fail("Geçersiz JSON", 400);
+
+    const parsed = UpdatePatternSchema.safeParse(parsedBody.data);
+    if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
+
+    const body: Record<string, any> = { ...parsed.data };
 
     // 1. Validate patternName is non-empty
     if (body.patternName !== undefined && body.patternName.trim() === "") {
-      return NextResponse.json(
-        { success: false, error: "Pattern name cannot be empty" },
-        { status: 400 }
-      );
+      return fail("Pattern name cannot be empty", 400);
     }
 
     // 2. Clamp successScore to 0-100
@@ -33,10 +49,7 @@ export async function PATCH(
         try {
           structureJsonObj = JSON.parse(body.structureJson);
         } catch {
-          return NextResponse.json(
-            { success: false, error: "Invalid structure JSON format" },
-            { status: 400 }
-          );
+          return fail("Invalid structure JSON format", 400);
         }
       } else if (body.structureJson && typeof body.structureJson === "object") {
         structureJsonObj = body.structureJson;
@@ -59,12 +72,11 @@ export async function PATCH(
     // 5. Update database
     const updated = await viralPatternRepo.update(id, updates);
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       pattern: updated,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

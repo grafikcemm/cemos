@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { NEXT_MOVES } from "@/lib/ai/next-move";
+
+// --- NextMove (payoff) — content-quality "path" signal (not a revenue CTA) ---
+
+export const NextMoveSchema = z.enum(NEXT_MOVES);
+export type NextMove = z.infer<typeof NextMoveSchema>;
 
 // --- Safe JSON helpers ---
 
@@ -53,7 +59,10 @@ export const CreateTrainingExampleSchema = z.object({
   reason: z.string().optional(),
   metricsJson: z.record(z.unknown()).optional(),
   embeddingJson: z.array(z.number()).optional(),
-  platform: z.string().optional()
+  platform: z.string().optional(),
+  // ADR-036 (Faz 3B): seri-bazlı few-shot havuzu — kolon Sprint 4'ten beri
+  // vardı ama create yolu taşımıyordu; getSeriesExamples artık dolu satır görür.
+  seriesKey: z.string().max(120).optional()
 });
 
 export type CreateTrainingExampleInput = z.infer<typeof CreateTrainingExampleSchema>;
@@ -68,7 +77,10 @@ export const CreateFeedbackEventSchema = z.object({
   originalContent: z.string().optional(),
   editedContent: z.string().optional(),
   reason: z.string().optional(),
-  platform: z.string().optional()
+  // Normalize edit-distance (0..1) — queryable column; null/undefined = yok.
+  editDistance: z.number().nullable().optional(),
+  platform: z.string().optional(),
+  idempotencyKey: z.string().nullable().optional()
 });
 
 export type CreateFeedbackEventInput = z.infer<typeof CreateFeedbackEventSchema>;
@@ -204,7 +216,9 @@ export const DraftScoreSchema = z.object({
   publishRecommendation: PublishRecommendationSchema,
   rewriteSuggestion: z.string(),
   reason: z.string(),
-  confidence: z.number().min(0).max(100)
+  confidence: z.number().min(0).max(100),
+  /** Taslaktan taşınan sonraki hareket (payoff) sinyali — kritik bunu echo'lar. */
+  payoff: NextMoveSchema.optional()
 });
 export type DraftScore = z.infer<typeof DraftScoreSchema>;
 
@@ -233,7 +247,9 @@ export type TrainingLabel = z.infer<typeof TrainingLabel>;
 
 export const FeedbackApiInputSchema = z
   .object({
-    accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+    // ADR-031: literal z.enum kaldırıldı — otorite processFeedback içindeki
+    // DB hesap doğrulamasıdır (fail-closed); şema yalnız şekil doğrular.
+    accountHandle: z.string().min(1),
     accountId: z.string().min(1, "accountId required"),
     feedbackType: FeedbackType,
     originalContent: z.string().optional(),
@@ -244,7 +260,11 @@ export const FeedbackApiInputSchema = z
     sourceContent: z.string().optional(),
     modeId: z.string().optional(),
     saveTrainingExample: z.boolean().optional().default(true),
-    saveAsPattern: z.boolean().optional().default(false)
+    saveAsPattern: z.boolean().optional().default(false),
+    // Phase 5A (ADR-044): açık geri bildirim çift-tık/retry idempotency. Client
+    // üretir; verilirse processFeedback pre-check + FeedbackEvent unique backstop ile
+    // aynı key ikinci kez YAN ETKİ (TrainingExample/embedding/reweight) DOĞURMAZ.
+    idempotencyKey: z.string().max(200).optional()
   })
   .refine(
     (data) => {
@@ -332,7 +352,9 @@ export const DraftVariantSchema = z.object({
   patternUsed: z.string().optional(),
   reasoning: z.string(),
   /** Görsel pillar'larında (örn. grafikcem visual_drop) üretilen image-gen promptu. Görsel üretimi motor dışında. */
-  imagePrompt: z.string().optional()
+  imagePrompt: z.string().optional(),
+  /** İçeriğin okuyucuda tetiklediği tek somut sonraki hareket (payoff). */
+  payoff: NextMoveSchema.optional()
 });
 export type DraftVariant = z.infer<typeof DraftVariantSchema>;
 
@@ -494,7 +516,9 @@ export const MemoryLabelSchema = z.enum(["positive", "negative", "edited", "patt
 export type MemoryLabel = z.infer<typeof MemoryLabelSchema>;
 
 export const VectorMemoryInputSchema = z.object({
-  accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+  // ADR-031: hesap DB'de doğrulanır (searchSimilarExamples accountRepo lookup),
+  // literal enum değil.
+  accountHandle: z.string().min(1),
   text: z.string().min(1, "text is required"),
   label: MemoryLabelSchema.optional(),
   sourceType: z.enum(["training_example", "feedback_event", "viral_pattern", "queue_item", "manual"]).optional(),
@@ -534,7 +558,9 @@ export const MemoryContextSchema = z.object({
 export type MemoryContext = z.infer<typeof MemoryContextSchema>;
 
 export const BuildMemoryContextInputSchema = z.object({
-  accountHandle: z.enum(["grafikcem", "maskulenkod"]),
+  // ADR-031: hesap DB'de doğrulanır (buildMemoryContext accountRepo lookup),
+  // literal enum değil.
+  accountHandle: z.string().min(1),
   sourceContent: z.string().optional(),
   manualIdea: z.string().optional(),
   draftContent: z.string().optional(),

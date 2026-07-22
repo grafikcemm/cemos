@@ -6,7 +6,7 @@ import {
   patternExtractionToViralPatternInput
 } from "./pattern-extractor";
 import type { PatternExtractionInput, PatternExtractionResult } from "./types";
-import { ACCOUNT_HANDLES } from "./account-profiles";
+import { ACCOUNT_HANDLES } from "./account-adapter";
 
 // ---------------------------------------------------------------------------
 // Mock AI module — all tests run with fallback by default
@@ -14,6 +14,10 @@ import { ACCOUNT_HANDLES } from "./account-profiles";
 
 vi.mock("@/lib/ai/openrouter", () => ({
   generateJson: vi.fn().mockRejectedValue(new Error("AI disabled in tests"))
+}));
+// Dalga 2: pattern-extractor AI yolu artık budget-gated sarmalayıcıdan geçer.
+vi.mock("@/lib/ai/generateGated", () => ({
+  generateJsonGated: vi.fn().mockRejectedValue(new Error("AI disabled in tests"))
 }));
 
 vi.mock("@/lib/db/viralPatternRepo", () => ({
@@ -65,7 +69,9 @@ describe("extractPatternSyncFallback", () => {
 
     expect(result.hook).toBeTruthy();
     expect(result.emotionalTrigger).toBe("rahatsız edici gerçek");
-    expect(result.tone).toContain("doğrudan");
+    // Sprint 2: tone artık CANLI profil toneRules'undan gelir. Sprint 9:
+    // toneRules düzgün Türkçe yazıma çevrildi (mock/örnek ASCII temizliği).
+    expect(result.tone.toLowerCase()).toContain("doğrudan");
     expect(result.suggestedAccounts).toContain("maskulenkod");
     // Should match maskulenkod-specific patterns
     const validPatterns = [
@@ -142,9 +148,9 @@ describe("extractPatternSyncFallback", () => {
       accountHandle: "grafikcem"
     });
 
-    // Should match grafikcem's description
-    expect(result.audience).toContain("AI");
-    expect(result.audience).toContain("tasarım");
+    // Sprint 2: audience artık CANLI profil concept'inden gelir (accounts.ts).
+    expect(result.audience).toContain("Türk yaratıcı");
+    expect(result.audience).toContain("araç testleri");
   });
 });
 
@@ -288,8 +294,8 @@ describe("extractPattern", () => {
   });
 
   it("uses AI result when available", async () => {
-    const { generateJson } = await import("@/lib/ai/openrouter");
-    const mockGenerateJson = vi.mocked(generateJson);
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
+    const mockGenerateJson = vi.mocked(generateJsonGated);
 
     const aiResponse = {
       hook: "AI generated hook",

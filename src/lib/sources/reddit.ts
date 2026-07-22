@@ -1,5 +1,4 @@
-import type { AccountHandle } from "@/lib/accounts";
-import { NICHE_QUERIES } from "@/lib/sources/niche-queries";
+import { getNicheQueries } from "@/lib/sources/niche-queries";
 import type { NormalizedItem, SourceConnector } from "@/lib/sources/types";
 
 const FETCH_TIMEOUT_MS = 12_000;
@@ -72,9 +71,9 @@ export const redditConnector: SourceConnector = {
     // Public listing JSON needs no key. Allow an explicit kill-switch.
     return process.env.DISABLE_REDDIT_SOURCE !== "true";
   },
-  async fetchForAccount(handle: AccountHandle, limit: number): Promise<NormalizedItem[]> {
+  async fetchForAccount(handle: string, limit: number): Promise<NormalizedItem[]> {
     if (!this.isConfigured()) return [];
-    const subs = NICHE_QUERIES[handle]?.reddit ?? [];
+    const subs = getNicheQueries(handle)?.reddit ?? [];
     if (subs.length === 0) return [];
     const perSub = Math.max(3, Math.ceil(limit / subs.length));
     const settled = await Promise.allSettled(subs.map((s) => fetchSubreddit(s, perSub)));

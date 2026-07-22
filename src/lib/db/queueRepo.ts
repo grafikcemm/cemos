@@ -7,17 +7,23 @@ export type CreateQueueItemInput = {
   content: string;
   draftType?: string;
   mode?: string;
+  /** Kalite kapısı: yüksek-şiddet leak / cap-altı TR doğallık → "needs_edit". */
+  status?: string;
   estimatedCostUsd?: number;
   usedMock?: boolean;
   scores?: string;
   lintReport?: string;
   candidatesJson?: string;
+  /** Phase 2D: thread'in canonical publication payload'ı (serializeThreadSegments JSON). */
+  threadSegments?: string;
   lastError?: string;
   approvedAt?: Date;
   // News→draft bridge + visual content provenance.
   newsItemId?: string;
   imageUrl?: string;
   generatedImageUrl?: string;
+  /** Phase 5B (ADR-045): fikir→taslak idempotency anahtarı (NULL-distinct unique). */
+  originKey?: string;
 };
 
 export type UpdateQueueItemInput = Partial<
@@ -33,6 +39,7 @@ export type UpdateQueueItemInput = Partial<
     | "approvedAt"
     | "scores"
     | "generatedImageUrl"
+    | "threadSegments"
   >
 >;
 
@@ -51,6 +58,11 @@ export const queueRepo = {
 
   findById(id: string): Promise<QueueItem | null> {
     return prisma.queueItem.findUnique({ where: { id } });
+  },
+
+  /** Phase 5B: fikir→taslak idempotency ön-kontrolü (originKey NULL-distinct unique). */
+  findByOriginKey(originKey: string): Promise<QueueItem | null> {
+    return prisma.queueItem.findUnique({ where: { originKey } });
   },
 
   update(id: string, data: UpdateQueueItemInput): Promise<QueueItem> {

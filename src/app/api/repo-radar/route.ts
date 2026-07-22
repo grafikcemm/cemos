@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 // Lists trending GitHub repos (labelled "GitHub Trending"). topics is stored as
 // a JSON string; parse on read for callers.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "unauthorized" }, { status: 403 });
+  }
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status") ?? "active";
   const minScoreRaw = sp.get("minScore");

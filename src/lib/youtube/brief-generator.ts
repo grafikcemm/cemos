@@ -92,15 +92,11 @@ export async function generateBrief(input: {
       : "Transkript: YOK (sadece metadata temelli analiz).",
   ].join("\n");
 
+  // Dalga 2 (Sprint 2): runStage artık gated — UsageLog'u (purpose=yt_brief,
+  // platform=youtube) KENDİSİ yazar. Burada tekrar recordOpenRouter çağırmak
+  // çift-log olurdu; yalnız brief maliyet sayacı toplanır.
   const logSpend = async (r: { actualCostUsd: number; model: string }): Promise<void> => {
     costUsd += r.actualCostUsd;
-    await usageService.recordOpenRouter({
-      accountId: input.accountId,
-      estimatedCostUsd: r.actualCostUsd,
-      model: r.model,
-      meta: { purpose: YT_BRIEF_PURPOSE, videoId: video.videoId },
-      platform: "youtube",
-    });
   };
 
   // ── Aşama 1: viralJudge — neden patladı + kanal personası ──

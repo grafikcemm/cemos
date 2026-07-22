@@ -1,5 +1,5 @@
-import { accountList, type AccountHandle } from "@/lib/accounts";
-import { generateJson } from "@/lib/ai/openrouter";
+import { accountList } from "@/lib/accounts";
+import { generateJsonGated } from "@/lib/ai/generateGated";
 import { getBudgetStatus } from "@/lib/config/costGate";
 
 /**
@@ -9,9 +9,9 @@ import { getBudgetStatus } from "@/lib/config/costGate";
  * that discovered it).
  */
 
-export type AccountFit = { account: AccountHandle; fitScore: number; reason: string };
+export type AccountFit = { account: string; fitScore: number; reason: string };
 export type RouteResult = {
-  best: AccountHandle | null;
+  best: string | null;
   fits: AccountFit[];
   usedLlm: boolean;
 };
@@ -29,7 +29,7 @@ function buildPrompt(): string {
 }
 
 /** Pure: pick best valid fit above a floor. Exported for testing. */
-export function pickBest(fits: AccountFit[], floor = 45): { best: AccountHandle | null; fits: AccountFit[] } {
+export function pickBest(fits: AccountFit[], floor = 45): { best: string | null; fits: AccountFit[] } {
   const valid = fits
     .filter((f) => VALID.has(f.account))
     .map((f) => ({ ...f, fitScore: Math.max(0, Math.min(100, f.fitScore)) }))
@@ -47,11 +47,12 @@ export async function routeItem(text: string): Promise<RouteResult> {
     return { best: null, fits: [], usedLlm: false };
   }
   try {
-    const run = await generateJson<{ fits?: AccountFit[] }>({
+    const run = await generateJsonGated<{ fits?: AccountFit[] }>({
       role: "cheapWriter",
       system: buildPrompt(),
       user: `İçerik:\n"""${text.slice(0, 500)}"""`,
       temperature: 0.2,
+      purpose: "extract_account_route",
     });
     const fits = Array.isArray(run.data.fits) ? run.data.fits : [];
     const picked = pickBest(fits);

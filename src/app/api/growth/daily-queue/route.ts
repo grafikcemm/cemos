@@ -1,8 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
+import { accountProfiles } from "@/lib/accounts";
+import { computePillarConsistency } from "@/lib/growth-engine/pillar-consistency";
+import { readinessInputFromQueueItem } from "@/lib/services/readinessAdapter";
+import { assessReadiness } from "@/lib/services/readinessService";
+import { whyToday } from "@/lib/services/whyToday";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const accountHandle = req.nextUrl.searchParams.get("accountHandle") || "all";
     const statusFilter = req.nextUrl.searchParams.get("status") || "all";
@@ -25,8 +33,7 @@ export async function GET(req: NextRequest) {
         targetAccountId = acc.id;
       } else {
         // If account handle given but not found, return empty candidates list
-        return NextResponse.json({
-          success: true,
+        return ok({
           summary: {
             totalItems: 0,
             draftItems: 0,
@@ -51,7 +58,27 @@ export async function GET(req: NextRequest) {
     const rawItems = await prisma.queueItem.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
+      // Faz 1C: "Neden bugün?" + doğrulama durumu kaynağa dayanır (whyToday).
+      include: { sourcePost: true, newsItem: true },
     });
+
+    const nowMs = Date.now();
+
+    // Faz 1E (ADR-025): taslak başına en güncel intent hazırlığı — UI
+    // "Paylaşıldı olarak işaretle" durumunu server kaynağından besler (reload
+    // sonrası korunur); staleForCurrentContent içerik-değişti işaretidir.
+    const { publishAttemptService } = await import("@/lib/publish/publishAttemptService");
+    const attemptMap = await publishAttemptService.latestIntentAttempts(
+      rawItems.map((i) => ({
+        id: i.id,
+        content: i.content,
+        editedContent: i.editedContent,
+        // Phase 2D: stale kararı canonical publication hash'i (thread'de segmentler).
+        draftType: i.draftType,
+        mode: i.mode,
+        threadSegments: i.threadSegments,
+      })),
+    );
 
     const { getLocalDayBounds } = await import("@/lib/utils/date");
     const { start: startOfToday, end: endOfToday } = getLocalDayBounds("Europe/Istanbul");
@@ -77,9 +104,15 @@ export async function GET(req: NextRequest) {
       const riskScore = parsedScores.riskScore ?? parsedScores.risk ?? 20;
       const personaMatchScore = parsedScores.personaMatchScore ?? parsedScores.personaMatch ?? 75;
       const viralityScore = parsedScores.viralityScore ?? parsedScores.viralPotential ?? parsedScores.virality ?? 75;
-      const hookStrengthScore = parsedScores.hookStrengthScore ?? 75;
+      // LIVE path persists `hookStrength` (no Score suffix); growth path uses hookStrengthScore.
+      const hookStrengthScore = parsedScores.hookStrengthScore ?? parsedScores.hookStrength ?? 75;
       const clarityScore = parsedScores.clarityScore ?? 75;
       const noveltyScore = parsedScores.noveltyScore ?? 75;
+
+      // Faz B: content-quality "path" + leak signals.
+      const payoff = typeof parsedScores.payoff === "string" ? parsedScores.payoff : "none";
+      const leaks = Array.isArray(parsedScores.leaks) ? parsedScores.leaks : [];
+      const ctaPresent = payoff !== "none";
 
       let publishScore = parsedScores.publishScore;
       let isEstimatedScore = false;
@@ -88,10 +121,54 @@ export async function GET(req: NextRequest) {
          isEstimatedScore = true;
       }
 
+      // Faz 1C: yayına-hazırlık (kart/drawer AYNI türetilmiş sonucu kullanır) +
+      // "Neden bugün?"/doğrulama (kaynak ≠ fact-check). Yayın anında publishService
+      // bunu YENİDEN çalıştırır — bu payload UI kararı, yayın kapısı değil.
+      const readinessInput = readinessInputFromQueueItem(item, {
+        handle: accHandle,
+        maxChars: acc?.maxChars ?? 280,
+      });
+      const readiness = assessReadiness(readinessInput);
+      const why = whyToday({
+        newsItem: item.newsItem
+          ? {
+              sourceVerification: item.newsItem.sourceVerification,
+              whyPeopleCare: item.newsItem.whyPeopleCare,
+              title: item.newsItem.trTitle ?? item.newsItem.originalTitle,
+              fetchedAt: item.newsItem.fetchedAt,
+            }
+          : null,
+        sourcePost: item.sourcePost
+          ? {
+              scannedAt: item.sourcePost.scannedAt,
+              publishedAt: item.sourcePost.publishedAt,
+              url: item.sourcePost.url,
+            }
+          : null,
+        nowMs,
+      });
+
+      const attempt = attemptMap.get(item.id);
+
       return {
         ...item,
         accountHandle: accHandle,
         displayName: acc?.xHandle || acc?.handle || "unknown",
+        // Faz 1E: intent hazırlık durumu (yoksa null) — prepared + güncel metinle
+        // eşleşiyorsa UI "Paylaşıldı olarak işaretle"yi gösterir.
+        publishAttempt: attempt
+          ? {
+              id: attempt.id,
+              state: attempt.state,
+              contentHash: attempt.contentHash,
+              staleForCurrentContent: attempt.staleForCurrentContent,
+            }
+          : null,
+        readiness,
+        // Client canlı readiness için: düzenlerken editedContent'i değiştirip
+        // assessReadiness'i YENİDEN koşar (aynı saf fonksiyon → kart/sunucu tutarlı).
+        readinessInput,
+        whyToday: why,
         scoresParsed: {
           publishScore,
           isEstimatedScore,
@@ -101,6 +178,18 @@ export async function GET(req: NextRequest) {
           viralityScore,
           noveltyScore,
           riskScore,
+          // Sprint 1 ayrışık alt-sinyaller (Bugün kartı çubukları). null =
+          // sinyal yok (eski kayıt / judge koşmadı) — UI 75 uydurmasın diye
+          // default doldurulmaz.
+          turkishNaturalness:
+            typeof parsedScores.turkishNaturalness === "number"
+              ? parsedScores.turkishNaturalness
+              : null,
+          sourceFaithfulness:
+            typeof parsedScores.sourceFaithfulness === "number"
+              ? parsedScores.sourceFaithfulness
+              : null,
+          judged: parsedScores.telemetry?.judged === true,
           publishRecommendation: parsedScores.publishRecommendation || "publish",
           rewriteSuggestion: parsedScores.rewriteSuggestion || "",
           angle: parsedScores.angle || "safe",
@@ -111,6 +200,13 @@ export async function GET(req: NextRequest) {
           finalEditorModel: parsedScores.modelUsed?.finalEditor || parsedScores.finalEditorModel || "unknown",
           modelFallbackUsed: parsedScores.modelUsed?.writerFallbackUsed || parsedScores.modelUsed?.judgeFallbackUsed || parsedScores.modelFallbackUsed || false,
           modelFallbackReason: parsedScores.modelUsed?.writerFallbackReason || parsedScores.modelUsed?.judgeFallbackReason || parsedScores.modelFallbackReason || "",
+          payoff,
+          ctaPresent,
+          leaks,
+          leakCount: leaks.length,
+          // Faz C — package linkage lives in scores JSON (no DB column).
+          packageId: typeof parsedScores.packageId === "string" ? parsedScores.packageId : null,
+          packageRole: typeof parsedScores.packageRole === "string" ? parsedScores.packageRole : null,
         },
       };
     });
@@ -124,7 +220,9 @@ export async function GET(req: NextRequest) {
       if (statusFilter !== "all") {
         const itemStatus = item.status === "new" ? "draft" : item.status;
         if (statusFilter === "active") {
-          if (!["draft", "scheduled", "approved"].includes(itemStatus)) return false;
+          // needs_edit kuyrukta GÖRÜNÜR (operatör düzenlesin diye) ama edit-gate
+          // + rozet yayınlanmasını engeller — kalite kapısı redirect'tir, silme değil.
+          if (!["draft", "scheduled", "approved", "needs_edit"].includes(itemStatus)) return false;
         } else if (itemStatus !== statusFilter) {
           return false;
         }
@@ -197,6 +295,23 @@ export async function GET(req: NextRequest) {
     const sumPublishScore = enrichedItems.reduce((sum, i) => sum + i.scoresParsed.publishScore, 0);
     const averagePublishScore = totalItems > 0 ? Math.round(sumPublishScore / totalItems) : 0;
 
+    // Faz B: CTA coverage + leak totals (content-quality, not revenue).
+    const draftsWithCta = enrichedItems.filter((i) => i.scoresParsed.ctaPresent).length;
+    const ctaCoveragePct = totalItems > 0 ? Math.round((draftsWithCta / totalItems) * 100) : 0;
+    const totalLeaks = enrichedItems.reduce((sum, i) => sum + i.scoresParsed.leakCount, 0);
+
+    // Faz D: pillar consistency (Trust signal) — only meaningful per single account.
+    const pillarProfile =
+      accountHandle !== "all"
+        ? accountProfiles[accountHandle as keyof typeof accountProfiles]
+        : undefined;
+    const pillarConsistency = pillarProfile
+      ? computePillarConsistency({
+          items: enrichedItems.map((i) => ({ mode: i.mode })),
+          knownPillars: pillarProfile.modes.map((m) => m.id),
+        })
+      : null;
+
     const todayItems = enrichedItems.filter((item) => {
       const itemDate = item.scheduledAt ? new Date(item.scheduledAt) : new Date(item.createdAt);
       return itemDate >= startOfToday && itemDate <= endOfToday;
@@ -237,15 +352,18 @@ export async function GET(req: NextRequest) {
       todayItems,
       accountsStatus,
       activeBacklogCount,
+      draftsWithCta,
+      ctaCoveragePct,
+      totalLeaks,
+      pillarConsistency,
     };
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary,
       items: filteredItems,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue fetch.";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

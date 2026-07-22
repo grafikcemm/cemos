@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
+import { usageService } from "@/lib/services/usageService";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
 import type {
   MemoryLabel,
@@ -109,7 +111,23 @@ export async function createEmbedding(text: string): Promise<EmbeddingVector> {
 
     const data = await response.json();
     const values = data.data?.[0]?.embedding;
-    if (Array.isArray(values) && values.length > 0) {
+    const usable = Array.isArray(values) && values.length > 0;
+    // Account the OpenRouter embedding spend. We received a 200 from the PAID endpoint,
+    // so it likely billed REGARDLESS of whether the body carried a usable vector —
+    // previously the empty/invalid-200 tail recorded silently $0 (F4). Rough token
+    // estimate (~4 chars/token) at text-embedding-3-small pricing ($0.02 / 1M tokens).
+    // Best-effort. (Non-200 throws above → not billed → no row.)
+    const estTokens = Math.ceil(text.length / 4);
+    await usageService
+      .recordOpenRouter({
+        estimatedCostUsd: (estTokens / 1_000_000) * 0.02,
+        model: "openai/text-embedding-3-small",
+        meta: { purpose: "embedding", costOutcome: usable ? "estimated" : "unknown", usable },
+      })
+      .catch((e) =>
+        console.warn("[vector-memory] embedding spend not ledgered (recordOpenRouter failed):", redactError(e)),
+      );
+    if (usable) {
       return {
         provider: "openrouter",
         model: "openai/text-embedding-3-small",
@@ -208,6 +226,38 @@ export async function embedTrainingExamplesByAccount(
 }
 
 /**
+ * Sorgu-anı embedding cache'i (FIRST-SPRINT item 14). ViralPattern'ın kalıcı
+ * embedding kolonu yok (migration yasak) — pattern metni her aramada GERÇEK
+ * embedding ile vektörlenir; process-içi cache tekrar maliyetini sıfırlar.
+ * `createEmbedding` zaten hata durumunda local-hash'e düşer (yalnız fallback).
+ */
+const queryTimeEmbeddingCache = new Map<string, EmbeddingVector>();
+const QUERY_EMBED_CACHE_MAX = 500;
+
+/** Kararlı, ucuz metin hash'i (djb2) — kalıcı pattern embedding tazelik kontrolü. */
+function textHash(text: string): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+async function getCachedEmbedding(cacheKey: string, text: string): Promise<EmbeddingVector> {
+  const cached = queryTimeEmbeddingCache.get(cacheKey);
+  if (cached) return cached;
+  const embedding = await createEmbedding(text);
+  // local_fallback sonuçlarını cache'leme: API bir sonraki aramada ayağa
+  // kalkmışsa gerçek embedding'e geçebilsin.
+  if (embedding.provider !== "local_fallback") {
+    if (queryTimeEmbeddingCache.size >= QUERY_EMBED_CACHE_MAX) {
+      const firstKey = queryTimeEmbeddingCache.keys().next().value;
+      if (firstKey !== undefined) queryTimeEmbeddingCache.delete(firstKey);
+    }
+    queryTimeEmbeddingCache.set(cacheKey, embedding);
+  }
+  return embedding;
+}
+
+/**
  * Helper to map DB label and reason to MemoryLabel
  */
 export function mapTrainingLabelToMemoryLabel(label: string, reason?: string): MemoryLabel {
@@ -266,13 +316,25 @@ export async function searchSimilarExamples(
       }
     }
 
-    // In-memory fallback embedding calculation (but do not persist back to database)
+    // BOYUT KORUMASI (item 14 — viral-pattern dalıyla SİMETRİ): sorgu embedding'i
+    // local_fallback'e (256-dim) düşmüşse (key yok / 402), kalıcı 1536-dim vektör
+    // cosine'da sessizce 0 verir → sıralama bozulur, keyfi "en yakın" örnekler
+    // döner (uyarı YOK, throw YOK). Boyut uyuşmuyorsa kalıcıyı KULLANMA → aynı
+    // provider ile yeniden hesap iki tarafı tutarlı yapar (persist-öncesi davranış).
+    if (vectorValues && vectorValues.length !== queryEmbedding.values.length) {
+      vectorValues = null;
+    }
+
+    // Kalıcı embedding yoksa GERÇEK embedding ile sorgu-anı vektörleme
+    // (item 14): local-hash yalnız createEmbedding içindeki hata fallback'i.
+    // Eski davranış (her zaman 256-dim local-hash) gerçek 1536-dim sorgu
+    // vektörüyle boyut uyuşmazlığı yaratıp benzerliği kalıcı 0 yapıyordu.
     if (!vectorValues) {
       const textToEmbed = [ex.sourceContent, ex.outputContent]
         .filter((t) => typeof t === "string" && t.trim().length > 0)
         .join("\n") || ex.outputContent || "";
-      const fallback = createLocalFallbackEmbedding(textToEmbed);
-      vectorValues = fallback.values;
+      const embedding = await getCachedEmbedding(`ex:${ex.id}`, textToEmbed);
+      vectorValues = embedding.values;
     }
 
     const similarity = cosineSimilarity(queryEmbedding.values, vectorValues);
@@ -301,8 +363,51 @@ export async function searchSimilarExamples(
         .filter((t) => typeof t === "string" && t.trim().length > 0)
         .join("\n") || p.patternName;
 
-      const fallback = createLocalFallbackEmbedding(patternText);
-      const similarity = cosineSimilarity(queryEmbedding.values, fallback.values);
+      // Item 14 fix: pattern retrieval GERÇEK embedding kullanır (local-hash
+      // yalnız fallback). Sprint 9: kalıcı embeddingJson kolonu — metin
+      // değişmediyse (hash tutuyorsa) tekrar embed ETMEZ, süreçler arası maliyeti
+      // sıfırlar. Bozuk/bayat/eksik → yeniden hesaplar ve (gerçekse) kalıcılaştırır.
+      const hash = textHash(patternText);
+      let vectorValues: number[] | null = null;
+      if (p.embeddingJson && p.embeddingHash === hash) {
+        try {
+          const parsed = JSON.parse(p.embeddingJson);
+          if (Array.isArray(parsed)) vectorValues = parsed;
+          else if (parsed && Array.isArray(parsed.values)) vectorValues = parsed.values;
+        } catch {
+          // bozuk kayıt → yeniden hesapla
+        }
+        // BOYUT KORUMASI: sorgu embedding'i local_fallback'e (256-dim) düşmüşse
+        // (key yok / 402), kalıcı 1536-dim vektör cosine'da sessizce 0 verir.
+        // Boyut uyuşmuyorsa kalıcıyı KULLANMA → yeniden hesap aynı provider'a
+        // düşer, iki taraf tutarlı kalır (persist-öncesi davranış).
+        if (vectorValues && vectorValues.length !== queryEmbedding.values.length) {
+          vectorValues = null;
+        }
+      }
+
+      if (!vectorValues) {
+        const patternEmbedding = await getCachedEmbedding(
+          `vp:${p.id}:${p.updatedAt instanceof Date ? p.updatedAt.getTime() : ""}`,
+          patternText,
+        );
+        vectorValues = patternEmbedding.values;
+        // Yalnız GERÇEK embedding'i kalıcılaştır (local_fallback boyut uyumsuzluğu
+        // yaratır ve kalıcı gerçek vektörü EZMEMELİ). Best-effort — persist her
+        // türlü hatada (senkron dahil) yutulur; retrieval asla bozulmaz.
+        if (patternEmbedding.provider !== "local_fallback") {
+          try {
+            await prisma.viralPattern.update({
+              where: { id: p.id },
+              data: { embeddingJson: JSON.stringify(vectorValues), embeddingHash: hash },
+            });
+          } catch {
+            /* persist best-effort */
+          }
+        }
+      }
+
+      const similarity = cosineSimilarity(queryEmbedding.values, vectorValues);
 
       candidates.push({
         id: p.id,

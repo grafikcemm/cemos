@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./src/generated/prisma/**"],
   },
+  // Dev overlay "N" göstergesi sol-alt köşede sidebar'ın daralt/hesap
+  // kontrollerinin ÜZERİNE biner ve tıklamayı yutar (e2e + gerçek kullanım).
+  // Prod'u etkilemez — yalnız dev chrome'u kapatır.
+  devIndicators: false,
 };
 
 export default nextConfig;

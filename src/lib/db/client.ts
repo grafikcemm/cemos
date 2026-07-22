@@ -57,6 +57,18 @@ pinPrismaEngine();
  */
 const CONNECT_TIMEOUT_SECONDS = "20";
 
+/**
+ * Default Prisma pool wait is 10s. During a Neon cold-start (compute waking
+ * from auto-suspend) the first queries each hold a pooled connection while the
+ * wake completes, so a burst of concurrent queries (multiple tabs/widgets
+ * loading at once) drains the pool and the surplus 500s with "Timed out
+ * fetching a new connection from the connection pool". Raising `pool_timeout`
+ * lets those queries wait through the wake instead of failing fast. The real
+ * load reduction is lazy-loading on the heavy endpoints; this is the grace
+ * margin so a momentary burst no longer hard-errors.
+ */
+const POOL_TIMEOUT_SECONDS = "20";
+
 function resolveDatabaseUrl(): string | undefined {
   const raw = process.env.DATABASE_URL;
   if (!raw) return undefined;
@@ -64,6 +76,9 @@ function resolveDatabaseUrl(): string | undefined {
     const url = new URL(raw);
     if (!url.searchParams.has("connect_timeout")) {
       url.searchParams.set("connect_timeout", CONNECT_TIMEOUT_SECONDS);
+    }
+    if (!url.searchParams.has("pool_timeout")) {
+      url.searchParams.set("pool_timeout", POOL_TIMEOUT_SECONDS);
     }
     return url.toString();
   } catch {

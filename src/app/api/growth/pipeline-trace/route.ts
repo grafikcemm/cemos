@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +22,8 @@ async function withRetryOnce<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   const parsed = QuerySchema.safeParse({
     subjectType: req.nextUrl.searchParams.get("subjectType") ?? "",
     subjectId: req.nextUrl.searchParams.get("subjectId") ?? "",
@@ -28,19 +31,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, error: `Geçersiz istek: ${parsed.error.issues.map((i) => i.message).join(", ")}` },
-      { status: 400 }
-    );
+    return fail(`Geçersiz istek: ${parsed.error.issues.map((i) => i.message).join(", ")}`, 400);
   }
 
   try {
     const traces = await withRetryOnce(() =>
       pipelineTraceRepo.listBySubject(parsed.data.subjectType, parsed.data.subjectId, parsed.data.limit ?? 20)
     );
-    return NextResponse.json({ success: true, traces });
+    return ok({ traces });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Beklenmeyen hata";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

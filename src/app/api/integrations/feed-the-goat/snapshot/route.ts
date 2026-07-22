@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
+import { isLocalDevRuntime, timingSafeEqualStr } from "@/lib/utils/cronAuth";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 function requireSnapshotAuth(req: NextRequest): boolean {
   const token = process.env.XAGENT_SNAPSHOT_TOKEN;
-  if (!token) return process.env.NODE_ENV !== "production";
-  return req.headers.get("authorization") === `Bearer ${token}`;
+  // Fail-closed by default when unset — only a positively-identified local
+  // dev/test runtime stays open (never Vercel / never an unset NODE_ENV).
+  if (!token) return isLocalDevRuntime();
+  return timingSafeEqualStr(req.headers.get("authorization") ?? "", `Bearer ${token}`);
 }
 
 function getIstanbulDate(): string {
@@ -99,7 +103,7 @@ export async function GET(req: NextRequest) {
       warnings: warnings.length > 0 ? warnings : null,
     });
   } catch (err) {
-    console.error("[XAgent snapshot]", err);
+    console.error("[XAgent snapshot]", redactError(err));
     return NextResponse.json(
       { app: "xagent", date, status: "degraded", generatedAt: new Date().toISOString(), data: null, warnings: ["Prisma sorgu hatası"] },
       { status: 500 }

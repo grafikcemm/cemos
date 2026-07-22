@@ -29,6 +29,7 @@ import { computeViewsPerDay, computeRollingMedianVpd } from "@/lib/youtube/outli
 import { ytOutcome } from "@/lib/learning/engagement-formulas";
 import { isYouTubeConfigured } from "@/lib/youtube/ytConfig";
 import { safeJsonParse } from "@/lib/growth-engine/types";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 const OWN_HANDLES = ["grafikcem", "maskulenkod"] as const;
 type OwnHandle = (typeof OWN_HANDLES)[number];
@@ -248,7 +249,7 @@ async function syncOwnChannel(
         summary.lows++;
       }
     } catch (err) {
-      console.error(`YT own engagement: ${video.videoId} işlenirken hata:`, err);
+      console.error(`YT own engagement: ${video.videoId} işlenirken hata:`, redactError(err));
       summary.errors++;
     }
   }
@@ -287,7 +288,7 @@ export const ytOwnPerformanceService = {
       try {
         await syncOwnChannel(t.handle, t.env, summary);
       } catch (err) {
-        console.error(`YT own sync: @${t.handle} işlenirken hata:`, err);
+        console.error(`YT own sync: @${t.handle} işlenirken hata:`, redactError(err));
         summary.errors++;
       }
     }

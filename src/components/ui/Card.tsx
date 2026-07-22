@@ -6,23 +6,24 @@ type CardVariant = "default" | "hero" | "feature" | "quiet";
 
 type CardProps = {
   children: ReactNode;
-  /** Inner padding (default true → space-5). */
+  /** Inner padding (default true → --card-pad). */
   padded?: boolean;
   /** Adds hover affordance + pointer for clickable cards. */
   interactive?: boolean;
   /** Raises surface one level + soft shadow. (legacy → maps to "feature") */
   elevated?: boolean;
   /**
-   * Editöryal yüzey tonu:
-   * - hero: baskın showcase (radius-2xl, gradient-hero, derin gölge, iri pad)
-   * - feature: yükseltilmiş panel (gradient-surface + shadow-md)
-   * - quiet: sessiz alt-yüzey (bg-base, gölgesiz)
-   * - default: standart kart
+   * Editöryal yüzey tonu (premium grafit):
+   * - hero: baskın showcase (radius-2xl, gradient yüzey, yumuşak gölge, iri pad)
+   * - feature: yükseltilmiş panel (gradient-surface, iri pad)
+   * - quiet: sessiz gömük alt-yüzey (bg-sunken, gölgesiz)
+   * - default: standart kart (bg-surface)
    */
   variant?: CardVariant;
   onClick?: () => void;
   className?: string;
   style?: CSSProperties;
+  "data-testid"?: string;
 };
 
 type Surface = { background: string; radius: string; pad: string; shadow: string; border: string };
@@ -32,34 +33,35 @@ function surfaceFor(variant: CardVariant, elevated: boolean): Surface {
   switch (v) {
     case "hero":
       return {
-        background: "var(--gradient-hero), var(--gradient-surface), var(--bg-elevated)",
+        background: "var(--gradient-surface), var(--bg-elevated)",
         radius: "var(--radius-2xl)",
-        pad: "var(--space-8)",
-        shadow: "var(--shadow-lg), var(--highlight-top)",
+        pad: "var(--card-pad-lg)",
+        shadow: "var(--shadow-md), var(--highlight-top)",
         border: "1px solid var(--border-strong)",
       };
     case "feature":
+      // Eden: yumuşak katmanlı gölge rest'te; lift hover'da.
       return {
         background: "var(--gradient-surface), var(--bg-elevated)",
         radius: "var(--radius-xl)",
-        pad: "var(--space-5)",
-        shadow: "var(--shadow-md), var(--highlight-top)",
+        pad: "var(--card-pad-lg)",
+        shadow: "var(--shadow-sm), var(--highlight-top)",
         border: "1px solid var(--border)",
       };
     case "quiet":
       return {
-        background: "var(--bg-base)",
+        background: "var(--bg-sunken)",
         radius: "var(--radius-lg)",
-        pad: "var(--space-5)",
+        pad: "var(--card-pad)",
         shadow: "none",
         border: "1px solid var(--border)",
       };
     default:
       return {
         background: "var(--bg-surface)",
-        radius: "var(--radius-xl)",
-        pad: "var(--space-5)",
-        shadow: "var(--highlight-top)",
+        radius: "var(--radius-lg)",
+        pad: "var(--card-pad)",
+        shadow: "var(--shadow-sm), var(--highlight-top)",
         border: "1px solid var(--border)",
       };
   }
@@ -78,12 +80,14 @@ export default function Card({
   onClick,
   className,
   style,
+  "data-testid": dataTestId,
 }: CardProps) {
   const liftable = interactive || !!onClick;
   const s = surfaceFor(variant, elevated);
   return (
     <div
       className={className}
+      data-testid={dataTestId}
       onClick={onClick}
       style={{
         background: s.background,
@@ -99,8 +103,8 @@ export default function Card({
       onMouseEnter={
         liftable
           ? (e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "var(--shadow-lg), var(--highlight-top)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = "var(--shadow-md), var(--highlight-top)";
               e.currentTarget.style.borderColor = "var(--border-strong)";
             }
           : undefined

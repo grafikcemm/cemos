@@ -1,5 +1,5 @@
 import { runDeterministicHeuristics, type LintIssue } from "../safety/heuristics";
-import { generateJson } from "../ai/openrouter";
+import { generateJsonGated } from "../ai/generateGated";
 
 export type LintSeverity = "blocker" | "warning";
 
@@ -114,11 +114,12 @@ export const qualityLintService = {
 
       const userPrompt = `Aşağıdaki taslağı incele:\n\n"${text}"`;
 
-      const response = await generateJson<LLMJudgeResponse>({
+      const response = await generateJsonGated<LLMJudgeResponse>({
         role: "qualityJudge",
         system: systemPrompt,
         user: userPrompt,
         temperature: 0.1,
+        purpose: "quality_lint",
       });
 
       const llmData = response.data;

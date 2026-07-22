@@ -1,124 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchJson } from "@/lib/utils/safeFetch";
+import { healthDotColor } from "@/lib/services/systemHealth";
+import { deriveHealthProblems, healthProblemsLevel } from "@/lib/health/healthContracts";
+import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
+import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 
-type Readiness = {
-  ready: boolean;
-  readyWithWarning?: boolean;
-  todayItemsCount: number;
-  totalMonthCost: number;
-  monthlyBudgetUSD?: number;
+/**
+ * Tek satır sabah sayacı (FIRST-SPRINT item 1) — "N taslak seni bekliyor
+ * (grafikcem X · maskulenkod Y) · ● sağlıklı". Sağlık tiki §8C uyarınca TOPBAR
+ * chip'iyle AYNI kaynaktan (SystemHealthProvider) beslenir → Bugün özeti ile
+ * topbar çelişemez. Üretim/operator hazırlığı AYRI eksendir (OperatorReadinessGate,
+ * yalnız sorun varken genişler).
+ */
+
+const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"] as const;
+
+const isDone = (d: MorningDraft) =>
+  d.status === "manual_published" || d.status === "published";
+
+type Props = {
+  queue: ReturnType<typeof useDailyQueueData>;
 };
 
-const DRAFT_TARGET = 2; // 2 hesap × 1 taslak/gün
+export default function MorningHeroStats({ queue }: Props) {
+  const { drafts, loading } = queue;
+  const { result: health, contracts } = useSystemHealth();
 
-type StatTone = "accent" | "amber" | "green" | "muted";
+  const pending = drafts.filter((d) => !isDone(d));
+  const perAccount = ACCOUNT_ORDER.map((h) => ({
+    handle: h,
+    count: pending.filter((d) => d.accountHandle === h).length,
+  }));
 
-const TONE_TEXT: Record<StatTone, string> = {
-  accent: "var(--accent-text)",
-  amber: "var(--accent-2-text)",
-  green: "var(--green)",
-  muted: "var(--text-secondary)",
-};
+  // §8C: sağlık tiki topbar chip ile AYNI canonical infra+akış sinyalini gösterir
+  // (cronAuth / newsPipeline / metaToken / credential dahil). Eski dar `result`
+  // türetimi bu kategorileri atlıyordu → gerçek infra sorununda fake-green. Yükleme/
+  // erişilemez durumları hâlâ result state'ten (contracts henüz yok).
+  const problems = contracts ? deriveHealthProblems(contracts) : [];
+  const level = healthProblemsLevel(problems);
+  const useLegacyHealth = health.state === "checking" || health.state === "unavailable" || !contracts;
+  const healthColor = useLegacyHealth
+    ? healthDotColor(health)
+    : level === "error"
+      ? "var(--status-error)"
+      : level === "warn"
+        ? "var(--status-warn)"
+        : "var(--status-ok)";
+  const healthLabel = useLegacyHealth
+    ? health.label
+    : level === "ok"
+      ? "sağlıklı"
+      : problems.length === 1
+        ? problems[0].label
+        : `${problems.length} sorun`;
 
-function Stat({
-  eyebrow,
-  value,
-  sub,
-  tone,
-  dot,
-}: {
-  eyebrow: string;
-  value: string;
-  sub?: string;
-  tone: StatTone;
-  dot?: boolean;
-}) {
-  return (
-    <div style={{ flex: 1, minWidth: 0, padding: "4px 4px" }}>
-      <div className="eyebrow" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-        {dot && (
-          <span
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: "50%",
-              background: TONE_TEXT[tone],
-              boxShadow: `0 0 0 3px color-mix(in srgb, ${TONE_TEXT[tone]} 22%, transparent)`,
-            }}
-          />
-        )}
-        {eyebrow}
-      </div>
-      <div
-        className="font-display tnum"
-        style={{
-          fontSize: "var(--text-4xl)",
-          fontWeight: 800,
-          lineHeight: 1,
-          letterSpacing: "-0.03em",
-          color: TONE_TEXT[tone],
-        }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div style={{ marginTop: 8, fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>{sub}</div>
-      )}
-    </div>
-  );
-}
-
-/** Bugün ekranının editöryal hero stat şeridi — taslak / maliyet / sistem (tek bant). */
-export default function MorningHeroStats() {
-  const [data, setData] = useState<Readiness | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchJson<Readiness>("/api/settings/operator-readiness")
-      .then((d) => mounted && setData(d))
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const loading = !data;
-  const drafts = data?.todayItemsCount ?? 0;
-  const cost = data?.totalMonthCost ?? 0;
-  const budget = data?.monthlyBudgetUSD;
-  const statusReady = data?.ready === true && !data?.readyWithWarning;
-  const statusWarn = data?.ready === true && data?.readyWithWarning === true;
-
-  const draftSub = loading ? "yükleniyor…" : drafts >= DRAFT_TARGET ? "hedef tamam ✓" : `${DRAFT_TARGET} hedefin ${drafts}'i`;
-  const costSub = loading ? "yükleniyor…" : budget ? `$${budget} aylık bütçe` : "bu ay";
-  const costTone: StatTone = !budget ? "amber" : cost / budget > 0.85 ? "amber" : "green";
-  const statusValue = loading ? "…" : statusReady ? "Hazır" : statusWarn ? "Uyarılı" : "Bekliyor";
-  const statusTone: StatTone = statusReady ? "green" : statusWarn ? "amber" : "muted";
-  const statusSub = loading ? "yükleniyor…" : statusReady ? "tüm sistemler çalışıyor" : statusWarn ? "uyarılar var" : "üretim bekleniyor";
-
-  const divider = <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0 }} />;
+  const headline = loading
+    ? "Taslaklar yükleniyor…"
+    : pending.length === 0
+      ? drafts.length > 0
+        ? "Bugünün taslakları tamam"
+        : "Bugün bekleyen taslak yok"
+      : `${pending.length} taslak seni bekliyor`;
 
   return (
     <div
       style={{
         display: "flex",
-        alignItems: "stretch",
-        gap: 24,
-        padding: "24px 28px",
-        marginBottom: "var(--space-6)",
-        borderRadius: "var(--radius-2xl)",
-        background: "var(--gradient-hero), var(--gradient-surface), var(--bg-elevated)",
-        border: "1px solid var(--border-strong)",
-        boxShadow: "var(--shadow-md), var(--highlight-top)",
+        alignItems: "center",
+        gap: 10,
+        flexWrap: "wrap",
+        padding: "10px 14px",
+        marginBottom: "var(--space-4)",
+        background: "var(--gradient-surface), var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        boxShadow: "var(--shadow-sm), var(--highlight-top)",
+        fontSize: "var(--text-sm)",
       }}
     >
-      <Stat eyebrow="Bugünkü üretim" value={loading ? "–" : String(drafts)} sub={draftSub} tone="accent" />
-      {divider}
-      <Stat eyebrow="Bu ay maliyet" value={loading ? "–" : `$${cost.toFixed(2)}`} sub={costSub} tone={costTone} />
-      {divider}
-      <Stat eyebrow="Sistem" value={statusValue} sub={statusSub} tone={statusTone} dot={!loading} />
+      <span className="font-display" style={{ fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
+        {headline}
+      </span>
+      {!loading && pending.length > 0 && (
+        <span className="tnum" style={{ color: "var(--text-secondary)", fontSize: "var(--text-xs)" }}>
+          ({perAccount.map((a) => `${a.handle} ${a.count}`).join(" · ")})
+        </span>
+      )}
+      <span
+        data-testid="morning-health-tick"
+        data-health-state={health.state}
+        style={{
+          marginLeft: "auto",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: "var(--text-xs)",
+          color: "var(--text-secondary)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", background: healthColor, flexShrink: 0 }} />
+        {healthLabel}
+      </span>
     </div>
   );
 }

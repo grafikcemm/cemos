@@ -18,16 +18,29 @@ import {
   type SourceAction,
   type PublishRecommendation,
 } from "@/lib/growth-engine/types";
+// Tek hesap kimliği: scoring canlı `@/lib/accounts` profiline adapter
+// üzerinden bağlanır — growth-engine'in eski account-profiles kopyası
+// Sprint 2'de silindi.
 import {
-  validateAccountHandle,
-  getAccountProfile,
-  getAllProfiles,
-  getDefaultMode,
-  getForbiddenTerms,
-  type AccountHandle,
-  type AccountProfile,
-} from "@/lib/growth-engine/account-profiles";
+  isKnownAccountHandle as validateAccountHandle,
+  getScoringIdentity,
+  getAllScoringIdentities,
+  getForbiddenTermsFromLive as getForbiddenTerms,
+  foldTurkish,
+  type ScoringIdentity,
+} from "@/lib/growth-engine/account-adapter";
+import type { AccountHandle } from "@/lib/accounts";
 import { extractPatternSyncFallback } from "@/lib/growth-engine/pattern-extractor";
+import { BANNED_PHRASES, endsWithQuestionCta } from "@/lib/safety/banned-phrases";
+
+// Marka-sesi yasak klişeleri (tek kaynak: safety/banned-phrases) — AI-slop
+// kalıpları deterministik skorlayıcıda da ceza alır (item 9 ruhu: klişe içerik
+// yayınlanabilir görünemez). Fold'lu eşleşme (İ/ı, ş/s).
+const FOLDED_BANNED_PHRASES: string[] = BANNED_PHRASES.map((p) => foldTurkish(p));
+
+function countBannedPhraseHits(text: string): number {
+  return countKeywordHits(foldTurkish(text), FOLDED_BANNED_PHRASES);
+}
 
 // ---------------------------------------------------------------------------
 // Keyword catalogs for heuristic scoring
@@ -129,7 +142,8 @@ function calculateControversyScore(text: string, handle: AccountHandle): number 
 function calculateRiskScore(text: string, handle: AccountHandle): number {
   const riskHits = countKeywordHits(text, RISK_KEYWORDS);
   const forbidden = getForbiddenTerms(handle);
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Yasak terimler fold'lu tutulur; metin de fold'lanarak eşlenir (İ/ı, ş/s).
+  const forbiddenHits = countKeywordHits(foldTurkish(text), forbidden);
 
   const risk = riskHits * 20 + forbiddenHits * 10;
   return clampScore(risk, 10);
@@ -137,7 +151,7 @@ function calculateRiskScore(text: string, handle: AccountHandle): number {
 
 function calculateAudienceFitScore(text: string, handle: AccountHandle): number {
   const relevance = calculateRelevanceScore(text, handle);
-  const profile = getAccountProfile(handle);
+  const profile = getScoringIdentity(handle);
 
   // Check if text length is reasonable for the account
   const tooLong = text.length > profile.maxChars * 3;
@@ -456,21 +470,20 @@ export function scoreSourcePostFallback(
 // Draft scoring helpers
 // ---------------------------------------------------------------------------
 
-function calculatePersonaMatchScore(text: string, profile: AccountProfile): number {
+function calculatePersonaMatchScore(text: string, profile: ScoringIdentity): number {
   const toneWords = profile.tone.split(/[,\s]+/).filter((w) => w.length > 2);
-  const forbidden = profile.forbidden;
 
   let score = 60;
 
-  // Check forbidden terms — penalty
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Check forbidden terms — penalty (fold'lu eşleşme: canlı kurallar ASCII).
+  const forbiddenHits = countKeywordHits(foldTurkish(text), profile.forbiddenTerms);
   score -= forbiddenHits * 15;
 
   // Check for cross-account contamination
-  const allProfiles = getAllProfiles();
+  const allProfiles = getAllScoringIdentities();
   for (const otherProfile of allProfiles) {
     if (otherProfile.handle === profile.handle) continue;
-    const otherKeywords = ACCOUNT_KEYWORDS[otherProfile.handle];
+    const otherKeywords = ACCOUNT_KEYWORDS[otherProfile.handle as AccountHandle] ?? [];
     const crossHits = countKeywordHits(text, otherKeywords);
     if (crossHits > 2) score -= 20;
   }
@@ -481,7 +494,7 @@ function calculatePersonaMatchScore(text: string, profile: AccountProfile): numb
   }
 
   // Boost for matching keywords
-  const ownKeywords = ACCOUNT_KEYWORDS[profile.handle];
+  const ownKeywords = ACCOUNT_KEYWORDS[profile.handle as AccountHandle] ?? [];
   const ownHits = countKeywordHits(text, ownKeywords);
   score += Math.min(ownHits * 5, 20);
 
@@ -510,7 +523,7 @@ function calculateHookStrengthScore(text: string): number {
   return clampScore(score, 50);
 }
 
-function calculateClarityScore(text: string, profile: AccountProfile): number {
+function calculateClarityScore(text: string, profile: ScoringIdentity): number {
   let score = 70;
 
   // Too long → unclear
@@ -520,11 +533,14 @@ function calculateClarityScore(text: string, profile: AccountProfile): number {
   // Too many hashtags → noisy
   const hashtagCount = (text.match(/#/g) || []).length;
   if (hashtagCount > 3) score -= 15;
-  if (profile.generationRules.noHashtags && hashtagCount > 0) score -= 10;
+  if (profile.noHashtags && hashtagCount > 0) score -= 10;
 
   // Cliché penalty
   const clicheHits = countKeywordHits(text, CLICHE_KEYWORDS);
   score -= clicheHits * 10;
+
+  // Yasak marka-sesi klişesi (AI-slop) cezası — banned-phrases tek kaynağından.
+  score -= countBannedPhraseHits(text) * 10;
 
   // Very short but has content → clear
   if (text.length < 200 && text.split(/[.!?]/).length <= 4) score += 10;
@@ -532,7 +548,7 @@ function calculateClarityScore(text: string, profile: AccountProfile): number {
   return clampScore(score, 50);
 }
 
-function calculateViralityScore(text: string, profile: AccountProfile): number {
+function calculateViralityScore(text: string, profile: ScoringIdentity): number {
   let score = 45;
 
   // Questions invite engagement
@@ -563,6 +579,9 @@ function calculateNoveltyScore(text: string): number {
   const clicheHits = countKeywordHits(text, CLICHE_KEYWORDS);
   score -= clicheHits * 15;
 
+  // Yasak marka-sesi klişesi (AI-slop) = sıfır özgünlük sinyali.
+  score -= countBannedPhraseHits(text) * 20;
+
   // Unique words count as proxy for novelty
   const words = text.toLowerCase().split(/\s+/);
   const uniqueRatio = new Set(words).size / words.length;
@@ -575,7 +594,8 @@ function calculateNoveltyScore(text: string): number {
 function calculateDraftRiskScore(text: string, handle: AccountHandle): number {
   const riskHits = countKeywordHits(text, RISK_KEYWORDS);
   const forbidden = getForbiddenTerms(handle);
-  const forbiddenHits = countKeywordHits(text, forbidden);
+  // Yasak terimler fold'lu tutulur; metin de fold'lanarak eşlenir.
+  const forbiddenHits = countKeywordHits(foldTurkish(text), forbidden);
 
   const risk = riskHits * 25 + forbiddenHits * 12;
   return clampScore(risk, 8);
@@ -592,6 +612,12 @@ export function calculatePublishScore(parts: {
   viralityScore: number;
   noveltyScore: number;
   riskScore: number;
+  /**
+   * FIRST-SPRINT item 9: Türkçe doğallık publishScore'u CAPLAYAN alt-skordur —
+   * doğal olmayan Türkçe hiçbir kompozit skorla yayınlanabilir görünemez.
+   * Verilmezse (heuristik yol) cap uygulanmaz.
+   */
+  turkishNaturalness?: number;
 }): number {
   const {
     personaMatchScore,
@@ -600,6 +626,7 @@ export function calculatePublishScore(parts: {
     viralityScore,
     noveltyScore,
     riskScore,
+    turkishNaturalness,
   } = parts;
 
   const positiveBase =
@@ -610,8 +637,12 @@ export function calculatePublishScore(parts: {
     noveltyScore * 0.15;
 
   const riskPenalty = riskScore > 45 ? (riskScore - 45) * 1.0 : riskScore * 0.15;
+  const composite = clampScore(positiveBase - riskPenalty, 50);
 
-  return clampScore(positiveBase - riskPenalty, 50);
+  if (typeof turkishNaturalness === "number" && !isNaN(turkishNaturalness)) {
+    return Math.min(composite, clampScore(turkishNaturalness));
+  }
+  return composite;
 }
 
 // ---------------------------------------------------------------------------
@@ -745,7 +776,7 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
   }
 
   const handle = parsed.accountHandle as AccountHandle;
-  const profile = getAccountProfile(handle);
+  const profile = getScoringIdentity(handle);
 
   const personaMatchScore = calculatePersonaMatchScore(text, profile);
   const hookStrengthScore = calculateHookStrengthScore(text);
@@ -754,7 +785,7 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
   const noveltyScore = calculateNoveltyScore(text);
   const riskScore = calculateDraftRiskScore(text, handle);
 
-  const publishScore = calculatePublishScore({
+  const compositePublish = calculatePublishScore({
     personaMatchScore,
     hookStrengthScore,
     clarityScore,
@@ -762,6 +793,14 @@ export function scoreDraftFallback(input: DraftScoringInput): DraftScore {
     noveltyScore,
     riskScore,
   });
+
+  // Hesap yasak-kuralı ihlali → hard cap (item 8 ruhu, deterministik):
+  // forbidden terim VEYA klişe soru-CTA taşıyan içerik ("soru-CTA yasak" her
+  // iki hesabın canlı kuralı) hiçbir kompozitle yayınlanabilir görünemez.
+  const forbiddenHits = countKeywordHits(foldTurkish(text), getForbiddenTerms(handle));
+  const hasQuestionCta = endsWithQuestionCta(text);
+  const publishScore =
+    forbiddenHits > 0 || hasQuestionCta ? Math.min(compositePublish, 40) : compositePublish;
 
   const publishRecommendation = determinePublishRecommendation(publishScore, riskScore);
 
@@ -894,8 +933,7 @@ function buildDraftScoringPrompt(input: DraftScoringInput): {
 }
 
 function buildAccountScoringContext(handle: AccountHandle): string {
-  const profile = getAccountProfile(handle);
-  const mode = getDefaultMode(handle);
+  const profile = getScoringIdentity(handle);
   return [
     `Hedef Hesap: @${handle}`,
     `Persona: ${profile.persona}`,
@@ -915,14 +953,15 @@ async function scoreSourcePostWithAI(
   input: SourcePostScoringInput
 ): Promise<SourcePostScore | null> {
   try {
-    const { generateJson } = await import("@/lib/ai/openrouter");
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
     const { system, user } = buildSourcePostScoringPrompt(input);
 
-    const result = await generateJson<Record<string, unknown>>({
+    const result = await generateJsonGated<Record<string, unknown>>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.3,
+      purpose: "extract_source_score",
     });
 
     const normalized = normalizeSourcePostScore(result.data);
@@ -942,18 +981,19 @@ async function scoreSourcePostWithAI(
 // AI-powered scoring — draft
 // ---------------------------------------------------------------------------
 
-async function scoreDraftWithAI(
+export async function scoreDraftWithAI(
   input: DraftScoringInput
 ): Promise<DraftScore | null> {
   try {
-    const { generateJson } = await import("@/lib/ai/openrouter");
+    const { generateJsonGated } = await import("@/lib/ai/generateGated");
     const { system, user } = buildDraftScoringPrompt(input);
 
-    const result = await generateJson<Record<string, unknown>>({
+    const result = await generateJsonGated<Record<string, unknown>>({
       role: "cheapWriter",
       system,
       user,
       temperature: 0.2,
+      purpose: "judge_draft_score",
     });
 
     const normalized = normalizeDraftScore(result.data);

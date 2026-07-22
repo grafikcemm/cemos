@@ -2,6 +2,8 @@ import { buildGenerationContext, buildGenerationContextFallback } from "./contex
 import { critiqueDrafts } from "./draft-critic";
 import { buildMemoryPromptBlock } from "./vector-memory";
 import { buildTurkeyContext } from "./turkey-context";
+import { pickVisualKeywordHints } from "./keyword-hints";
+import { normalizeNextMove } from "@/lib/ai/next-move";
 import type {
   GenerateDraftsInputRaw,
   GenerateDraftsResult,
@@ -38,14 +40,11 @@ export async function generateDrafts(
     });
   }
 
-  let drafts: DraftVariant[] = [];
-  try {
-    drafts = await generateDraftsWithAI(context);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : "AI generation failed";
-    warnings.push(`AI generation failed, using fallback drafts: ${errMsg}`);
-    drafts = generateDraftsFallback(context, input.count || 3);
-  }
+  // Closure D: writer failure must NOT fall back to canned marketing copy — that
+  // presents fabricated, source-unrelated text as real generated drafts (a
+  // success lie). Let the error propagate so the route returns an honest 402
+  // (budget) / 5xx and the UI shows its blocked/error state instead.
+  const drafts: DraftVariant[] = await generateDraftsWithAI(context);
 
   // Critique drafts using Draft Critic
   let draftsWithCritic: Array<{ draft: DraftVariant; critic: any }> = [];
@@ -54,21 +53,24 @@ export async function generateDrafts(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : "Critique failed";
     warnings.push(`Critique failed: ${errMsg}`);
-    // If critique fails, attach default fallback scores
+    // Closure D: drafts are real AI output, but WITHOUT a critic verdict we must
+    // NOT fabricate publish-readiness. Mark degraded + "rewrite" (needs manual
+    // review) with neutral scores — never a fake "publish" at 75.
     draftsWithCritic = drafts.map((draft) => ({
       draft,
       critic: {
-        personaMatchScore: 75,
-        hookStrengthScore: 75,
-        clarityScore: 75,
-        viralityScore: 75,
-        noveltyScore: 75,
-        riskScore: 20,
-        publishScore: 75,
-        publishRecommendation: "publish",
+        personaMatchScore: 0,
+        hookStrengthScore: 0,
+        clarityScore: 0,
+        viralityScore: 0,
+        noveltyScore: 0,
+        riskScore: 0,
+        publishScore: 0,
+        publishRecommendation: "rewrite",
         rewriteSuggestion: "",
-        reason: "Fallback critic rating",
-        confidence: 80,
+        reason: "Kritik yapılamadı — otomatik değerlendirme yok; yayından önce manuel incele.",
+        confidence: 0,
+        degraded: true,
       },
     }));
   }
@@ -85,23 +87,26 @@ export async function generateDraftsWithAI(
   context: GenerationContext,
   options?: any
 ): Promise<DraftVariant[]> {
-  const { generateJson } = await import("@/lib/ai/openrouter");
-  
+  const { generateJsonGated } = await import("@/lib/ai/generateGated");
+
   const { system, user } = buildDraftGenerationPrompt(context);
 
-  const response = await generateJson<{
+  const response = await generateJsonGated<{
     drafts: Array<{
       content: string;
       angle: "safe" | "strong" | "provocative";
       reasoning: string;
       patternUsed?: string;
       imagePrompt?: string;
+      payoff?: string;
     }>;
   }>({
     role: "creativeWriter",
     system,
     user,
     temperature: 0.7,
+    purpose: "writer_x_growth",
+    platform: "x",
   });
 
   if (!response?.data?.drafts || !Array.isArray(response.data.drafts)) {
@@ -111,6 +116,13 @@ export async function generateDraftsWithAI(
   return normalizeDraftVariants(response.data, context);
 }
 
+/**
+ * DEAD (closure D): hardcoded, per-account marketing copy. No longer wired to
+ * any generation path — `generateDrafts` rethrows on writer failure instead of
+ * serving fabricated content. Retained only for its isolated unit tests; slated
+ * for removal in the dead-code sweep. Do NOT re-invoke this as a fallback: it
+ * returns source-unrelated canned text and would reintroduce the success lie.
+ */
 export function generateDraftsFallback(
   context: GenerationContext,
   count = 3
@@ -333,6 +345,7 @@ export function normalizeDraftVariants(
         typeof item.imagePrompt === "string" && item.imagePrompt.trim().length > 0
           ? item.imagePrompt.trim()
           : undefined,
+      payoff: normalizeNextMove(item.payoff),
     };
   });
 }
@@ -346,6 +359,15 @@ export function buildDraftGenerationPrompt(
   const memoryBlock = context.memoryContext
     ? buildMemoryPromptBlock(context.memoryContext)
     : "";
+
+  // A.1 — Sinyal-kökenli üretim: kaynağın NEDEN viral olduğunu writer'a ver.
+  const pe = context.patternExtraction as
+    | { hook?: string; emotionalTrigger?: string; viralityReason?: string }
+    | undefined;
+  const signalBlock =
+    pe && (pe.hook || pe.viralityReason)
+      ? `\nNEDEN VİRAL (kaynak sinyali — bu açıyı koru, birebir kopyalama):\n- Hook: ${pe.hook ?? "-"}\n- Duygu/tetikleyici: ${pe.emotionalTrigger ?? "-"}\n- Viralite sebebi: ${pe.viralityReason ?? "-"}\nBu sinyali kendi açına taşı; kaynağı özetleme.\n`
+      : "";
 
   // Per-account format policy (emoji + structure) driven by generationRules.
   // Falls back to the historic "no emoji / no hashtag / plain text" behavior
@@ -418,8 +440,17 @@ HEDEF STİL ÖRNEKLERİ (yoğunluğu yakala, kopyalama):
   const selectedModeEmitsImage = Boolean(
     (context.selectedMode as { emitsImagePrompt?: boolean } | undefined)?.emitsImagePrompt
   );
+  // Anahtar Kelime Kütüphanesi'nden görsel stil ipuçları (F5e) — image prompt'a
+  // premium tasarım terimleri enjekte edilir (fail-soft: liste boşsa atlanır).
+  const keywordHints = selectedModeEmitsImage
+    ? pickVisualKeywordHints(context.sourceContent ?? profile.handle, 10)
+    : [];
+  const keywordHintLine =
+    keywordHints.length > 0
+      ? ` Aşağıdaki İngilizce stil anahtar kelimelerini uygun olanları seçerek değerlendir (hepsini kullanma): ${keywordHints.join(", ")}.`
+      : "";
   const imagePromptBlock = selectedModeEmitsImage
-    ? `\nGÖRSEL ÜRETİMİ (bu mod görsel direği): Her taslak için metne ek olarak "imagePrompt" alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk, oran). Görselin kendisini üretme; sadece promptu ver.\n`
+    ? `\nGÖRSEL ÜRETİMİ (bu mod görsel direği): Her taslak için metne ek olarak "imagePrompt" alanına İngilizce, image-gen aracına (Midjourney/DALL-E) yapıştırılabilir net bir görsel promptu yaz (sahne, stil, kompozisyon, renk, oran).${keywordHintLine} Görselin kendisini üretme; sadece promptu ver.\n`
     : "";
 
   // Türkiye-stickiness bağlamı (doğal Türkçe + yerel gündem).
@@ -449,7 +480,11 @@ ${context.selectedMode?.instruction || ""}
 ${styleEnforcement}${turkeyBlock}${imagePromptBlock}
 Viral Pattern Kılavuzları (Mümkünse bunlardaki kancaları veya yapıları uygula):
 ${context.relevantPatterns.map((p) => `- Adı: ${p.patternName}\n  Yapı: ${p.structureJson || ""}\n  Örnek: ${p.exampleGood || ""}`).join("\n")}
-${memoryBlock}
+${signalBlock}${memoryBlock}
+SONRAKİ HAREKET / PAYOFF (her taslak için zorunlu):
+- Her taslak okuyucuda TEK somut sonraki hareketi tetiklemeli ve bunu "payoff" alanına yaz: save | reply | follow | quote | profile_visit | none.
+- Düz, hareketsiz biten kapanış yasak; "none" yalnızca format gerçekten hareketsizse. Payoff metnin gücünden doğmalı, klişe soru-CTA ile değil.
+
 İstenen JSON formatında tam olarak 3 farklı alternatif taslak üret.
 Açı türleri şunlar olmalıdır:
 1. "safe": Personaya tam oturan, güvenli, dengeli ve yapıcı alternatif.
@@ -464,6 +499,7 @@ Açı türleri şunlar olmalıdır:
       "angle": "safe",
       "reasoning": "bu taslagin persona ve tonal aciklamasi",
       "patternUsed": "kullanilan pattern adi",
+      "payoff": "save | reply | follow | quote | profile_visit | none",
       "imagePrompt": "${selectedModeEmitsImage ? "Ingilizce image-gen promptu (bu mod gorsel direkti)" : "(bu modda bos birak)"}"
     },
     ...

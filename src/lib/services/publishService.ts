@@ -1,8 +1,11 @@
-import { prisma } from "@/lib/db/client";
+﻿import { prisma } from "@/lib/db/client";
 import { isWithinQuietHours } from "@/lib/services/scheduleService";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 import { isNearDuplicate } from "@/lib/utils/textSimilarity";
-import { imageService } from "@/lib/services/imageService";
+
+// Faz 1E (ADR-025): manuel yayÄ±n onayÄ± publishAttemptService.confirmManualPublish
+// state machine'ine taÅŸÄ±ndÄ± â€” markManualPublished bu dosyadan KALDIRILDI. YayÄ±n
+// durumunu yazan tek yol o servistir; burada yalnÄ±z yayÄ±n-Ã¶ncesi kapÄ±lar kaldÄ±.
 
 function getDayBounds(date: Date) {
   const start = new Date(date);
@@ -79,67 +82,5 @@ export const publishService = {
     }
 
     return { item, text };
-  },
-
-  // Mark as manually published — user copied tweet and posted it themselves
-  async markManualPublished(queueItemId: string) {
-    const item = await prisma.queueItem.findUnique({
-      where: { id: queueItemId },
-      include: { account: true },
-    });
-    if (!item) throw new Error("queue_item_not_found");
-    if (item.status === "published" || item.status === "manual_published") {
-      throw new Error("invalid_status");
-    }
-
-    // EDIT-GATE (absolute): raw AI output reads as spam. The operator must add
-    // their own voice — block publishing unless editedContent differs from the
-    // original AI content. @grafikcem = AI-native designer speaking from the field.
-    const original = item.content.trim();
-    const edited = item.editedContent?.trim() ?? "";
-    if (!edited || edited === original) {
-      throw new Error("edit_required");
-    }
-
-    const text = edited;
-
-    const log = await prisma.publishLog.create({
-      data: {
-        accountId: item.accountId,
-        content: text,
-        platform: "x",
-        externalId: null,
-        success: true,
-        scheduledAt: item.scheduledAt,
-        payload: JSON.stringify({ manualPublish: true }),
-      },
-    });
-
-    const updatedItem = await prisma.queueItem.update({
-      where: { id: queueItemId },
-      data: { status: "manual_published", publishedAt: new Date(), lastError: null },
-    });
-
-    await prisma.usageLog.create({
-      data: {
-        accountId: item.accountId,
-        type: "publish",
-        tweetCount: 1,
-        estimatedCostUsd: 0,
-        date: new Date().toISOString().slice(0, 10),
-      },
-    });
-
-    // maskulenkod: every PUBLISHED tweet gets a topic-relevant image, generated
-    // here (publish time) so rejected drafts never burn credits. grafikcem stays
-    // manual (button). Fail-open + budget-gated + deduped inside imageService —
-    // an image failure must never undo a successful publish.
-    let generatedImageUrl: string | null = updatedItem.generatedImageUrl ?? null;
-    if (item.account.handle === "maskulenkod" && !generatedImageUrl) {
-      const img = await imageService.generateForQueueItem(queueItemId).catch(() => null);
-      if (img?.generatedImageUrl) generatedImageUrl = img.generatedImageUrl;
-    }
-
-    return { log, item: updatedItem, generatedImageUrl };
   },
 };

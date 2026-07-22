@@ -3,6 +3,13 @@ import { NextRequest } from "next/server";
 import { GET, POST } from "./route";
 import { pipelineService } from "@/lib/services/pipelineService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+import { syncInstagramViaBridge } from "@/lib/instagram/bridgeSyncService";
+
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
 
 vi.mock("@/lib/accounts", () => {
   const profiles = {
@@ -35,6 +42,17 @@ vi.mock("@/lib/news/hackernews", () => ({ syncHackerNews: vi.fn(() => Promise.re
 vi.mock("@/lib/news/repoRadar", () => ({ syncRepoRadar: vi.fn(() => Promise.resolve({ processed: 0 })) }));
 vi.mock("@/lib/news/opportunities", () => ({ generateOpportunities: vi.fn(() => Promise.resolve({ created: 0 })) }));
 vi.mock("@/lib/news/digest", () => ({ buildDailyDigest: vi.fn(() => Promise.resolve({ ok: true })) }));
+// IG rakip sync (Sprint 4) — cron'a katlandı; testte LLM'siz/DB'siz mock.
+vi.mock("@/lib/instagram/competitor/igCompetitorService", () => ({
+  syncIgCompetitors: vi.fn(() =>
+    Promise.resolve({ accounts: 0, synced: 0, itemsUpserted: 0, outliersScored: 0, errors: [] })
+  ),
+}));
+// Own-account IG bridge sync — mock success so the light-run test is hermetic
+// (the real fn fails on missing Composio/Meta config, which now flips partial).
+vi.mock("@/lib/instagram/bridgeSyncService", () => ({
+  syncInstagramViaBridge: vi.fn(() => Promise.resolve({ ok: true, provider: "composio" })),
+}));
 
 function makeReq(method: "GET" | "POST", query = "", authHeader?: string) {
   return new NextRequest(`http://localhost:3000/api/cron/daily${query}`, {
@@ -69,6 +87,17 @@ describe("/api/cron/daily", () => {
     expect(cronRunRepo.finish).toHaveBeenCalledWith(
       "cr-1",
       expect.objectContaining({ ok: true, partial: false })
+    );
+  });
+
+  it("marks the run PARTIAL when an IG own-sync degrades (aggregate honesty)", async () => {
+    vi.mocked(syncInstagramViaBridge).mockResolvedValueOnce({ ok: false, error: "meta_token_expired" } as never);
+    await GET(makeReq("GET"));
+    // Draft generation still succeeded (ok:true) but the degraded sub-sync is
+    // surfaced as partial instead of an all-green signal.
+    expect(cronRunRepo.finish).toHaveBeenCalledWith(
+      "cr-1",
+      expect.objectContaining({ ok: true, partial: true }),
     );
   });
 

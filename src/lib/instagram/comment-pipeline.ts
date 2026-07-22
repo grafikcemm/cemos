@@ -8,9 +8,9 @@
  * I/O içermez → birim test edilebilir. LLM hataları çağıran serviste fail-open ele alınır.
  */
 
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 import { createPipelineTrace } from "@/lib/agents/pipeline-runner";
-import { usageService } from "@/lib/services/usageService";
 import { accountProfiles } from "@/lib/accounts";
 import { IG_COMMENT_PURPOSE, IG_REPLY_PURPOSE } from "@/lib/instagram/igConfig";
 
@@ -62,7 +62,8 @@ export function buildClassifyUserBlock(
   const lines = comments.map(
     (c, i) => `${i}) @${c.username || "?"}: ${(c.text || "").slice(0, 500)}`
   );
-  return `Gönderi başlığı: "${cap}"\n\nYorumlar:\n${lines.join("\n")}`;
+  // Yorumcular yabancı — yorum metni GÜVENİLMEZ VERİ; forge-safe sarmalanır.
+  return `Gönderi başlığı: "${cap}"\n\n${wrapUntrustedData(`Yorumlar:\n${lines.join("\n")}`)}`;
 }
 
 type RawClassifyItem = {
@@ -150,8 +151,10 @@ export function buildReplyUserBlock(input: {
     : "Yorumcu Türkçe yazmış. Sadece textTr üret; textOriginal'i boş bırak.";
   return [
     `Gönderi başlığı: "${(input.caption || "").slice(0, 300)}"`,
-    `Yorum (orijinal): "${(input.commentText || "").slice(0, 500)}"`,
-    `Yorum (Türkçe): "${(input.trText || "").slice(0, 500)}"`,
+    // Yorum metni GÜVENİLMEZ VERİ — forge-safe sarmalanır; JSON talimatı sarmalın DIŞINDA.
+    wrapUntrustedData(
+      [`Yorum (orijinal): "${(input.commentText || "").slice(0, 500)}"`, `Yorum (Türkçe): "${(input.trText || "").slice(0, 500)}"`].join("\n"),
+    ),
     `Niyet: ${input.intent}`,
     "",
     bilingual,
@@ -182,19 +185,8 @@ const CLASSIFY_SYSTEM =
   'Çıktı SADECE JSON: {"items":[{"index":0,"lang":"..","trText":"..","intent":"..","intentConfidence":0.0,"sentiment":"..","priority":0}]}';
 
 // ── LLM çağrıları (çağıran serviste fail-open sarmalanır) ──────────────────────
-
-async function logIgSpend(
-  r: { actualCostUsd: number; model: string },
-  purpose: string,
-  refId?: string
-): Promise<void> {
-  await usageService.recordOpenRouter({
-    estimatedCostUsd: r.actualCostUsd,
-    model: r.model,
-    meta: refId ? { purpose, refId } : { purpose },
-    platform: "instagram",
-  });
-}
+// Dalga 2 (Sprint 2): tüm çağrılar generateJsonGated — bütçe kapısı + tam 1
+// UsageLog gated içinde yazılır (eski logIgSpend çift-log olurdu, kaldırıldı).
 
 /** 10'arlı batch → tek cheapWriter çağrısı. Hata fırlatabilir; servis yutar. */
 export async function classifyBatch(
@@ -203,13 +195,15 @@ export async function classifyBatch(
   opts?: { mediaId?: string }
 ): Promise<ClassifiedComment[]> {
   if (batch.length === 0) return [];
-  const r = await generateJson<{ items?: RawClassifyItem[] }>({
+  const r = await generateJsonGated<{ items?: RawClassifyItem[] }>({
     role: "cheapWriter",
     temperature: 0.2,
-    system: CLASSIFY_SYSTEM,
+    system: `${CLASSIFY_SYSTEM}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildClassifyUserBlock(caption, batch),
+    purpose: IG_COMMENT_PURPOSE,
+    platform: "instagram",
+    ...(opts?.mediaId ? { meta: { refId: opts.mediaId } } : {}),
   });
-  await logIgSpend(r, IG_COMMENT_PURPOSE, opts?.mediaId);
   return parseClassifyResponse(r.data, batch);
 }
 
@@ -228,14 +222,14 @@ export async function generateReplyVariants(input: {
     subjectType: "ig_comment",
     subjectId: input.commentId ?? "",
   });
+  // runStage (gated) UsageLog'u kendisi yazar — burada ekstra log YOK.
   const r = await trace.runStage<{ variants?: RawVariant[] }>({
     stage: "yanit",
     role: "creativeWriter",
     temperature: 0.8,
-    system: buildReplyVoice(),
+    system: `${buildReplyVoice()}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildReplyUserBlock(input),
   });
-  await logIgSpend(r, IG_REPLY_PURPOSE);
   if (input.commentId) await trace.flush(r.actualCostUsd);
   return parseReplyVariants(r.data, input.lang);
 }
@@ -250,7 +244,7 @@ export async function scoreReplyRisk(
 ): Promise<{ safety: number; usedLlm: boolean }> {
   if (!process.env.OPENROUTER_API_KEY) return { safety: 70, usedLlm: false };
   try {
-    const r = await generateJson<{ score?: number }>({
+    const r = await generateJsonGated<{ score?: number }>({
       role: "cheapWriter",
       temperature: 0.2,
       system:
@@ -258,8 +252,9 @@ export async function scoreReplyRisk(
         "GÜVENLİ olduğunu puanla (100=tamamen güvenli, 0=hakaret/iftira/asılsız iddia/savunmacı kavga " +
         'riski yüksek). Çıktı SADECE JSON: {"score":<0-100>}',
       user: `Yanıt:\n"""${(replyText || "").slice(0, 500)}"""`,
+      purpose: IG_REPLY_PURPOSE,
+      platform: "instagram",
     });
-    await logIgSpend(r, IG_REPLY_PURPOSE);
     const s = typeof r.data.score === "number" ? r.data.score : 70;
     return { safety: Math.max(0, Math.min(100, s)), usedLlm: true };
   } catch {

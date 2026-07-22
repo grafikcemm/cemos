@@ -17,10 +17,16 @@ export const feedbackEventRepo = {
         originalContent: input.originalContent,
         editedContent: input.editedContent ?? "",
         reason: input.reason ?? "",
+        editDistance: input.editDistance ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
         // undefined → DB default "x"
         platform: input.platform,
       },
     });
+  },
+
+  findByIdempotencyKey(idempotencyKey: string): Promise<FeedbackEvent | null> {
+    return prisma.feedbackEvent.findUnique({ where: { idempotencyKey } });
   },
 
   listByAccount(accountId: string, limit = 100): Promise<FeedbackEvent[]> {

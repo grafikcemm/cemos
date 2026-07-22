@@ -5,78 +5,96 @@ import type { ReactNode } from "react";
 type PageHeaderProps = {
   title: string;
   subtitle?: string;
-  /** Üstte küçük büyük-harf etiket (editöryal "eyebrow"). */
+  /** Üstte küçük büyük-harf etiket (eyebrow). */
   eyebrow?: string;
   actions?: ReactNode;
-  /** Accent band (gradyan yüzey + kenar) — yalnızca öne çıkan ekranlarda. */
+  /**
+   * Legacy: eski gradyan hero bandı. Dashboard dilinde hero yok — prop API
+   * uyumluluğu için tutulur, görsel etkisi kaldırıldı.
+   */
   surface?: boolean;
-  /** Başlığın altına ince meta/stat şeridi (editöryal künye satırı). */
+  /** Başlığın altına ince meta/stat şeridi. */
   meta?: ReactNode;
+  /**
+   * "hero" (28px, referans workspace başlığı — açıklama başlık ALTINDA) |
+   * "display" (24px) | "page" (20px) | "compact" (18px). Referans ADR-021: alan
+   * giriş ekranları hero; alt paneller display/page.
+   */
+  size?: "hero" | "display" | "page" | "compact";
+};
+
+const TITLE_SIZE: Record<NonNullable<PageHeaderProps["size"]>, string> = {
+  hero: "28px",
+  display: "var(--text-2xl)",
+  page: "var(--text-xl)",
+  compact: "var(--text-lg)",
 };
 
 /**
- * Editöryal ekran başlığı — iri Sora display + eyebrow + meta künyesi + hero aksiyon.
- * Magazine hiyerarşisi: her ekranın üst "manşeti".
+ * Ekran başlığı. `hero` = referans workspace başlığı (büyük, açıklama altında,
+ * segmented nav üstünde). Diğer boyutlar kompakt operasyonel (eyebrow + başlık +
+ * inline açıklama + sağda aksiyonlar).
  */
-export default function PageHeader({ title, subtitle, eyebrow, actions, surface = false, meta }: PageHeaderProps) {
+export default function PageHeader({
+  title,
+  subtitle,
+  eyebrow,
+  actions,
+  meta,
+  size = "display",
+}: PageHeaderProps) {
+  const isHero = size === "hero";
+
   return (
-    <header
-      style={{
-        marginBottom: "var(--space-8)",
-        ...(surface
-          ? {
-              padding: "26px 28px",
-              borderRadius: "var(--radius-2xl)",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-strong)",
-              boxShadow: "var(--shadow-md), var(--highlight-top)",
-            }
-          : {}),
-      }}
-    >
+    <header style={{ marginBottom: "var(--space-6)" }}>
       <div
         style={{
           display: "flex",
-          alignItems: "flex-end",
+          alignItems: isHero ? "flex-start" : "center",
           justifyContent: "space-between",
-          gap: 20,
+          gap: 16,
           flexWrap: "wrap",
         }}
       >
-        <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            minWidth: 0,
+            display: "flex",
+            flexDirection: isHero ? "column" : "row",
+            alignItems: isHero ? "flex-start" : "baseline",
+            gap: isHero ? 6 : 10,
+            flexWrap: "wrap",
+          }}
+        >
           {eyebrow && (
-            <div
-              className="eyebrow"
-              style={{ color: "var(--accent-text)", marginBottom: 10 }}
-            >
+            <span className="eyebrow" style={{ color: "var(--text-muted)", fontSize: "var(--text-2xs)" }}>
               {eyebrow}
-            </div>
+            </span>
           )}
           <h1
             className="font-display"
             style={{
               margin: 0,
-              fontSize: "var(--text-display-lg)",
-              fontWeight: 800,
+              fontSize: TITLE_SIZE[size],
+              fontWeight: 600,
               color: "var(--text-primary)",
-              letterSpacing: "-0.03em",
-              lineHeight: 1.0,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.15,
             }}
           >
             {title}
           </h1>
           {subtitle && (
-            <p
+            <span
               style={{
-                margin: "12px 0 0",
-                fontSize: "var(--text-base)",
-                color: "var(--text-secondary)",
-                maxWidth: 640,
+                fontSize: isHero ? "var(--text-sm)" : "var(--text-sm)",
+                color: "var(--text-muted)",
                 lineHeight: 1.55,
+                maxWidth: 620,
               }}
             >
               {subtitle}
-            </p>
+            </span>
           )}
         </div>
         {actions && (
@@ -89,11 +107,9 @@ export default function PageHeader({ title, subtitle, eyebrow, actions, surface 
             display: "flex",
             alignItems: "center",
             flexWrap: "wrap",
-            gap: 18,
-            marginTop: 18,
-            paddingTop: 16,
-            borderTop: "1px solid var(--border)",
-            fontSize: "var(--text-sm)",
+            gap: 14,
+            marginTop: 12,
+            fontSize: "var(--text-xs)",
             color: "var(--text-secondary)",
           }}
         >

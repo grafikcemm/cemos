@@ -4,19 +4,17 @@ import { selectTab, selectUtility } from "./helpers/nav";
 // Data-independent smoke tests (TRAN-CODE-1.5): assert UI shells, navigation
 // and loading placeholders — never row counts, so an empty DB also passes.
 
-test("topbar navigation from a dashboard page returns to the app shell (TRAN-KPI-1.1)", async ({
-  page,
-}) => {
-  await page.goto("/dashboard/weekly-learning-report");
-  await selectTab(page, "kesfet", "Keşif Motoru");
-  await expect(page).toHaveURL("/");
+test("sidebar navigation reaches Keşif Motoru", async ({ page }) => {
+  await page.goto("/");
+  await selectTab(page, "discovery-engine");
   await expect(page.getByRole("heading", { name: "Keşif Motoru" })).toBeVisible();
 });
 
-test("daily queue tab shows today's operation panel", async ({ page }) => {
+test("daily-queue (absorbed) Bugün alanına iner", async ({ page }) => {
+  // ABSORBED (v9): eski Günlük Kuyruk ekranı Bugün'e katlandı — ayrı yüzey yok.
   await page.goto("/");
-  await selectTab(page, "uret", "Günlük Kuyruk");
-  await expect(page.getByText("Bugünkü Operasyon")).toBeVisible();
+  await selectTab(page, "daily-queue");
+  await expect(page.getByRole("banner").getByText("Bugün", { exact: true })).toBeVisible();
 });
 
 test("viral radar shows placeholders, never a false zero, while loading (TRAN-KPI-1.3)", async ({
@@ -49,17 +47,17 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
   });
 
   await page.goto("/");
-  await selectTab(page, "kesfet", "Viral Radar");
+  await selectTab(page, "flow-radar");
 
-  const totalCard = page
-    .locator("div")
-    .filter({ hasText: /^Toplam Aday/ })
-    .first();
+  // Faz 1D.1: sessiz MetricStrip hücresi (data-metric="Toplam aday") başlangıç
+  // yüklemesinde de render eder; summary null → "–". Sözleşme aynı: yüklenirken
+  // sahte 0 yok.
+  const totalCard = page.locator('[data-metric="Toplam aday"]');
   await expect(totalCard).toBeVisible();
   // While the fetch is gated the widget must show the dash placeholder —
   // never a misleading hard "0".
   await expect(totalCard).toContainText("–");
-  await expect(totalCard).not.toContainText(/Toplam Aday0/);
+  await expect(totalCard).not.toContainText(/^0/);
 
   releaseResponse();
   // After the response lands the placeholders resolve to the real numbers.
@@ -68,20 +66,49 @@ test("viral radar shows placeholders, never a false zero, while loading (TRAN-KP
 });
 
 test("settings tab renders health cards and the learning status card", async ({ page }) => {
+  // Hermetik: /api/health canlı OpenRouter/Buffer probe'ları koşar ve soğuk
+  // sunucuda 30-40s sürebilir — sabit sağlıklı fixture ile mock'lanır.
+  await page.route("**/api/health", (route) =>
+    route.fulfill({
+      json: {
+        openrouter: { configured: true, ok: true },
+        socialdata: { configured: true, ok: true },
+        buffer: { configured: false, ok: true },
+        database: { ok: true },
+        worker: { mode: "worker", inferredStatus: "recent_tick" },
+      },
+    }),
+  );
+
   await page.goto("/");
   await selectUtility(page, "settings");
-  // The settings load runs live health checks (OpenRouter/Buffer) — generous
-  // timeout for cold dev servers.
-  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Ayarlar & Sağlık")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("ÖĞRENME DURUMU", { exact: false })).toBeVisible({
-    timeout: 30_000,
+    timeout: 20_000,
   });
 });
 
-test("weekly learning report page loads without a runtime error", async ({ page }) => {
-  await page.goto("/dashboard/weekly-learning-report");
-  await expect(page.getByText("CemOS").first()).toBeVisible();
-  // <nextjs-portal> always exists in dev (devtools indicator) — assert no
-  // actual error dialog text instead.
-  await expect(page.getByText(/Unhandled Runtime Error|Application error/)).toHaveCount(0);
-});
+// ── Deep-link'ler: yalnız URL değil DOĞRU BAŞLIK; persisted activeTab
+//    FARKLIYKEN de route'un sekmesi kazanmalı. ────────────────────────────
+// Legacy deep-link'ler yeni evlerine iner (ABSORBED) ya da advanced kalır.
+const DEEP_LINKS: { path: string; crumb: string }[] = [
+  { path: "/dashboard/daily-queue", crumb: "Bugün" }, // absorbed → morning
+  { path: "/dashboard/flow-radar", crumb: "Viral Radar" }, // advanced
+  { path: "/dashboard/pattern-library", crumb: "Tümü" }, // absorbed → lib-tumu
+  { path: "/dashboard/source-intelligence", crumb: "X Hesabı Kaynakları" }, // advanced
+];
+
+for (const { path, crumb } of DEEP_LINKS) {
+  test(`deep-link ${path} seeds its tab even with a different persisted activeTab`, async ({
+    page,
+  }) => {
+    // Önce farklı bir sekmeye git → activeTab persist edilsin.
+    await page.goto("/");
+    await selectUtility(page, "costs");
+    await expect(page.getByRole("banner").getByText("Maliyet", { exact: true })).toBeVisible();
+
+    // Deep-link route persisted state'i ezmeli (seed-once davranışı).
+    await page.goto(path);
+    await expect(page.getByRole("banner").getByText(crumb)).toBeVisible({ timeout: 20_000 });
+  });
+}

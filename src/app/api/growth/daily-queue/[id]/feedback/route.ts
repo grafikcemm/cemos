@@ -1,34 +1,47 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+
+const FeedbackSchema = z.object({
+  feedbackType: z.string().max(50).optional(),
+  editedContent: z.string().max(10000).optional(),
+  reason: z.string().max(2000).optional(),
+  // Phase 5A (ADR-044): çift-tık/retry idempotency (client üretir).
+  idempotencyKey: z.string().max(200).optional(),
+});
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     const { id } = await params;
-    const body = await req.json();
+    const body = await parseJsonBody(req);
+    if (!body.ok) return fail("Geçersiz JSON", 400);
 
-    const { feedbackType, editedContent, reason } = body;
+    const parsed = FeedbackSchema.safeParse(body.data);
+    if (!parsed.success) return fail("Geçersiz girdi", 400, { detail: parsed.error.flatten() });
+
+    const { feedbackType, editedContent, reason, idempotencyKey } = parsed.data;
 
     if (!feedbackType) {
-      return NextResponse.json({ success: false, error: "feedbackType is required." }, { status: 400 });
+      return fail("feedbackType is required.", 400);
     }
 
     const existing = await queueRepo.findById(id);
     if (!existing) {
-      return NextResponse.json({ success: false, error: "Queue item not found" }, { status: 404 });
+      return fail("Queue item not found", 404);
     }
 
     const account = await accountRepo.findById(existing.accountId);
     if (!account) {
-      return NextResponse.json({ success: false, error: "Account not found" }, { status: 404 });
+      return fail("Account not found", 404);
     }
 
     const originalText = existing.content;
@@ -48,6 +61,7 @@ export async function POST(
       modeId: existing.mode,
       saveTrainingExample: true,
       saveAsPattern: false,
+      idempotencyKey,
     });
 
     // Sync database status based on feedback action
@@ -66,9 +80,12 @@ export async function POST(
 
     await queueRepo.update(id, updates);
 
-    return NextResponse.json(result);
+    const { success: _ok, ...payload } = result;
+    return ok(payload);
   } catch (err) {
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue feedback.";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

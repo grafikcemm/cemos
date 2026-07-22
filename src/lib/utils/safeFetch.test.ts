@@ -53,4 +53,45 @@ describe("fetchJson", () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
     await expect(fetchJson("/api/x")).rejects.toThrow("Failed to fetch");
   });
+
+  it("rejects with a timeout FetchJsonError when the response never arrives (DH-loading fix)", async () => {
+    // A fetch that only settles when its AbortSignal fires — mimics a hung
+    // serverless function / paused Neon cold-start. Without the timeout this
+    // would pend forever and the caller's loading flag would never clear.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError"))
+            );
+          })
+      )
+    );
+    const err = (await fetchJson("/api/hang", { timeoutMs: 20 }).catch((e) => e)) as FetchJsonError;
+    expect(err).toBeInstanceOf(FetchJsonError);
+    expect(err.status).toBe(0);
+    expect(err.message).toMatch(/zaman aşımı/i);
+  });
+
+  it("honors a caller-provided abort signal distinctly from a timeout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError"))
+            );
+          })
+      )
+    );
+    const ac = new AbortController();
+    const p = fetchJson("/api/hang", { signal: ac.signal, timeoutMs: 0 });
+    ac.abort();
+    const err = (await p.catch((e) => e)) as FetchJsonError;
+    expect(err).toBeInstanceOf(FetchJsonError);
+    expect(err.message).toMatch(/iptal/i);
+  });
 });

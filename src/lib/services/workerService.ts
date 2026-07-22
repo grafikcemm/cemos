@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
+import { logger } from "@/lib/utils/logger";
+import { redactError } from "@/lib/utils/redactSecrets";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -40,7 +42,7 @@ export const workerService = {
 
       fs.writeFileSync(heartbeatPath, JSON.stringify(newData, null, 2), "utf-8");
     } catch (err) {
-      console.error("Worker heartbeat yazılırken hata oluştu:", err);
+      logger.error("Worker", "heartbeat yazılamadı", err);
     }
   },
 
@@ -56,14 +58,14 @@ export const workerService = {
     if (isServerless()) {
       // Vercel: no shared filesystem → DB advisory lock + heartbeat row instead.
       if (await cronRunRepo.hasRunning("manual_scan")) {
-        console.log("[Worker] Scan is already running (CronRun lock). Skipping tick.");
+        logger.info("Worker", "Scan is already running (CronRun lock). Skipping tick.");
         return { success: false, reason: "locked" };
       }
       try {
         cronRunId = (await cronRunRepo.start("manual_scan")).id;
       } catch (err) {
         // Heartbeat bookkeeping must never block the scan itself.
-        console.error("CronRun start yazılırken hata oluştu:", err);
+        logger.error("Worker", "CronRun start yazılamadı", err);
       }
     } else {
       const dataDir = path.join(process.cwd(), "data");
@@ -85,10 +87,10 @@ export const workerService = {
           stale = true; // unreadable lock → reclaim
         }
         if (!stale) {
-          console.log("[Worker] Scan is already running. Skipping tick.");
+          logger.info("Worker", "Scan is already running. Skipping tick.");
           return { success: false, reason: "locked" };
         }
-        console.warn("[Worker] Reclaiming stale scan.lock (older than 10m).");
+        logger.warn("Worker", "Reclaiming stale scan.lock (older than 10m).");
         try {
           fs.unlinkSync(lockPath);
         } catch {}
@@ -130,7 +132,7 @@ export const workerService = {
         };
 
         if (!account.schedule?.automationEnabled) {
-          console.log(`[Worker] Skipping @${account.handle} - automation disabled.`);
+          logger.info("Worker", `Skipping @${account.handle} - automation disabled.`);
           accountResult.reason = "no_enabled_sources";
           results.push(accountResult);
           continue;
@@ -146,7 +148,7 @@ export const workerService = {
         });
 
         if (todayDrafts >= account.schedule.dailyMaxPosts) {
-          console.log(`[Worker] Skipping @${account.handle} - daily draft limit reached (${todayDrafts}/${account.schedule.dailyMaxPosts}).`);
+          logger.info("Worker", `Skipping @${account.handle} - daily draft limit reached (${todayDrafts}/${account.schedule.dailyMaxPosts}).`);
           accountResult.reason = "daily_limit_reached";
           results.push(accountResult);
           continue;
@@ -178,7 +180,7 @@ export const workerService = {
         accountResult.candidateSourcePostsFound = backlogPosts.length;
 
         if (backlogPosts.length > 0) {
-          console.log(`[Worker] Backlog SourcePosts found for @${account.handle}: ${backlogPosts.length} candidates. Trying backlog fallback.`);
+          logger.info("Worker", `Backlog SourcePosts for @${account.handle}: ${backlogPosts.length} candidates. Trying backlog fallback.`);
           for (const post of backlogPosts) {
             if (draftsCreatedThisTick >= targetDraftLimit) break;
             if (accountResult.draftAttempts >= 5) break;
@@ -206,7 +208,7 @@ export const workerService = {
                 });
               }
             } catch (draftErr) {
-              console.error(`[Worker] Backlog draft error for @${account.handle} (Post: ${post.id}):`, draftErr);
+              logger.error("Worker", `Backlog draft error for @${account.handle} (Post: ${post.id})`, draftErr);
               accountResult.draftErrors++;
               await prisma.sourcePost.update({
                 where: { id: post.id },
@@ -231,7 +233,7 @@ export const workerService = {
         if (lastScan && !options?.force) {
           const hoursSinceLastScan = (now.getTime() - new Date(lastScan).getTime()) / (1000 * 60 * 60);
           if (hoursSinceLastScan < 18) {
-             console.log(`[Worker] Skipping @${account.handle} scan - scanned recently (${hoursSinceLastScan.toFixed(1)}h ago).`);
+             logger.info("Worker", `Skipping @${account.handle} scan - scanned recently (${hoursSinceLastScan.toFixed(1)}h ago).`);
              accountResult.reason = "daily_limit_reached";
              results.push(accountResult);
              continue;
@@ -240,14 +242,14 @@ export const workerService = {
 
         const remaining = await usageService.getRemainingDailyTweets();
         if (remaining <= 0) {
-          console.log(`[Worker] Skipping @${account.handle} scan - SocialData budget reached.`);
+          logger.info("Worker", `Skipping @${account.handle} scan - SocialData budget reached.`);
           accountResult.reason = "socialdata_budget_reached";
           results.push(accountResult);
           continue;
         }
 
         try {
-          console.log(`[Worker] Starting budgeted scan for @${account.handle} (max 2 posts per source)`);
+          logger.info("Worker", `Starting budgeted scan for @${account.handle} (max 2 posts per source)`);
           const scanResult = await scanService.scanAccount(account.handle, 2);
 
           accountResult.sourcesScanned = scanResult.sourcesScanned;
@@ -299,7 +301,7 @@ export const workerService = {
                   });
                 }
               } catch (draftErr) {
-                console.error(`[Worker] Scanned draft error for @${account.handle} (Post: ${post.id}):`, draftErr);
+                logger.error("Worker", `Scanned draft error for @${account.handle} (Post: ${post.id})`, draftErr);
                 accountResult.draftErrors++;
                 await prisma.sourcePost.update({
                   where: { id: post.id },
@@ -332,10 +334,10 @@ export const workerService = {
 
           results.push(accountResult);
         } catch (accountErr) {
-          console.error(`[Worker] Scan failed for @${account.handle}:`, accountErr);
+          logger.error("Worker", `Scan failed for @${account.handle}`, accountErr);
           accountResult.status = "error";
           accountResult.reason = "model_error";
-          accountResult.error = String(accountErr);
+          accountResult.error = redactError(accountErr);
           results.push(accountResult);
         }
       }
@@ -351,10 +353,10 @@ export const workerService = {
     } catch (err) {
       await this.writeHeartbeat(now, {
         lastScanFinishedAt: new Date().toISOString(),
-        lastError: String(err)
+        lastError: redactError(err)
       });
       if (cronRunId) {
-        await cronRunRepo.finish(cronRunId, { ok: false, error: String(err) });
+        await cronRunRepo.finish(cronRunId, { ok: false, error: redactError(err) });
       }
       throw err;
     } finally {

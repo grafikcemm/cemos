@@ -1,5 +1,6 @@
 import { usageLogRepo } from "@/lib/db/usageLogRepo";
 import { getCostLimits } from "@/lib/config/costLimits";
+import { noteOpenRouterSpend } from "@/lib/ai/openrouter-key-status";
 
 
 function todayDate(): string {
@@ -19,6 +20,10 @@ export const usageService = {
       tweetCount: opts.tweetCount,
       estimatedCostUsd: opts.estimatedCostUsd,
       date: todayDate(),
+      // provider tag so providerLivenessService (which filters strictly on
+      // `provider`) can see SocialData as verified/degraded instead of forever
+      // "unknown". Cost totals still key off type:"scan" (backward compatible).
+      provider: "socialdata",
       platform: opts.platform,
     });
   },
@@ -60,6 +65,7 @@ export const usageService = {
       meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
       platform: opts.platform,
     });
+    noteOpenRouterSpend(opts.estimatedCostUsd);
   },
 
   async getRemainingDailyTweets(): Promise<number> {
@@ -75,6 +81,12 @@ export const usageService = {
   async getMonthlyCost(): Promise<number> {
     const yearMonth = new Date().toISOString().slice(0, 7);
     return usageLogRepo.sumCostByMonth(yearMonth);
+  },
+
+  /** LLM-only spend. SocialData and fal.ai must not consume this budget. */
+  async getMonthlyOpenRouterCost(): Promise<number> {
+    const yearMonth = new Date().toISOString().slice(0, 7);
+    return usageLogRepo.sumOpenRouterCostByMonth(yearMonth);
   },
 
   /**
@@ -97,6 +109,28 @@ export const usageService = {
       model: opts.model,
       meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
       platform: opts.platform,
+    });
+  },
+
+  /**
+   * Log a paid transcript spend (Gemini native-video / Supadata). provider keeps
+   * it off the OpenRouter LLM line; meta.purpose="learn_transcript" folds it into
+   * the "learn_" monthly budget so the transcript fetch is no longer an unmetered,
+   * silently-$0 paid path. Free captions (youtubei) / manual paste never call this.
+   */
+  async recordTranscript(opts: {
+    provider: string;
+    estimatedCostUsd: number;
+    model?: string;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    await usageLogRepo.create({
+      type: "transcript",
+      estimatedCostUsd: opts.estimatedCostUsd,
+      date: todayDate(),
+      provider: opts.provider,
+      model: opts.model,
+      meta: opts.meta ? JSON.stringify(opts.meta) : undefined,
     });
   },
 
@@ -123,6 +157,24 @@ export const usageService = {
         }
       } catch {
         // bozuk meta satırı atlanır — bütçe hesabı fail-open kalır
+      }
+    }
+    return total;
+  },
+
+  async getMonthlySpendByBudgetClass(
+    budgetClass: "essential" | "background" | "evaluation",
+  ): Promise<number> {
+    const yearMonth = new Date().toISOString().slice(0, 7);
+    const rows = await usageLogRepo.findMonthRowsWithPurpose(yearMonth);
+    let total = 0;
+    for (const row of rows) {
+      try {
+        const meta = JSON.parse(row.meta) as { budgetClass?: unknown };
+        if (meta.budgetClass === budgetClass) total += row.estimatedCostUsd;
+      } catch {
+        // Invalid legacy metadata is excluded from the class slice but remains
+        // part of the global OpenRouter total.
       }
     }
     return total;

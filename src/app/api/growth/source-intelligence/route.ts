@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { scoreSourcePostFallback } from "@/lib/growth-engine/scorer";
-import { getAccountProfile } from "@/lib/growth-engine/account-profiles";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
   try {
     const { searchParams } = new URL(req.url);
     const accountHandle = searchParams.get("accountHandle") || searchParams.get("account") || "all";
@@ -194,8 +196,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      success: true,
+    return ok({
       summary: {
         totalSources,
         activeSources,
@@ -217,6 +218,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected system error";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

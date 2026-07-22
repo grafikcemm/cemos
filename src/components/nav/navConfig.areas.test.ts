@@ -1,120 +1,87 @@
 import { describe, expect, it } from "vitest";
 import {
-  DIRECT_TABS,
-  NAV_GROUPS,
   PRIMARY_AREAS,
+  ADVANCED_TABS,
   UTILITY_TABS,
-  firstTabOfArea,
-  isUtilityTab,
+  PROFILE_TABS,
+  labelForTab,
   resolveAreaForTab,
-  subTabsOfArea,
+  isAdvancedTab,
+  isUtilityTab,
+  isProfileTab,
 } from "./navConfig";
 
-/** DIRECT_TABS + NAV_GROUPS birleşimindeki tüm sekme id'leri. */
-const ALL_TAB_IDS = new Set<string>([
-  ...DIRECT_TABS.map((t) => t.id),
-  ...NAV_GROUPS.flatMap((g) => g.tabs.map((t) => t.id)),
-]);
+/**
+ * Nav yüzey bütünlüğü / drift guard: her CANLI sekme TAM BİR nav sınıfına
+ * (birincil alan · advanced · utility · profil) aittir; etiketler tek-kaynak
+ * TAB_LABELS ile tutarlıdır. navConfig.test.ts çözümleme fonksiyonlarını,
+ * bu dosya sınıflandırma bütünlüğünü test eder.
+ */
 
-describe("PRIMARY_AREAS + UTILITY_TABS projeksiyonu", () => {
-  it("her area sekmesi gerçek bir sekme id'sine karşılık gelir", () => {
-    for (const area of PRIMARY_AREAS) {
-      for (const id of area.tabIds) {
-        expect(ALL_TAB_IDS.has(id), `${id} bilinen bir sekme değil`).toBe(true);
-      }
+const PRIMARY_IDS = PRIMARY_AREAS.flatMap((a) => a.tabIds);
+const ADVANCED_IDS = ADVANCED_TABS.map((t) => t.id);
+const UTILITY_IDS = UTILITY_TABS.map((t) => t.id);
+const PROFILE_IDS = PROFILE_TABS.map((t) => t.id);
+const ALL_LIVE = [...PRIMARY_IDS, ...ADVANCED_IDS, ...UTILITY_IDS, ...PROFILE_IDS];
+
+describe("nav yüzey sınıflandırması (drift guard)", () => {
+  it("her canlı id benzersiz (dört sınıf çakışmaz)", () => {
+    expect(new Set(ALL_LIVE).size).toBe(ALL_LIVE.length);
+  });
+
+  it("birincil sekmeler yalnız kendi alanına çözülür, diğer sınıflara değil", () => {
+    for (const id of PRIMARY_IDS) {
+      expect(resolveAreaForTab(id), `${id} bir alana çözülmeli`).not.toBeNull();
+      expect(isAdvancedTab(id)).toBe(false);
+      expect(isUtilityTab(id)).toBe(false);
+      expect(isProfileTab(id)).toBe(false);
     }
   });
 
-  it("her utility sekmesi gerçek bir sekme id'sine karşılık gelir", () => {
-    for (const tab of UTILITY_TABS) {
-      expect(ALL_TAB_IDS.has(tab.id), `${tab.id} bilinen bir sekme değil`).toBe(true);
+  it("advanced sekmeler hiçbir birincil alana ait değil", () => {
+    for (const id of ADVANCED_IDS) {
+      expect(resolveAreaForTab(id), `${id} birincil alana ait olmamalı`).toBeNull();
+      expect(isAdvancedTab(id)).toBe(true);
+      expect(isUtilityTab(id)).toBe(false);
+      expect(isProfileTab(id)).toBe(false);
     }
   });
 
-  it("primary + utility birleşimi tüm 20 sekmeyi tam bir kez kapsar (drift yok)", () => {
-    const primaryIds = PRIMARY_AREAS.flatMap((a) => a.tabIds);
-    const utilityIds = UTILITY_TABS.map((t) => t.id);
-    const allIds = [...primaryIds, ...utilityIds];
-    // Tekrar yok (primary ve utility çakışmaz)
-    expect(new Set(allIds).size).toBe(allIds.length);
-    // Sayı eşleşir
-    expect(allIds.length).toBe(ALL_TAB_IDS.size);
-    // Kapsam birebir
-    for (const id of ALL_TAB_IDS) {
-      expect(allIds, `${id} hiçbir alana/utility'ye atanmamış`).toContain(id);
+  it("utility (Toolbox) ile profil sınıfları ayrık", () => {
+    for (const id of UTILITY_IDS) {
+      expect(isUtilityTab(id)).toBe(true);
+      expect(isProfileTab(id)).toBe(false);
+    }
+    for (const id of PROFILE_IDS) {
+      expect(isProfileTab(id)).toBe(true);
+      expect(isUtilityTab(id)).toBe(false);
     }
   });
 
-  it("5 ana alan tanımlı, id'leri benzersiz", () => {
-    expect(PRIMARY_AREAS).toHaveLength(5);
-    const ids = PRIMARY_AREAS.map((a) => a.id);
-    expect(new Set(ids).size).toBe(5);
-  });
-
-  it("3 utility sekmesi tanımlı (Maliyet/Ayarlar/AI Sıralama)", () => {
-    expect(UTILITY_TABS).toHaveLength(3);
-    expect(UTILITY_TABS.map((t) => t.id)).toEqual(["costs", "settings", "ai-rankings"]);
-  });
-});
-
-describe("resolveAreaForTab", () => {
-  it("doğrudan sekmeleri çözer", () => {
-    expect(resolveAreaForTab("morning")).toBe("bugun");
-    expect(resolveAreaForTab("toolbox")).toBe("uret");
-    expect(resolveAreaForTab("news-pool")).toBe("kesfet");
-    expect(resolveAreaForTab("training-center")).toBe("ogren");
-    expect(resolveAreaForTab("instagram")).toBe("sosyal-medya");
-    expect(resolveAreaForTab("youtube")).toBe("sosyal-medya");
-  });
-
-  it("legacy alias'ları doğru alana çözer", () => {
-    expect(resolveAreaForTab("flow")).toBe("kesfet"); // → flow-radar
-    expect(resolveAreaForTab("queue")).toBe("uret"); // → daily-queue
-    expect(resolveAreaForTab("patterns")).toBe("ogren"); // → pattern-library
-  });
-
-  it("utility sekmeleri ana alana çözülmez (null)", () => {
-    expect(resolveAreaForTab("costs")).toBeNull();
-    expect(resolveAreaForTab("settings")).toBeNull();
-    expect(resolveAreaForTab("ai-rankings")).toBeNull();
-  });
-
-  it("bilinmeyen id → null", () => {
-    expect(resolveAreaForTab("does-not-exist")).toBeNull();
-  });
-});
-
-describe("isUtilityTab", () => {
-  it("utility sekmeleri için true", () => {
-    expect(isUtilityTab("costs")).toBe(true);
-    expect(isUtilityTab("settings")).toBe(true);
-    expect(isUtilityTab("ai-rankings")).toBe(true);
-  });
-
-  it("ana alan sekmeleri ve bilinmeyenler için false", () => {
-    expect(isUtilityTab("morning")).toBe(false);
-    expect(isUtilityTab("instagram")).toBe(false);
-    expect(isUtilityTab("does-not-exist")).toBe(false);
-  });
-});
-
-describe("firstTabOfArea / subTabsOfArea", () => {
-  it("firstTabOfArea alanın ilk sekmesini verir", () => {
-    expect(firstTabOfArea("bugun")).toBe("morning");
-    expect(firstTabOfArea("uret")).toBe("daily-queue");
-    expect(firstTabOfArea("kesfet")).toBe("discovery-engine");
-    expect(firstTabOfArea("sosyal-medya")).toBe("instagram");
-  });
-
-  it("subTabsOfArea etiketleri tek-kaynaktan doldurur", () => {
-    const subs = subTabsOfArea("uret");
-    expect(subs.map((s) => s.id)).toEqual([
-      "daily-queue",
-      "toolbox",
-      "library",
-      "prompt-kutuphanesi",
+  it("Toolbox tek utility; Profil tam beş yüzey", () => {
+    expect(UTILITY_IDS).toEqual(["toolbox"]);
+    expect(PROFILE_IDS).toEqual([
+      "profile-memory",
+      "profile-integrations",
+      "system",
+      "costs",
+      "settings",
     ]);
-    const dailyQueue = subs.find((s) => s.id === "daily-queue");
-    expect(dailyQueue?.label).toBe("Günlük Kuyruk");
+  });
+});
+
+describe("etiket tutarlılığı (tek-kaynak TAB_LABELS)", () => {
+  it("her canlı id boş olmayan etiket döndürür", () => {
+    for (const id of ALL_LIVE) {
+      const label = labelForTab(id);
+      expect(label, `${id} etiketsiz`).toBeTruthy();
+      expect(label).not.toBe(id); // ham id sızmamalı
+    }
+  });
+
+  it("typed dizilerdeki etiketler labelForTab ile aynı", () => {
+    for (const t of ADVANCED_TABS) expect(t.label).toBe(labelForTab(t.id));
+    for (const t of UTILITY_TABS) expect(t.label).toBe(labelForTab(t.id));
+    for (const t of PROFILE_TABS) expect(t.label).toBe(labelForTab(t.id));
   });
 });

@@ -9,11 +9,12 @@ async function main() {
   console.log("=========================================\n");
 
   try {
+    const targetHandles = ["grafikcem", "maskulenkod"];
     const res = await operatorReadinessService.getReadiness();
 
     if (res.ready) {
       console.log("Operator Readiness: \x1b[32mREADY\x1b[0m\n");
-      console.log("Tebrikler! 3/3 hedef hesap için bugünkü taze taslaklar hazır.");
+      console.log(`Tebrikler! ${targetHandles.length}/${targetHandles.length} hedef hesap için bugünkü taze taslaklar hazır.`);
       console.log("Tahmini günlük akış süresi: \x1b[36m5-10 dk\x1b[0m\n");
     } else {
       console.log("Operator Readiness: \x1b[31mNOT READY\x1b[0m\n");
@@ -23,7 +24,6 @@ async function main() {
     }
 
     console.log("Bugünkü Taslak Durumu:");
-    const targetHandles = ["grafikcem", "maskulenkod"];
     targetHandles.forEach(h => {
       const s = res.stats[h];
       if (s && s.found) {
@@ -32,7 +32,7 @@ async function main() {
         console.log(`- ${h}: Bulunamadı`);
       }
     });
-    console.log(`Toplam bugün hazır olan: ${res.todayItemsCount}/3\n`);
+    console.log(`Toplam bugün hazır olan: ${res.todayItemsCount}/${targetHandles.length}\n`);
 
     console.log("Aktif Backlog Durumu (Tüm Zamanlar):");
     targetHandles.forEach(h => {

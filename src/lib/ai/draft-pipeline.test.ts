@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runDraftPipeline } from "./draft-pipeline";
-import { generateJson } from "./openrouter";
+import { generateJsonGated } from "./generateGated";
 import { accountProfiles } from "@/lib/accounts";
 
-// Mock the openrouter generation layer completely to prevent network requests
-vi.mock("./openrouter", () => ({
-  generateJson: vi.fn(),
+// Mock the gated generation layer completely to prevent network/DB requests
+// (dalga-1 migration: pipeline artık generateJsonGated + preset kullanır).
+vi.mock("./generateGated", () => ({
+  generateJsonGated: vi.fn(),
 }));
 
 describe("runDraftPipeline smoke test under operator_quality", () => {
@@ -26,9 +27,9 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     process.env = { ...originalEnv };
   });
 
-  it("should default activeProfile to operator_quality and trigger final editor when MODEL_PROFILE is unset", async () => {
+  it("runs the final editor only when explicitly enabled", async () => {
     delete process.env.MODEL_PROFILE;
-    delete process.env.ENABLE_FINAL_EDITOR;
+    process.env.ENABLE_FINAL_EDITOR = "true";
 
     const mockWriterResponse = {
       model: "google/gemini-2.5-flash",
@@ -78,7 +79,7 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     };
 
     // Make generateJson mock return custom values sequentially
-    const mockGenerateJson = generateJson as any;
+    const mockGenerateJson = generateJsonGated as any;
     mockGenerateJson
       .mockResolvedValueOnce(mockWriterResponse)  // writer call
       .mockResolvedValueOnce(mockJudgeResponse)   // judge call
@@ -96,9 +97,9 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
     expect(mockGenerateJson).toHaveBeenCalledTimes(3);
   });
 
-  it("should NOT trigger final editor if ENABLE_FINAL_EDITOR is set to false", async () => {
+  it("does not spend on the final editor by default", async () => {
     delete process.env.MODEL_PROFILE;
-    process.env.ENABLE_FINAL_EDITOR = "false";
+    delete process.env.ENABLE_FINAL_EDITOR;
 
     const mockWriterResponse = {
       model: "google/gemini-2.5-flash",
@@ -135,7 +136,7 @@ describe("runDraftPipeline smoke test under operator_quality", () => {
       modelFallbackUsed: false,
     };
 
-    const mockGenerateJson = generateJson as any;
+    const mockGenerateJson = generateJsonGated as any;
     mockGenerateJson
       .mockResolvedValueOnce(mockWriterResponse) // writer call
       .mockResolvedValueOnce(mockJudgeResponse);  // judge call

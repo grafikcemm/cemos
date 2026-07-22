@@ -1,26 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
-import { accountList, accountProfiles, type AccountHandle } from "@/lib/accounts";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { resolveCronHandles } from "@/lib/accounts/profileRepository";
 import { miningService } from "@/lib/services/miningService";
 import { engagementLearningService } from "@/lib/services/engagementLearningService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { isCronAuthorized } from "@/lib/utils/cronAuth";
 import { getBudgetStatus } from "@/lib/config/costGate";
-import { generateWeeklyLearningReport } from "@/lib/growth-engine/weekly-learning-report";
 import { runPipelineTick } from "@/lib/news/pipeline";
 import { prisma } from "@/lib/db/client";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { YT_SYNC_DEADLINE_MS } from "@/lib/youtube/ytConfig";
-import { instagramService } from "@/lib/services/instagramService";
-import { IG_SYNC_LEARN_DEADLINE_MS } from "@/lib/instagram/igConfig";
 import { ytOwnPerformanceService } from "@/lib/services/ytOwnPerformanceService";
+import { voiceProfileService } from "@/lib/services/voiceProfileService";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
+import { learnService } from "@/lib/learning/learnService";
+import { isLearnEnabled, LEARN_SWEEP_DEADLINE_MS } from "@/lib/learning/learnConfig";
+import { runMemoryConsolidation } from "@/lib/memory/consolidation";
+import { runDnaDistillation } from "@/lib/memory/dnaDistillService";
+import { promoteValidatedPatterns } from "@/lib/services/patternPromotionService";
+import { redactError } from "@/lib/utils/redactSecrets";
 
 // The LEARN cron (18:00 UTC / 21:00 Istanbul): this is what makes the system
 // continuously learn without anyone clicking a button —
 //   1. council mining over the day's discovered posts (viral patterns),
 //   2. engagement sync: own-tweet performance → pattern re-weights + training,
-//   3. Mondays: auto-generate the weekly learning report,
-//   4. retention cleanup (serverless never runs the local pruneTick).
+//   3. retention cleanup (serverless never runs the local pruneTick).
+// IA v2: weeklyReport / rankingsRefresh / IG sync blokları kaldırıldı
+// (özellikler emekli edildi; motor kütüphaneleri yerinde duruyor).
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
@@ -51,7 +56,7 @@ async function pruneOldRecords() {
   const sourceCutoff = new Date(Date.now() - SOURCE_POST_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   const runCutoff = new Date(Date.now() - RUN_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   const newsCutoff = new Date(Date.now() - NEWS_ITEM_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const [sourcePosts, scanRuns, generationRuns, cronRuns, newsItems, pipelineTraces] = await Promise.all([
+  const [sourcePosts, scanRuns, generationRuns, cronRuns, newsItems, pipelineTraces, learnJobs] = await Promise.all([
     prisma.sourcePost.deleteMany({
       where: {
         status: { in: ["used", "error", "blocked", "ignored"] },
@@ -63,6 +68,11 @@ async function pruneOldRecords() {
     cronRunRepo.pruneOlderThan(60),
     prisma.newsItem.deleteMany({ where: { fetchedAt: { lt: newsCutoff }, isUsed: false } }),
     pipelineTraceRepo.pruneOlderThan(PIPELINE_TRACE_RETENTION_DAYS),
+    // CemOS Learn: yalnız TAMAMLANMIŞ/başarısız (geçici) job'lar prune edilir;
+    // pack/transcript/chunk user içeriği + cache → KORUNUR.
+    prisma.learnProcessingJob.deleteMany({
+      where: { status: { in: ["done", "failed"] }, finishedAt: { lt: runCutoff } },
+    }),
   ]);
   return {
     sourcePosts: sourcePosts.count,
@@ -71,23 +81,22 @@ async function pruneOldRecords() {
     cronRuns: cronRuns.count,
     newsItems: newsItems.count,
     pipelineTraces: pipelineTraces.count,
+    learnJobs: learnJobs.count,
   };
 }
 
 async function runLearn(handleParam: string | null) {
   const t0 = Date.now();
   const timeBudgetMs = getTimeBudgetMs();
-  const handles: AccountHandle[] =
-    handleParam && handleParam in accountProfiles
-      ? [handleParam as AccountHandle]
-      : accountList.map((a) => a.handle);
+  // ADR-031: cron yalnız DB'de aktif + üretim-hazır hesapları koşar.
+  const { handles } = await resolveCronHandles(handleParam);
 
   // Heartbeat-FIRST, exactly like the daily cron.
   let cronRunId: string | null = null;
   try {
     cronRunId = (await cronRunRepo.start("learn")).id;
   } catch (err) {
-    console.error("CronRun start yazılırken hata oluştu:", err);
+    console.error("CronRun start yazılırken hata oluştu:", redactError(err));
   }
 
   // Budget gate guards the LLM-heavy mining only. Engagement sync is a cheap
@@ -97,7 +106,7 @@ async function runLearn(handleParam: string | null) {
   try {
     miningAllowed = (await getBudgetStatus()).allowed;
   } catch (err) {
-    console.error("Budget durumu okunamadı, mining atlanıyor:", err);
+    console.error("Budget durumu okunamadı, mining atlanıyor:", redactError(err));
   }
   const miningLimit = getMiningLimit();
 
@@ -110,34 +119,8 @@ async function runLearn(handleParam: string | null) {
       try {
         ytSync = await youtubeService.syncCompetitors({ deadlineMs: ytDeadlineMs });
       } catch (err) {
-        ytSync = { error: err instanceof Error ? err.message : String(err) };
+        ytSync = { error: redactError(err) };
       }
-    }
-  }
-
-  // Instagram yorum sync — ytSync'ten sonra, mining'den önce (LLM'siz çekme + sınırlı
-  // sınıflandırma). Deadline'lı, fail-open; cron'u bozmaz.
-  let igSync: unknown = null;
-  if (Date.now() - t0 < timeBudgetMs) {
-    const igDeadlineMs = Math.min(IG_SYNC_LEARN_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
-    if (igDeadlineMs > 0) {
-      try {
-        igSync = await instagramService.sync({ deadlineMs: igDeadlineMs });
-      } catch (err) {
-        igSync = { error: err instanceof Error ? err.message : String(err) };
-      }
-    }
-  }
-
-  // Instagram engagement learning — own top-media performance → IG feedback +
-  // pattern re-weights. Cheap (1 snapshot read, no LLM), global (one IG
-  // account), fail-open; runs after igSync, before the per-handle loop.
-  let igEngagement: unknown = null;
-  if (Date.now() - t0 < timeBudgetMs) {
-    try {
-      igEngagement = await engagementLearningService.syncInstagram();
-    } catch (err) {
-      igEngagement = { error: err instanceof Error ? err.message : String(err) };
     }
   }
 
@@ -149,7 +132,21 @@ async function runLearn(handleParam: string | null) {
     try {
       ytOwnEngagement = await ytOwnPerformanceService.sync();
     } catch (err) {
-      ytOwnEngagement = { error: err instanceof Error ? err.message : String(err) };
+      ytOwnEngagement = { error: redactError(err) };
+    }
+  }
+
+  // CemOS Learn sweep — client'ı kopmuş işleme job'larını kalan bütçede ilerletir.
+  // LEARN_ENABLED kapalıysa no-op; fail-open, cron'u bozmaz; yeni cron slotu yok.
+  let learnSweep: unknown = null;
+  if (isLearnEnabled() && Date.now() - t0 < timeBudgetMs) {
+    const learnDeadlineMs = Math.min(LEARN_SWEEP_DEADLINE_MS, timeBudgetMs - (Date.now() - t0));
+    if (learnDeadlineMs > 0) {
+      try {
+        learnSweep = await learnService.sweepPendingJobs({ deadlineMs: learnDeadlineMs });
+      } catch (err) {
+        learnSweep = { error: redactError(err) };
+      }
     }
   }
 
@@ -169,32 +166,123 @@ async function runLearn(handleParam: string | null) {
       if (miningAllowed && miningLimit > 0) {
         entry.mining = await miningService.mineTopItems(handle, miningLimit);
       } else {
-        entry.mining = { skipped: miningLimit === 0 ? "mining_disabled" : "budget_exhausted" };
+        const skipReason = miningLimit === 0 ? "mining_disabled" : "budget_exhausted";
+        entry.mining = { skipped: skipReason };
+        // Budget-exhausted mining is a DEGRADED run — surface it as partial so the
+        // cron doesn't read fully green while silently skipping the paid learning.
+        if (skipReason === "budget_exhausted") partial = true;
       }
     } catch (err) {
-      entry.miningError = err instanceof Error ? err.message : String(err);
+      entry.miningError = redactError(err);
       errors++;
     }
     try {
       entry.engagement = await engagementLearningService.syncForAccount(handle);
     } catch (err) {
-      entry.engagementError = err instanceof Error ? err.message : String(err);
+      entry.engagementError = redactError(err);
       errors++;
     }
     results.push(entry);
   }
 
-  // Mondays: persist the weekly report into the CronRun payload so the tab
-  // has a precomputed snapshot even before its own on-demand call.
-  let weeklyReport: unknown = null;
+  // Mondays: hesabın kendi yayınlanmış tweetlerinden ses profilini yeniden
+  // damıt (xpatla stil klonlama). Silinen weeklyReport/rankings slotunu kullanır.
+  // Bütçe kapılı + fail-open; grounding aktif profili yazımda kullanır.
+  let voiceProfiles: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    const out: unknown[] = [];
+    for (const handle of handles) {
+      if (Date.now() - t0 > timeBudgetMs) break;
+      try {
+        out.push(await voiceProfileService.syncForAccount(handle));
+      } catch (err) {
+        out.push({ handle, error: redactError(err) });
+      }
+    }
+    voiceProfiles = out;
+  }
+
+  // Memory signal reconciliation (Faz 2B, ADR-029): LLM'SİZ — immediate
+  // ingestion'ın kaçırdığı FeedbackEvent'leri deftere/proposal'a tamamlar;
+  // unique constraint sayesinde tekrar koşmak güvenli. Aynı haftalık slot,
+  // yeni cron YOK. Fail-open, cron'u bozmaz.
+  let memorySignalReconciliation: unknown = null;
   if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
     try {
-      weeklyReport = await generateWeeklyLearningReport({
-        accountHandle: "all",
-        dateRange: "last_7_days",
+      const { reconcileFeedbackSignals } = await import("@/lib/memory/signalBridge");
+      memorySignalReconciliation = await reconcileFeedbackSignals();
+    } catch (err) {
+      memorySignalReconciliation = { error: redactError(err) };
+    }
+  }
+
+  // Memory consolidation (Sprint 3 — FINAL-MEMORY-SPEC §6.6): haftalık,
+  // Pazartesi, aynı slot (yeni cron YOK). Extraction bütçe-kapılı fail-closed;
+  // decay/staleness/contradiction sweep LLM'siz. Fail-open, cron'u bozmaz.
+  let memoryConsolidation: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      memoryConsolidation = await runMemoryConsolidation({
+        handles,
+        deadlineMs: Math.min(60_000, timeBudgetMs - (Date.now() - t0)),
       });
     } catch (err) {
-      weeklyReport = { error: err instanceof Error ? err.message : String(err) };
+      memoryConsolidation = { error: redactError(err) };
+    }
+  }
+
+  // DNA distillation (FINAL-MEMORY-SPEC §4, dalga-2): haftalık Pazartesi,
+  // deterministik + LLM'siz — CaptionDna/HashtagDna yapısal istatistiklerini
+  // onaylı/yayınlanmış korpustan damıtır. Fail-open, cron'u bozmaz.
+  let dnaDistillation: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      dnaDistillation = await runDnaDistillation({ handles });
+    } catch (err) {
+      dnaDistillation = { error: redactError(err) };
+    }
+  }
+
+  // Pattern promotion (Sprint 9 — EVALUATION-SPEC §4): weekly (Monday) two-gate
+  // lessonGate over PublishedPost → PerformanceSnapshot. Promotes candidate viral
+  // patterns to VALIDATED only when the evidence clears repetition + significance
+  // + brand veto. LLM-free + cheap; fail-open, cron'u bozmaz. Sparse data → no-op.
+  let patternPromotion: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    const out: unknown[] = [];
+    for (const handle of handles) {
+      if (Date.now() - t0 > timeBudgetMs) break;
+      try {
+        const account = await prisma.account.findUnique({ where: { handle }, select: { id: true } });
+        if (account) out.push(await promoteValidatedPatterns(account.id));
+      } catch (err) {
+        out.push({ handle, error: redactError(err) });
+      }
+    }
+    patternPromotion = out;
+  }
+
+  // Registry contract eval (Faz 2E, ADR-034 §H): haftalık Pazartesi, AYNI slot
+  // (yeni Vercel cron YOK). Deterministik + hermetic + ücretsiz. İdempotency:
+  // bu hafta cron-tetiklemeli registry_contract koşusu varsa atlanır. Fail-open
+  // — eval hatası learn ingestion'ı ASLA bozmaz; canlı/ücretli eval cron'dan
+  // DEFAULT çalışmaz (yalnız manuel CLI + güvenlik kapıları).
+  let registryEval: unknown = null;
+  if (isIstanbulMonday(new Date()) && Date.now() - t0 < timeBudgetMs) {
+    try {
+      const { evalRunRepo } = await import("@/lib/db/evalRunRepo");
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const latest = await evalRunRepo.latestRunByKind("registry_contract");
+      const alreadyThisWeek = latest != null && latest.trigger === "cron" && latest.startedAt >= weekAgo;
+      if (alreadyThisWeek) {
+        registryEval = { skipped: "already_ran_this_week", runId: latest.id };
+      } else {
+        const { runRegistryContractEval } = await import("@/lib/eval/registryContractRunner");
+        const res = await runRegistryContractEval({ trigger: "cron" });
+        registryEval = { runId: res.runId, status: res.status, passed: res.passed, failed: res.failed };
+      }
+    } catch (err) {
+      registryEval = { error: redactError(err) };
     }
   }
 
@@ -205,7 +293,7 @@ async function runLearn(handleParam: string | null) {
     try {
       newsCatchup = await runPipelineTick(60_000);
     } catch (err) {
-      newsCatchup = { error: err instanceof Error ? err.message : String(err) };
+      newsCatchup = { error: redactError(err) };
     }
   }
 
@@ -213,7 +301,7 @@ async function runLearn(handleParam: string | null) {
   try {
     pruned = await pruneOldRecords();
   } catch (err) {
-    pruned = { error: err instanceof Error ? err.message : String(err) };
+    pruned = { error: redactError(err) };
   }
 
   const ok = errors < handles.length * 2; // both phases of every account failing = broken run
@@ -221,10 +309,10 @@ async function runLearn(handleParam: string | null) {
     await cronRunRepo.finish(cronRunId, {
       ok,
       partial,
-      result: { results, weeklyReport: weeklyReport ? true : null, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement },
+      result: { results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion, registryEval },
     });
   }
-  return { ok, partial, results, weeklyReport, pruned, newsCatchup, ytSync, igSync, igEngagement, ytOwnEngagement };
+  return { ok, partial, results, pruned, newsCatchup, ytSync, ytOwnEngagement, learnSweep, voiceProfiles, memorySignalReconciliation, memoryConsolidation, dnaDistillation, patternPromotion, registryEval };
 }
 
 // Vercel cron (daily 18:00 UTC) → GET; manual trigger → POST.

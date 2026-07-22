@@ -1,56 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { operatorReadinessService } from "@/lib/services/operatorReadinessService";
 import { workerService } from "@/lib/services/workerService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
 
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
-  }
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   try {
     // 1. Initial readiness state check
     const initialRes = await operatorReadinessService.getReadiness();
 
     // 2. Validate API Keys
     if (!process.env.OPENROUTER_API_KEY || !process.env.SOCIALDATA_API_KEY) {
-      return NextResponse.json({
-        success: false,
-        error: "API Anahtarları eksik! OpenRouter veya SocialData key bulunamadı."
-      }, { status: 400 });
+      return fail("API Anahtarları eksik! OpenRouter veya SocialData key bulunamadı.", 400);
     }
 
     // 3. Validate Budget
     if (initialRes.monthlyBudgetExceeded) {
-      return NextResponse.json({
-        success: false,
-        error: `Aylık bütçe limiti aşıldı! ($${initialRes.totalMonthCost.toFixed(2)} / $${Number(process.env.MONTHLY_AI_BUDGET_USD || "7").toFixed(2)})`
-      }, { status: 400 });
+      return fail(
+        `Aylık bütçe limiti aşıldı! ($${initialRes.totalMonthCost.toFixed(2)} / $${Number(process.env.MONTHLY_AI_BUDGET_USD || "7").toFixed(2)})`,
+        400
+      );
     }
 
     // 4. Run targeted and forced worker scan tick
-    const targetHandles = ["grafikcem", "maskulenkod"];
+    // ADR-031: hedef hesaplar DB'den (üretim-hazır liste); literal değil.
+    const { listGenerationReadyHandles } = await import("@/lib/accounts/profileRepository");
+    const targetHandles = (await listGenerationReadyHandles()).handles;
     const scanResult = await workerService.scanTick(new Date(), {
       force: true,
       targetHandles
     });
 
     if (scanResult && !scanResult.success && scanResult.reason === "locked") {
-      return NextResponse.json({
-        success: false,
-        error: "Kilit hatası: Başka bir tarama işlemi şu an aktif durumda."
-      }, { status: 409 });
+      return fail("Kilit hatası: Başka bir tarama işlemi şu an aktif durumda.", 409);
     }
 
     // 5. Get final readiness status to return updated count and state
     const finalRes = await operatorReadinessService.getReadiness();
 
-    return NextResponse.json({
-      success: true,
-      results: (scanResult as any)?.results || [],
-      readiness: finalRes
+    const results = (scanResult as any)?.results || [];
+    const draftsCreated = results.reduce((s: number, r: any) => s + (Number(r?.draftsCreated) || 0), 0);
+    const draftsBlocked = results.reduce((s: number, r: any) => s + (Number(r?.draftsBlocked) || 0), 0);
+    // Honest outcome: a 0-draft run (automation off / no candidates / all
+    // quality-blocked) must NOT read as "generated". Surface the count + reason
+    // so the UI can say "0 taslak — <reason>" instead of a blanket success toast.
+    const firstReason = results
+      .map((r: any) => r?.reason)
+      .find((x: unknown) => typeof x === "string" && x);
+    return ok({
+      results,
+      readiness: finalRes,
+      draftsCreated,
+      draftsBlocked,
+      reason: draftsCreated > 0 ? "generated" : firstReason || "no_drafts_created",
     });
   } catch (err) {
+    const budgetRes = budgetErrorResponse(err);
+    if (budgetRes) return budgetRes;
     const message = err instanceof Error ? err.message : "Operator scan now failed";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

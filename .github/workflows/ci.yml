@@ -1,0 +1,51 @@
+name: CI
+
+# Sprint 9 (later.md "CI pipeline yok"): the typecheck / lint / test / build
+# gates were local discipline only. This runs them on every push and PR so a
+# broken change can't reach a branch unnoticed.
+#
+# eval:run is intentionally NOT a CI gate: it needs a live OpenRouter key + DB
+# and would either cost money or no-op. It stays a manual, spend-approved step.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        # Placeholder DB URL: build does not connect, but Prisma client
+        # construction at import time needs the env var to be present.
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npm run build

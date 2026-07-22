@@ -18,11 +18,20 @@ import {
   CalendarDays,
   Target,
   Gauge,
-  Database,
   TrendingDown,
   CornerDownRight,
 } from "lucide-react";
-import { PageHeader, Card, MetricCard, SectionHeader, EmptyState, Skeleton, Badge } from "@/components/ui";
+import {
+  PageHeader,
+  Card,
+  MetricCard,
+  SectionHeader,
+  ErrorState,
+  Skeleton,
+  Badge,
+  Button,
+  Table,
+} from "@/components/ui";
 
 type CostLimits = {
   dailyTweetBudget: number;
@@ -36,6 +45,7 @@ type CostLimits = {
 type OpenRouterBreakdown = {
   purpose?: string;
   model?: string;
+  preset?: string;
   costUsd: number;
   calls: number;
 };
@@ -47,30 +57,89 @@ type LineItems = {
     costUsd: number;
     byPurpose: OpenRouterBreakdown[];
     byModel: OpenRouterBreakdown[];
+    byPreset?: OpenRouterBreakdown[];
   };
 };
 
 type CostStats = {
   today: { totalUsd: number; socialDataTweets: number; socialDataUsd: number; openRouterUsd: number };
-  month: { totalUsd: number; budgetUsd: number; socialDataUsd: number; openRouterUsd: number };
+  month: {
+    totalUsd: number;
+    budgetUsd: number;
+    socialDataUsd: number;
+    openRouterUsd: number;
+    /** Bütçe kapısının uyguladığı OpenRouter harcaması = max(local, provider). */
+    openRouterEnforcedUsd?: number;
+    providerUsageUsd?: number | null;
+  };
   lineItems?: LineItems;
+  // Faz 2E (ADR-034 §I): evaluation bütçesi — production curation'dan AYRI.
+  evaluation?: {
+    enabled: boolean;
+    monthlyBudgetUsd: number;
+    monthSpendUsd: number;
+    curationMonthSpendUsd: number;
+  };
   dailySeries: Array<{ date: string; totalUsd: number; socialDataUsd?: number; openRouterUsd?: number }>;
   limits?: CostLimits;
 };
 
 const fmt = (n: number) => `$${(n ?? 0).toFixed(4)}`;
 
+type QualityKpis = {
+  acceptanceRate: number | null;
+  decidedCount: number;
+  medianEditDistance: number | null;
+  editSampleCount: number;
+  goldenPassPct: number | null;
+  goldenScored: number;
+};
+
+/** Sağlayıcı kalemleri tablosunun düz satır modeli (Table primitive). */
+type LineRow = {
+  key: string;
+  label: React.ReactNode;
+  detail: React.ReactNode;
+  cost: React.ReactNode;
+};
+
 export default function CostsTab() {
   const [costs, setCosts] = useState<CostStats | null>(null);
+  const [kpis, setKpis] = useState<QualityKpis | null>(null);
+  const [lastEvalRun, setLastEvalRun] = useState<{ status: string; totalCostUsd: number; kind: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchCosts = async () => {
+    setLoadFailed(false);
     try {
       const res = await fetch("/api/costs");
       const data = await res.json();
       setCosts(data);
+      // Kalite KPI'ları fail-soft: hata maliyet panelini bozmaz.
+      try {
+        const kRes = await fetch("/api/eval/kpis");
+        if (kRes.ok) {
+          const k = await kRes.json();
+          if (k.success) setKpis(k as QualityKpis);
+        }
+      } catch {
+        /* fail-soft */
+      }
+      // Faz 2E: son eval koşu maliyeti (fail-soft; yoksa "veri yok" kalır).
+      try {
+        const rRes = await fetch("/api/eval/runs?limit=1");
+        if (rRes.ok) {
+          const r = await rRes.json();
+          const run = r?.success && Array.isArray(r.runs) ? r.runs[0] : null;
+          setLastEvalRun(run ? { status: run.status, totalCostUsd: run.totalCostUsd, kind: run.kind } : null);
+        }
+      } catch {
+        /* fail-soft */
+      }
     } catch (err) {
       console.error("Maliyetler yüklenirken hata:", err);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -87,16 +156,17 @@ export default function CostsTab() {
           eyebrow="MALİYET"
           title="Maliyet Takibi"
           subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+          size="compact"
         />
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "var(--space-3)",
-            marginBottom: "var(--space-6)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))",
+            gap: "var(--space-2)",
+            marginBottom: "var(--space-4)",
           }}
         >
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <Card key={i} variant="quiet" padded>
               <Skeleton lines={2} height={16} />
             </Card>
@@ -109,11 +179,33 @@ export default function CostsTab() {
     );
   }
 
+  if (loadFailed && !costs) {
+    return (
+      <div style={{ width: "100%" }}>
+        <PageHeader
+          eyebrow="MALİYET"
+          title="Maliyet Takibi"
+          subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+          size="compact"
+        />
+        <ErrorState
+          title="Maliyet verisi yüklenemedi"
+          description="Maliyet paneli şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => {
+            setLoading(true);
+            fetchCosts();
+          }}
+        />
+      </div>
+    );
+  }
+
   const today = costs?.today ?? { totalUsd: 0, socialDataTweets: 0, socialDataUsd: 0, openRouterUsd: 0 };
   const month = costs?.month ?? { totalUsd: 0, budgetUsd: 10, socialDataUsd: 0, openRouterUsd: 0 };
   const dailySeries = costs?.dailySeries ?? [];
   const limits = costs?.limits;
   const lineItems = costs?.lineItems;
+  const evaluation = costs?.evaluation;
 
   const dailyTweetBudget = limits?.dailyTweetBudget ?? 150;
 
@@ -125,115 +217,231 @@ export default function CostsTab() {
   const budgetTone = budgetPct >= 80 ? "var(--danger)" : budgetPct >= 60 ? "var(--accent-2-text)" : "var(--accent)";
   const budgetTextTone = budgetPct >= 80 ? "var(--danger)" : budgetPct >= 60 ? "var(--accent-2-text)" : "var(--text-primary)";
 
+  // Sağlayıcı kalemleri → Table primitive satırları (davranış aynı, sunum kompakt).
+  const lineRows: LineRow[] = lineItems
+    ? [
+        {
+          key: "socialdata",
+          label: (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500, color: "var(--text-primary)" }}>
+              <BarChart3 size={14} strokeWidth={2} style={{ color: "var(--blue)" }} /> SocialData
+            </span>
+          ),
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              <span className="tnum">{(lineItems.socialData.tweets ?? 0).toLocaleString()}</span> tweet × $
+              {lineItems.socialData.unitPriceUsd ?? 0.0002}
+            </span>
+          ),
+          cost: <span style={{ fontWeight: 500, color: "var(--text-primary)" }}>{fmt(lineItems.socialData.costUsd ?? month.socialDataUsd)}</span>,
+        },
+        {
+          key: "openrouter",
+          label: (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500, color: "var(--text-primary)" }}>
+              <Zap size={14} strokeWidth={2} style={{ color: "var(--accent-2-text)" }} /> OpenRouter
+            </span>
+          ),
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              amaç / model kırılımı
+              {month.openRouterEnforcedUsd != null &&
+                month.openRouterEnforcedUsd > (lineItems.openRouter.costUsd ?? month.openRouterUsd) + 0.00001 && (
+                  <>
+                    {" · "}
+                    <span style={{ color: "var(--status-warn-text)" }}>
+                      uygulanan (provider): {fmt(month.openRouterEnforcedUsd)}
+                    </span>
+                  </>
+                )}
+            </span>
+          ),
+          cost: <span style={{ fontWeight: 500, color: "var(--accent-2-text)" }}>{fmt(lineItems.openRouter.costUsd ?? month.openRouterUsd)}</span>,
+        },
+        ...(lineItems.openRouter.byPurpose ?? []).map((p) => ({
+          key: `purpose-${p.purpose}`,
+          label: (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "var(--text-secondary)", paddingLeft: "var(--space-5)" }}>
+              <CornerDownRight size={13} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} /> {p.purpose}
+            </span>
+          ),
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              <span className="tnum">{p.calls}</span> çağrı
+            </span>
+          ),
+          cost: <span style={{ color: "var(--text-secondary)" }}>{fmt(p.costUsd)}</span>,
+        })),
+        // Sprint 2: preset katmanı harcama dökümü.
+        ...(lineItems.openRouter.byPreset ?? []).map((p) => ({
+          key: `preset-${p.preset}`,
+          label: (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, paddingLeft: "var(--space-5)" }}>
+              <Badge variant="accent" size="xs">preset</Badge>
+              <span style={{ color: "var(--text-secondary)" }}>{p.preset}</span>
+            </span>
+          ),
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              <span className="tnum">{p.calls}</span> çağrı
+            </span>
+          ),
+          cost: <span style={{ color: "var(--text-secondary)" }}>{fmt(p.costUsd)}</span>,
+        })),
+        ...(lineItems.openRouter.byModel ?? []).map((m) => ({
+          key: `model-${m.model}`,
+          label: (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 7, paddingLeft: "var(--space-5)" }}>
+              <Badge variant="muted" size="xs">model</Badge>
+              <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{m.model}</span>
+            </span>
+          ),
+          detail: (
+            <span style={{ color: "var(--text-muted)" }}>
+              <span className="tnum">{m.calls}</span> çağrı
+            </span>
+          ),
+          cost: <span style={{ color: "var(--text-muted)" }}>{fmt(m.costUsd)}</span>,
+        })),
+      ]
+    : [];
+
   return (
     <div style={{ width: "100%", paddingBottom: "var(--space-12)" }}>
       <PageHeader
         eyebrow="MALİYET"
         title="Maliyet Takibi"
         subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+        size="compact"
         actions={
-          <button
+          <Button
+            size="sm"
+            variant="secondary"
+            iconLeft={<RefreshCw size={14} strokeWidth={2} />}
             onClick={() => {
               setLoading(true);
               fetchCosts();
             }}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              background: "var(--bg-surface)",
-              color: "var(--text-secondary)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
-              padding: "8px 14px",
-              fontSize: "var(--text-xs)",
-              fontWeight: 600,
-              fontFamily: "inherit",
-              cursor: "pointer",
-              transition: "color var(--ease-out) 0.15s, border-color var(--ease-out) 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--accent-text)";
-              e.currentTarget.style.borderColor = "var(--accent-border)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--text-secondary)";
-              e.currentTarget.style.borderColor = "var(--border)";
-            }}
           >
-            <RefreshCw size={15} strokeWidth={2} /> Yenile
-          </button>
+            Yenile
+          </Button>
         }
       />
 
-      {/* Editöryal stat şeridi — bütçe baskın (accent + ring) */}
+      {/* Tek kompakt stat sırası — en kritik 5 metrik */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-3)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))",
+          gap: "var(--space-2)",
+          marginBottom: "var(--space-2)",
         }}
       >
         <MetricCard
           label="Bütçe kullanımı"
-          value={`%${budgetPct}`}
-          size="lg"
+          value={<span style={{ color: budgetTextTone }}>%{budgetPct}</span>}
+          icon={<Gauge size={16} strokeWidth={1.8} />}
           accent
-          progress={budgetPct}
-          ringTone={budgetPct >= 60 ? "accent-2" : "accent"}
         />
         <MetricCard
           label="Bugün toplam"
           value={fmt(today.totalUsd)}
           icon={<Wallet size={16} strokeWidth={1.8} />}
-          size="lg"
         />
         <MetricCard
           label="Aylık toplam"
-          value={`${fmt(month.totalUsd)} / $${month.budgetUsd}`}
-          icon={<CalendarDays size={16} strokeWidth={1.8} />}
-          size="lg"
-        />
-      </div>
-
-      {/* İkincil stat şeridi — sağlayıcı kırılımı + limit */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "var(--space-3)",
-          marginBottom: "var(--space-6)",
-        }}
-      >
-        <MetricCard
-          label="SocialData bugün"
           value={
-            <span>
-              <span className="tnum">{today.socialDataTweets}</span>
-              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 600 }}> tweet · </span>
-              <span className="tnum" style={{ color: "var(--blue)" }}>{fmt(today.socialDataUsd)}</span>
+            <span className="tnum">
+              {fmt(month.totalUsd)}
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 500 }}> / ${month.budgetUsd}</span>
             </span>
           }
-          icon={<BarChart3 size={16} strokeWidth={1.8} />}
+          icon={<CalendarDays size={16} strokeWidth={1.8} />}
         />
         <MetricCard
           label="OpenRouter bugün"
           value={<span className="tnum" style={{ color: "var(--accent-2-text)" }}>{fmt(today.openRouterUsd)}</span>}
           icon={<Zap size={16} strokeWidth={1.8} />}
+          tone="lime"
         />
         <MetricCard
           label="Günlük limit"
           value={
             <span className="tnum">
               {today.socialDataTweets}
-              <span style={{ color: "var(--text-muted)" }}> / {dailyTweetBudget}</span>
+              <span style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", fontWeight: 500 }}> / {dailyTweetBudget}</span>
             </span>
           }
           delta="tweet"
           icon={<Target size={16} strokeWidth={1.8} />}
         />
       </div>
+
+      {/* İkincil değerler + Kalite KPI'ları — küçük sessiz satır (dev tile yok).
+          Sprint 8 — EVALUATION-SPEC §7; veri yoksa 'veri yok'. */}
+      <Card variant="quiet" padded={false} style={{ marginBottom: "var(--space-4)" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "10px 22px",
+            padding: "9px 14px",
+          }}
+        >
+          <QuietStat
+            label="SocialData bugün"
+            value={
+              <>
+                <span className="tnum">{today.socialDataTweets}</span> tweet ·{" "}
+                <span className="tnum" style={{ color: "var(--blue)" }}>{fmt(today.socialDataUsd)}</span>
+              </>
+            }
+          />
+          <QuietStat
+            label="Kabul oranı (30g)"
+            value={
+              kpis?.acceptanceRate !== null && kpis !== null
+                ? `%${Math.round(kpis.acceptanceRate * 100)}`
+                : "veri yok"
+            }
+            suffix={kpis ? `${kpis.decidedCount} karar` : undefined}
+          />
+          <QuietStat
+            label="Medyan edit-distance (kuzey yıldızı)"
+            value={
+              kpis?.medianEditDistance !== null && kpis !== null
+                ? kpis.medianEditDistance.toFixed(2)
+                : "veri yok"
+            }
+            suffix={kpis ? `${kpis.editSampleCount} edit` : undefined}
+          />
+          <QuietStat
+            label="Golden set geçiş"
+            value={kpis?.goldenPassPct !== null && kpis !== null ? `%${kpis.goldenPassPct}` : "veri yok"}
+            suffix={kpis ? `${kpis.goldenScored} vaka` : undefined}
+          />
+          {/* Faz 2E (ADR-034 §I): evaluation bütçesi — production curation'dan AYRI sınıf. */}
+          <QuietStat
+            label="Eval bütçesi (ay)"
+            value={
+              evaluation
+                ? `${fmt(evaluation.monthSpendUsd)} / $${evaluation.monthlyBudgetUsd.toFixed(2)}`
+                : "veri yok"
+            }
+            suffix={evaluation ? (evaluation.enabled ? "açık" : "kapalı") : undefined}
+          />
+          <QuietStat
+            label="Son eval koşusu"
+            value={lastEvalRun ? `${lastEvalRun.status} · ${fmt(lastEvalRun.totalCostUsd)}` : "veri yok"}
+            suffix={lastEvalRun?.kind}
+          />
+          <QuietStat
+            label="Kürasyon harcaması (ay)"
+            value={evaluation ? fmt(evaluation.curationMonthSpendUsd) : "veri yok"}
+          />
+        </div>
+      </Card>
 
       {/* Bütçe bandı */}
       <Card variant="feature" padded>
@@ -243,7 +451,7 @@ export default function CostsTab() {
           action={
             <span
               className="tnum"
-              style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: budgetTextTone, display: "inline-flex", alignItems: "center", gap: 7 }}
+              style={{ fontSize: "var(--text-sm)", fontWeight: 500, color: budgetTextTone, display: "inline-flex", alignItems: "center", gap: 7 }}
             >
               {budgetPct >= 80 && <Gauge size={15} strokeWidth={2} />}
               {fmt(month.totalUsd)} / ${month.budgetUsd}
@@ -278,84 +486,22 @@ export default function CostsTab() {
           title="Sağlayıcı Kalemleri"
           description="Amaç ve model bazında maliyet kırılımı."
         />
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
-          <thead>
-            <tr>
-              <Th>Sağlayıcı / Kalem</Th>
-              <Th style={{ textAlign: "right" }}>Detay</Th>
-              <Th style={{ textAlign: "right", width: 120 }}>Maliyet</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* SocialData row */}
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <Td>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, color: "var(--text-primary)" }}>
-                  <BarChart3 size={15} strokeWidth={2} style={{ color: "var(--blue)" }} /> SocialData
-                </span>
-              </Td>
-              <Td style={{ textAlign: "right", color: "var(--text-muted)" }}>
-                <span className="tnum">{(lineItems?.socialData.tweets ?? 0).toLocaleString()}</span> tweet × ${lineItems?.socialData.unitPriceUsd ?? 0.0002}
-              </Td>
-              <Td style={{ textAlign: "right" }}>
-                <span className="tnum" style={{ fontWeight: 700, color: "var(--text-primary)" }}>{fmt(lineItems?.socialData.costUsd ?? month.socialDataUsd)}</span>
-              </Td>
-            </tr>
-
-            {/* OpenRouter header row */}
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <Td>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 9, fontWeight: 700, color: "var(--text-primary)" }}>
-                  <Zap size={15} strokeWidth={2} style={{ color: "var(--accent-2-text)" }} /> OpenRouter
-                </span>
-              </Td>
-              <Td style={{ textAlign: "right", color: "var(--text-muted)" }}>amaç / model kırılımı</Td>
-              <Td style={{ textAlign: "right" }}>
-                <span className="tnum" style={{ fontWeight: 700, color: "var(--accent-2-text)" }}>{fmt(lineItems?.openRouter.costUsd ?? month.openRouterUsd)}</span>
-              </Td>
-            </tr>
-
-            {/* OpenRouter by purpose */}
-            {(lineItems?.openRouter.byPurpose ?? []).map((p) => (
-              <tr key={`purpose-${p.purpose}`} style={{ borderBottom: "1px solid var(--border)" }}>
-                <Td style={{ paddingLeft: "var(--space-8)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "var(--text-secondary)" }}>
-                    <CornerDownRight size={13} strokeWidth={1.8} style={{ color: "var(--text-muted)" }} /> {p.purpose}
-                  </span>
-                </Td>
-                <Td style={{ textAlign: "right", color: "var(--text-muted)" }}><span className="tnum">{p.calls}</span> çağrı</Td>
-                <Td style={{ textAlign: "right" }}><span className="tnum" style={{ color: "var(--text-secondary)" }}>{fmt(p.costUsd)}</span></Td>
-              </tr>
-            ))}
-
-            {/* OpenRouter by model */}
-            {(lineItems?.openRouter.byModel ?? []).map((m) => (
-              <tr key={`model-${m.model}`} style={{ borderBottom: "1px solid var(--border)" }}>
-                <Td style={{ paddingLeft: "var(--space-8)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                    <Badge variant="muted" size="xs">model</Badge>
-                    <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>{m.model}</span>
-                  </span>
-                </Td>
-                <Td style={{ textAlign: "right", color: "var(--text-muted)" }}><span className="tnum">{m.calls}</span> çağrı</Td>
-                <Td style={{ textAlign: "right", color: "var(--text-muted)" }}><span className="tnum">{fmt(m.costUsd)}</span></Td>
-              </tr>
-            ))}
-
-            {!lineItems && (
-              <tr>
-                <td colSpan={3} style={{ padding: 0 }}>
-                  <EmptyState
-                    icon={<Database size={22} strokeWidth={1.8} />}
-                    title="Henüz kalem verisi yok"
-                    description="Sağlayıcı çağrıları başladığında maliyet kırılımı burada listelenir."
-                    compact
-                  />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        {lineItems ? (
+          <Table<LineRow>
+            compact
+            columns={[
+              { key: "label", header: "Sağlayıcı / Kalem", render: (r) => r.label },
+              { key: "detail", header: "Detay", align: "right", render: (r) => r.detail },
+              { key: "cost", header: "Maliyet", numeric: true, width: 110, render: (r) => r.cost },
+            ]}
+            rows={lineRows}
+            getRowKey={(r) => r.key}
+          />
+        ) : (
+          <div style={{ padding: "8px 2px", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            Henüz kalem verisi yok — sağlayıcı çağrıları başladığında maliyet kırılımı burada listelenir.
+          </div>
+        )}
       </Card>
 
       {/* Cost chart */}
@@ -370,13 +516,11 @@ export default function CostsTab() {
           }
         />
         {dailySeries.length === 0 ? (
-          <EmptyState
-            icon={<BarChart3 size={22} strokeWidth={1.8} />}
-            title="Henüz maliyet verisi yok"
-            description="Otomasyon başladığında günlük harcama trendi burada görünür."
-            compact
-          />
+          <div style={{ padding: "8px 2px", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            Henüz maliyet verisi yok — otomasyon başladığında günlük harcama trendi burada görünür.
+          </div>
         ) : (
+          <div style={{ width: "100%", minWidth: 0 }}>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={dailySeries} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <defs>
@@ -397,31 +541,44 @@ export default function CostsTab() {
               <Area type="monotone" dataKey="totalUsd" stroke="var(--chart-1)" strokeWidth={2} fill="url(#costGradient)" dot={{ fill: "var(--chart-1)", r: 3 }} activeDot={{ r: 5 }} />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         )}
       </Card>
     </div>
   );
 }
 
-function Th({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+/** Sessiz satır içi mini istatistik — 'veri yok' değerleri dev tile'a dönüşmez. */
+function QuietStat({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: React.ReactNode;
+  suffix?: string;
+}) {
+  const isEmpty = value === "veri yok";
   return (
-    <th
-      className="eyebrow"
-      style={{
-        padding: "11px 14px",
-        textAlign: "left",
-        fontSize: "var(--text-2xs)",
-        color: "var(--text-muted)",
-        borderBottom: "1px solid var(--border-strong)",
-        whiteSpace: "nowrap",
-        ...style,
-      }}
-    >
-      {children}
-    </th>
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 7, whiteSpace: "nowrap" }}>
+      <span className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      <span
+        className="tnum"
+        style={{
+          fontSize: "var(--text-xs)",
+          fontWeight: 500,
+          color: isEmpty ? "var(--text-muted)" : "var(--text-secondary)",
+        }}
+      >
+        {value}
+      </span>
+      {suffix && (
+        <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+          {suffix}
+        </span>
+      )}
+    </span>
   );
-}
-
-function Td({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <td style={{ padding: "11px 14px", verticalAlign: "middle", color: "var(--text-primary)", ...style }}>{children}</td>;
 }

@@ -11,6 +11,15 @@ type TraceStage = {
   ms: number;
   costUsd: number;
   score?: number;
+  // Additive registry metadata (ADR-027) — eski kayıtlar taşımaz, hepsi opsiyonel.
+  agentId?: string;
+  agentVersion?: string;
+  executionMode?: string;
+  outcome?: string;
+  fallbackUsed?: boolean;
+  blockedReason?: string;
+  retryCount?: number;
+  policyVersion?: string;
 };
 
 type Trace = {
@@ -36,13 +45,13 @@ const card: CSSProperties = {
 
 function badge(variant: "accent" | "red" | "yellow"): CSSProperties {
   const map = {
-    accent: { color: "var(--accent)", bg: "rgba(155,44,52,0.12)", border: "rgba(155,44,52,0.2)" },
-    red: { color: "var(--red)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.2)" },
-    yellow: { color: "var(--yellow)", bg: "rgba(250,204,21,0.12)", border: "rgba(250,204,21,0.2)" },
+    accent: { color: "var(--accent)", bg: "var(--accent-tint-12)", border: "var(--accent-tint-20)" },
+    red: { color: "var(--red)", bg: "color-mix(in srgb, var(--danger) 12%, transparent)", border: "color-mix(in srgb, var(--danger) 20%, transparent)" },
+    yellow: { color: "var(--yellow)", bg: "color-mix(in srgb, var(--yellow) 12%, transparent)", border: "color-mix(in srgb, var(--yellow) 20%, transparent)" },
   }[variant];
   return {
     fontSize: 9,
-    fontWeight: 700,
+    fontWeight: 500,
     color: map.color,
     background: map.bg,
     border: `1px solid ${map.border}`,
@@ -89,19 +98,32 @@ export default function PipelineTraceDrawer({ subjectType, subjectId }: Props) {
       {traces.map((t) => (
         <div key={t.id} style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>🧬 {t.pipelineId}</span>
+            <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-primary)" }}>🧬 {t.pipelineId}</span>
             <span style={{ fontSize: 10, color: "var(--text-muted)" }}>${t.totalCostUsd.toFixed(4)}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {t.stages.map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
-                <span style={badge(s.ok ? "accent" : "red")}>{s.ok ? "✓" : "✗"}</span>
-                <span style={{ fontWeight: 600, color: "var(--text-primary)", minWidth: 64 }}>{s.stage}</span>
-                <span style={{ color: "var(--text-muted)" }}>{s.role}</span>
-                {s.failOpenUsed && <span style={badge("yellow")}>fail-open</span>}
-                <span style={{ marginLeft: "auto", color: "var(--text-muted)" }}>
-                  {s.ms}ms · ${s.costUsd.toFixed(4)}
-                </span>
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                  <span style={badge(s.ok ? "accent" : "red")}>{s.ok ? "✓" : "✗"}</span>
+                  <span style={{ fontWeight: 500, color: "var(--text-primary)", minWidth: 64 }}>{s.stage}</span>
+                  <span style={{ color: "var(--text-muted)" }}>{s.role}</span>
+                  {s.failOpenUsed && <span style={badge("yellow")}>fail-open</span>}
+                  <span style={{ marginLeft: "auto", color: "var(--text-muted)" }}>
+                    {s.ms}ms · ${s.costUsd.toFixed(4)}
+                  </span>
+                </div>
+                {s.agentId && (
+                  <div
+                    data-testid="trace-agent-meta"
+                    style={{ fontSize: 10, color: "var(--text-muted)", paddingLeft: 28 }}
+                  >
+                    {s.agentId}@{s.agentVersion ?? "?"} · {s.executionMode ?? "?"} · {s.outcome ?? "?"}
+                    {s.fallbackUsed ? " · deterministik fallback" : ""}
+                    {s.blockedReason ? ` · engel: ${s.blockedReason}` : ""}
+                    {typeof s.retryCount === "number" && s.retryCount > 0 ? ` · retry ${s.retryCount}` : ""}
+                  </div>
+                )}
               </div>
             ))}
           </div>

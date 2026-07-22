@@ -1,21 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { assertSafePin } from "@/lib/verify/ssrfGuard";
+import { makePinnedFetch } from "@/lib/verify/pinnedFetch";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const HEAD_TIMEOUT_MS = 8_000;
 const BATCH_SIZE = 10;
+const MAX_REDIRECTS = 5;
 
-// Probe one URL with a timeout-bounded HEAD request. Fail-open: any error
-// (timeout, DNS, refused, non-2xx) resolves to "dead" — never throws.
+// Probe one URL with a timeout-bounded HEAD request. SSRF-guarded: EACH hop is
+// validated (assertSafePin blocks private/metadata/credentialed targets) AND the
+// socket is PINNED to the just-verified IP (makePinnedFetch), so no DNS-rebind can
+// swap in a private target between check and connect. Redirects are followed
+// MANUALLY so a 3xx to an internal host is re-checked + re-pinned. Fail-open: any
+// error (blocked, timeout, DNS, refused, non-2xx, too many redirects) resolves to
+// "dead" — never throws.
 async function probe(url: string): Promise<"alive" | "dead"> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), HEAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { method: "HEAD", redirect: "follow", signal: ctrl.signal });
-    return res.ok ? "alive" : "dead";
+    let current = url;
+    for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
+      const safe = await assertSafePin(current);
+      const pinnedFetch = makePinnedFetch(safe.pinIp, safe.pinFamily);
+      const res = await pinnedFetch(safe.url.toString(), {
+        method: "HEAD",
+        redirect: "manual",
+        signal: ctrl.signal,
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get("location");
+        if (!loc) return "dead";
+        current = new URL(loc, safe.url).toString(); // re-validated + re-pinned next iteration
+        continue;
+      }
+      return res.ok ? "alive" : "dead";
+    }
+    return "dead"; // too many redirects
   } catch {
     return "dead";
   } finally {

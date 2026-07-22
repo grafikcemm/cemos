@@ -1,25 +1,17 @@
 import type { AccountProfile } from "@/lib/accounts";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
+import { sourcePostRepo } from "@/lib/db/sourcePostRepo";
 import { buildMemoryContext, buildMemoryPromptBlock } from "@/lib/growth-engine/vector-memory";
+import { buildIdentityMemoryContext, rerankMemoryContext } from "@/lib/memory/retrieval";
 
 /**
- * örn2 brand-voice discipline: phrases that read as generic AI/marketing tropes.
- * These are appended to every grounding block as a hard "never write" list.
+ * örn2 brand-voice discipline listesi artık tek kaynaktan gelir
+ * (`@/lib/safety/banned-phrases`) — hem bu grounding bloğu hem deterministik
+ * lint aynı listeyi kullanır (FIRST-SPRINT item 9). Re-export geriye dönük
+ * import'ları korur.
  */
-export const BANNED_PHRASES: string[] = [
-  "Stop doing",
-  "X is dead",
-  "öldü",
-  "DM me",
-  "game changer",
-  "oyunun kurallarını değiştir",
-  "çığır açan",
-  "devrim niteliğinde",
-  "bunu kaçırma",
-  "inanılmaz",
-  "şok edici",
-  "herkes konuşuyor",
-];
+export { BANNED_PHRASES } from "@/lib/safety/banned-phrases";
+import { BANNED_PHRASES } from "@/lib/safety/banned-phrases";
 
 export type GroundingContext = {
   block: string;
@@ -27,6 +19,14 @@ export type GroundingContext = {
    * QueueItem `scores` JSON so the engagement learning loop can later
    * re-weight exactly these patterns by real post performance. */
   patternIds: string[];
+  /** IDs of the live viral SourcePosts injected as "what's working now"
+   * research context (xpatla-parity). Stored alongside patternIds. */
+  sourcePostIds: string[];
+  /** Faz 2B (ADR-030, additive): taslağı GERÇEKTEN etkileyen aktif MemoryFact
+   * id'leri — QueueItem scores JSON'una influence provenance olarak yazılır.
+   * Yalnız active fact girebilir (retrieval yalnız active okur); identity
+   * bloğu düşerse boş kalır → sahte influence kaydı imkânsız. */
+  memoryFactIds: string[];
 };
 
 /**
@@ -43,6 +43,22 @@ export async function buildGroundingContext(
 ): Promise<GroundingContext> {
   const parts: string[] = [];
   const patternIds: string[] = [];
+  const sourcePostIds: string[] = [];
+  const memoryFactIds: string[] = [];
+
+  // 0) Identity hafızası (Sprint 3 — MEMORY-SPEC §5.4): ses anayasası (Tier 1)
+  //    + operatör-onaylı aktif MemoryFact kuralları + DNA özeti. Her zaman EN
+  //    BAŞTA — kimlik çapası recall örneklerinden önce gelir. Fail-soft.
+  try {
+    const identity = await buildIdentityMemoryContext(profile.handle);
+    if (identity.block.trim()) {
+      parts.push(identity.block.trim());
+      // ADR-030: dedupe — aynı fact id iki kez yazılmaz.
+      memoryFactIds.push(...Array.from(new Set(identity.memoryFactIds)));
+    }
+  } catch {
+    /* fail-soft — blok girmediyse influence de kaydedilmez */
+  }
 
   // 1) Mined viral patterns (the externally-learned "training").
   try {
@@ -67,10 +83,39 @@ export async function buildGroundingContext(
     /* fail-soft */
   }
 
-  // 2) Semantic memory (RAG over the populated corpus).
+  // 1.5) Araştırma katmanı (xpatla-parity): nişte ŞU AN patlayan gerçek örnekler.
+  //      Rakibin çekirdek farkı buydu — yazımdan önce güncel viral içeriği tara.
+  //      Ekstra LLM yok (viralScore zaten hesaplı); en yüksek skorlu 5 taze post.
+  try {
+    const hot = await sourcePostRepo.listNewByAccount(accountId, 5);
+    const strong = hot.filter((p) => (p.viralScore ?? 0) >= 40);
+    if (strong.length > 0) {
+      sourcePostIds.push(...strong.map((p) => p.id));
+      parts.push(
+        "=== GÜNCEL VİRAL ÖRNEKLER (nişte şu an patlayan içerik — neyin tuttuğunu gör, KOPYALAMA) ===\n" +
+          strong
+            .map((p) => {
+              const txt = (p.text ?? "").replace(/\s+/g, " ").slice(0, 160);
+              return `* [skor ${p.viralScore}] @${p.source?.handle ?? "?"}: "${txt}"`;
+            })
+            .join("\n")
+      );
+    }
+  } catch {
+    /* fail-soft */
+  }
+
+  // 1.7) SES PROFİLİ bloğu buradan (user mesajı) SYSTEM prompt'a taşındı —
+  //      FIRST-SPRINT item 16: buildDraftSystemPrompt(profile, voice) tek
+  //      enjeksiyon noktası (tekrar/şişme yok + Anthropic cache breakpoint'i).
+  //      Voice verisini draftService yükler (loadDraftVoice) ve pipeline'a geçirir.
+
+  // 2) Semantic memory (RAG over the populated corpus). §5.2: aday sayısı
+  //    eşiği aşarsa judge-preset rerank ile top-8'e indirilir (fail-open).
   try {
     const ctx = await buildMemoryContext({ accountHandle: profile.handle, sourceContent: sourceText });
-    const block = buildMemoryPromptBlock(ctx);
+    const reranked = await rerankMemoryContext(ctx, sourceText, accountId);
+    const block = buildMemoryPromptBlock(reranked);
     if (block.trim()) parts.push(block.trim());
   } catch {
     /* fail-soft */
@@ -89,7 +134,7 @@ export async function buildGroundingContext(
     );
   }
 
-  return { block: parts.join("\n\n"), patternIds };
+  return { block: parts.join("\n\n"), patternIds, sourcePostIds, memoryFactIds };
 }
 
 /** Back-compat string wrapper around {@link buildGroundingContext}. */

@@ -22,8 +22,8 @@ type LearningStatus = {
 };
 
 const cardStyle: React.CSSProperties = {
-  background: "#0e0e0e",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "var(--bg-sunken)",
+  border: "1px solid var(--border)",
   borderRadius: 10,
   padding: 16,
   marginBottom: 14,
@@ -37,10 +37,10 @@ function formatRun(run: CronRunInfo): { text: string; color: string } {
     hour: "2-digit",
     minute: "2-digit",
   });
-  if (!run.finishedAt) return { text: `${dt} — çalışıyor…`, color: "#f59e0b" };
-  if (!run.ok) return { text: `${dt} — hata: ${run.error || "bilinmiyor"}`, color: "#f87171" };
-  if (run.partial) return { text: `${dt} — kısmi tamamlandı`, color: "#f59e0b" };
-  return { text: `${dt} — başarılı`, color: "#4ade80" };
+  if (!run.finishedAt) return { text: `${dt} — çalışıyor…`, color: "var(--status-warn)" };
+  if (!run.ok) return { text: `${dt} — hata: ${run.error || "bilinmiyor"}`, color: "var(--status-error)" };
+  if (run.partial) return { text: `${dt} — kısmi tamamlandı`, color: "var(--status-warn)" };
+  return { text: `${dt} — başarılı`, color: "var(--status-ok)" };
 }
 
 /**
@@ -67,7 +67,7 @@ export default function LearningStatusCard() {
 
   if (error) {
     return (
-      <div style={{ ...cardStyle, borderColor: "rgba(239,68,68,0.3)", color: "#f87171", fontSize: 12 }}>
+      <div style={{ ...cardStyle, borderColor: "color-mix(in srgb, var(--status-error) 30%, transparent)", color: "var(--status-error)", fontSize: 12 }}>
         Öğrenme durumu yüklenemedi: {error}
       </div>
     );
@@ -85,13 +85,13 @@ export default function LearningStatusCard() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Günlük cron (keşif + üretim)</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: daily.color, marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: daily.color, marginTop: 4 }}>
             {status ? daily.text : "yükleniyor…"}
           </div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Öğrenme cronu (mining + engagement)</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: learn.color, marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: learn.color, marginTop: 4 }}>
             {status ? learn.text : "yükleniyor…"}
           </div>
         </div>
@@ -100,14 +100,14 @@ export default function LearningStatusCard() {
           <div style={{ fontSize: 12, marginTop: 4 }}>
             <strong style={{ color: "var(--accent)" }}>{status ? status.patternsMinedLast7d : "–"}</strong>{" "}
             yeni pattern ·{" "}
-            <strong style={{ color: "#60a5fa" }}>{status ? status.engagementEventsLast7d : "–"}</strong>{" "}
+            <strong style={{ color: "var(--status-info)" }}>{status ? status.engagementEventsLast7d : "–"}</strong>{" "}
             engagement sinyali
           </div>
         </div>
       </div>
 
       {status && status.topPatterns.length > 0 && (
-        <div style={{ marginTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10 }}>
+        <div style={{ marginTop: 12, borderTop: "1px solid var(--border-faint)", paddingTop: 10 }}>
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
             En güçlü pattern'ler (gerçek performansla güncellenir)
           </div>

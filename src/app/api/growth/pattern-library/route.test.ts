@@ -29,7 +29,8 @@ describe("Pattern Library API GET Route", () => {
   const createGetRequest = (query: Record<string, string>) => {
     const q = new URLSearchParams(query);
     return new NextRequest(`http://localhost:3000/api/growth/pattern-library?${q.toString()}`, {
-      method: "GET"
+      method: "GET",
+      headers: { "sec-fetch-site": "same-origin" },
     });
   };
 

@@ -1,0 +1,52 @@
+name: db-integration
+
+# Real-Postgres integration suite (src/**/*.itest.ts). Proves advisory-lock
+# serialization, unique-constraint violations and atomic UPDATE clamps that the
+# mocked unit suite cannot. Never runs against Neon — uses an ephemeral service DB.
+
+on:
+  push:
+    branches: [feature/cemos-rebuild, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  db-integration:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cemos
+          POSTGRES_PASSWORD: cemos
+          POSTGRES_DB: cemos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cemos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Ephemeral service DB — the guard in src/test/integration/guard.ts allows
+      # this host (localhost) and would REFUSE a remote/prod URL.
+      DATABASE_URL: postgresql://cemos:cemos@localhost:5432/cemos_test?schema=public
+      DB_INTEGRATION: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations to the ephemeral DB
+        run: npx prisma migrate deploy
+
+      - name: Run real-Postgres integration suite
+        run: npm run test:db-integration

@@ -206,12 +206,40 @@ describe("healthService", () => {
         .mockResolvedValueOnce(9) // analyzedLast24h
         .mockResolvedValueOnce(1); // failedBacklog
       vi.mocked(prisma.cronRun.findFirst).mockResolvedValue(okCronRun as never);
-      vi.mocked(getDigestForDate).mockResolvedValue({ id: "d1", date: "2026-06-11" } as never);
+      vi.mocked(getDigestForDate).mockResolvedValue({
+        id: "d1",
+        date: "2026-06-11",
+        newsSummary: "Bugün öne çıkan haberler...",
+        repoSummary: "Trend repolar...",
+        aiTips: "3 ipucu",
+      } as never);
 
       const health = await healthService.getHealth();
 
       expect(health.newsPipeline.status).toBe("green");
       expect(health.newsPipeline).toMatchObject({ analyzedLast24h: 9, digestToday: true });
+    });
+
+    it("treats an EMPTY digest row as no-digest (yellow), not a false green", async () => {
+      // rawBacklog 3 (<30), analyzed 9 → not red/backlog; a content-less digest
+      // row must fall to the !digestToday yellow branch, not read as green.
+      vi.mocked(prisma.newsItem.count)
+        .mockResolvedValueOnce(3) // rawBacklog
+        .mockResolvedValueOnce(12) // translatedLast24h
+        .mockResolvedValueOnce(9) // analyzedLast24h
+        .mockResolvedValueOnce(0); // failedBacklog
+      vi.mocked(prisma.cronRun.findFirst).mockResolvedValue(okCronRun as never);
+      vi.mocked(getDigestForDate).mockResolvedValue({
+        id: "d-empty",
+        date: "2026-06-11",
+        newsSummary: "",
+        repoSummary: "",
+        aiTips: "",
+      } as never);
+
+      const health = await healthService.getHealth();
+
+      expect(health.newsPipeline).toMatchObject({ digestToday: false, status: "yellow" });
     });
 
     it("reports YELLOW when the raw backlog piles up", async () => {

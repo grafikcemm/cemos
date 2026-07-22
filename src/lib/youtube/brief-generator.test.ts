@@ -7,12 +7,30 @@ import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { BudgetExceededError } from "@/lib/config/costGate";
 import type { ModelRole } from "@/lib/ai/model-config";
 
-vi.mock("@/lib/ai/openrouter", () => ({ generateJson: vi.fn() }));
+vi.mock("@/lib/ai/openrouter", () => ({
+  generateJson: vi.fn(),
+  estimateGenerateJsonCeiling: vi.fn(() => 0.01),
+}));
+vi.mock("@/lib/ai/openrouter-key-status", () => ({
+  getOpenRouterKeyStatus: vi.fn(() => Promise.resolve(null)),
+}));
 vi.mock("@/lib/services/usageService", () => ({
   usageService: {
     getMonthlySpendByPurpose: vi.fn(() => Promise.resolve(0)),
     recordOpenRouter: vi.fn(() => Promise.resolve()),
+    // Dalga 2: runStage gated'e geçti — bütçe kapısı bu mock'la açık kalır.
+    getMonthlyCost: vi.fn(() => Promise.resolve(0)),
+    getMonthlyOpenRouterCost: vi.fn(() => Promise.resolve(0)),
+    getMonthlySpendByBudgetClass: vi.fn(() => Promise.resolve(0)),
   },
+}));
+// generateJsonGated reserves atomically before spending; mock the reservation so
+// this unit test needs no DB (reserveAiSpend fails CLOSED on the unset test
+// DATABASE_URL otherwise). Budget/reservation logic is covered by its own tests.
+vi.mock("@/lib/services/aiSpendReservationService", () => ({
+  reserveAiSpend: vi.fn(async () => ({ id: "res-test" })),
+  settleAiSpend: vi.fn(),
+  releaseAiSpend: vi.fn(),
 }));
 vi.mock("@/lib/db/ytBriefRepo", () => ({
   ytBriefRepo: {

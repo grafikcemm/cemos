@@ -9,9 +9,9 @@
  * LLM hataları çağıran serviste fail-open ele alınır.
  */
 
-import { generateJson } from "@/lib/ai/openrouter";
+import { generateJsonGated } from "@/lib/ai/generateGated";
+import { wrapUntrustedData, UNTRUSTED_DATA_NOTICE } from "@/lib/ai/untrustedData";
 import { createPipelineTrace } from "@/lib/agents/pipeline-runner";
-import { usageService } from "@/lib/services/usageService";
 import { accountProfiles } from "@/lib/accounts";
 import { IG_DM_READ_PURPOSE, IG_DM_DRAFT_PURPOSE } from "@/lib/instagram/igConfig";
 
@@ -24,7 +24,8 @@ export type DmContextMessage = { fromMe: boolean; text: string; trText: string }
 
 export function buildDmTranslateBlock(messages: DmTranslateInput[]): string {
   const lines = messages.map((m, i) => `${i}) ${(m.text || "").slice(0, 600)}`);
-  return `Gelen Instagram DM mesajları:\n${lines.join("\n")}`;
+  // Gelen DM metni GÜVENİLMEZ VERİ — forge-safe sarmalanır.
+  return `Gelen Instagram DM mesajları:\n${wrapUntrustedData(lines.join("\n"))}`;
 }
 
 type RawTranslateItem = { index?: unknown; lang?: unknown; trText?: unknown };
@@ -64,7 +65,8 @@ export function buildSummaryBlock(prevSummary: string, messages: DmContextMessag
     ? `Önceki özet:\n"${prevSummary.slice(0, 800)}"\n\n`
     : "";
   return (
-    `${prev}Konuşmanın son mesajları:\n${formatContextLines(messages)}\n\n` +
+    // Konuşma mesajları GÜVENİLMEZ VERİ — sarmalanır; özet talimatı DIŞINDA.
+    `${prev}${wrapUntrustedData(`Konuşmanın son mesajları:\n${formatContextLines(messages)}`)}\n\n` +
     "Bu konuşmayı 2-3 cümlede özetle: karşı taraf kim/ne istiyor, hangi konu konuşuldu, " +
     'açık kalan ne var. Çıktı SADECE JSON: {"summary":".."}'
   );
@@ -96,7 +98,8 @@ export function buildDmDraftUserBlock(input: {
       `textOriginal ('${input.lang}' dilinde, GÖNDERİLECEK yanıt) üret.`
     : "Karşı taraf Türkçe yazıyor. Sadece textTr üret; textOriginal'i boş bırak.";
   return [
-    summary + `Son mesajlar:\n${formatContextLines(input.recentMessages)}`,
+    // Son mesajlar GÜVENİLMEZ VERİ — sarmalanır; JSON talimatı DIŞINDA.
+    summary + wrapUntrustedData(`Son mesajlar:\n${formatContextLines(input.recentMessages)}`),
     "",
     bilingual,
     "",
@@ -134,30 +137,20 @@ const TRANSLATE_SYSTEM =
   'Çıktı SADECE JSON: {"items":[{"index":0,"lang":"..","trText":".."}]}';
 
 // ── LLM çağrıları (çağıran serviste fail-open sarmalanır) ──────────────────────
-
-async function logIgSpend(
-  r: { actualCostUsd: number; model: string },
-  purpose: string,
-  refId?: string
-): Promise<void> {
-  await usageService.recordOpenRouter({
-    estimatedCostUsd: r.actualCostUsd,
-    model: r.model,
-    meta: refId ? { purpose, refId } : { purpose },
-    platform: "instagram",
-  });
-}
+// Dalga 2 (Sprint 2): tüm çağrılar generateJsonGated — bütçe kapısı + tam 1
+// UsageLog gated içinde yazılır (eski logIgSpend çift-log olurdu, kaldırıldı).
 
 /** 10'arlı batch → tek cheapWriter çağrısı. Hata fırlatabilir; servis yutar. */
 export async function translateInbound(batch: DmTranslateInput[]): Promise<TranslatedMessage[]> {
   if (batch.length === 0) return [];
-  const r = await generateJson<{ items?: RawTranslateItem[] }>({
+  const r = await generateJsonGated<{ items?: RawTranslateItem[] }>({
     role: "cheapWriter",
     temperature: 0.2,
-    system: TRANSLATE_SYSTEM,
+    system: `${TRANSLATE_SYSTEM}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildDmTranslateBlock(batch),
+    purpose: IG_DM_READ_PURPOSE,
+    platform: "instagram",
   });
-  await logIgSpend(r, IG_DM_READ_PURPOSE);
   return parseDmTranslateResponse(r.data, batch);
 }
 
@@ -166,13 +159,14 @@ export async function updateRollingSummary(
   prevSummary: string,
   messages: DmContextMessage[]
 ): Promise<string> {
-  const r = await generateJson<{ summary?: unknown }>({
+  const r = await generateJsonGated<{ summary?: unknown }>({
     role: "cheapWriter",
     temperature: 0.2,
-    system: "Sen bir konuşma özetleyicisin. Kısa, nesnel, Türkçe özet üret.",
+    system: `Sen bir konuşma özetleyicisin. Kısa, nesnel, Türkçe özet üret.\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildSummaryBlock(prevSummary, messages),
+    purpose: IG_DM_READ_PURPOSE,
+    platform: "instagram",
   });
-  await logIgSpend(r, IG_DM_READ_PURPOSE);
   return typeof r.data.summary === "string" ? r.data.summary.trim().slice(0, 1000) : prevSummary;
 }
 
@@ -189,14 +183,14 @@ export async function generateDmVariants(input: {
     subjectType: "ig_conversation",
     subjectId: input.conversationId ?? "",
   });
+  // runStage (gated) UsageLog'u kendisi yazar — burada ekstra log YOK.
   const r = await trace.runStage<{ variants?: RawVariant[] }>({
     stage: "taslak",
     role: "creativeWriter",
     temperature: 0.8,
-    system: buildDmDraftVoice(),
+    system: `${buildDmDraftVoice()}\n\n${UNTRUSTED_DATA_NOTICE}`,
     user: buildDmDraftUserBlock(input),
   });
-  await logIgSpend(r, IG_DM_DRAFT_PURPOSE);
   if (input.conversationId) await trace.flush(r.actualCostUsd);
   return parseDmVariants(r.data, input.lang);
 }
@@ -211,7 +205,7 @@ export async function scoreDmRisk(
 ): Promise<{ safety: number; usedLlm: boolean }> {
   if (!process.env.OPENROUTER_API_KEY) return { safety: 70, usedLlm: false };
   try {
-    const r = await generateJson<{ score?: number }>({
+    const r = await generateJsonGated<{ score?: number }>({
       role: "cheapWriter",
       temperature: 0.2,
       system:
@@ -219,8 +213,9 @@ export async function scoreDmRisk(
         "GÜVENLİ olduğunu puanla (100=tamamen güvenli, 0=kesin söz/fiyat taahhüdü, asılsız iddia, " +
         'hakaret ya da kişisel veri ifşası riski yüksek). Çıktı SADECE JSON: {"score":<0-100>}',
       user: `Yanıt:\n"""${(replyText || "").slice(0, 500)}"""`,
+      purpose: IG_DM_DRAFT_PURPOSE,
+      platform: "instagram",
     });
-    await logIgSpend(r, IG_DM_DRAFT_PURPOSE);
     const s = typeof r.data.score === "number" ? r.data.score : 70;
     return { safety: Math.max(0, Math.min(100, s)), usedLlm: true };
   } catch {

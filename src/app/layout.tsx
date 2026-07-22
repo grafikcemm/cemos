@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Sora } from "next/font/google";
+import { Plus_Jakarta_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+// Gövde + başlık: Plus Jakarta Sans (geometrik/yuvarlak modern sans — referans
+// ADR-021 karakteri; Inter'in yerini alır). Variable font (200-800). latin-ext =
+// Türkçe glyph'ler (İ ı Ş ş Ğ ğ Ç ç Ö ö Ü ü). Tek app-sans ailesi.
+const appSans = Plus_Jakarta_Sans({
+  variable: "--font-app-sans",
+  subsets: ["latin", "latin-ext"],
   display: "swap",
 });
 
-// Premium başlık (display) fontu — yalnızca başlıklarda kullanılır; gövde Inter.
-const sora = Sora({
-  variable: "--font-sora",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+// Mono: IBM Plex Mono — kod / teknik string.
+const ibmMono = IBM_Plex_Mono({
+  variable: "--font-ibm-mono",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500"],
   display: "swap",
 });
 
@@ -28,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${inter.variable} ${sora.variable} h-full`}>
+    <html lang="tr" className={`${appSans.variable} ${ibmMono.variable} h-full`}>
       <body className="min-h-full" style={{ background: "var(--bg-base)" }}>
         <ToastProvider>{children}</ToastProvider>
       </body>

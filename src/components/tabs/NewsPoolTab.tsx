@@ -1,22 +1,35 @@
 "use client";
-import { PageHeader, Card, Badge, EmptyState, Button } from "@/components/ui";
+import {
+  Button,
+  EmptyState,
+  ErrorState,
+  Input,
+  PageHeader,
+  PageScaffold,
+  Select,
+  Skeleton,
+  useToast,
+} from "@/components/ui";
+import { safeExternalHref } from "@/lib/utils/url";
 import {
   RefreshCw,
   Settings2,
   Search,
   Newspaper,
-  Target,
   ExternalLink,
   CheckCircle2,
   Sparkles,
   Loader2,
   Clock,
   ShieldCheck,
-  AlertCircle,
+  Flame,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
+import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
 type NewsItem = {
   id: string;
@@ -28,6 +41,10 @@ type NewsItem = {
   category: string;
   viralScore: number | null;
   xValueScore: number | null;
+  buzzScore: number | null;
+  hnPoints: number | null;
+  hnComments: number | null;
+  redditScore: number | null;
   whyPeopleCare: string | null;
   tweetAngle: string | null;
   suggestedFormat: string | null;
@@ -45,6 +62,7 @@ type StageResult = { processed: number; errors: number; remaining: number; deadl
 type ProcessResponse = { success: boolean; translate?: StageResult; analyze?: StageResult; error?: string };
 
 const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
+const PAGE_SIZE = 12;
 
 type SelectOption = { value: string; label: string };
 
@@ -67,12 +85,16 @@ export const CATEGORIES: SelectOption[] = [
   { value: "product_tools", label: "Ürün/Araçlar" },
 ];
 
+// Reader sort: "çok konuşulan" (buzz) is the default; "en yeni" is recency.
+const SORTS: SelectOption[] = [
+  { value: "buzz", label: "Çok konuşulan" },
+  { value: "recent", label: "En yeni" },
+];
+
 /** Drafts may only be generated from fully translated + scored news. */
 export function canGenerate(item: Pick<NewsItem, "processingStatus">): boolean {
   return item.processingStatus === "analyzed";
 }
-
-const scoreColor = (s: number) => (s >= 75 ? "var(--green)" : s >= 50 ? "var(--yellow)" : "var(--danger)");
 
 const RELIABILITY_COLORS: Record<string, string> = {
   high: "var(--green)",
@@ -80,11 +102,9 @@ const RELIABILITY_COLORS: Record<string, string> = {
   low: "var(--danger)",
 };
 
-// Cross-source corroboration badge. "TEK KAYNAK" only matters on items the
-// operator might actually publish (score >= 70) — see verificationBadge().
 const VERIFICATION_BADGES: Record<string, { label: string; color: string }> = {
-  multi_source_confirmed: { label: "ÇOKLU KAYNAK", color: "var(--accent)" },
-  editorial_confirmed: { label: "TEYİTLİ", color: "var(--accent)" },
+  multi_source_confirmed: { label: "ÇOKLU KAYNAK", color: "var(--accent-text)" },
+  editorial_confirmed: { label: "TEYİTLİ", color: "var(--accent-text)" },
   official_only: { label: "RESMİ KAYNAK", color: "var(--text-secondary)" },
   single_source: { label: "TEK KAYNAK", color: "var(--yellow)" },
 };
@@ -100,52 +120,72 @@ export function verificationBadge(
   return badge;
 }
 
+// RSS <link> URL'leri şema-doğrulanmadan DB'ye girer. javascript:/data: href
+// React'te tıklamada çalışır → http(s) dışını engelle (güvensiz ise href yok).
 function timeAgo(iso: string | null): string {
   if (!iso) return "";
   const ms = Date.now() - new Date(iso).getTime();
   if (Number.isNaN(ms) || ms < 0) return "";
   const mins = Math.floor(ms / 60_000);
-  if (mins < 60) return `${mins}dk önce`;
+  if (mins < 60) return `${mins} dk önce`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}sa önce`;
-  return `${Math.floor(hours / 24)}g önce`;
+  if (hours < 24) return `${hours} saat önce`;
+  return `${Math.floor(hours / 24)} gün önce`;
 }
+
+function buzzMeta(buzz: number | null): { hot: boolean } | null {
+  if (buzz == null) return null;
+  return { hot: buzz >= 60 };
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  tech_news: "Teknoloji / AI",
+  creative_design: "Tasarım",
+  product_tools: "Ürün / Araçlar",
+  ai: "Yapay Zekâ",
+};
+const catLabel = (c: string) => CATEGORY_LABELS[c] ?? c;
 
 export default function NewsPoolTab() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+  const toast = useToast();
 
+  const [sort, setSort] = useState("buzz");
   const [status, setStatus] = useState("all");
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [processing, setProcessing] = useState<string | null>(null);
-
-  const showToast = (text: string, type: "success" | "error") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
-      const q = new URLSearchParams({ limit: "100", compact: "true" });
+      const q = new URLSearchParams({ limit: "100", compact: "true", sort });
       if (status !== "all") q.set("status", status);
       if (category !== "all") q.set("category", category);
       const data = await fetchJson<NewsResponse>(`/api/news-pool?${q.toString()}`);
       if (data.success && data.items) setItems(data.items);
-      else showToast(data.error || "Haberler alınamadı.", "error");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      else setLoadFailed(true);
+    } catch {
+      // HATA ≠ BOŞ (item 5): geçici toast yerine kalıcı, ayrı error state.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
-  }, [status, category]);
+  }, [sort, status, category]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reset pagination whenever the visible set can change.
+  useEffect(() => {
+    setPage(1);
+  }, [sort, status, category, search]);
 
   const patch = async (id: string, body: Record<string, boolean>) => {
     try {
@@ -154,11 +194,9 @@ export default function NewsPoolTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (data.success) {
-        setItems((prev) => prev.map((n) => (n.id === id ? { ...n, ...body } : n)));
-      }
+      if (data.success) setItems((prev) => prev.map((n) => (n.id === id ? { ...n, ...body } : n)));
     } catch {
-      showToast("Güncelleme başarısız.", "error");
+      toast.error("Güncelleme başarısız.");
     }
   };
 
@@ -167,398 +205,434 @@ export default function NewsPoolTab() {
     try {
       const data = await fetchJson<{ success: boolean; blocked?: boolean; reason?: string; error?: string }>(
         `/api/news-pool/${id}/generate-draft`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account }),
-        }
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account }) }
       );
       if (data.success) {
-        showToast(`@${account} için taslak üretildi.`, "success");
+        toast.success(`@${account} için taslak üretildi.`);
         setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isUsed: true } : n)));
       } else if (data.blocked) {
-        showToast(`Engellendi: ${data.reason || "kalite filtresi"}`, "error");
+        toast.error(`Engellendi: ${data.reason || "kalite filtresi"}`);
       } else {
-        showToast(data.error || "Üretim başarısız.", "error");
+        toast.error(data.error || "Üretim başarısız.");
       }
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      toast.error(err instanceof Error ? err.message : "Sunucu hatası.");
     } finally {
       setGeneratingKey(null);
     }
   };
 
-  // Drain the raw → translated → analyzed backlog. Each POST is one budgeted
-  // pass; loop until the server reports nothing left (max 5 rounds).
   const processAll = async () => {
     setProcessing("İşleniyor...");
     try {
       for (let round = 1; round <= 5; round++) {
         const data = await fetchJson<ProcessResponse>("/api/news-pool/process", { method: "POST" });
         if (!data.success) {
-          showToast(data.error || "İşleme başarısız.", "error");
+          toast.error(data.error || "İşleme başarısız.");
           return;
         }
         const remaining = (data.translate?.remaining ?? 0) + (data.analyze?.remaining ?? 0);
         if (remaining <= 0) {
-          showToast("Haber havuzu işlendi (çeviri + analiz tamam).", "success");
+          toast.success("Haber havuzu işlendi (çeviri + analiz tamam).");
           return;
         }
         setProcessing(`İşleniyor... ${remaining} kaldı`);
       }
-      showToast("Kısmi işlendi — kalanlar için tekrar çalıştırın.", "success");
+      toast.success("Kısmi işlendi — kalanlar için tekrar çalıştırın.");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
+      toast.error(err instanceof Error ? err.message : "Sunucu hatası.");
     } finally {
       setProcessing(null);
       load();
     }
   };
 
-  const filtered = items.filter((n) => {
-    if (!search) return true;
+  // Reader feed shows ONLY translated (Turkish) news — English/raw items are
+  // hidden until the pipeline translates them (competitor parity).
+  const turkish = useMemo(() => items.filter((n) => n.trTitle), [items]);
+
+  const filtered = useMemo(() => {
+    if (!search) return turkish;
     const s = search.toLocaleLowerCase("tr-TR");
-    return [n.trTitle, n.originalTitle, n.trSummary, n.tweetAngle]
-      .filter(Boolean)
-      .some((v) => (v as string).toLocaleLowerCase("tr-TR").includes(s));
-  });
+    return turkish.filter((n) =>
+      [n.trTitle, n.trSummary, n.tweetAngle]
+        .filter(Boolean)
+        .some((v) => (v as string).toLocaleLowerCase("tr-TR").includes(s)),
+    );
+  }, [turkish, search]);
+
+  // Öne çıkan sinyal = en yüksek buzz'lı tek haber; kalanı yoğun liste.
+  const { featured, rest } = useMemo(() => {
+    if (filtered.length === 0) return { featured: null as NewsItem | null, rest: [] as NewsItem[] };
+    const top = [...filtered].sort((a, b) => (b.buzzScore ?? 0) - (a.buzzScore ?? 0))[0];
+    return { featured: top, rest: filtered.filter((n) => n.id !== top.id) };
+  }, [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(rest.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = rest.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const usedCount = items.filter((n) => n.isUsed).length;
+  const untranslated = items.length - turkish.length;
 
   return (
-    <div style={{ width: "100%", paddingBottom: 60 }}>
-      {toast && <Toast toast={toast} />}
-
-      <PageHeader
-        eyebrow="KAYNAK"
-        title="Haber Havuzu"
-        subtitle="Çeviri ve skorlama sonrası taslağa hazır haber akışı — skor, kategori ve duruma göre süzülür."
-        actions={
-          <>
-            <Button variant="secondary" size="sm" onClick={load} iconLeft={<RefreshCw size={15} strokeWidth={1.8} />}>
-              Yenile
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={processAll}
-              disabled={!!processing}
-              loading={!!processing}
-              title="Bekleyen haberleri çevir + analiz et (skorla)"
-              iconLeft={processing ? undefined : <Settings2 size={15} strokeWidth={1.8} />}
-            >
-              {processing ?? "Tümünü İşle"}
-            </Button>
-          </>
-        }
-        meta={
-          <>
-            <span style={metaStat}>
-              <Newspaper size={14} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              <strong className="tnum" style={metaNum}>{filtered.length}</strong> haber
-            </span>
-            <span style={metaStat}>
-              <CheckCircle2 size={14} strokeWidth={1.8} style={{ color: "var(--green)" }} />
-              <strong className="tnum" style={metaNum}>{usedCount}</strong> kullanıldı
-            </span>
-          </>
-        }
-      />
-
-      {/* Filters */}
-      <Card
-        variant="feature"
-        padded={false}
-        style={{ marginBottom: "var(--space-5)" }}
-      >
-        <div style={{ padding: "14px 16px", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <Field label="Durum">
-            <Select value={status} onChange={setStatus} options={STATUSES} />
-          </Field>
-          <Field label="Kategori">
-            <Select value={category} onChange={setCategory} options={CATEGORIES} />
-          </Field>
-          <Field label="Arama" grow>
-            <div style={{ position: "relative", width: "100%" }}>
-              <Search
-                size={14}
-                strokeWidth={1.8}
-                style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }}
-              />
-              <input
-                type="text"
-                placeholder="Başlık veya açı ara..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: 28 }}
-              />
-            </div>
-          </Field>
+    <PageScaffold
+      header={
+        <PageHeader
+          title="Haber Havuzu"
+          subtitle="En sağlam kaynaklardan en çok konuşulan yapay zekâ haberleri — Türkçe, kaynağıyla."
+          size="compact"
+          meta={
+            <>
+              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={turkish.length} label="Türkçe haber" />
+              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={usedCount} label="kullanıldı" />
+              {untranslated > 0 && (
+                <Stat icon={<Loader2 size={13} strokeWidth={2} />} value={untranslated} label="çevriliyor" muted />
+              )}
+            </>
+          }
+        />
+      }
+      toolbar={
+        <div style={toolbarRow}>
+          <Select aria-label="Sırala" value={sort} onChange={(e) => setSort(e.target.value)} options={SORTS} style={ctrlSm} />
+          <Select aria-label="Kategori" value={category} onChange={(e) => setCategory(e.target.value)} options={CATEGORIES} style={ctrlSm} />
+          <Select
+            aria-label="Durum (operatör)"
+            title="Durum (operatör)"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            options={STATUSES}
+            style={ctrlSm}
+          />
+          <div style={{ flex: "1 1 200px", minWidth: 160 }}>
+            <Input
+              type="text"
+              aria-label="Ara"
+              placeholder="Haber ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              iconLeft={<Search size={14} strokeWidth={1.8} />}
+              style={{ minHeight: "var(--control-h-sm)", padding: "4px 10px 4px 32px", fontSize: "var(--text-xs)" }}
+            />
+          </div>
+          <Button size="sm" variant="ghost" iconLeft={<RefreshCw size={14} strokeWidth={2} />} onClick={load}>
+            Gündemi Yenile
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={processAll}
+            disabled={!!processing}
+            title="Operatör: bekleyen haberleri çevir + analiz et"
+            iconLeft={
+              processing ? <Loader2 size={14} strokeWidth={2} className="rise" /> : <Settings2 size={14} strokeWidth={2} />
+            }
+          >
+            {processing ?? "İşle"}
+          </Button>
         </div>
-      </Card>
-
+      }
+    >
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-3)" }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <CardSkeleton key={i} />
+        <div style={listBand}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ ...rowShell, borderTop: i > 0 ? "1px solid var(--border-faint)" : "none" }}>
+              <Skeleton width="46%" height={13} />
+              <Skeleton width={90} height={10} />
+              <Skeleton width={44} height={10} />
+            </div>
           ))}
         </div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Haberler yüklenemedi"
+          description="Haber havuzu şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
+          onRetry={() => void load()}
+        />
       ) : filtered.length === 0 ? (
-        <Card variant="feature" padded={false}>
+        <div style={listBand}>
           <EmptyState
             icon={<Newspaper size={24} strokeWidth={1.8} />}
-            title="Filtreye uygun haber yok"
-            description="Seçili durum, kategori ve aramaya uyan haber bulunamadı. Filtreleri gevşetin veya yeni havuz çekmek için yeniden işleyin."
+            title={untranslated > 0 ? "Haberler çevriliyor…" : "Filtreye uygun Türkçe haber yok"}
+            description={untranslated > 0
+              ? `${untranslated} haber çeviri sırasında. Birazdan 'Yenile'ye basın veya 'İşle' ile çeviriyi hızlandırın.`
+              : "Seçili kategori ve aramaya uyan haber bulunamadı. Filtreleri gevşetin."}
             action={
-              <Button variant="primary" size="sm" onClick={processAll} disabled={!!processing} loading={!!processing} iconLeft={processing ? undefined : <Settings2 size={15} strokeWidth={1.8} />}>
-                {processing ?? "Tümünü İşle"}
+              <Button size="sm" variant="primary" onClick={processAll} disabled={!!processing}>
+                {processing ?? "Haberleri İşle"}
               </Button>
             }
           />
-        </Card>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-3)" }}>
-          {filtered.map((n) => {
-            const score = n.xValueScore ?? n.viralScore ?? 0;
-            return (
-              <Card
-                key={n.id}
-                variant={n.isUsed ? "feature" : "default"}
-                padded={false}
-                style={{ display: "flex", flexDirection: "column", gap: 0, overflow: "hidden" }}
-              >
-                {n.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={n.imageUrl}
-                    alt=""
-                    style={{ width: "100%", height: 132, objectFit: "cover", background: "var(--bg-elevated)" }}
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
-                  />
-                )}
-                <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <Badge variant="blue" size="xs">{n.category}</Badge>
-                      <span className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{n.processingStatus}</span>
-                    </div>
-                    <span
-                      className="font-display tnum"
-                      style={{ fontSize: "var(--text-lg)", fontWeight: 800, color: scoreColor(score), letterSpacing: "-0.02em", lineHeight: 1 }}
-                      title={`X-değer skoru: ${score}`}
-                    >
-                      {score}
-                    </span>
-                  </div>
-
-                  {n.newsSource && (
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 600 }}>{n.newsSource.name}</span>
-                      <span
-                        title={`Kaynak güvenilirliği: ${n.newsSource.reliability}`}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", fontWeight: 700, color: RELIABILITY_COLORS[n.newsSource.reliability] || "var(--text-muted)", border: `1px solid ${RELIABILITY_COLORS[n.newsSource.reliability] || "var(--border)"}`, padding: "0 5px", borderRadius: "var(--radius-sm)", textTransform: "uppercase" }}
-                      >
-                        <ShieldCheck size={11} strokeWidth={1.8} />
-                        {n.newsSource.reliability}
-                      </span>
-                      {timeAgo(n.publishedAt) && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-                          <Clock size={11} strokeWidth={1.8} />
-                          {timeAgo(n.publishedAt)}
-                        </span>
-                      )}
-                      {(() => {
-                        const badge = verificationBadge(n.sourceVerification, score);
-                        if (!badge) return null;
-                        return (
-                          <span
-                            title="Çapraz kaynak teyidi"
-                            style={{ fontSize: "var(--text-2xs)", fontWeight: 700, color: badge.color, border: `1px solid ${badge.color}`, padding: "0 5px", borderRadius: "var(--radius-sm)" }}
-                          >
-                            {badge.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  <a
-                    href={n.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-display"
-                    style={{ display: "inline-flex", alignItems: "flex-start", gap: 6, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-primary)", textDecoration: "none", lineHeight: 1.4, letterSpacing: "-0.01em" }}
-                  >
-                    <span>{n.trTitle || n.originalTitle}</span>
-                    <ExternalLink size={13} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 3, color: "var(--text-muted)" }} />
-                  </a>
-                  {n.tweetAngle && (
-                    <div style={{ display: "flex", gap: 6, fontSize: "var(--text-xs)", color: "var(--text-secondary)", lineHeight: 1.45 }}>
-                      <Target size={13} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 2, color: "var(--accent-text)" }} />
-                      <span>{n.tweetAngle}</span>
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: "auto" }}>
-                    {n.isUsed ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 600 }}>
-                        <CheckCircle2 size={13} strokeWidth={1.8} />
-                        Kullanıldı
-                      </span>
-                    ) : (
-                      ACCOUNTS.map((acc) => {
-                        const busy = generatingKey === `${n.id}-${acc}`;
-                        const enabled = canGenerate(n);
-                        return (
-                          <button
-                            key={acc}
-                            onClick={() => generate(n.id, acc)}
-                            disabled={!!generatingKey || !enabled}
-                            title={enabled ? undefined : "Önce çeviri + analiz tamamlanmalı ('Tümünü İşle')"}
-                            style={enabled ? genBtnStyle : { ...genBtnStyle, opacity: 0.35, cursor: "not-allowed" }}
-                          >
-                            {busy ? (
-                              <Loader2 size={12} strokeWidth={2} className="rise" />
-                            ) : (
-                              <>
-                                <Sparkles size={12} strokeWidth={2} />
-                                {acc}
-                              </>
-                            )}
-                          </button>
-                        );
-                      })
-                    )}
-                    <button onClick={() => patch(n.id, { isRead: !n.isRead })} style={toggleStyle(n.isRead)}>
-                      {n.isRead ? "okundu" : "okunmadı"}
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
         </div>
+      ) : (
+        <>
+          {featured && (
+            <FeaturedSignal item={featured} onRead={() => patch(featured.id, { isRead: !featured.isRead })} />
+          )}
+
+          {rest.length > 0 && (
+            <section>
+              <div style={listHead}>
+                <span className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                  {sort === "buzz" ? "GÜNDEM" : "EN YENİLER"}
+                </span>
+                <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                  {rest.length} haber
+                </span>
+              </div>
+              <div style={listBand}>
+                {pageItems.map((n, i) => (
+                  <NewsRow
+                    key={n.id}
+                    item={n}
+                    divider={i > 0}
+                    generatingKey={generatingKey}
+                    onGenerate={generate}
+                    onToggleRead={() => patch(n.id, { isRead: !n.isRead })}
+                  />
+                ))}
+              </div>
+              {totalPages > 1 && <Pagination page={safePage} total={totalPages} onChange={setPage} />}
+            </section>
+          )}
+        </>
       )}
+    </PageScaffold>
+  );
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number; label: string; muted?: boolean }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: muted ? "var(--text-muted)" : "var(--text-secondary)" }}>
+      <span style={{ display: "inline-flex", color: muted ? "var(--text-muted)" : "var(--accent-2-text)" }}>{icon}</span>
+      <strong className="tnum" style={{ color: muted ? "var(--text-secondary)" : "var(--text-primary)", fontWeight: 500 }}>{value}</strong>
+      {label}
+    </span>
+  );
+}
+
+/** Tek kompakt "öne çıkan sinyal" satırı — en yüksek buzz'lı haber. */
+function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }) {
+  const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
+  return (
+    <section aria-label="Öne çıkan sinyal" style={featuredRow}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--accent-2-text)", flexShrink: 0 }}>
+        <Flame size={14} strokeWidth={2} />
+        <span className="eyebrow" style={{ fontSize: "var(--text-2xs)" }}>ÖNE ÇIKAN</span>
+      </span>
+      <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={featuredTitle} title={item.trTitle ?? undefined}>
+        {item.trTitle}
+      </a>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        {item.buzzScore != null && (
+          <span className="tnum" title={`Buzz: ${item.buzzScore}`} style={buzzChip(buzzMeta(item.buzzScore)?.hot ?? false)}>
+            <Flame size={11} strokeWidth={2} />{item.buzzScore}
+          </span>
+        )}
+        <SourceMeta item={item} />
+        {badge && <span title="Çapraz kaynak teyidi" style={badgeChip(badge.color)}>{badge.label}</span>}
+        <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink}>
+          Kaynak haberi oku <ExternalLink size={11} strokeWidth={2} />
+        </a>
+        <button onClick={onRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+        <SaveToBoardButton source={{ kind: "news", id: item.id }} size="xs" title={item.trTitle ?? undefined} />
+      </span>
+    </section>
+  );
+}
+
+/** Yoğun liste satırı — başlık (ellipsis) + kaynak + skor + zaman + aksiyonlar. */
+function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
+  item: NewsItem; divider: boolean; generatingKey: string | null;
+  onGenerate: (id: string, account: string) => void; onToggleRead: () => void;
+}) {
+  const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
+  const buzz = buzzMeta(item.buzzScore);
+  const showOps = canGenerate(item) && !item.isUsed;
+  return (
+    <article style={{ ...rowShell, borderTop: divider ? "1px solid var(--border-faint)" : "none" }}>
+      <a
+        href={safeExternalHref(item.url)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={item.trTitle ?? undefined}
+        style={rowTitle}
+      >
+        {item.trTitle}
+      </a>
+
+      <span style={rowMeta}>
+        {item.buzzScore != null && (
+          <span className="tnum" title={`Buzz: ${item.buzzScore}`} style={buzzChip(buzz?.hot ?? false)}>
+            <Flame size={11} strokeWidth={2} />{item.buzzScore}
+          </span>
+        )}
+        <SourceMeta item={item} />
+        {badge && <span title="Çapraz kaynak teyidi" style={badgeChip(badge.color)}>{badge.label}</span>}
+        {timeAgo(item.publishedAt) && (
+          <span style={timeChip}>
+            <Clock size={10} strokeWidth={1.8} />{timeAgo(item.publishedAt)}
+          </span>
+        )}
+      </span>
+
+      <span style={rowActions}>
+        <a href={safeExternalHref(item.url)} target="_blank" rel="noopener noreferrer" style={readLink} title="Kaynak haberi oku">
+          oku <ExternalLink size={11} strokeWidth={2} />
+        </a>
+        {item.isUsed ? (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--green)", fontWeight: 500 }}>
+            <CheckCircle2 size={12} strokeWidth={1.8} /> Kullanıldı
+          </span>
+        ) : showOps ? (
+          ACCOUNTS.map((acc) => {
+            const busy = generatingKey === `${item.id}-${acc}`;
+            return (
+              <button key={acc} onClick={() => onGenerate(item.id, acc)} disabled={!!generatingKey} title={`@${acc} için taslak üret`} style={genBtnStyle}>
+                {busy ? <Loader2 size={11} strokeWidth={2} className="rise" /> : (<><Sparkles size={11} strokeWidth={2} />{acc}</>)}
+              </button>
+            );
+          })
+        ) : null}
+        <button onClick={onToggleRead} style={toggleStyle(item.isRead)}>{item.isRead ? "okundu" : "okunmadı"}</button>
+        <SaveToBoardButton source={{ kind: "news", id: item.id }} size="xs" title={item.trTitle ?? undefined} />
+      </span>
+    </article>
+  );
+}
+
+/** Kaynak adı + güvenilirlik rengi (ShieldCheck) — tek kompakt öbek. */
+function SourceMeta({ item }: { item: NewsItem }) {
+  const name = item.newsSource?.name ?? catLabel(item.category);
+  const reliability = item.newsSource?.reliability;
+  return (
+    <span
+      title={reliability ? `Kaynak güvenilirliği: ${reliability}` : undefined}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", color: "var(--text-secondary)", fontWeight: 500, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+    >
+      {reliability && (
+        <ShieldCheck size={11} strokeWidth={1.8} style={{ flexShrink: 0, color: RELIABILITY_COLORS[reliability] || "var(--text-muted)" }} />
+      )}
+      {name}
+    </span>
+  );
+}
+
+function Pagination({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", marginTop: 10 }}>
+      <Button size="sm" variant="ghost" disabled={page <= 1} onClick={() => onChange(page - 1)} iconLeft={<ChevronLeft size={14} strokeWidth={2} />}>
+        Önceki
+      </Button>
+      <span className="tnum" style={{ fontSize: "var(--text-xs)", color: "var(--text-secondary)", minWidth: 48, textAlign: "center" }}>
+        {String(page).padStart(2, "0")} / {String(total).padStart(2, "0")}
+      </span>
+      <Button size="sm" variant="ghost" disabled={page >= total} onClick={() => onChange(page + 1)} iconRight={<ChevronRight size={14} strokeWidth={2} />}>
+        Sonraki
+      </Button>
     </div>
   );
 }
 
-const metaStat: React.CSSProperties = {
-  display: "inline-flex",
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const toolbarRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" };
+
+const ctrlSm: React.CSSProperties = { minHeight: "var(--control-h-sm)", padding: "4px 8px", fontSize: "var(--text-xs)" };
+
+const featuredRow: React.CSSProperties = {
+  display: "flex",
   alignItems: "center",
-  gap: 6,
-};
-
-const metaNum: React.CSSProperties = {
-  color: "var(--text-primary)",
-  fontWeight: 700,
-  fontSize: "var(--text-base)",
-};
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--bg-base)",
-  border: "1px solid var(--border)",
-  borderRadius: "var(--radius-md)",
-  color: "var(--text-primary)",
-  padding: "7px 10px",
-  fontSize: "var(--text-xs)",
-  fontFamily: "inherit",
-  outline: "none",
-  width: "100%",
-};
-
-const genBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-  padding: "5px 9px",
-  background: "var(--accent-dark)",
-  border: "1px solid var(--accent-border)",
-  color: "var(--accent-text)",
+  gap: 12,
+  flexWrap: "wrap",
+  minHeight: 48,
+  padding: "8px 14px",
+  background: "color-mix(in srgb, var(--accent-2) 6%, var(--bg-surface))",
+  border: "1px solid color-mix(in srgb, var(--accent-2) 30%, var(--border-faint))",
   borderRadius: "var(--radius-sm)",
-  fontSize: "var(--text-2xs)",
-  fontWeight: 700,
-  fontFamily: "inherit",
-  textTransform: "uppercase",
-  letterSpacing: "0.02em",
-  cursor: "pointer",
 };
 
-function toggleStyle(active: boolean): React.CSSProperties {
+const featuredTitle: React.CSSProperties = {
+  flex: "1 1 240px",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "var(--text-sm)",
+  fontWeight: 500,
+  color: "var(--text-primary)",
+  textDecoration: "none",
+  letterSpacing: "-0.01em",
+};
+
+const listHead: React.CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "0 2px",
+  marginBottom: 8,
+};
+
+const listBand: React.CSSProperties = {
+  background: "var(--bg-surface)",
+  border: "1px solid var(--border-faint)",
+  borderRadius: "var(--radius-sm)",
+  overflow: "hidden",
+};
+
+const rowShell: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  minHeight: 48,
+  padding: "6px 14px",
+};
+
+const rowTitle: React.CSSProperties = {
+  flex: "1 1 200px",
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "var(--text-sm)",
+  fontWeight: 500,
+  color: "var(--text-primary)",
+  textDecoration: "none",
+  letterSpacing: "-0.01em",
+};
+
+const rowMeta: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 };
+
+const rowActions: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8, flexShrink: 0 };
+
+const timeChip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" };
+
+function buzzChip(hot: boolean): React.CSSProperties {
   return {
-    padding: "5px 9px",
-    background: active ? "var(--accent-dark)" : "transparent",
-    border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`,
-    color: active ? "var(--accent-text)" : "var(--text-muted)",
-    borderRadius: "var(--radius-sm)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
     fontSize: "var(--text-2xs)",
-    fontFamily: "inherit",
-    cursor: "pointer",
-    marginLeft: "auto",
+    fontWeight: 500,
+    color: hot ? "var(--accent-2-text)" : "var(--text-muted)",
+    border: `1px solid ${hot ? "var(--accent-2-border)" : "var(--border-faint)"}`,
+    padding: "1px 6px",
+    borderRadius: "var(--radius-sm)",
   };
 }
 
-function Field({ label, grow, children }: { label: string; grow?: boolean; children: React.ReactNode }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 5, flex: grow ? 1 : undefined, minWidth: grow ? 160 : undefined }}>
-      <label className="eyebrow" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{label}</label>
-      {children}
-    </div>
-  );
+function badgeChip(color: string): React.CSSProperties {
+  return { fontSize: "var(--text-2xs)", fontWeight: 500, color, border: `1px solid ${color}`, padding: "0 5px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap" };
 }
 
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: SelectOption[] }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
-  );
-}
+const readLink: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--accent-2-text)", textDecoration: "none", textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" };
 
-function Toast({ toast }: { toast: { text: string; type: "success" | "error" } }) {
-  const ok = toast.type === "success";
-  return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        right: 24,
-        zIndex: 999,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "12px 18px",
-        borderRadius: "var(--radius-lg)",
-        fontSize: "var(--text-sm)",
-        fontWeight: 600,
-        background: "var(--bg-elevated)",
-        color: "var(--text-primary)",
-        border: `1px solid ${ok ? "rgba(63,178,127,0.4)" : "rgba(229,72,77,0.4)"}`,
-        boxShadow: "var(--shadow-lg)",
-      }}
-    >
-      {ok ? (
-        <CheckCircle2 size={16} strokeWidth={1.8} style={{ color: "var(--green)" }} />
-      ) : (
-        <AlertCircle size={16} strokeWidth={1.8} style={{ color: "var(--danger)" }} />
-      )}
-      {toast.text}
-    </div>
-  );
-}
+const genBtnStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", background: "var(--accent-2-dark)", border: "1px solid var(--accent-2-border)", color: "var(--accent-2-text)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontWeight: 500, fontFamily: "inherit", textTransform: "uppercase", letterSpacing: "0.02em", cursor: "pointer" };
 
-/** İskelet kart — yükleme sırasında havuz akışının yerini tutar. */
-function CardSkeleton() {
-  return (
-    <Card variant="default" padded={false} style={{ overflow: "hidden" }}>
-      <div className="rise" style={{ height: 132, background: "var(--bg-elevated)" }} />
-      <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div className="rise" style={{ height: 12, width: "40%", borderRadius: "var(--radius-sm)", background: "var(--bg-elevated)" }} />
-        <div className="rise" style={{ height: 16, width: "90%", borderRadius: "var(--radius-sm)", background: "var(--bg-elevated)" }} />
-        <div className="rise" style={{ height: 14, width: "70%", borderRadius: "var(--radius-sm)", background: "var(--bg-elevated)" }} />
-      </div>
-    </Card>
-  );
+function toggleStyle(active: boolean): React.CSSProperties {
+  return { padding: "3px 8px", background: active ? "var(--accent-dark)" : "transparent", border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`, color: active ? "var(--accent-text)" : "var(--text-muted)", borderRadius: "var(--radius-sm)", fontSize: "var(--text-2xs)", fontFamily: "inherit", cursor: "pointer" };
 }

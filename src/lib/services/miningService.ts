@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db/client";
-import { accountProfiles, type AccountHandle } from "@/lib/accounts";
 import { deliberate } from "@/lib/agents/council";
 import { analyzeViralItem } from "@/lib/growth-engine/viral-analysis";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
@@ -17,7 +16,7 @@ export type MiningVerdict = {
 };
 
 export type MiningSummary = {
-  handle: AccountHandle;
+  handle: string;
   considered: number;
   deliberated: number;
   mined: number;
@@ -33,9 +32,7 @@ export const miningService = {
    * analysis and persists a ViralPattern + an EMBEDDED TrainingExample (closing
    * the vector-memory persist gap). Marks mined posts so they are not re-mined.
    */
-  async mineTopItems(handle: AccountHandle, limit = 5): Promise<MiningSummary> {
-    const profile = accountProfiles[handle];
-    if (!profile) throw new Error(`Profile not found: ${handle}`);
+  async mineTopItems(handle: string, limit = 5): Promise<MiningSummary> {
     const account = await prisma.account.findUnique({ where: { handle } });
     if (!account) throw new Error(`Account not found: ${handle}`);
 

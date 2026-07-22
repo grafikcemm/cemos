@@ -1,44 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { setModelProfile } from "@/lib/services/settingsService";
 
+const ProfileSchema = z.object({
+  profile: z.enum(["dev", "operator_quality", "premium"]),
+});
+
+/**
+ * Durable, server-authoritative model-profile write (Phase 5F §6).
+ *
+ * The previous implementation wrote `.env.local` via fs, which on Vercel is a
+ * read-only FS outside /tmp (throws) and is never re-read per request (a mutated
+ * `process.env` touches only the current ephemeral instance and is lost on cold
+ * start). The UI reported success while production routing never changed.
+ *
+ * Now persisted in `OperatorSetting`; success is returned ONLY after the row is
+ * committed. The durable value is re-hydrated by `generateJsonGated` (via
+ * `getModelProfile`) before every LLM call — and by `/api/settings` GET — so the
+ * synchronous `resolveModel` path honors the operator's choice on any instance,
+ * including a cold serverless start, without requiring a Settings visit first.
+ * It is deliberately NOT hydrated from `instrumentation.register()`: pulling
+ * Prisma into instrumentation forces the edge webpack bundle, which cannot
+ * resolve `node:child_process` (see commit 533327a).
+ */
 export async function POST(req: NextRequest) {
-  if (!isOperatorOrCronAuthorized(req)) {
-    return NextResponse.json({ success: false, code: "forbidden" }, { status: 403 });
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
+  const body = await parseJsonBody(req);
+  if (!body.ok) return fail("Geçersiz JSON", 400);
+  const parsed = ProfileSchema.safeParse(body.data);
+  if (!parsed.success) {
+    return fail("Geçersiz profil değeri.", 400, { detail: parsed.error.flatten() });
   }
   try {
-    const { profile } = await req.json();
-
-    if (profile !== "dev" && profile !== "operator_quality" && profile !== "premium") {
-      return NextResponse.json({ success: false, error: "Geçersiz profil değeri." }, { status: 400 });
-    }
-
-    // 1. Update the process.env in-memory immediately for current server execution
-    process.env.MODEL_PROFILE = profile;
-
-    // 2. Write it permanently to .env.local file
-    const envPath = path.join(process.cwd(), ".env.local");
-    if (fs.existsSync(envPath)) {
-      let content = fs.readFileSync(envPath, "utf-8");
-      
-      const regex = /^MODEL_PROFILE=.*$/m;
-      if (regex.test(content)) {
-        content = content.replace(regex, `MODEL_PROFILE=${profile}`);
-      } else {
-        // Append it at the end
-        content = content.trim() + `\nMODEL_PROFILE=${profile}\n`;
-      }
-      
-      fs.writeFileSync(envPath, content, "utf-8");
-    } else {
-      // Create a brand new file
-      fs.writeFileSync(envPath, `MODEL_PROFILE=${profile}\n`, "utf-8");
-    }
-
-    return NextResponse.json({ success: true, profile });
+    const profile = await setModelProfile(parsed.data.profile);
+    return ok({ profile, durable: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Model profili güncellenemedi";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

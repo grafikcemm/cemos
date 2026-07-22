@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
+import { ok, fail } from "@/lib/utils/apiResponse";
+import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,10 @@ const COMPACT_SELECT = {
   category: true,
   viralScore: true,
   xValueScore: true,
+  buzzScore: true,
+  hnPoints: true,
+  hnComments: true,
+  redditScore: true,
   tweetAngle: true,
   suggestedFormat: true,
   sourceVerification: true,
@@ -34,11 +40,13 @@ const COMPACT_SELECT = {
 // GET /api/news-pool?status=&category=&minScore=&limit=&compact=
 // Lists the news pool with optional filters.
 export async function GET(req: NextRequest) {
+  if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
   const sp = req.nextUrl.searchParams;
   const status = sp.get("status");
   const category = sp.get("category");
   const minScoreRaw = sp.get("minScore");
   const compact = sp.get("compact") === "true";
+  const sort = sp.get("sort") || "buzz"; // buzz (reader default) | recent | score
   const limit = Math.min(Number(sp.get("limit")) || 50, 200);
 
   const where: Prisma.NewsItemWhereInput = {};
@@ -51,22 +59,36 @@ export async function GET(req: NextRequest) {
     where.xValueScore = { gte: Number(minScoreRaw) };
   }
 
+  // Reader-first default: "çok konuşulan" (buzz) ranking. "recent" = newest,
+  // "score" = legacy tweet-value ranking (operator view).
+  const ORDER_BY: Record<string, Prisma.NewsItemOrderByWithRelationInput[]> = {
+    buzz: [
+      { buzzScore: { sort: "desc", nulls: "last" } },
+      { publishedAt: { sort: "desc", nulls: "last" } },
+    ],
+    recent: [
+      { publishedAt: { sort: "desc", nulls: "last" } },
+      { fetchedAt: "desc" },
+    ],
+    score: [
+      { xValueScore: { sort: "desc", nulls: "last" } },
+      { fetchedAt: "desc" },
+    ],
+  };
+
   try {
     // Prisma forbids select+include in one call → two explicit branches.
     const baseQuery = {
       where,
-      orderBy: [
-        { xValueScore: { sort: "desc", nulls: "last" } },
-        { fetchedAt: "desc" },
-      ],
+      orderBy: ORDER_BY[sort] ?? ORDER_BY.buzz,
       take: limit,
     } satisfies Prisma.NewsItemFindManyArgs;
     const items = compact
       ? await prisma.newsItem.findMany({ ...baseQuery, select: COMPACT_SELECT })
       : await prisma.newsItem.findMany({ ...baseQuery, include: { newsSource: NEWS_SOURCE_SELECT } });
-    return NextResponse.json({ success: true, count: items.length, items });
+    return ok({ count: items.length, items });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

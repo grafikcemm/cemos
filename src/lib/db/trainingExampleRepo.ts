@@ -38,6 +38,7 @@ export const trainingExampleRepo = {
         metricsJson: input.metricsJson ? safeJsonStringify(input.metricsJson) : "{}",
         embeddingJson: input.embeddingJson ? safeJsonStringify(input.embeddingJson) : null,
         platform: input.platform ?? deriveTrainingPlatform(input.inputType),
+        seriesKey: input.seriesKey ?? null,
       },
     });
   },

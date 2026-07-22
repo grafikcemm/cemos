@@ -10,6 +10,35 @@ export type PipelineTraceStage = {
   ms: number;
   costUsd: number;
   score?: number;
+  // ── Additive registry metadata (ADR-027, Faz 2A) ─────────────────────────
+  // Eski stage kayıtları bu alanları taşımaz — hepsi opsiyonel; parse
+  // değişmeden okunmaya devam eder. Yeni alan eklemek OK, alan silmek YASAK.
+  agentId?: string;
+  agentVersion?: string;
+  adapterId?: string;
+  executionMode?: string;
+  preset?: string;
+  /** Typed executor sonucu (succeeded/deterministic_fallback/blocked_external/...). */
+  outcome?: string;
+  fallbackUsed?: boolean;
+  blockedReason?: string;
+  retryCount?: number;
+  estimatedCostUsd?: number;
+  inputSchemaVersion?: string;
+  outputSchemaVersion?: string;
+  policyVersion?: string;
+  // ── Additive generation provenance (ADR-036, Faz 3B) ─────────────────────
+  // ReelDossier'a kolon EKLEMEDEN üretim provenance'ı taşır (migration'sız;
+  // detay route'u listBySubject ile okur). Hepsi opsiyonel — eski kayıtlar
+  // değişmeden parse edilir.
+  seriesKey?: string;
+  seriesVersion?: number;
+  promptVersion?: string;
+  sourceHandoffId?: string;
+  /** Üretim anındaki canonical içerik hash'i (operatör edit tespiti için). */
+  contentHash?: string;
+  accountId?: string;
+  accountHandle?: string;
 };
 
 export type CreatePipelineTraceInput = {
@@ -61,5 +90,16 @@ export const pipelineTraceRepo = {
   pruneOlderThan(days: number): Promise<{ count: number }> {
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return prisma.pipelineTrace.deleteMany({ where: { createdAt: { lt: cutoff } } });
+  },
+
+  /**
+   * Faz 2E (ADR-034 §G): bounded, indeks-dostu aggregate — pipelineId+zaman
+   * penceresi ([pipelineId, createdAt] indeksi). Gün tavanı 90 (retention 30g
+   * zaten pruning'de; tavan sorguyu sınırlar).
+   */
+  countByPipelineSince(pipelineId: string, sinceDays: number): Promise<number> {
+    const days = Math.min(Math.max(sinceDays, 1), 90);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return prisma.pipelineTrace.count({ where: { pipelineId, createdAt: { gte: cutoff } } });
   },
 };

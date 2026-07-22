@@ -54,3 +54,10 @@ next-env.d.ts
 
 # Intermediate work files
 .tmp/
+
+# Playwright/test gorsel artifactleri
+.playwright-mcp/
+cemos-*.jpeg
+
+# Faz 1A E2E storageState (ephemeral session)
+tests/e2e/.auth/

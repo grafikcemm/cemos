@@ -54,24 +54,30 @@ export async function buildDailyDigest(): Promise<DigestRunResult> {
 
   const digest = await generateDigest(newsForPrompt, reposForPrompt);
 
-  await prisma.dailyDigest.upsert({
-    where: { date },
-    update: {
-      newsSummary: digest.newsSummary,
-      repoSummary: digest.repoSummary,
-      aiTips: digest.aiTips,
-      modelUsed: digest.modelUsed,
-      costUsd: digest.costUsd,
-    },
-    create: {
-      date,
-      newsSummary: digest.newsSummary,
-      repoSummary: digest.repoSummary,
-      aiTips: digest.aiTips,
-      modelUsed: digest.modelUsed,
-      costUsd: digest.costUsd,
-    },
-  });
+  // A failed generation returns success:false with empty strings. Persisting
+  // that would create/refresh an EMPTY DailyDigest row that the health check and
+  // the UI read as "digest exists" — a false green. Only persist a real digest;
+  // on failure leave any prior good row intact and report the failure honestly.
+  if (digest.success) {
+    await prisma.dailyDigest.upsert({
+      where: { date },
+      update: {
+        newsSummary: digest.newsSummary,
+        repoSummary: digest.repoSummary,
+        aiTips: digest.aiTips,
+        modelUsed: digest.modelUsed,
+        costUsd: digest.costUsd,
+      },
+      create: {
+        date,
+        newsSummary: digest.newsSummary,
+        repoSummary: digest.repoSummary,
+        aiTips: digest.aiTips,
+        modelUsed: digest.modelUsed,
+        costUsd: digest.costUsd,
+      },
+    });
+  }
 
   return {
     success: digest.success,

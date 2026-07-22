@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { healthService } from "@/lib/services/healthService";
+import { getBudgetStatus } from "@/lib/config/costGate";
 
 /**
  * Operator hazırlık değerlendirmesi (W1 yumuşatma).
@@ -13,7 +14,9 @@ import { healthService } from "@/lib/services/healthService";
 export const operatorReadinessService = {
   async getReadiness() {
     const health = await healthService.getHealth({ deep: false });
-    const targetHandles = ["grafikcem", "maskulenkod"];
+    // ADR-031: hedef hesaplar DB'den (üretim-hazır liste); literal değil.
+    const { listGenerationReadyHandles } = await import("@/lib/accounts/profileRepository");
+    const targetHandles = (await listGenerationReadyHandles()).handles;
 
     const accounts = await prisma.account.findMany({
       where: { handle: { in: targetHandles } },
@@ -142,21 +145,50 @@ export const operatorReadinessService = {
     checks.dailyMaxPostsOne = allMaxPostsOne;
     checks.todayItemsPerfect = allTodayItemsReady;
 
-    // 5. Maliyet kontrolü → uyarı (bloklamaz).
-    const thisMonthStr = new Date().toISOString().slice(0, 7);
-    const logs = await prisma.usageLog.findMany({
-      where: { date: { startsWith: thisMonthStr } },
-    });
-    const totalMonthCost = logs.reduce((sum, l) => sum + l.estimatedCostUsd, 0);
+    // 4b. Scheduled morning generation cron — distinguish "automation worked"
+    // from "drafts exist but the scheduled run failed / it was a manual scan"
+    // (DH-015). Warning only: existing drafts keep `ready` green, but the operator
+    // sees when overnight automation is actually broken.
+    try {
+      const { cronRunRepo } = await import("@/lib/db/cronRunRepo");
+      const morningRun = await cronRunRepo.latestByKind("generate_morning");
+      const ranToday = Boolean(
+        morningRun?.finishedAt &&
+          morningRun.startedAt >= todayStart &&
+          morningRun.startedAt <= todayEnd
+      );
+      if (!ranToday) {
+        warnings.push(
+          "Sabah otomatik üretim cron'u (generate-morning) bugün başarıyla tamamlanmadı — mevcut taslaklar manuel tarama veya önceki çalışmadan olabilir. Vercel cron + CRON_SECRET kontrol edin."
+        );
+      } else if (!morningRun?.ok || morningRun?.partial) {
+        warnings.push(
+          "Sabah üretim cron'u bugün kısmi/hatalı tamamlandı — bazı hesaplar üretilememiş olabilir."
+        );
+      }
+    } catch {
+      // fail-open: a CronRun read error must never break readiness.
+    }
 
-    const monthlyBudgetUSD = Number(process.env.MONTHLY_AI_BUDGET_USD || "7");
-    const budgetExceeded = totalMonthCost >= monthlyBudgetUSD;
+    // 5. Maliyet kontrolü → uyarı (bloklamaz).
+    const budget = await getBudgetStatus({ budgetClass: "essential" });
+    const totalMonthCost = budget.spentUsd;
+    const monthlyBudgetUSD = budget.limitUsd;
+    const budgetExceeded = !budget.allowed;
     checks.costUnderBudget = !budgetExceeded;
     if (budgetExceeded) {
-      warnings.push(`Aylık bütçe sınırı aşıldı (${totalMonthCost.toFixed(2)} / ${monthlyBudgetUSD} USD) — yeni üretimi beklatmayı düşünün.`);
+      warnings.push(
+        `AI bütçe kapısı aktif (${totalMonthCost.toFixed(2)} / ${monthlyBudgetUSD} USD; ${budget.reason ?? "limit"}).`,
+      );
     }
 
     // 6. Model profil kalitesi → uyarı (bloklamaz).
+    if (budget.providerLimitUsd != null && budget.providerLimitUsd < monthlyBudgetUSD) {
+      warnings.push(
+        `OpenRouter anahtar limiti ${budget.providerLimitUsd.toFixed(2)} USD; CemOS aylık hedefi ${monthlyBudgetUSD.toFixed(2)} USD. OpenRouter key limitini eşitleyin.`,
+      );
+    }
+
     const { resolveModel } = await import("@/lib/ai/model-config");
     const activeProfile = process.env.MODEL_PROFILE || "operator_quality";
     const hasFreeModel =

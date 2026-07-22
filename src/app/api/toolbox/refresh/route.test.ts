@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 import { prisma } from "@/lib/db/client";
@@ -8,6 +8,24 @@ vi.mock("@/lib/db/client", () => ({
   prisma: { toolboxResource: { findMany: vi.fn(), update: vi.fn() } },
 }));
 vi.mock("@/lib/utils/sameOriginGuard", () => ({ isOperatorOrCronAuthorized: vi.fn(() => true) }));
+// SSRF validation is exercised via verifyWebsite.test.ts (shared assertSafePin);
+// passthrough here, and drive alive/dead through the pinned-fetch mock (the
+// reserved .example URLs don't resolve via real DNS).
+vi.mock("@/lib/verify/ssrfGuard", () => ({
+  assertSafePin: vi.fn(async (u: string) => ({
+    url: new URL(u),
+    pinIp: "93.184.216.34",
+    pinFamily: 4,
+  })),
+}));
+vi.mock("@/lib/verify/pinnedFetch", () => ({
+  makePinnedFetch: vi.fn(() => (u: string) => {
+    const s = String(u);
+    if (s.includes("alive")) return Promise.resolve(new Response("", { status: 200 }));
+    if (s.includes("notfound")) return Promise.resolve(new Response("", { status: 404 }));
+    return Promise.reject(new Error("ECONNREFUSED"));
+  }),
+}));
 
 function makeReq() {
   return new NextRequest("http://localhost:3000/api/toolbox/refresh", { method: "POST" });
@@ -18,10 +36,6 @@ describe("POST /api/toolbox/refresh", () => {
     vi.clearAllMocks();
     vi.mocked(isOperatorOrCronAuthorized).mockReturnValue(true);
     vi.mocked(prisma.toolboxResource.update).mockResolvedValue({} as never);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
   });
 
   it("yetkisiz istek 403 — findMany çağrılmaz", async () => {
@@ -36,15 +50,6 @@ describe("POST /api/toolbox/refresh", () => {
       { id: "a", url: "https://alive.example" },
       { id: "b", url: "https://dead.example" },
     ] as never);
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((url: string) =>
-        url.includes("alive")
-          ? Promise.resolve({ ok: true } as Response)
-          : Promise.reject(new Error("ECONNREFUSED"))
-      )
-    );
 
     const res = await POST(makeReq());
     expect(res.status).toBe(200);
@@ -66,7 +71,6 @@ describe("POST /api/toolbox/refresh", () => {
     vi.mocked(prisma.toolboxResource.findMany).mockResolvedValue([
       { id: "c", url: "https://notfound.example" },
     ] as never);
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false } as Response)));
 
     const res = await POST(makeReq());
     const json = await res.json();

@@ -3,6 +3,10 @@ import { publishService } from "./publishService";
 import { prisma } from "@/lib/db/client";
 import { qualityLintService } from "@/lib/services/qualityLintService";
 
+// Faz 1E (ADR-025): markManualPublished publish state machine'ine taşındı —
+// geçiş/idempotency/transaction testleri src/lib/publish/publishAttemptService
+// .test.ts'te. Burada yalnız yayın-öncesi kapılar (validatePublishable) kaldı.
+
 vi.mock("@/lib/db/client", () => ({
   prisma: {
     queueItem: {

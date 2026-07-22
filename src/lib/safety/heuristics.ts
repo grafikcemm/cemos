@@ -1,4 +1,5 @@
 import { blocklist, forbiddenTokens } from "./blocklist";
+import { BANNED_PHRASES, endsWithQuestionCta } from "./banned-phrases";
 
 export type LintSeverity = "blocker" | "warning";
 
@@ -225,6 +226,30 @@ export function runDeterministicHeuristics(
       code: "hashtag_density",
       severity: "warning",
       message: `Çok fazla hashtag tespit edildi: ${hashtagsCount} (Önerilen: en fazla 2).`,
+    });
+  }
+
+  // 10.5. Türkçe klişe / AI-slop ifade lint'i (FIRST-SPRINT item 9).
+  //   BANNED_PHRASES grounding "asla yazma" listesiyle AYNI kaynaktan gelir;
+  //   yazar kaçırırsa deterministik lint yakalar. Warning: taslak silinmez,
+  //   leak-gate needs_edit'e yönlendirir (redirect, not delete).
+  for (const phrase of BANNED_PHRASES) {
+    if (lowerText.includes(phrase.toLocaleLowerCase("tr-TR"))) {
+      issues.push({
+        code: "banned_phrase",
+        severity: "warning",
+        message: `Yasak klişe ifade: "${phrase}". Marka sesine uymuyor, yeniden yaz.`,
+      });
+    }
+  }
+
+  // 10.6. Klişe soru-CTA lint'i: sona atılan jenerik soru kalıpları hesap
+  //   kurallarında yasak ("Peki siz ne düşünüyorsunuz?" vb.).
+  if (endsWithQuestionCta(trimmed)) {
+    issues.push({
+      code: "question_cta",
+      severity: "warning",
+      message: "Klişe soru-CTA ile bitiyor. Soru yerine net bir kapanış cümlesi kullan.",
     });
   }
 

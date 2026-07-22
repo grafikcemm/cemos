@@ -5,7 +5,12 @@ import { miningService } from "@/lib/services/miningService";
 import { engagementLearningService } from "@/lib/services/engagementLearningService";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { getBudgetStatus } from "@/lib/config/costGate";
-import { generateWeeklyLearningReport } from "@/lib/growth-engine/weekly-learning-report";
+
+vi.mock("@/lib/accounts/profileRepository", () =>
+  import("@/lib/accounts/profileRepository.testDouble").then((m) =>
+    m.createProfileRepositoryTestDouble()
+  )
+);
 
 vi.mock("@/lib/accounts", () => {
   const profiles = {
@@ -21,8 +26,7 @@ vi.mock("@/lib/services/miningService", () => ({
 
 vi.mock("@/lib/services/engagementLearningService", () => ({
   engagementLearningService: {
-    syncForAccount: vi.fn(() => Promise.resolve({ matched: 0, reason: "no_candidates" })),
-    syncInstagram: vi.fn(() => Promise.resolve({ reason: "no_snapshot", highs: 0, lows: 0 }))
+    syncForAccount: vi.fn(() => Promise.resolve({ matched: 0, reason: "no_candidates" }))
   }
 }));
 
@@ -40,13 +44,28 @@ vi.mock("@/lib/config/costGate", () => ({
   )
 }));
 
-vi.mock("@/lib/growth-engine/weekly-learning-report", () => ({
-  generateWeeklyLearningReport: vi.fn(() => Promise.resolve({ summary: "ok" }))
-}));
-
 // News catch-up stage is folded into the learn cron; mock it (no network/DB).
 vi.mock("@/lib/news/pipeline", () => ({
   runPipelineTick: vi.fn(() => Promise.resolve({ processed: 0 }))
+}));
+
+// Memory consolidation (Pazartesi bloğu) — mock: LLM/DB yok.
+vi.mock("@/lib/memory/consolidation", () => ({
+  runMemoryConsolidation: vi.fn(() =>
+    Promise.resolve({ ran: true, extraction: [], decayRecomputed: 0, staleRejected: 0, contradictions: [] })
+  )
+}));
+
+// Faz 2E (ADR-034 §H): registry eval blogu — dynamic import mock'lari.
+const latestRunByKind = vi.fn((_k: string) => Promise.resolve(null as unknown));
+vi.mock("@/lib/db/evalRunRepo", () => ({
+  evalRunRepo: { latestRunByKind: (k: string) => latestRunByKind(k) }
+}));
+const runRegistryContractEval = vi.fn((_o: unknown) =>
+  Promise.resolve({ runId: "run-weekly", status: "passed", passed: 16, failed: 0 })
+);
+vi.mock("@/lib/eval/registryContractRunner", () => ({
+  runRegistryContractEval: (o: unknown) => runRegistryContractEval(o)
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -55,7 +74,8 @@ vi.mock("@/lib/db/client", () => ({
     scanRun: { deleteMany: vi.fn(() => Promise.resolve({ count: 1 })) },
     generationRun: { deleteMany: vi.fn(() => Promise.resolve({ count: 1 })) },
     newsItem: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) },
-    pipelineTrace: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) }
+    pipelineTrace: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) },
+    learnProcessingJob: { deleteMany: vi.fn(() => Promise.resolve({ count: 0 })) }
   }
 }));
 
@@ -81,6 +101,13 @@ describe("/api/cron/learn", () => {
       limitUsd: 7,
       remainingUsd: 6
     } as never);
+    latestRunByKind.mockResolvedValue(null as never);
+    runRegistryContractEval.mockResolvedValue({
+      runId: "run-weekly",
+      status: "passed",
+      passed: 16,
+      failed: 0
+    } as never);
   });
 
   afterEach(() => {
@@ -98,7 +125,6 @@ describe("/api/cron/learn", () => {
     expect(miningService.mineTopItems).toHaveBeenCalledTimes(2);
     expect(miningService.mineTopItems).toHaveBeenCalledWith("grafikcem", 2);
     expect(engagementLearningService.syncForAccount).toHaveBeenCalledTimes(2);
-    expect(engagementLearningService.syncInstagram).toHaveBeenCalledTimes(1);
     expect(cronRunRepo.start).toHaveBeenCalledWith("learn");
     expect(cronRunRepo.finish).toHaveBeenCalledWith(
       "cr-learn-1",
@@ -143,27 +169,6 @@ describe("/api/cron/learn", () => {
     expect(cronRunRepo.start).not.toHaveBeenCalled();
   });
 
-  it("generates the weekly report on Istanbul Mondays", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-06-08T19:00:00.000Z")); // Monday evening Istanbul
-
-    await GET(makeReq());
-
-    expect(generateWeeklyLearningReport).toHaveBeenCalledWith({
-      accountHandle: "all",
-      dateRange: "last_7_days"
-    });
-  });
-
-  it("does NOT generate the weekly report on other days", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date("2026-06-09T19:00:00.000Z")); // Tuesday
-
-    await GET(makeReq());
-
-    expect(generateWeeklyLearningReport).not.toHaveBeenCalled();
-  });
-
   it("marks partial and skips accounts when the time budget is exhausted", async () => {
     process.env.CRON_TIME_BUDGET_MS = "1";
     vi.mocked(getBudgetStatus).mockImplementationOnce(async () => {
@@ -178,9 +183,60 @@ describe("/api/cron/learn", () => {
     expect(json.results).toContainEqual({ handle: "grafikcem", skipped: "time_budget" });
   });
 
+  // ── Faz 2E (ADR-034 §H): haftalik registry contract eval ────────────────────
+  describe("weekly registry contract eval", () => {
+    const MONDAY = new Date("2026-07-20T18:00:00Z"); // Istanbul Pazartesi 21:00
+    const THURSDAY = new Date("2026-07-16T18:00:00Z");
+
+    it("Pazartesi + bu hafta kosu yok → deterministic eval cron trigger'iyla kosar", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(MONDAY);
+      const res = await GET(makeReq());
+      const json = await res.json();
+      expect(runRegistryContractEval).toHaveBeenCalledWith(
+        expect.objectContaining({ trigger: "cron" })
+      );
+      expect(json.registryEval).toMatchObject({ runId: "run-weekly", status: "passed" });
+    });
+
+    it("ayni hafta ikinci kosu idempotent atlanir", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(MONDAY);
+      latestRunByKind.mockResolvedValue({
+        id: "run-prev",
+        trigger: "cron",
+        startedAt: new Date(MONDAY.getTime() - 60 * 60 * 1000)
+      } as never);
+      const res = await GET(makeReq());
+      const json = await res.json();
+      expect(runRegistryContractEval).not.toHaveBeenCalled();
+      expect(json.registryEval).toMatchObject({ skipped: "already_ran_this_week", runId: "run-prev" });
+    });
+
+    it("eval hatasi learn ingestion'i BOZMAZ (fail-open, partial degil hata alani)", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(MONDAY);
+      runRegistryContractEval.mockRejectedValue(new Error("runner exploded") as never);
+      const res = await GET(makeReq());
+      const json = await res.json();
+      expect(json.success).toBe(true); // ana ingestion yasiyor
+      expect(json.registryEval).toMatchObject({ error: "runner exploded" });
+      expect(engagementLearningService.syncForAccount).toHaveBeenCalledTimes(2);
+    });
+
+    it("Pazartesi degilse eval hic kosmaz (canli/ucretli eval cron'dan default KOSMAZ)", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(THURSDAY);
+      const res = await GET(makeReq());
+      const json = await res.json();
+      expect(runRegistryContractEval).not.toHaveBeenCalled();
+      expect(json.registryEval).toBeNull();
+    });
+  });
+
   it("runs retention pruning and reports the deleted counts", async () => {
     const res = await GET(makeReq());
     const json = await res.json();
-    expect(json.pruned).toEqual({ sourcePosts: 2, scanRuns: 1, generationRuns: 1, cronRuns: 0, newsItems: 0, pipelineTraces: 0 });
+    expect(json.pruned).toEqual({ sourcePosts: 2, scanRuns: 1, generationRuns: 1, cronRuns: 0, newsItems: 0, pipelineTraces: 0, learnJobs: 0 });
   });
 });
