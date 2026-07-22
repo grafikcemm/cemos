@@ -125,7 +125,7 @@ export default function InstagramDnaSection({
 
   const observation = data?.observation ?? null;
   const proposed = data?.proposedCaptionDnaValues ?? null;
-  const approved = data?.approved.captionDna ?? null;
+  const approved = data?.approved?.captionDna ?? null;
   const sufficient = observation?.sampleSufficiency === "sufficient";
 
   const availableFields = useMemo(
