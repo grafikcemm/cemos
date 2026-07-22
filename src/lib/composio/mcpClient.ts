@@ -144,6 +144,11 @@ function decodeToolCallResult(result: unknown): unknown {
 export class ComposioMcpClient {
   private session: SessionState = { sessionId: null, initialized: false };
   private nextId = 1;
+  // tools/list sonucu bu kısa-ömürlü istemci boyunca DEĞİŞMEZ. callTool her çağrıda
+  // listTools()'u tetikliyordu → bir sync'te ~37 gereksiz tools/list RPC'si. Connect
+  // fallback'i (SEARCH+EXECUTE) zaten çağrı başına 2 RPC ekliyor; bunu tek sefere
+  // indirerek 120s bütçesine karşı güvenlik payını genişletir.
+  private cachedTools: Array<{ name: string; description?: string }> | null = null;
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
 
@@ -263,12 +268,16 @@ export class ComposioMcpClient {
     this.session.initialized = true;
   }
 
-  /** tools/list — discovery. Yalnız slug + kısa açıklama döner (şema loglanmaz). */
+  /** tools/list — discovery. Yalnız slug + kısa açıklama döner (şema loglanmaz).
+   *  İstemci ömrü boyunca memoize edilir (yukarı bkz: her callTool'un tekrar
+   *  tools/list atmasını önler). */
   async listTools(): Promise<Array<{ name: string; description?: string }>> {
+    if (this.cachedTools) return this.cachedTools;
     await this.ensureInitialized();
     const result = (await this.rpc("tools/list", {})) as { tools?: Array<{ name: string; description?: string }> };
     const tools = Array.isArray(result?.tools) ? result.tools : [];
-    return tools.map((t) => ({ name: t.name, description: t.description }));
+    this.cachedTools = tools.map((t) => ({ name: t.name, description: t.description }));
+    return this.cachedTools;
   }
 
   /**

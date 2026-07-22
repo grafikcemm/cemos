@@ -127,7 +127,12 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
   if (!handleParam && Date.now() - t0 < timeBudgetMs) {
     try {
       const { syncInstagramViaBridge } = await import("@/lib/instagram/bridgeSyncService");
-      igOwnSync = await syncInstagramViaBridge();
+      // Deadline'lı çağır (kardeş aşamalar gibi). Composio Connect fallback'i çağrı
+      // başına 2-3 RPC yaptığından 25 medyalık sync uzayabilir; kalan bütçeden 50s
+      // rezerv bırak (igCompetitorSync 45s + hesap üretimi) → IG sync ne hard-kill'e
+      // ne de kritik taslak üretimini açlığa iter. Bütçe boldsa tam sync tamamlanır.
+      const igDeadlineMs = Date.now() + Math.max(15_000, timeBudgetMs - (Date.now() - t0) - 50_000);
+      igOwnSync = await syncInstagramViaBridge({ deadlineMs: igDeadlineMs });
     } catch (err) {
       igOwnSync = { error: redactError(err) };
     }
@@ -171,7 +176,9 @@ async function run(handleParam: string | null, mine: boolean): Promise<RunOutcom
   const subSyncDegraded = (r: unknown): boolean => {
     if (!r || typeof r !== "object") return false;
     const o = r as Record<string, unknown>;
-    return o.ok === false || "error" in o;
+    // partial === true → deadline'a takılıp yarım kalan sync (ok=true olsa bile
+    // tam-sync değil) da run'ı PARTIAL işaretler → sağlık dürüst kalır.
+    return o.ok === false || o.partial === true || "error" in o;
   };
   if (subSyncDegraded(igOwnSync) || subSyncDegraded(igCompetitorSync)) {
     partial = true;

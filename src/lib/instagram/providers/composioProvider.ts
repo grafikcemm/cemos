@@ -165,10 +165,18 @@ export function createComposioInstagramReadProvider(opts?: {
             fields: "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count",
           })
         );
-        const items = listOf(raw)
+        const rawMedia = listOf(raw);
+        const items = rawMedia
           .map((m) => RawMediaSchema.safeParse(m))
           .filter((r): r is { success: true; data: z.infer<typeof RawMediaSchema> } => r.success)
           .map((r) => r.data);
+        // Şema-drop görünürlüğü: ham liste doluyken hepsi düşerse (Composio sözleşme
+        // kayması) sessizce "boş hesap" gibi görünmesin — drift'i log'a düşür.
+        if (rawMedia.length > 0 && items.length < rawMedia.length) {
+          console.warn(
+            `[composioProvider] listOwnMedia: ${rawMedia.length - items.length}/${rawMedia.length} medya öğesi şema doğrulamasında düştü (Composio sözleşme kayması olabilir)`,
+          );
+        }
         return items.slice(0, limit).map((m) =>
           IgMediaItemSchema.parse({
             mediaId: m.id,
@@ -256,10 +264,16 @@ export function createComposioInstagramReadProvider(opts?: {
           "INSTAGRAM_GET_IG_MEDIA_COMMENTS",
           baseArgs({ ig_media_id: mediaId, limit })
         );
-        const items = listOf(raw)
+        const rawComments = listOf(raw);
+        const items = rawComments
           .map((c) => RawCommentSchema.safeParse(c))
           .filter((r): r is { success: true; data: z.infer<typeof RawCommentSchema> } => r.success)
           .map((r) => r.data);
+        if (rawComments.length > 0 && items.length < rawComments.length) {
+          console.warn(
+            `[composioProvider] listMediaComments(${mediaId}): ${rawComments.length - items.length}/${rawComments.length} yorum öğesi şema doğrulamasında düştü (Composio sözleşme kayması olabilir)`,
+          );
+        }
         return items.slice(0, limit).map((c) =>
           IgCommentItemSchema.parse({
             commentId: c.id,

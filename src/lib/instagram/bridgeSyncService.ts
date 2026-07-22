@@ -28,6 +28,9 @@ const MEDIA_INSIGHT_SAMPLE = 8;
 
 export type BridgeSyncResult = {
   ok: boolean;
+  /** Sync deadline'a takıldı → bazı medya işlenmeden kaldı (dürüst partial;
+   *  ok=true olsa bile tam-sync DEĞİL). Sağlık yüzeyi bunu degraded sayar. */
+  partial: boolean;
   provider: "composio" | "meta" | "none";
   mode: "composio" | "meta" | "auto";
   fallbackUsed: boolean;
@@ -51,6 +54,7 @@ export type BridgeSyncResult = {
 function emptyResult(partial: Partial<BridgeSyncResult>): BridgeSyncResult {
   return {
     ok: false,
+    partial: false,
     provider: "none",
     mode: "auto",
     fallbackUsed: false,
@@ -138,6 +142,12 @@ export type BridgeSyncOptions = {
   mediaLimit?: number;
   /** true → insight snapshot bugüne yazılmışsa bile diğer aşamalar koşar. */
   skipInsights?: boolean;
+  /** Mutlak epoch-ms son tarih. Aşıldığında medya döngüsü + insight aşaması DURUR
+   *  ve dürüst partial döner — böylece serverless hard-kill'i CronRun'ı "başladı,
+   *  bitmedi" bırakmaz (kardeş cron aşamaları syncToCanonical/syncIgCompetitors gibi
+   *  kendi bütçesine saygı duyar). Composio Connect fallback'i çağrı başına 2-3 RPC
+   *  yaptığından 25 medyalık sync 120s sınırına yaklaşabiliyordu. */
+  deadlineMs?: number;
 };
 
 export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<BridgeSyncResult> {
@@ -271,7 +281,15 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
   }
 
   const upsertedMediaIds: string[] = [];
+  let syncPartial = false;
   for (const m of media) {
+    // Bütçe doldu → dürüst DUR (hard-kill yerine). İşlenen medya kalıcı; kalanı
+    // bir sonraki sync tamamlar (upsert idempotent, veri kaybı yok).
+    if (opts?.deadlineMs && Date.now() >= opts.deadlineMs) {
+      syncPartial = true;
+      warnings.push(`deadline: ${mediaUpserted}/${media.length} medya işlendi, bütçe doldu (partial)`);
+      break;
+    }
     try {
       await igMediaRepo.upsertByMediaId({
         mediaId: m.mediaId,
@@ -313,7 +331,8 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
 
   // ── 5) Günlük insight snapshot (idempotent by date) ───────────────────────
   let insightCaptured = false;
-  if (!opts?.skipInsights) {
+  const pastDeadline = opts?.deadlineMs != null && Date.now() >= opts.deadlineMs;
+  if (!opts?.skipInsights && !syncPartial && !pastDeadline) {
     try {
       const key = istanbulDateKey();
       const existing = await igInsightSnapshotRepo.getByDate(key);
@@ -357,11 +376,21 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
             rawJson: JSON.stringify({ provider: selection.providerId, toolkitVersion: cfg.toolkitVersion }),
           });
           insightCaptured = true;
+        } else {
+          // account2 == null → getAccountInsights sözleşme kayması/boş yanıtta THROW
+          // ETMEDEN null döndü. Sessizce geçme: aksi hâlde UI insightCaptured=false'u
+          // "bugün zaten alınmış" (idempotent skip) sanır — oysa hiç yakalanmadı.
+          // Uyarı bunu görünür kılar (snapshot YAZILMAZ → aynı gün retry yakalayabilir).
+          warnings.push("insights: hesap-seviyesi insight alınamadı (boş/sözleşme kayması) — snapshot YAZILMADI, sahte-yakalandı yok");
         }
       }
     } catch (e) {
       warnings.push(`insights: ${redactError(e)}`);
     }
+  } else if (!opts?.skipInsights && pastDeadline && !syncPartial) {
+    // Medya tamamlandı ama bütçe doldu → insight aşaması atlandı: dürüst partial.
+    syncPartial = true;
+    warnings.push("insights: medya sonrası bütçe doldu, insight aşaması atlandı (partial — sonraki sync yakalar)");
   }
 
   // ── 6) Kanonik içerik köprüsü (mevcut normalizer/ingest yolu) ─────────────
@@ -371,6 +400,7 @@ export async function syncInstagramViaBridge(opts?: BridgeSyncOptions): Promise<
   const result: BridgeSyncResult = {
     ...base,
     ok,
+    partial: syncPartial,
     externalUsername,
     mediaFetched: media.length,
     mediaUpserted,

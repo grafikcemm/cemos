@@ -224,7 +224,7 @@ describe("bridgeSyncService — dürüst hata durumları", () => {
     expect(r.insightCaptured).toBe(true);
   });
 
-  it("account-insight null → insightCaptured=false (all-zero snapshot / sahte-success YAZILMAZ)", async () => {
+  it("account-insight null → insightCaptured=false + UYARI (sessiz değil; UI 'zaten alındı' sanmaz)", async () => {
     const p = fakeProvider({ getAccountInsights: vi.fn(async () => null) });
     vi.mocked(selectInstagramReadProvider).mockResolvedValue(selection(p));
     const r = await syncInstagramViaBridge();
@@ -232,6 +232,22 @@ describe("bridgeSyncService — dürüst hata durumları", () => {
     // false ve all-zero snapshot YAZILMAZ → aynı gün başarılı retry yakalayabilir.
     expect(r.ok).toBe(true);
     expect(r.insightCaptured).toBe(false);
+    expect(igInsightSnapshotRepo.upsertByDate).not.toHaveBeenCalled();
+    // getAccountInsights sözleşme-kayması/boş null döndürdüğünde SESSİZ geçme:
+    // uyarı bunu görünür kılar (aksi hâlde UI insightCaptured=false'u "bugün zaten
+    // alınmış" idempotent-skip ile karıştırır → sahte güvence).
+    expect(r.warnings.some((w) => w.includes("hesap-seviyesi insight"))).toBe(true);
+  });
+
+  it("deadline geçmişse medya döngüsü DURUR → dürüst partial (serverless hard-kill yerine)", async () => {
+    vi.mocked(selectInstagramReadProvider).mockResolvedValue(selection(fakeProvider()));
+    const r = await syncInstagramViaBridge({ deadlineMs: Date.now() - 1 });
+    // Bütçe zaten dolu → hiç medya işlenmez, partial işaretlenir, uyarı görünür,
+    // insight aşaması da atlanır (ek RPC yok). Sync NORMAL döner → çağıran CronRun'ı
+    // "başladı-bitmedi" bırakmaz.
+    expect(r.partial).toBe(true);
+    expect(r.mediaUpserted).toBe(0);
+    expect(r.warnings.some((w) => w.startsWith("deadline"))).toBe(true);
     expect(igInsightSnapshotRepo.upsertByDate).not.toHaveBeenCalled();
   });
 

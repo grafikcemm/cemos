@@ -92,6 +92,20 @@ describe("composio config (server-only)", () => {
   });
 });
 
+describe("listTools memoization (round-trip azaltma)", () => {
+  it("callTool tekrar çağrılınca tools/list yalnız 1 kez atılır (istemci ömrü cache'i)", async () => {
+    const impl = makeFetchScript(standardHandlers({ ok: true }));
+    const client = new ComposioMcpClient({ endpoint: ENDPOINT, fetchImpl: impl });
+    const slug = INSTAGRAM_READ_TOOL_ALLOWLIST[0];
+    await client.callTool(slug, { connected_account_id: "ca_test123" });
+    await client.callTool(slug, { connected_account_id: "ca_test123" });
+    const toolsListCalls = (impl.mock.calls as unknown[][]).filter((c) => {
+      try { return (JSON.parse(String((c[1] as RequestInit).body)) as { method?: string }).method === "tools/list"; } catch { return false; }
+    });
+    expect(toolsListCalls).toHaveLength(1);
+  });
+});
+
 describe("read-tool allowlist (ADR-032)", () => {
   it("allowlist'teki read tool'lara izin verir", () => {
     for (const slug of INSTAGRAM_READ_TOOL_ALLOWLIST) {
