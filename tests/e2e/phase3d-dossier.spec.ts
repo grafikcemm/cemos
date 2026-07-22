@@ -423,6 +423,52 @@ test.describe("Phase 3D — Takvim mevcut-dossier bağlama + detach", () => {
     await expect(page.getByTestId("check-approval")).toContainText("onaylı");
     await expect(page.getByTestId("check-calendar")).toContainText("2026-07");
   });
+
+  test("Production Pack: onaylı dossier → 'indir' butonu → deterministik ZIP iner", async ({ page }) => {
+    const errors = trackConsoleErrors(page);
+    await mockTakvimBase(page, { slotDossierId: "d-1" });
+    await page.route("**/api/reels/dossier/d-1?accountId=acc-1", (r) =>
+      r.fulfill({ json: detailPayload({ evidence: "ready", approved: true }) })
+    );
+    let packRequested = false;
+    await page.route("**/api/reels/dossier/d-1/pack?accountId=acc-1", (r) => {
+      packRequested = true;
+      r.fulfill({
+        json: {
+          success: true,
+          baseName: "reel-ai-mockup-araci-d1abcd",
+          format: "reel",
+          files: [
+            { path: "00-brief.md", content: "# AI mockup araci" },
+            { path: "04-caption.txt", content: "Kaydet\n\n#aitools" },
+            { path: "altyazi.srt", content: "1\n00:00:00,000 --> 00:00:03,000\nhook\n" },
+          ],
+          manifest: { title: "AI mockup araci", format: "reel", fileCount: 3, readiness: "ready" },
+          overall: "production_ready",
+        },
+      });
+    });
+    await openAttachedSlot(page);
+
+    const btn = page.getByTestId("download-production-pack");
+    await expect(btn).toBeVisible();
+    const downloadPromise = page.waitForEvent("download");
+    await btn.click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("reel-ai-mockup-araci-d1abcd.zip");
+    expect(packRequested).toBe(true);
+    expect(errors.filter((e) => !e.includes("favicon"))).toEqual([]);
+  });
+
+  test("Production Pack: onaylı DEĞİLKEN indir butonu GÖRÜNMEZ (yalnız onaylı içerik)", async ({ page }) => {
+    await mockTakvimBase(page, { slotDossierId: "d-1" });
+    await page.route("**/api/reels/dossier/d-1?accountId=acc-1", (r) =>
+      r.fulfill({ json: detailPayload({ evidence: "ready", approved: false }) })
+    );
+    await openAttachedSlot(page);
+    await expect(page.getByTestId("production-overall")).toContainText("HAZIR DEĞİL");
+    await expect(page.getByTestId("download-production-pack")).toHaveCount(0);
+  });
 });
 
 test.describe("Phase 3D — genişlik taraması", () => {
