@@ -4,7 +4,7 @@ import {
   COMPOSIO_AUTH_HEADER,
   readComposioApiKey,
 } from "@/lib/composio/config";
-import { evaluateToolPolicy } from "@/lib/composio/allowlist";
+import { evaluateToolPolicy, type InstagramReadTool } from "@/lib/composio/allowlist";
 import { redactError } from "@/lib/utils/redactSecrets";
 
 /**
@@ -90,6 +90,52 @@ export function parseSseForResponse(body: string, id: number): JsonRpcResponse |
 }
 
 type SessionState = { sessionId: string | null; initialized: boolean };
+
+type McpToolCallResult = {
+  isError?: boolean;
+  content?: Array<{ type?: string; text?: string }>;
+  structuredContent?: unknown;
+};
+
+const CONNECT_SEARCH_TOOL = "COMPOSIO_SEARCH_TOOLS";
+const CONNECT_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL";
+
+/**
+ * Composio Connect 2026 sözleşmesi doğrudan Instagram slug'ları yerine meta
+ * tool'lar yayımlar. Sabit arama metinleri kullanıcı verisini plan katmanına
+ * taşımaz; yalnız allowlist'teki read niyetini tarif eder.
+ */
+const CONNECT_USE_CASE: Record<InstagramReadTool, string> = {
+  INSTAGRAM_GET_USER_INFO: "get the authenticated Instagram Business or Creator account profile information",
+  INSTAGRAM_GET_USER_INSIGHTS: "get read-only account insights for the authenticated Instagram Business or Creator account",
+  INSTAGRAM_GET_IG_USER_MEDIA: "list recent media for the authenticated Instagram Business or Creator account",
+  INSTAGRAM_GET_IG_MEDIA: "get read-only metadata for one Instagram media item",
+  INSTAGRAM_GET_IG_MEDIA_CHILDREN: "list child media items for one Instagram carousel",
+  INSTAGRAM_GET_IG_MEDIA_INSIGHTS: "get read-only performance insights for one Instagram media item",
+  INSTAGRAM_GET_IG_MEDIA_COMMENTS: "list read-only comments for one Instagram media item without replying",
+};
+
+function decodeToolCallResult(result: unknown): unknown {
+  const envelope = (result ?? {}) as McpToolCallResult;
+  if (envelope.isError) {
+    const detail = (envelope.content ?? [])
+      .map((c) => c.text ?? "")
+      .join(" ")
+      .slice(0, 300);
+    throw new ComposioBridgeError("tool_error", `Composio tool hata döndürdü: ${detail}`);
+  }
+  if (envelope.structuredContent !== undefined) return envelope.structuredContent;
+  const text = (envelope.content ?? [])
+    .filter((c) => c.type === "text" && typeof c.text === "string")
+    .map((c) => c.text as string)
+    .join("");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
 
 /**
  * Tek kullanımlık istemci oturumu. Serverless-dostu: her sync koşusu kendi
@@ -239,36 +285,108 @@ export class ComposioMcpClient {
     }
     await this.ensureInitialized();
     const available = await this.listTools();
-    if (!available.some((t) => t.name === slug)) {
+    if (available.some((t) => t.name === slug)) {
+      return decodeToolCallResult(await this.rpc("tools/call", { name: slug, arguments: args }));
+    }
+
+    const hasConnectRouter =
+      available.some((t) => t.name === CONNECT_SEARCH_TOOL) &&
+      available.some((t) => t.name === CONNECT_EXECUTE_TOOL);
+    if (!hasConnectRouter) {
       throw new ComposioBridgeError(
         "tool_not_found",
         `Tool '${slug}' canlı MCP tool listesinde yok — toolkit sözleşmesi değişmiş olabilir; fail-closed.`
       );
     }
-    const result = (await this.rpc("tools/call", { name: slug, arguments: args })) as {
-      isError?: boolean;
-      content?: Array<{ type?: string; text?: string }>;
-      structuredContent?: unknown;
+
+    const connectedAccountId =
+      typeof args.connected_account_id === "string" ? args.connected_account_id.trim() : "";
+    if (!connectedAccountId) {
+      throw new ComposioBridgeError(
+        "not_configured",
+        "COMPOSIO_INSTAGRAM_CONNECTED_ACCOUNT_ID tanımlı değil."
+      );
+    }
+
+    const toolArgs = { ...args };
+    delete toolArgs.connected_account_id;
+
+    // Composio Connect kuralı: her workflow önce SEARCH ile canlı slug/schema
+    // ve ACTIVE connection doğrular; ardından aynı session ile execute edilir.
+    const search = decodeToolCallResult(
+      await this.rpc("tools/call", {
+        name: CONNECT_SEARCH_TOOL,
+        arguments: {
+          queries: [{ use_case: CONNECT_USE_CASE[policy.slug] }],
+          session: { generate_id: true },
+        },
+      })
+    ) as {
+      data?: {
+        success?: boolean;
+        tool_schemas?: Record<string, unknown>;
+        toolkit_connection_statuses?: Array<{
+          toolkit?: string;
+          has_active_connection?: boolean;
+          accounts?: Array<{ id?: string; status?: string }>;
+        }>;
+        session?: { id?: string };
+      };
     };
-    if (result?.isError) {
-      const text = (result.content ?? [])
-        .map((c) => c.text ?? "")
-        .join(" ")
-        .slice(0, 300);
-      throw new ComposioBridgeError("tool_error", `Tool '${slug}' hata döndü: ${text}`);
+    const searchData = search?.data;
+    const schemaFound = Boolean(searchData?.tool_schemas?.[policy.slug]);
+    const instagramConnection = (searchData?.toolkit_connection_statuses ?? []).find(
+      (entry) => entry.toolkit?.toLowerCase() === "instagram"
+    );
+    const accountActive = (instagramConnection?.accounts ?? []).some(
+      (account) => account.id === connectedAccountId && account.status === "ACTIVE"
+    );
+    const workflowSessionId = searchData?.session?.id?.trim() ?? "";
+    if (searchData?.success === false || !schemaFound) {
+      throw new ComposioBridgeError(
+        "tool_not_found",
+        `Tool '${slug}' Composio Connect aramasında doğrulanamadı — fail-closed.`
+      );
     }
-    if (result?.structuredContent !== undefined) return result.structuredContent;
-    // İçerik text ise JSON olmayı dene; değilse ham metin döner.
-    const text = (result?.content ?? [])
-      .filter((c) => c.type === "text" && typeof c.text === "string")
-      .map((c) => c.text as string)
-      .join("");
-    if (!text) return null;
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
+    if (!instagramConnection?.has_active_connection || !accountActive) {
+      throw new ComposioBridgeError(
+        "unauthorized",
+        `Composio Instagram bağlantısı '${connectedAccountId}' ACTIVE değil.`
+      );
     }
+    if (!workflowSessionId) {
+      throw new ComposioBridgeError("protocol", "Composio Connect workflow session id döndürmedi.");
+    }
+
+    const executed = decodeToolCallResult(
+      await this.rpc("tools/call", {
+        name: CONNECT_EXECUTE_TOOL,
+        arguments: {
+          tools: [{ tool_slug: policy.slug, arguments: toolArgs, account: connectedAccountId }],
+          sync_response_to_workbench: false,
+          thought: "Execute one allowlisted read-only Instagram operation.",
+          current_step: "READING_INSTAGRAM_DATA",
+          current_step_metric: "0/1 operation",
+          session_id: workflowSessionId,
+        },
+      })
+    ) as {
+      data?: {
+        successful?: boolean;
+        results?: Array<{
+          tool_slug?: string;
+          response?: { successful?: boolean; data?: unknown };
+        }>;
+      };
+    };
+    const match = (executed?.data?.results ?? []).find((item) => item.tool_slug === policy.slug);
+    if (executed?.data?.successful === false || !match?.response?.successful) {
+      throw new ComposioBridgeError(
+        "tool_error",
+        `Tool '${slug}' Composio Connect üzerinden başarısız oldu.`
+      );
+    }
+    return match.response.data ?? null;
   }
 }
 

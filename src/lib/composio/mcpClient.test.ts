@@ -37,6 +37,17 @@ const TOOLS_RESULT = {
   result: { tools: INSTAGRAM_READ_TOOL_ALLOWLIST.map((name) => ({ name })) },
 };
 
+const CONNECT_TOOLS_RESULT = {
+  jsonrpc: "2.0",
+  result: {
+    tools: [
+      { name: "COMPOSIO_SEARCH_TOOLS" },
+      { name: "COMPOSIO_MULTI_EXECUTE_TOOL" },
+      { name: "COMPOSIO_MANAGE_CONNECTIONS" },
+    ],
+  },
+};
+
 function standardHandlers(toolResult: unknown) {
   return [
     (u: string, init: RequestInit) => jsonResponse({ jsonrpc: "2.0", id: rpcOf(init).id, result: { capabilities: {} } }),
@@ -126,6 +137,80 @@ describe("ComposioMcpClient", () => {
     expect(calls.every(([url]) => String(url) === ENDPOINT)).toBe(true);
     const headers = calls[0][1].headers as Record<string, string>;
     expect(headers["x-consumer-api-key"]).toBe("test-key-not-real");
+  });
+
+  it("Connect meta-tool sözleşmesinde SEARCH → MULTI_EXECUTE ile read slug'ı çalıştırır", async () => {
+    const fetchImpl = makeFetchScript([
+      (u, init) => jsonResponse({ jsonrpc: "2.0", id: rpcOf(init).id, result: {} }),
+      () => new Response(null, { status: 202 }),
+      (u, init) => jsonResponse({ ...CONNECT_TOOLS_RESULT, id: rpcOf(init).id }),
+      (u, init) =>
+        jsonResponse({
+          jsonrpc: "2.0",
+          id: rpcOf(init).id,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  data: {
+                    success: true,
+                    tool_schemas: { INSTAGRAM_GET_USER_INFO: { input_schema: { type: "object" } } },
+                    toolkit_connection_statuses: [
+                      {
+                        toolkit: "instagram",
+                        has_active_connection: true,
+                        accounts: [{ id: "ca_test123", status: "ACTIVE" }],
+                      },
+                    ],
+                    session: { id: "workflow-1" },
+                  },
+                }),
+              },
+            ],
+          },
+        }),
+      (u, init) =>
+        jsonResponse({
+          jsonrpc: "2.0",
+          id: rpcOf(init).id,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  data: {
+                    successful: true,
+                    results: [
+                      {
+                        tool_slug: "INSTAGRAM_GET_USER_INFO",
+                        response: { successful: true, data: { id: "1789", username: "grafikcem" } },
+                      },
+                    ],
+                  },
+                }),
+              },
+            ],
+          },
+        }),
+    ]);
+    const client = new ComposioMcpClient({ fetchImpl });
+    await expect(
+      client.callTool("INSTAGRAM_GET_USER_INFO", { connected_account_id: "ca_test123" })
+    ).resolves.toEqual({ id: "1789", username: "grafikcem" });
+
+    const calls = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls;
+    const searchCall = rpcOf(calls[3][1]);
+    const executeCall = rpcOf(calls[4][1]);
+    expect(searchCall.params?.name).toBe("COMPOSIO_SEARCH_TOOLS");
+    expect(executeCall.params?.name).toBe("COMPOSIO_MULTI_EXECUTE_TOOL");
+    const executeArgs = executeCall.params?.arguments as {
+      tools: Array<{ account: string; arguments: Record<string, unknown> }>;
+      session_id: string;
+    };
+    expect(executeArgs.tools[0].account).toBe("ca_test123");
+    expect(executeArgs.tools[0].arguments).not.toHaveProperty("connected_account_id");
+    expect(executeArgs.session_id).toBe("workflow-1");
   });
 
   it("key yoksa not_configured (canlı istek atılmaz)", async () => {
