@@ -93,7 +93,7 @@ export default function TopStrip({ areaLabel, subTabLabel }: TopStripProps) {
  * warning/unavailable AYNI kaynaktan (SystemHealthProvider); Bugün tiki de aynı.
  */
 function SystemStatusButton() {
-  const { result, contracts, todayCost, refresh } = useSystemHealth();
+  const { result, contracts, todayCost, costStale, refresh } = useSystemHealth();
   const [open, setOpen] = useState(false);
 
   // Faz 1F (ADR-026): topbar YALNIZ en yüksek öncelikli actionable durumu
@@ -183,7 +183,7 @@ function SystemStatusButton() {
               Bugünkü maliyet
             </span>
             <span className="tnum" style={{ fontSize: "var(--text-sm)", color: "var(--text-primary)", fontWeight: 500 }}>
-              {todayCost != null ? `$${todayCost.toFixed(4)}` : "—"}
+              {todayCost != null ? `$${todayCost.toFixed(4)}${costStale ? " (eski)" : ""}` : "—"}
             </span>
           </div>
 
