@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw, Plus, Archive, ExternalLink, Wand2 } from "lucide-react";
+import { RefreshCw, Plus, Archive, ExternalLink, Wand2, Download } from "lucide-react";
 import { Badge, Button, Input } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 
@@ -147,6 +147,7 @@ export default function DossierProductionPanel({
   const [addOpen, setAddOpen] = useState(false);
   const [gateMissing, setGateMissing] = useState<string[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [packBusy, setPackBusy] = useState(false);
 
   const ev = production.layers.evidence;
   const evMeta = EVIDENCE_STATE_META[ev.state];
@@ -164,6 +165,42 @@ export default function DossierProductionPanel({
     } catch {
       toast.error("İşlem başarısız (ağ hatası).");
       return null;
+    }
+  };
+
+  // Production Pack indir (yalnız onaylı/hazır dossier). Sunucu deterministik
+  // `files` döner; ZIP paketleme tarayıcıda (LearnExportPanel deseni). Read-only.
+  const downloadPack = async () => {
+    setPackBusy(true);
+    try {
+      const res = await fetch(
+        `/api/reels/dossier/${encodeURIComponent(dossierId)}/pack?accountId=${encodeURIComponent(accountId)}`,
+      );
+      const json = (await res.json()) as {
+        success?: boolean;
+        files?: { path: string; content: string }[];
+        baseName?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.success || !json.files) {
+        toast.error(String(json.error ?? "Production Pack indirilemedi."));
+        return;
+      }
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const enc = new TextEncoder();
+      for (const f of json.files) zip.file(f.path, enc.encode(f.content));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${json.baseName || "production-pack"}.zip`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success("Production Pack indirildi.");
+    } catch {
+      toast.error("Production Pack indirilemedi (ağ/paket hatası).");
+    } finally {
+      setPackBusy(false);
     }
   };
 
@@ -289,6 +326,18 @@ export default function DossierProductionPanel({
         <span data-testid="production-overall">
           <Badge variant={overall.variant} size="sm">{overall.label}</Badge>
         </span>
+        {(production.overall === "approved" || production.overall === "production_ready") && (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={downloadPack}
+            disabled={packBusy}
+            data-testid="download-production-pack"
+          >
+            <Download size={13} strokeWidth={2} style={{ marginRight: 5 }} />
+            {packBusy ? "Hazırlanıyor…" : "Production Pack indir"}
+          </Button>
+        )}
         {production.layers.calendar.attachedSlotCount > 0 && !production.productionReady && (
           <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
             bağlanmış olması yayına hazır olduğu anlamına gelmez
