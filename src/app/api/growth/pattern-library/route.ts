@@ -84,9 +84,29 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Fetch patterns
+    // Egress (H3): mapper + özet metrikler yalnız aşağıdaki DAR alanları kullanır;
+    // ağır `embeddingJson` (tam float vektör string, ~10-30KB/satır) ve
+    // `angleSuggestionsJson` HİÇ döndürülmüyordu ama her satırda taşınıyordu.
     const patterns = await prisma.viralPattern.findMany({
       where,
       orderBy,
+      select: {
+        id: true,
+        accountId: true,
+        patternName: true,
+        category: true,
+        hookType: true,
+        structureJson: true,
+        emotion: true,
+        viralityTrigger: true,
+        exampleGood: true,
+        exampleBad: true,
+        usageCount: true,
+        successScore: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     // 5. Compute summary metrics based on filtered patterns
