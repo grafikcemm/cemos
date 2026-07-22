@@ -114,6 +114,13 @@ export default function CostsTab() {
     setLoadFailed(false);
     try {
       const res = await fetch("/api/costs");
+      if (!res.ok) {
+        // Hata zarfını ({success:false}) GERÇEK maliyet gibi gösterme: aksi halde
+        // tile'lar $0.0000/%0'a düşüp sahte "veri yok" boyar (costStale dürüstlük
+        // sözleşmesi ihlali). Kardeş kpis/runs çağrıları zaten .ok kontrol ediyor.
+        setLoadFailed(true);
+        return; // finally setLoading(false) koşar; costs null kalır → ErrorState
+      }
       const data = await res.json();
       setCosts(data);
       // Kalite KPI'ları fail-soft: hata maliyet panelini bozmaz.
