@@ -116,6 +116,8 @@ describe("ComposioInstagramReadProvider — normalize + explicit account", () =>
     const provider = createComposioInstagramReadProvider({ client });
     const ins = await provider.getMediaInsights("m1");
     expect(ins).toMatchObject({ mediaId: "m1", reach: 1200, saves: 34 });
+    const insightCall = vi.mocked(client.callTool).mock.calls.find(([slug]) => slug === "INSTAGRAM_GET_IG_MEDIA_INSIGHTS");
+    expect((insightCall?.[1] as Record<string, unknown>).ig_media_id).toBe("m1");
   });
 
   it("malformed yanıt: media parse edilemezse boş liste (crash yok)", async () => {
@@ -135,6 +137,7 @@ describe("ComposioInstagramReadProvider — normalize + explicit account", () =>
     expect(comments[0]).toMatchObject({ commentId: "c1", mediaId: "m1", parentCommentId: null });
     const args = vi.mocked(client.callTool).mock.calls[0][1] as Record<string, unknown>;
     expect(args.limit).toBeLessThanOrEqual(50);
+    expect(args.ig_media_id).toBe("m1");
   });
 });
 

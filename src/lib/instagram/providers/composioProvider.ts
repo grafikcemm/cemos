@@ -190,7 +190,7 @@ export function createComposioInstagramReadProvider(opts?: {
       try {
         const raw = await client.callTool(
           "INSTAGRAM_GET_IG_MEDIA_INSIGHTS",
-          baseArgs({ media_id: mediaId, metric: "reach,views,likes,comments,saved,shares" })
+          baseArgs({ ig_media_id: mediaId, metric: "reach,views,likes,comments,saved,shares" })
         );
         const values = readInsightValues(raw);
         if (Object.keys(values).length === 0) return null;
@@ -254,7 +254,7 @@ export function createComposioInstagramReadProvider(opts?: {
       try {
         const raw = await client.callTool(
           "INSTAGRAM_GET_IG_MEDIA_COMMENTS",
-          baseArgs({ media_id: mediaId, limit })
+          baseArgs({ ig_media_id: mediaId, limit })
         );
         const items = listOf(raw)
           .map((c) => RawCommentSchema.safeParse(c))
