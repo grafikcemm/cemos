@@ -10,16 +10,6 @@ import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 // SocialData per-tweet unit price (mirrors calculateCost in socialdata.ts).
 const SOCIALDATA_UNIT_PRICE = 0.0002;
 
-type UsageLogRow = {
-  date: string;
-  type: string;
-  tweetCount: number | null;
-  estimatedCostUsd: number;
-  provider: string | null;
-  model: string | null;
-  meta: string | null;
-};
-
 function parseMeta(meta: string | null): { purpose: string | null; preset: string | null; budgetClass: string | null } {
   if (!meta) return { purpose: null, preset: null, budgetClass: null };
   try {
@@ -34,36 +24,11 @@ function parseMeta(meta: string | null): { purpose: string | null; preset: strin
   }
 }
 
-/**
- * Faz 2E (ADR-034 §I): evaluation harcaması ayrı sınıflanır — meta.budgetClass
- * "evaluation" VEYA purpose "eval_" prefix'i. Production kürasyon harcaması
- * (research_opportunity_curation) evaluation DEĞİLDİR — ayrı gösterilir.
- */
-function isEvaluationRow(row: UsageLogRow): boolean {
-  const meta = parseMeta(row.meta);
-  return meta.budgetClass === "evaluation" || (meta.purpose ?? "").startsWith("eval_");
-}
-
+// Faz 2E (ADR-034 §I): evaluation harcaması meta.budgetClass "evaluation" VEYA
+// purpose "eval_" prefix'iyle ayrı sınıflanır; production kürasyonu ayrıdır.
+// (Satır-bazlı isSocialData/isOpenRouter/purposeOf helpers WP-02d groupBy
+// geçişinde grouped-satır eşdeğerleriyle [isSocialG/isOpenRouterG] değiştirildi.)
 const CURATION_PURPOSE = "research_opportunity_curation";
-
-function parsePurpose(meta: string | null): string | null {
-  return parseMeta(meta).purpose;
-}
-
-// A log row counts as SocialData spend if explicitly tagged, or if it is a scan row.
-function isSocialData(row: UsageLogRow): boolean {
-  return row.provider === "socialdata" || row.type === "scan";
-}
-
-// A log row counts as OpenRouter (LLM) spend if explicitly tagged, or if it is a
-// generation row (drafts) or an openrouter-typed row (news adapters).
-function isOpenRouter(row: UsageLogRow): boolean {
-  return row.provider === "openrouter" || row.type === "openrouter" || row.type === "generation";
-}
-
-function purposeOf(row: UsageLogRow): string {
-  return parsePurpose(row.meta) ?? (row.type === "generation" ? "draft_generation" : "other");
-}
 
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) {
@@ -95,54 +60,112 @@ export async function GET(req: NextRequest) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const thisMonthStr = new Date().toISOString().slice(0, 7);
 
-    // 1. Fetch all usage logs for the current month
-    const logs = (await prisma.usageLog.findMany({
-      where: { date: { startsWith: thisMonthStr } },
-    })) as unknown as UsageLogRow[];
+    // WP-02d — ay görünümü DB-side aggregate/groupBy'a taşındı. Eski yol ayın TÜM
+    // UsageLog satırlarını (meta JSON'ları dahil) Node'a çekiyordu; 62×500'lük
+    // fırtınanın ve data-transfer kotasının baş sürücüsüydü. Yeni yol 3 dar sorgu:
+    //  (1) tam groupBy(date,provider,type,model) → tüm SAYISAL kırılımlar
+    //      (bugün/ay toplamları, byModel, socialData, fal, transcript, dailySeries)
+    //      grouped satırlardan BİREBİR türetilir;
+    //  (2) meta'sız satırların groupBy(type,provider)'ı → purpose/preset fallback
+    //      bucket'ları ("draft_generation"/"other" + "(rol yolu)") — çift sayım YOK;
+    //  (3) yalnız meta'lı satırlar için dar select {meta, estimatedCostUsd,
+    //      provider, type} → byPurpose/byPreset/evaluation/curation (meta JSON
+    //      string kolonu DB-side ayrıştırılamaz; bu alt küme ay satırlarının
+    //      meta yazan kesridir ve tam gövde taşımaz).
+    const [groups, nullMetaGroups, metaRows] = await Promise.all([
+      prisma.usageLog.groupBy({
+        by: ["date", "provider", "type", "model"],
+        where: { date: { startsWith: thisMonthStr } },
+        _sum: { estimatedCostUsd: true, tweetCount: true },
+        _count: { _all: true },
+      }),
+      prisma.usageLog.groupBy({
+        by: ["type", "provider"],
+        where: { date: { startsWith: thisMonthStr }, meta: null },
+        _sum: { estimatedCostUsd: true },
+        _count: { _all: true },
+      }),
+      prisma.usageLog.findMany({
+        where: { date: { startsWith: thisMonthStr }, meta: { not: null } },
+        select: { meta: true, estimatedCostUsd: true, provider: true, type: true },
+      }),
+    ]);
 
-    const todayLogs = logs.filter((l) => l.date === todayStr);
+    type Group = {
+      date: string;
+      provider: string | null;
+      type: string;
+      model: string | null;
+      _sum: { estimatedCostUsd: number | null; tweetCount: number | null };
+      _count: { _all: number };
+    };
+    const g = groups as unknown as Group[];
+    const sumOf = (rows: Group[]) => rows.reduce((a, r) => a + (r._sum.estimatedCostUsd ?? 0), 0);
+    const tweetsOf = (rows: Group[]) => rows.reduce((a, r) => a + (r._sum.tweetCount ?? 0), 0);
+    const callsOf = (rows: Group[]) => rows.reduce((a, r) => a + r._count._all, 0);
+    const isSocialG = (r: { provider: string | null; type: string }) =>
+      r.provider === "socialdata" || r.type === "scan";
+    const isOpenRouterG = (r: { provider: string | null; type: string }) =>
+      r.provider === "openrouter" || r.type === "openrouter" || r.type === "generation";
 
-    // 2. Today / month totals (sum every row exactly once — backward-friendly keys)
-    const todayTotalUsd = todayLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
-    const monthTotalUsd = logs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const todayGroups = g.filter((r) => r.date === todayStr);
+    const todayTotalUsd = sumOf(todayGroups);
+    const monthTotalUsd = sumOf(g);
 
     const limits = getCostLimits();
     const budgetUsd = limits.monthlyBudgetUsd;
     const budgetStatus = await getBudgetStatus({ budgetClass: "essential" });
 
     // ── PROVIDER LINE ITEMS (month-to-date) ───────────────────────────────────
-    // SocialData: tweets fetched × unit price.
-    const socialLogs = logs.filter(isSocialData);
-    const socialTweets = socialLogs.reduce((acc, l) => acc + (l.tweetCount ?? 0), 0);
-    const socialCostUsd = socialLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const socialGroups = g.filter(isSocialG);
+    const socialTweets = tweetsOf(socialGroups);
+    const socialCostUsd = sumOf(socialGroups);
 
-    // OpenRouter: real costs, grouped by purpose and by model.
-    const orLogs = logs.filter(isOpenRouter);
-    const orTotalUsd = orLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const orGroups = g.filter(isOpenRouterG);
+    const orTotalUsd = sumOf(orGroups);
 
-    const byPurposeMap = new Map<string, { purpose: string; costUsd: number; calls: number }>();
+    // byModel: groupBy zaten model bazında — birebir (calls = satır sayısı).
     const byModelMap = new Map<string, { model: string; costUsd: number; calls: number }>();
-    // Preset kırılımı (Sprint 2): UsageLog.meta.preset gated preset çağrılarında
-    // yazılır; preset'siz gated çağrılar (rol yolu) tek kalemde toplanır.
-    const byPresetMap = new Map<string, { preset: string; costUsd: number; calls: number }>();
-    for (const row of orLogs) {
-      const purpose = purposeOf(row);
-      const pEntry = byPurposeMap.get(purpose) ?? { purpose, costUsd: 0, calls: 0 };
-      pEntry.costUsd += row.estimatedCostUsd;
-      pEntry.calls += 1;
-      byPurposeMap.set(purpose, pEntry);
-
+    for (const row of orGroups) {
       const model = row.model && row.model.trim().length > 0 ? row.model : "unknown";
-      const mEntry = byModelMap.get(model) ?? { model, costUsd: 0, calls: 0 };
-      mEntry.costUsd += row.estimatedCostUsd;
-      mEntry.calls += 1;
-      byModelMap.set(model, mEntry);
+      const entry = byModelMap.get(model) ?? { model, costUsd: 0, calls: 0 };
+      entry.costUsd += row._sum.estimatedCostUsd ?? 0;
+      entry.calls += row._count._all;
+      byModelMap.set(model, entry);
+    }
 
-      const preset = parseMeta(row.meta).preset ?? "(rol yolu)";
-      const prEntry = byPresetMap.get(preset) ?? { preset, costUsd: 0, calls: 0 };
-      prEntry.costUsd += row.estimatedCostUsd;
-      prEntry.calls += 1;
-      byPresetMap.set(preset, prEntry);
+    // byPurpose/byPreset: meta'lı satırlar parse edilir; meta'sız OR satırları
+    // eski purposeOf/preset fallback semantiğiyle bucket'lanır (generation →
+    // draft_generation, diğer OR → other; preset → "(rol yolu)").
+    const byPurposeMap = new Map<string, { purpose: string; costUsd: number; calls: number }>();
+    const byPresetMap = new Map<string, { preset: string; costUsd: number; calls: number }>();
+    const addPurpose = (purpose: string, costUsd: number, calls: number) => {
+      const entry = byPurposeMap.get(purpose) ?? { purpose, costUsd: 0, calls: 0 };
+      entry.costUsd += costUsd;
+      entry.calls += calls;
+      byPurposeMap.set(purpose, entry);
+    };
+    const addPreset = (preset: string, costUsd: number, calls: number) => {
+      const entry = byPresetMap.get(preset) ?? { preset, costUsd: 0, calls: 0 };
+      entry.costUsd += costUsd;
+      entry.calls += calls;
+      byPresetMap.set(preset, entry);
+    };
+    const metaOrRows = (metaRows as Array<{ meta: string | null; estimatedCostUsd: number; provider: string | null; type: string }>).filter(isOpenRouterG);
+    for (const row of metaOrRows) {
+      const parsed = parseMeta(row.meta);
+      addPurpose(
+        parsed.purpose ?? (row.type === "generation" ? "draft_generation" : "other"),
+        row.estimatedCostUsd,
+        1,
+      );
+      addPreset(parsed.preset ?? "(rol yolu)", row.estimatedCostUsd, 1);
+    }
+    for (const row of nullMetaGroups as unknown as Array<{ type: string; provider: string | null; _sum: { estimatedCostUsd: number | null }; _count: { _all: number } }>) {
+      if (!isOpenRouterG(row)) continue;
+      const cost = row._sum.estimatedCostUsd ?? 0;
+      addPurpose(row.type === "generation" ? "draft_generation" : "other", cost, row._count._all);
+      addPreset("(rol yolu)", cost, row._count._all);
     }
 
     const round5 = (n: number) => Number(n.toFixed(5));
@@ -152,10 +175,10 @@ export async function GET(req: NextRequest) {
     // fal.ai image + transcript (gemini/supadata) spend: summed into the month
     // total but previously shown in NO line item, so Σ(line items) < total. Break
     // them out so the Costs breakdown reconciles against the grand total.
-    const falLogs = logs.filter((l) => l.type === "image" || l.provider === "fal");
-    const falCostUsd = falLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
-    const transcriptLogs = logs.filter((l) => l.type === "transcript");
-    const transcriptCostUsd = transcriptLogs.reduce((acc, l) => acc + l.estimatedCostUsd, 0);
+    const falGroups = g.filter((r) => r.type === "image" || r.provider === "fal");
+    const falCostUsd = sumOf(falGroups);
+    const transcriptGroups = g.filter((r) => r.type === "transcript");
+    const transcriptCostUsd = sumOf(transcriptGroups);
 
     const lineItems = {
       socialData: {
@@ -173,12 +196,12 @@ export async function GET(req: NextRequest) {
       },
       fal: {
         provider: "fal",
-        images: falLogs.length,
+        images: callsOf(falGroups),
         costUsd: round5(falCostUsd),
       },
       transcript: {
         provider: "transcript",
-        count: transcriptLogs.length,
+        count: callsOf(transcriptGroups),
         costUsd: round5(transcriptCostUsd),
       },
     };
@@ -191,12 +214,13 @@ export async function GET(req: NextRequest) {
       const dateStr = d.toISOString().slice(0, 10);
       dailyMap[dateStr] = { date: dateStr, totalUsd: 0, socialDataUsd: 0, openRouterUsd: 0 };
     }
-    for (const log of logs) {
-      const bucket = dailyMap[log.date];
+    for (const row of g) {
+      const bucket = dailyMap[row.date];
       if (!bucket) continue;
-      bucket.totalUsd += log.estimatedCostUsd;
-      if (isSocialData(log)) bucket.socialDataUsd += log.estimatedCostUsd;
-      else if (isOpenRouter(log)) bucket.openRouterUsd += log.estimatedCostUsd;
+      const cost = row._sum.estimatedCostUsd ?? 0;
+      bucket.totalUsd += cost;
+      if (isSocialG(row)) bucket.socialDataUsd += cost;
+      else if (isOpenRouterG(row)) bucket.openRouterUsd += cost;
     }
     const dailySeries = Object.values(dailyMap)
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -211,9 +235,9 @@ export async function GET(req: NextRequest) {
       // Backward-friendly keys (Topbar + SettingsTab read today.totalUsd / month.*).
       today: {
         totalUsd: round5(todayTotalUsd),
-        socialDataTweets: todayLogs.filter(isSocialData).reduce((a, l) => a + (l.tweetCount ?? 0), 0),
-        socialDataUsd: round5(todayLogs.filter(isSocialData).reduce((a, l) => a + l.estimatedCostUsd, 0)),
-        openRouterUsd: round5(todayLogs.filter(isOpenRouter).reduce((a, l) => a + l.estimatedCostUsd, 0)),
+        socialDataTweets: tweetsOf(todayGroups.filter(isSocialG)),
+        socialDataUsd: round5(sumOf(todayGroups.filter(isSocialG))),
+        openRouterUsd: round5(sumOf(todayGroups.filter(isOpenRouterG))),
       },
       month: {
         totalUsd: round5(monthTotalUsd),
@@ -235,13 +259,22 @@ export async function GET(req: NextRequest) {
       lineItems,
       budgetStatus,
       // Faz 2E (ADR-034 §I): evaluation bütçesi/harcaması — production curation
-      // harcamasından AYRI (farklı purpose/budget class).
+      // harcamasından AYRI (farklı purpose/budget class). Her ikisi de meta'dan
+      // türediğinden yalnız metaRows'tan hesaplanır (meta'sız satır tanım gereği
+      // evaluation/curation olamaz — eski davranışla birebir).
       evaluation: {
         enabled: limits.evalSpendEnabled,
         monthlyBudgetUsd: limits.evalMonthlyBudgetUsd,
-        monthSpendUsd: round5(logs.filter(isEvaluationRow).reduce((a, l) => a + l.estimatedCostUsd, 0)),
+        monthSpendUsd: round5(
+          metaRows
+            .filter((l) => {
+              const parsed = parseMeta(l.meta);
+              return parsed.budgetClass === "evaluation" || (parsed.purpose ?? "").startsWith("eval_");
+            })
+            .reduce((a, l) => a + l.estimatedCostUsd, 0),
+        ),
         curationMonthSpendUsd: round5(
-          orLogs
+          metaOrRows
             .filter((l) => parseMeta(l.meta).purpose === CURATION_PURPOSE)
             .reduce((a, l) => a + l.estimatedCostUsd, 0)
         ),
