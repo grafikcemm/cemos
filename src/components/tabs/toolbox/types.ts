@@ -19,8 +19,6 @@ export type Tool = {
   isFavorite: boolean;
 };
 
-export const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
-
 export const reliabilityColor = (r: string) =>
   r === "high" ? "var(--green)" : r === "medium" ? "var(--yellow)" : "var(--danger)";
 

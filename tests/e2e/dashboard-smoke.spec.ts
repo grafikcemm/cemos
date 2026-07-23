@@ -103,9 +103,11 @@ for (const { path, crumb } of DEEP_LINKS) {
     page,
   }) => {
     // Önce farklı bir sekmeye git → activeTab persist edilsin.
+    // IA 15+3: "costs" ABSORBED → system alias'ı; breadcrumb artık "Sistem"
+    // (alias geriye-uyumunun kendisi de burada kanıtlanır).
     await page.goto("/");
     await selectUtility(page, "costs");
-    await expect(page.getByRole("banner").getByText("Maliyet", { exact: true })).toBeVisible();
+    await expect(page.getByRole("banner").getByText("Sistem", { exact: true })).toBeVisible();
 
     // Deep-link route persisted state'i ezmeli (seed-once davranışı).
     await page.goto(path);

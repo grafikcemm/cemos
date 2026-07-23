@@ -44,6 +44,16 @@ for (const [key, target] of Object.entries(TAB_ALIASES)) {
   if (navIds.includes(key)) errors.push(`Alias anahtarı "${key}" CANLI bir nav tab id'sini gölgeliyor (invariant ihlali).`);
 }
 
+// ── IA 15+3 sözleşmesi (plan §4, 2026-07-23) ───────────────────────────────
+if (navIds.length !== 15) {
+  errors.push(`Navigable yüzey sayısı ${navIds.length} — sözleşme 15 (IA 15+3).`);
+}
+for (const absorbed of ["costs", "profile-integrations", "discovery-engine"]) {
+  if (!(absorbed in TAB_ALIASES)) {
+    errors.push(`ABSORBED yüzey "${absorbed}" TAB_ALIASES'ta değil (geriye-uyum kırık).`);
+  }
+}
+
 const aliasTargets = new Set(Object.values(TAB_ALIASES).map(normalizeTabId));
 for (const id of registryIds) {
   if (!navIds.includes(id) && !aliasTargets.has(id)) {

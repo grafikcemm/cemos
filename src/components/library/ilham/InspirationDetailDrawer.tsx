@@ -42,6 +42,7 @@ export default function InspirationDetailDrawer({ item, accountId, gate, onClose
   const isInstagram = (item.content?.platform ?? "instagram") === "instagram";
 
   const runAnalysis = async () => {
+    if (!accountId) return; // fail-closed: hesap çözülmeden ücretli analiz POST'u yok
     setAnalyzing(true);
     try {
       const res = await fetch("/api/inspiration/analyze", {
@@ -64,6 +65,7 @@ export default function InspirationDetailDrawer({ item, accountId, gate, onClose
   };
 
   const convertToIdea = async () => {
+    if (!accountId) return; // fail-closed (kardeş bileşenlerle tutarlı guard)
     if (!item.contentItemId) return;
     setConverting(true);
     try {
@@ -95,6 +97,7 @@ export default function InspirationDetailDrawer({ item, accountId, gate, onClose
   };
 
   const sendHandoff = async (action: "series" | "plan") => {
+    if (!accountId) return; // fail-closed (kardeş bileşenlerle tutarlı guard)
     if (!item.contentItemId) return;
     setHandoffBusy(action);
     try {

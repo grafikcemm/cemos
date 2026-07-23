@@ -5,6 +5,7 @@ import { CheckCircle2, Inbox, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import DraftReviewCard from "./DraftReviewCard";
 import { READINESS_META } from "./readinessMeta";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 import EmptyState from "../ui/EmptyState";
 import ErrorState from "../ui/ErrorState";
@@ -19,8 +20,6 @@ type Props = {
   focusSeed?: string | null;
 };
 
-const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"];
-
 const isDone = (d: MorningDraft) =>
   d.status === "manual_published" || d.status === "published";
 
@@ -33,12 +32,17 @@ export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
   const { drafts, loading, error, fetchDrafts, saveDraft, saveSegments, prepareIntent, markPublished, sendFeedback, rescore } = queue;
   const [generating, setGenerating] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Batch-C: DB-türetilmiş hesap sırası — API createdAt asc döner, bu da
+  // bugüne dek sabit ACCOUNT_ORDER literalinin sırasıyla AYNIdır (bkz. GET
+  // /api/settings orderBy). Bootstrap fallback'i (@/store/xagent) yüklenene
+  // dek aynı görünümü ayakta tutar.
+  const accountOrder = useAccountHandles();
 
   useEffect(() => {
     if (focusSeed) setFocusId(focusSeed);
   }, [focusSeed]);
 
-  const ordered = ACCOUNT_ORDER.flatMap((h) => drafts.filter((d) => d.accountHandle === h));
+  const ordered = accountOrder.flatMap((h) => drafts.filter((d) => d.accountHandle === h));
   const pending = ordered.filter((d) => !isDone(d));
   const reviewedCount = drafts.length - pending.length;
   const allDone = drafts.length > 0 && pending.length === 0;
@@ -226,7 +230,7 @@ export default function ReviewQueue({ onToast, queue, focusSeed }: Props) {
       )}
 
       {/* Eksik hesap için üret satırı */}
-      {ACCOUNT_ORDER.filter((h) => !drafts.some((d) => d.accountHandle === h)).map((h) => (
+      {accountOrder.filter((h) => !drafts.some((d) => d.accountHandle === h)).map((h) => (
         <div
           key={h}
           style={{

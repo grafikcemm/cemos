@@ -225,4 +225,27 @@ describe("buildKnowledgeReadModel (ADR-030)", () => {
     expect(s1.neutralized).toBe(false);
     expect(m.recentSignals.latest.find((s) => s.id === "fe-2")!.neutralized).toBe(true);
   });
+
+  // ── Canlı fake-0 kapanışı (2026-07-23): DB-down fail-soft'a YUTULMAZ ──
+  it("DB-unavailable bölüm hatası FIRLATILIR (200+sıfır diziler değil → route 503 db_unavailable)", async () => {
+    factFindMany.mockRejectedValue(
+      Object.assign(new Error("Can't reach database server at `ep-fake:5432`"), {
+        name: "PrismaClientInitializationError",
+      }),
+    );
+    await expect(buildKnowledgeReadModel("grafikcem")).rejects.toMatchObject({
+      name: "PrismaClientInitializationError",
+    });
+  });
+
+  it("DB-dışı bölüm hatası fail-soft kalır ve sectionErrors REDAKTE taşır (ham Prisma/host metni istemciye gitmez)", async () => {
+    patternFindMany.mockRejectedValue(
+      new Error("boom with secret postgresql://u:p@h.neon.tech/db inside"),
+    );
+    const m = await buildKnowledgeReadModel("grafikcem");
+    expect(m.sectionErrors.some((s) => s.startsWith("performance:"))).toBe(true);
+    const joined = m.sectionErrors.join(" ");
+    expect(joined).not.toContain("u:p@h.neon.tech");
+    expect(joined).toContain("[REDACTED]");
+  });
 });

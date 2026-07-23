@@ -38,6 +38,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 import { scoreColor } from "@/lib/utils/scoreColor";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
@@ -147,18 +148,9 @@ const DEBOUNCE_MS = 300;
 const STALE_AFTER_MS = 1000 * 60 * 60 * 24 * 3; // 3 gün → "taranma DD.MM" izi
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-const EMPTY_SUMMARY: Summary = {
-  totalSources: 0,
-  activeSources: 0,
-  inactiveSources: 0,
-  totalSourcePosts: 0,
-  highOpportunityPosts: 0,
-  highRiskPosts: 0,
-  averageOpportunityScore: 0,
-  topSourceHandle: "",
-};
-
 const DEFAULT_FILTERS: FilterValues = {
+  // Liste FİLTRESİ kasıtlı olarak "all" — cross-account görünüm tasarım
+  // gereği (aşağıdaki NEW_FORM'un hedef-hesap alanından bağımsız).
   account: "all",
   status: "all",
   sourceType: "all",
@@ -168,7 +160,10 @@ const DEFAULT_FILTERS: FilterValues = {
   search: "",
 };
 
-const NEW_FORM: SourceForm = { account: "grafikcem", handle: "", mode: "ALL", likes: "100", retweets: "20" };
+// `account` burada yapı-uyumluluğu için placeholder — gerçek başlangıç
+// değeri form AÇILIRKEN global channel'dan set edilir (openNewSource'a bkz.);
+// bu YALNIZ form alanıdır, two-way DEĞİL.
+const NEW_FORM: SourceForm = { account: "", handle: "", mode: "ALL", likes: "100", retweets: "20" };
 
 const MODE_OPTIONS = [
   { value: "ALL", label: "ALL — tweet + alıntı + yanıt" },
@@ -276,9 +271,12 @@ function safeExternalUrl(url: string | undefined): string | undefined {
 // ── Ekran ─────────────────────────────────────────────────────────────────────
 export default function SourceIntelScreen() {
   const toast = useToast();
+  const { channel } = useActiveAccount();
 
   const [values, setValues] = useState<FilterValues>(DEFAULT_FILTERS);
-  const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
+  // Dürüst metrikler (denetim 2026-07-23): null = "henüz başarılı sorgu yok" —
+  // sıfırlarla dolu sahte Summary sabiti kaldırıldı; strip "–" gösterir.
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [posts, setPosts] = useState<SourcePost[]>([]);
   const [scanBlocked, setScanBlocked] = useState(false);
@@ -293,7 +291,7 @@ export default function SourceIntelScreen() {
   // Kaynak formu (Drawer) — yeni + düzenle
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<SourceForm>(NEW_FORM);
+  const [form, setForm] = useState<SourceForm>(() => ({ ...NEW_FORM, account: channel }));
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -322,7 +320,7 @@ export default function SourceIntelScreen() {
           setLoadError(true);
           return;
         }
-        setSummary(json.summary ?? EMPTY_SUMMARY);
+        setSummary(json.summary ?? null);
         setSources(json.sources ?? []);
         setPosts(json.sourcePosts ?? []);
         setScanBlocked(Boolean(json.scanBlocked));
@@ -351,7 +349,9 @@ export default function SourceIntelScreen() {
   // ── Kaynak CRUD ──────────────────────────────────────────────────────────
   const openNewSource = () => {
     setEditingId(null);
-    setForm(NEW_FORM);
+    // Form açılırken hedef hesap global channel'dan başlar (form alanı —
+    // two-way DEĞİL, kullanıcı serbestçe değiştirebilir).
+    setForm({ ...NEW_FORM, account: channel });
     setFormError(null);
     setFormOpen(true);
   };
@@ -483,10 +483,10 @@ export default function SourceIntelScreen() {
   };
 
   const metricItems: MetricStripItem[] = [
-    { label: "aktif kaynak", value: summary.activeSources },
-    { label: "taranan post", value: summary.totalSourcePosts },
-    { label: "yüksek fırsat", value: summary.highOpportunityPosts, tone: "ok" },
-    { label: "yüksek risk", value: summary.highRiskPosts, tone: "danger" },
+    { label: "aktif kaynak", value: summary ? summary.activeSources : "–" },
+    { label: "taranan post", value: summary ? summary.totalSourcePosts : "–" },
+    { label: "yüksek fırsat", value: summary ? summary.highOpportunityPosts : "–", tone: "ok" },
+    { label: "yüksek risk", value: summary ? summary.highRiskPosts : "–", tone: "danger" },
   ];
 
   const panelUrl = safeExternalUrl(activePost?.url);

@@ -25,6 +25,7 @@ import { TOOLBOX_BUCKETS, chipLabel } from "@/lib/toolbox/buckets";
 import ToolboxFolderRow, { type FolderItem } from "./toolbox/ToolboxFolderRow";
 import ToolboxToolCard from "./toolbox/ToolboxToolCard";
 import { type Tool } from "./toolbox/types";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 
 type ListResponse = { success: boolean; items?: Tool[]; error?: string };
 type CountsResponse = {
@@ -44,6 +45,9 @@ export default function ToolboxTab() {
   // a SubNav sub-category strip; search + favorites are flat overlays/folders.
   const [counts, setCounts] = useState<CountsResponse | null>(null);
   const [loadingCounts, setLoadingCounts] = useState(true);
+  // Dürüstlük (denetim 2026-07-23): sayım yüklemesi düşünce yalnız geçici toast
+  // kalıyor, header "0 araç / 0 favori" basıyordu — kalıcı bayrakla "–" gösterilir.
+  const [countsFailed, setCountsFailed] = useState(false);
 
   const [bucketItems, setBucketItems] = useState<Record<string, Tool[]>>({});
   const [loadingBucket, setLoadingBucket] = useState<string | null>(null);
@@ -65,6 +69,10 @@ export default function ToolboxTab() {
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [favKey, setFavKey] = useState<string | null>(null);
 
+  // Batch-C: DB-türetilmiş hesap listesi — tek yerde çağrılır, karta prop'la
+  // geçirilir (kart başına ayrı fetch yerine tek hook çağrısı).
+  const accountHandles = useAccountHandles();
+
   // App-level toast (mesajlar birebir korunur). Ref üzerinden çağrılır ki
   // provider re-render'ları useCallback kimliklerini bozup yükleme
   // efektlerini tekrar tetiklemesin.
@@ -80,11 +88,16 @@ export default function ToolboxTab() {
 
   const loadCounts = useCallback(async () => {
     setLoadingCounts(true);
+    setCountsFailed(false);
     try {
       const data = await fetchJson<CountsResponse>("/api/toolbox?counts=1");
       if (data.success) setCounts(data);
-      else showToast(data.error || "Sayımlar alınamadı.", "error");
+      else {
+        setCountsFailed(true);
+        showToast(data.error || "Sayımlar alınamadı.", "error");
+      }
     } catch (err) {
+      setCountsFailed(true);
       showToast(err instanceof Error ? err.message : "Sunucu hatası.", "error");
     } finally {
       setLoadingCounts(false);
@@ -268,6 +281,7 @@ export default function ToolboxTab() {
       onToggleFavorite={() => toggleFavorite(t.id, t.isFavorite)}
       generatingKey={generatingKey}
       onGenerate={generate}
+      accounts={accountHandles}
     />
   );
 
@@ -319,11 +333,11 @@ export default function ToolboxTab() {
           <>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
               <Wrench size={13} strokeWidth={2} />
-              <span className="tnum">{total}</span> araç / kaynak
+              <span className="tnum">{countsFailed ? "–" : total}</span> araç / kaynak
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent-text)", fontWeight: 500 }}>
               <Star size={13} strokeWidth={2} fill="currentColor" />
-              <span className="tnum">{favoritesCount}</span> favori
+              <span className="tnum">{countsFailed ? "–" : favoritesCount}</span> favori
             </span>
           </>
         }
@@ -388,13 +402,26 @@ export default function ToolboxTab() {
         )
       ) : (
         <>
-          {/* Folder shortcuts */}
-          <ToolboxFolderRow
-            items={folderItems}
-            activeKey={activeKey}
-            onSelect={selectFolder}
-            loading={loadingCounts && !counts}
-          />
+          {/* Folder shortcuts — sayımlar alınamadıysa klasör şeridi sahte
+              "Favoriler 0" tek-karosuna çökmesin: dürüst satır + tekrar dene. */}
+          {countsFailed && !counts ? (
+            <div
+              role="note"
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", fontSize: "var(--text-sm)", color: "var(--status-warn-text)", background: "color-mix(in srgb, var(--status-warn) 8%, var(--bg-sunken))", border: "1px solid color-mix(in srgb, var(--status-warn) 24%, transparent)", borderRadius: "var(--radius-md)" }}
+            >
+              <span>Klasör sayımları alınamadı.</span>
+              <Button variant="secondary" size="sm" onClick={loadCounts}>
+                Tekrar dene
+              </Button>
+            </div>
+          ) : (
+            <ToolboxFolderRow
+              items={folderItems}
+              activeKey={activeKey}
+              onSelect={selectFolder}
+              loading={loadingCounts && !counts}
+            />
+          )}
 
           {/* Sub-category strip (multi-category buckets) */}
           {subNavItems.length > 1 && (

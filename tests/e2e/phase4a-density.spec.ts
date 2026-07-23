@@ -113,17 +113,18 @@ function trackConsoleErrors(page: Page): string[] {
 }
 
 test.describe("Phase 4A — sidebar dağıtımı + yoğunluk", () => {
-  test("sidebar: 3 top-level + Araştırma grubu (5 öğe) + Araçlar keşfedilebilir", async ({ page }) => {
+  test("sidebar: 3 top-level + Araştırma grubu (4 öğe — IA 15+3) + Araçlar keşfedilebilir", async ({ page }) => {
     await mockBase(page);
     await page.goto("/");
     await expect(page.getByTestId("sidebar-area-bugun")).toBeVisible();
     await expect(page.getByTestId("sidebar-area-plan")).toBeVisible();
     await expect(page.getByTestId("sidebar-area-kutuphane")).toBeVisible();
-    // Araştırma grubu — eskiden yalnız Cmd+K/Fırsatlar arkasındaydı; şimdi rail'de.
+    // Araştırma grubu — IA 15+3: discovery-engine Fırsatlar'a ABSORBED (4 öğe).
     await expect(page.getByTestId("sidebar-research-toggle")).toBeVisible();
-    for (const id of ["news-pool", "youtube", "flow-radar", "discovery-engine", "source-intelligence"]) {
+    for (const id of ["news-pool", "youtube", "flow-radar", "source-intelligence"]) {
       await expect(page.getByTestId(`sidebar-research-${id}`)).toBeVisible();
     }
+    await expect(page.getByTestId("sidebar-research-discovery-engine")).toHaveCount(0);
     await expect(page.getByTestId("sidebar-toolbox")).toBeVisible();
   });
 

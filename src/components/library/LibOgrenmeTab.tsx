@@ -216,12 +216,18 @@ export default function LibOgrenmeTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
+      {/* Dürüst metrikler (canlı fake-0 kanıtı 2026-07-23): veri yokken/yüklenemezken
+          "0" GERÇEK sayım değildir — "–" gösterilir; gövde ErrorState'i zaten dürüst. */}
       <MetricStrip
         data-testid="learn-metrics"
         items={[
-          { label: "hazır paket", value: data?.readyPacks ?? 0 },
-          { label: "bugün tekrar", value: data?.dueToday ?? 0, tone: (data?.dueToday ?? 0) > 0 ? "accent" : "default" },
-          { label: "ort. mastery", value: data?.avgMastery ?? 0 },
+          { label: "hazır paket", value: data ? data.readyPacks : "–" },
+          {
+            label: "bugün tekrar",
+            value: data ? data.dueToday : "–",
+            tone: (data?.dueToday ?? 0) > 0 ? "accent" : "default",
+          },
+          { label: "ort. mastery", value: data ? data.avgMastery : "–" },
         ]}
       />
 

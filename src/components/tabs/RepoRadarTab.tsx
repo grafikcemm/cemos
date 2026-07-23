@@ -5,7 +5,7 @@ import { Radar, Search, RefreshCw, Star, Lightbulb, Copy, GitBranch } from "luci
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { scoreColor } from "@/lib/utils/scoreColor";
 import { useCopyToast } from "@/lib/hooks/useCopyToast";
-import { PageHeader, Card, Button, Input, Badge, EmptyState, Skeleton, EntityCard, PageScaffold } from "../ui";
+import { PageHeader, Card, Button, Input, Badge, EmptyState, ErrorState, Skeleton, EntityCard, PageScaffold } from "../ui";
 import { safeExternalHref } from "@/lib/utils/url";
 
 type RepoItem = {
@@ -28,16 +28,23 @@ type Response = { success: boolean; items?: RepoItem[]; error?: string };
 export default function RepoRadarTab() {
   const [items, setItems] = useState<RepoItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState("");
   const copy = useCopyToast();
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const data = await fetchJson<Response>("/api/repo-radar?limit=100");
-      if (data.success && data.items) setItems(data.items);
+      if (!data.success || !data.items) throw new Error(data.error || "payload");
+      setItems(data.items);
     } catch {
-      // empty state handles it
+      // Dürüstlük (canlı fake-empty kanıtı 2026-07-23): eski sessiz catch,
+      // DB-down 503'ü "Radar henüz boş" EmptyState'ine dönüştürüyordu.
+      // Başarısız yükleme artık ErrorState'tir; "boş" yalnız BAŞARILI sorgunun
+      // gerçek sonucudur.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -72,7 +79,7 @@ export default function RepoRadarTab() {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Radar size={15} strokeWidth={1.9} style={{ color: "var(--accent-text)" }} />
               <span className="tnum" style={{ fontWeight: 500, color: "var(--text-primary)" }}>
-                {filtered.length}
+                {loadFailed ? "–" : filtered.length}
               </span>
               trend repo
             </span>
@@ -102,6 +109,12 @@ export default function RepoRadarTab() {
             </Card>
           ))}
         </div>
+      ) : loadFailed ? (
+        <ErrorState
+          title="Repo radarı alınamadı"
+          description="Trend repolar şu an yüklenemiyor. Sorun sürerse Sistem durumuna bakın."
+          onRetry={load}
+        />
       ) : filtered.length === 0 ? (
         <Card variant="feature">
           <EmptyState

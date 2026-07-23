@@ -30,6 +30,7 @@ import {
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 
 type NewsItem = {
   id: string;
@@ -61,7 +62,6 @@ type NewsResponse = { success: boolean; items?: NewsItem[]; error?: string };
 type StageResult = { processed: number; errors: number; remaining: number; deadlineHit?: boolean };
 type ProcessResponse = { success: boolean; translate?: StageResult; analyze?: StageResult; error?: string };
 
-const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
 const PAGE_SIZE = 12;
 
 type SelectOption = { value: string; label: string };
@@ -159,6 +159,10 @@ export default function NewsPoolTab() {
   const [search, setSearch] = useState("");
   const [processing, setProcessing] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+
+  // Batch-C: DB-türetilmiş hesap listesi — tek yerde çağrılır, satıra prop'la
+  // geçirilir (satır başına ayrı fetch yerine tek hook çağrısı).
+  const accountHandles = useAccountHandles();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -284,8 +288,9 @@ export default function NewsPoolTab() {
           size="compact"
           meta={
             <>
-              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={turkish.length} label="Türkçe haber" />
-              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={usedCount} label="kullanıldı" />
+              {/* Dürüstlük: yükleme başarısızsa "0" gerçek sayım değildir → "–". */}
+              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={loadFailed ? "–" : turkish.length} label="Türkçe haber" />
+              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={loadFailed ? "–" : usedCount} label="kullanıldı" />
               {untranslated > 0 && (
                 <Stat icon={<Loader2 size={13} strokeWidth={2} />} value={untranslated} label="çevriliyor" muted />
               )}
@@ -390,6 +395,7 @@ export default function NewsPoolTab() {
                     generatingKey={generatingKey}
                     onGenerate={generate}
                     onToggleRead={() => patch(n.id, { isRead: !n.isRead })}
+                    accounts={accountHandles}
                   />
                 ))}
               </div>
@@ -404,7 +410,7 @@ export default function NewsPoolTab() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number; label: string; muted?: boolean }) {
+function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number | string; label: string; muted?: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: muted ? "var(--text-muted)" : "var(--text-secondary)" }}>
       <span style={{ display: "inline-flex", color: muted ? "var(--text-muted)" : "var(--accent-2-text)" }}>{icon}</span>
@@ -445,9 +451,11 @@ function FeaturedSignal({ item, onRead }: { item: NewsItem; onRead: () => void }
 }
 
 /** Yoğun liste satırı — başlık (ellipsis) + kaynak + skor + zaman + aksiyonlar. */
-function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
+function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead, accounts }: {
   item: NewsItem; divider: boolean; generatingKey: string | null;
   onGenerate: (id: string, account: string) => void; onToggleRead: () => void;
+  /** Batch-C: DB-türetilmiş hesap listesi (bootstrap fallback'li) — tab'dan gelir. */
+  accounts: string[];
 }) {
   const badge = verificationBadge(item.sourceVerification, item.xValueScore ?? 0);
   const buzz = buzzMeta(item.buzzScore);
@@ -488,7 +496,7 @@ function NewsRow({ item, divider, generatingKey, onGenerate, onToggleRead }: {
             <CheckCircle2 size={12} strokeWidth={1.8} /> Kullanıldı
           </span>
         ) : showOps ? (
-          ACCOUNTS.map((acc) => {
+          accounts.map((acc) => {
             const busy = generatingKey === `${item.id}-${acc}`;
             return (
               <button key={acc} onClick={() => onGenerate(item.id, acc)} disabled={!!generatingKey} title={`@${acc} için taslak üret`} style={genBtnStyle}>

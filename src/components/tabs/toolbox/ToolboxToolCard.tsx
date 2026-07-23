@@ -10,7 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, Badge } from "@/components/ui";
-import { type Tool, ACCOUNTS, reliabilityColor, linkColor } from "./types";
+import { type Tool, reliabilityColor, linkColor } from "./types";
 import { safeExternalHref } from "@/lib/utils/url";
 
 function hostOf(url: string): string {
@@ -96,12 +96,15 @@ export default function ToolboxToolCard({
   onToggleFavorite,
   generatingKey,
   onGenerate,
+  accounts,
 }: {
   tool: Tool;
   favBusy: boolean;
   onToggleFavorite: () => void;
   generatingKey: string | null;
   onGenerate: (id: string, account: string) => void;
+  /** Batch-C: DB-türetilmiş hesap listesi (bootstrap fallback'li) — tab'dan gelir. */
+  accounts: string[];
 }) {
   return (
     <Card interactive style={{ display: "flex", flexDirection: "column", gap: 8, padding: 13 }}>
@@ -236,7 +239,7 @@ export default function ToolboxToolCard({
       </div>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {ACCOUNTS.map((acc) => {
+        {accounts.map((acc) => {
           const busy = generatingKey === `${t.id}-${acc}`;
           return (
             <button key={acc} onClick={() => onGenerate(t.id, acc)} disabled={!!generatingKey} style={genBtnStyle}>

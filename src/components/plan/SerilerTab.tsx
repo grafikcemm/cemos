@@ -17,7 +17,7 @@ import {
 import SeriesHandoffBand, { SeriesCandidateTopics } from "./SeriesHandoffBand";
 import InstagramDnaSection from "./InstagramDnaSection";
 import CarouselStudio from "./CarouselStudio";
-import { useAccounts } from "./useAccounts";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 
 /**
  * Plan / Seriler (05 §C3) — Carousel/Reels seri DNA'sı. Kullanıcı DNA'yı görür ve
@@ -119,7 +119,10 @@ function ChipRow({ items, tone = "muted" }: { items: string[]; tone?: "muted" | 
 }
 
 export default function SerilerTab() {
-  const { accounts } = useAccounts();
+  // WP-04 / P0 batch A1: seçici YOK (bu ekranın kendi dropdown'ı yok) — TEK
+  // otorite global activeChannel (useActiveAccount). accountId null olabilir
+  // (fail-closed); aşağıdaki tüketiciler zaten undefined/null tolere eder.
+  const { accountId } = useActiveAccount();
   const [series, setSeries] = useState<SeriesRow[] | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -163,7 +166,6 @@ export default function SerilerTab() {
     setBusy(true);
     setNote(null);
     try {
-      const accountId = accounts[0]?.id;
       if (!accountId) {
         setNote("Hesap bulunamadı — önce hesap kurulmalı.");
         return;
@@ -246,7 +248,7 @@ export default function SerilerTab() {
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--stack)" }}>
         {/* Bekleyen seri aktarımı varsa dürüst not: uygun seri yok, fırsat bekliyor. */}
         <SeriesHandoffBand
-          accountId={accounts[0]?.id}
+          accountId={accountId ?? undefined}
           seriesOptions={[]}
           onAttached={() => {
             setHandoffVersion((v) => v + 1);
@@ -279,7 +281,7 @@ export default function SerilerTab() {
       {/* Fırsattan gelen bekleyen seri aktarımları (ADR-028): kullanıcı hedef
           seriyi seçip onaylayınca kalıcı ilişki kurulur. */}
       <SeriesHandoffBand
-        accountId={accounts[0]?.id}
+        accountId={accountId ?? undefined}
         seriesOptions={(series ?? []).map((s) => ({ seriesKey: s.seriesKey, name: s.name }))}
         onAttached={() => {
           setHandoffVersion((v) => v + 1);
@@ -486,7 +488,7 @@ export default function SerilerTab() {
       {selected && (
         <SeriesCandidateTopics
           key={`${selected.seriesKey}-${handoffVersion}`}
-          accountId={accounts[0]?.id}
+          accountId={accountId ?? undefined}
           seriesKey={selected.seriesKey}
           onGenerate={(h) => setStudioPrefill({ topic: h.title, handoffId: h.id })}
         />
@@ -495,7 +497,7 @@ export default function SerilerTab() {
       {/* Carousel üretim + review stüdyosu (ADR-036 §H) */}
       {selected && (
         <CarouselStudio
-          accountId={accounts[0]?.id}
+          accountId={accountId ?? undefined}
           series={{
             id: selected.id,
             seriesKey: selected.seriesKey,

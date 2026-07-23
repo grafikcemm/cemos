@@ -58,15 +58,9 @@ describe("nav yüzey sınıflandırması (drift guard)", () => {
     }
   });
 
-  it("Toolbox tek utility; Profil tam beş yüzey", () => {
+  it("Toolbox tek utility; Profil üç yüzey (IA 15+3: integrations/costs ABSORBED)", () => {
     expect(UTILITY_IDS).toEqual(["toolbox"]);
-    expect(PROFILE_IDS).toEqual([
-      "profile-memory",
-      "profile-integrations",
-      "system",
-      "costs",
-      "settings",
-    ]);
+    expect(PROFILE_IDS).toEqual(["profile-memory", "system", "settings"]);
   });
 });
 

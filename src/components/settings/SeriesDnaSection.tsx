@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Dna, Save, Sprout } from "lucide-react";
 import { Card, SectionHeader, EmptyState, Badge, Button } from "@/components/ui";
 import ErrorState from "@/components/ui/ErrorState";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 
 /**
  * Seri DNA editörü (Sprint 8 — CONTENT-ENGINE §5.3; C9: Settings içinde,
@@ -55,6 +56,10 @@ const FIELD_LABELS: Array<{ key: EditableKey; label: string; multiline?: boolean
 ];
 
 export default function SeriesDnaSection() {
+  // WP-04 / P0 batch A1: accountId artık TEK otorite global activeChannel'dan
+  // (useActiveAccount) gelir — bu ekranın kendine özel /api/settings çağrısı
+  // yalnızca accounts[0]?.id almak içindi, o yüzden kaldırıldı (DRY).
+  const { accountId } = useActiveAccount();
   const [series, setSeries] = useState<SeriesRow[] | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState<Partial<Record<EditableKey, string>>>({});
@@ -92,9 +97,6 @@ export default function SeriesDnaSection() {
     setBusy(true);
     setNote(null);
     try {
-      const sRes = await fetch("/api/settings");
-      const s = sRes.ok ? await sRes.json() : null;
-      const accountId: string | undefined = s?.accounts?.[0]?.id;
       if (!accountId) {
         setNote("Hesap bulunamadı — önce hesap kurulmalı.");
         return;

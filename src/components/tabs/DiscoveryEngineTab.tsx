@@ -99,7 +99,9 @@ const STEP_COLORS: Record<StepStatus, { bg: string; border: string; fg: string }
   error: { bg: "color-mix(in srgb, var(--danger) 8%, transparent)", border: "color-mix(in srgb, var(--danger) 30%, transparent)", fg: "var(--danger)" },
 };
 
-export default function DiscoveryEngineTab() {
+// IA 15+3: Fırsatlar içinde bölüm olarak da render edilir — embedded'da kendi
+// sayfa başlığını basmaz (ev sahibi SectionHeader sağlar).
+export default function DiscoveryEngineTab({ embedded = false }: { embedded?: boolean } = {}) {
   const channel = useXAgentStore((s) => s.activeChannel);
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<RunPhase>(null);
@@ -112,13 +114,18 @@ export default function DiscoveryEngineTab() {
   // Ön-uçuş: API anahtarları hazır mı? Eksikse koşmadan net mesaj.
   // WP-02: kendi /api/health fetch'i KALDIRILDI — SystemHealthProvider'ın tek
   // okuması tüketilir (navigation-burst kapatıldı; aynı payload).
-  const { health } = useSystemHealth();
+  const { health, dbUnavailable } = useSystemHealth();
 
   const missingKeys: string[] = [];
   if (health) {
     if (!health.openrouter?.ok) missingKeys.push("OPENROUTER_API_KEY (konsey + üretim)");
     if (!health.socialdata?.ok) missingKeys.push("SOCIALDATA_API_KEY (X/Reddit keşfi)");
   }
+  // Ücretli koşu kapısı (denetim 2026-07-23): DB erişilemezken veya health
+  // henüz/hiç okunamadıyken (health===null) keşif CTA'ları AÇIK kalıyordu —
+  // altyapı doğrulanamadan ücretli AI koşusu başlatılamaz (fail-closed).
+  if (dbUnavailable) missingKeys.push("Veritabanı erişilemez — keşif sonuçları kaydedilemez");
+  if (!health) missingKeys.push("Sistem durumu doğrulanamadı — önce sağlık kontrolü gerekli");
   const blocked = missingKeys.length > 0;
 
   function stepStatus(id: StepId): StepStatus {
@@ -232,24 +239,26 @@ export default function DiscoveryEngineTab() {
 
   return (
     <div style={{ width: "100%", paddingBottom: 60 }}>
-      <PageHeader
-        size="compact"
-        eyebrow="Keşfet"
-        title="Keşif Motoru"
-        subtitle={`Çok kaynaklı keşif (X · Reddit · YouTube · RSS) → çok-ajanlı müzakere konseyi → viral pattern madenciliği → @${channel} için persona-sadık taslak üretimi.`}
-        meta={
-          <>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Telescope size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
-              3 aşamalı boru hattı
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Sparkles size={15} strokeWidth={1.8} style={{ color: "var(--accent-2-text)" }} />
-              @{channel}
-            </span>
-          </>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          size="compact"
+          eyebrow="Keşfet"
+          title="Keşif Motoru"
+          subtitle={`Çok kaynaklı keşif (X · Reddit · YouTube · RSS) → çok-ajanlı müzakere konseyi → viral pattern madenciliği → @${channel} için persona-sadık taslak üretimi.`}
+          meta={
+            <>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Telescope size={15} strokeWidth={1.8} style={{ color: "var(--accent-text)" }} />
+                3 aşamalı boru hattı
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={15} strokeWidth={1.8} style={{ color: "var(--accent-2-text)" }} />
+                @{channel}
+              </span>
+            </>
+          }
+        />
+      )}
 
       {/* Ön-uçuş: eksik anahtar uyarısı */}
       {blocked && (

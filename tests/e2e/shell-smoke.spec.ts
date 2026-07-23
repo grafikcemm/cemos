@@ -23,11 +23,11 @@ test("sidebar: 3 TOP-LEVEL + Araştırma grubu + Toolbox + Profil (ADR-040; abso
   await expect(page.getByTestId("sidebar-area-kutuphane")).toBeVisible();
   await expect(page.getByTestId("sidebar-toolbox")).toBeVisible();
   await expect(page.getByTestId("sidebar-profile")).toBeVisible();
-  // ADR-040: araştırma ekranları (Haberler/YouTube/Viral Radar/Keşif/X Kaynakları)
-  // artık sidebar'da hiyerarşik "Araştırma" grubunda keşfedilebilir — saklı DEĞİL.
+  // ADR-040 + IA 15+3: araştırma grubu rail'de; Keşif Motoru Fırsatlar'a
+  // ABSORBED olduğundan artık AYRI araştırma öğesi DEĞİL.
   await expect(page.getByTestId("sidebar-research-toggle")).toBeVisible();
   await expect(page.getByTestId("sidebar-research-flow-radar")).toBeVisible();
-  await expect(page.getByTestId("sidebar-research-discovery-engine")).toBeVisible();
+  await expect(page.getByTestId("sidebar-research-discovery-engine")).toHaveCount(0);
   // ABSORBED legacy grup/ekran adları ana navda görünmemeli (yeni evlerine alias'landı).
   for (const legacy of ["Viral Kütüphane", "Günlük Kuyruk", "Instagram", "Üretim", "Hafıza"]) {
     await expect(sidebar.getByText(legacy, { exact: true })).toHaveCount(0);
@@ -78,7 +78,7 @@ test("Kütüphane alanı Tümü host'unu açar", async ({ page }) => {
   await expect(page.getByTestId("lib-search")).toBeVisible();
 });
 
-test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana navda değil)", async ({ page }) => {
+test("Profil menüsü açılır; Maliyet Sistem'e ABSORBED (IA 15+3 — ayrı yüzey değil)", async ({ page }) => {
   await gotoReady(page);
   await page.getByTestId("sidebar-profile").click();
   const menu = page.getByTestId("profile-menu");
@@ -86,12 +86,14 @@ test("Profil menüsü açılır; Sistem ve Maliyet profil yüzeyleridir (ana nav
   await expect(menu.getByTestId("profile-item-profile-memory")).toBeVisible();
   await expect(menu.getByTestId("profile-item-system")).toBeVisible();
   await expect(menu.getByTestId("profile-logout")).toBeVisible();
+  // IA 15+3: Maliyet ve Entegrasyonlar menüde AYRI öğe DEĞİL.
+  await expect(menu.getByTestId("profile-item-costs")).toHaveCount(0);
+  await expect(menu.getByTestId("profile-item-profile-integrations")).toHaveCount(0);
 
   await menu.getByTestId("profile-item-system").click();
   await expect(page.getByRole("banner").getByText("Sistem", { exact: true })).toBeVisible();
-  // Profil subnav ile Maliyet'e yatay geçiş.
-  await page.getByTestId("subnav-tab-costs").click();
-  await expect(page.getByRole("banner").getByText("Maliyet", { exact: true })).toBeVisible();
+  // Maliyet artık Sistem içinde tam-panel bölüm.
+  await expect(page.getByTestId("system-costs-section")).toBeVisible();
 });
 
 test("Cmd-K advanced araştırma ekranını açar (Araştırma / Viral Radar; sidebar'da highlight)", async ({ page }) => {

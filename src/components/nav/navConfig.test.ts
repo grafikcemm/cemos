@@ -30,8 +30,8 @@ const LIVE_IDS = new Set<string>([
   ...PROFILE_TABS.map((t) => t.id),
 ]);
 
-/** REDESIGNED-ADVANCED id'leri — asla alias'lanmaz, migration'da değişmez. */
-const ADVANCED_IDS = ["news-pool", "youtube", "flow-radar", "discovery-engine", "source-intelligence"];
+/** REDESIGNED-ADVANCED id'leri (IA 15+3: discovery-engine Fırsatlar'a ABSORBED). */
+const ADVANCED_IDS = ["news-pool", "youtube", "flow-radar", "source-intelligence"];
 
 describe("PRIMARY_AREAS (3-görevli IA)", () => {
   it("üç birincil alan: Bugün/Plan/Kütüphane", () => {
@@ -146,23 +146,32 @@ describe("isUtilityTab / isProfileTab", () => {
   it("Toolbox utility", () => {
     expect(isUtilityTab("toolbox")).toBe(true);
     expect(isUtilityTab("ai-rankings")).toBe(true); // alias → toolbox
-    expect(isUtilityTab("costs")).toBe(false); // artık profil
+    expect(isUtilityTab("costs")).toBe(false); // IA 15+3: costs → system alias'ı
   });
 
-  it("Profil yüzeyleri", () => {
-    expect(PROFILE_TABS.map((t) => t.id)).toEqual([
-      "profile-memory",
-      "profile-integrations",
-      "system",
-      "costs",
-      "settings",
-    ]);
+  it("Profil yüzeyleri (IA 15+3: integrations→settings, costs→system ABSORBED)", () => {
+    expect(PROFILE_TABS.map((t) => t.id)).toEqual(["profile-memory", "system", "settings"]);
     expect(isProfileTab("system")).toBe(true);
-    expect(isProfileTab("costs")).toBe(true);
     expect(isProfileTab("settings")).toBe(true);
     expect(isProfileTab("profile-memory")).toBe(true);
+    // ABSORBED id'ler alias üzerinden yeni evlerinin sınıfına çözülür.
+    expect(isProfileTab("costs")).toBe(true); // → system
+    expect(isProfileTab("profile-integrations")).toBe(true); // → settings
     expect(isProfileTab("toolbox")).toBe(false);
     expect(isProfileTab("morning")).toBe(false);
+  });
+
+  it("IA 15+3 sözleşmesi: 15 navigable + 3 absorbed alias hedefi canlı", () => {
+    const nav = [
+      ...PRIMARY_AREAS.flatMap((a) => a.tabIds),
+      ...ADVANCED_TABS.map((t) => t.id),
+      ...UTILITY_TABS.map((t) => t.id),
+      ...PROFILE_TABS.map((t) => t.id),
+    ];
+    expect(nav).toHaveLength(15);
+    expect(normalizeTabId("costs")).toBe("system");
+    expect(normalizeTabId("profile-integrations")).toBe("settings");
+    expect(normalizeTabId("discovery-engine")).toBe("plan-firsatlar");
   });
 });
 

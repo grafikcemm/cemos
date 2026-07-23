@@ -159,7 +159,12 @@ export default function YouTubeTab() {
       if (minScore !== "") qs.set("minScore", minScore);
       if (shorts !== "all") qs.set("shorts", shorts);
       const res = await fetch(`/api/youtube/videos?${qs.toString()}`);
+      // Dürüstlük (canlı fake-empty kanıtı 2026-07-23): 503 JSON gövdesi
+      // `videos ?? []` ile "Henüz fırsat yok" EmptyState'ine dönüşüyordu —
+      // başarısız cevap ErrorState'tir, boş liste yalnız 2xx'in gerçek sonucudur.
+      if (!res.ok) throw new Error(String(res.status));
       const json = await res.json();
+      if (json?.success === false) throw new Error(json?.error || "payload");
       setConfigured(json.configured ?? true);
       setVideos(json.videos ?? []);
     } catch {
@@ -170,11 +175,22 @@ export default function YouTubeTab() {
   }, [category, minScore, shorts]);
 
   const loadChannels = useCallback(async () => {
-    const res = await fetch("/api/youtube/channels");
-    const json = await res.json();
-    setConfigured(json.configured ?? true);
-    setChannels(json.competitors ?? []);
-    setSuggestions(json.suggestions ?? []);
+    // Aynı dürüstlük sözleşmesi: catch'siz/ok-kontrolsüz yükleme DB-down'ı
+    // "Henüz rakip kanal yok" boş durumuna çeviriyordu.
+    // Review PR#9 HIGH-2: bayrak PAYLAŞIMLI — burada da resetlenmezse Feed'in
+    // eski hatası başarılı Kanallar yüklemesini kalıcı maskeler (retry dahil).
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/youtube/channels");
+      if (!res.ok) throw new Error(String(res.status));
+      const json = await res.json();
+      if (json?.success === false) throw new Error(json?.error || "payload");
+      setConfigured(json.configured ?? true);
+      setChannels(json.competitors ?? []);
+      setSuggestions(json.suggestions ?? []);
+    } catch {
+      setLoadError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -357,16 +373,23 @@ export default function YouTubeTab() {
         />
       )}
 
-      {section === "channels" && (
-        <ChannelsSection
-          channels={channels}
-          suggestions={suggestions}
-          onApprove={async (channelId) => {
-            await postJson("/api/youtube/channels", { channelId, enabled: true });
-            loadChannels();
-          }}
-        />
-      )}
+      {section === "channels" &&
+        (loadError ? (
+          <ErrorState
+            title="Kanallar alınamadı"
+            description="Rakip kanal listesi şu an yüklenemiyor."
+            onRetry={loadChannels}
+          />
+        ) : (
+          <ChannelsSection
+            channels={channels}
+            suggestions={suggestions}
+            onApprove={async (channelId) => {
+              await postJson("/api/youtube/channels", { channelId, enabled: true });
+              loadChannels();
+            }}
+          />
+        ))}
 
       <BriefDetail
         brief={brief}

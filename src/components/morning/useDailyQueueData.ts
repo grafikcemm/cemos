@@ -106,6 +106,10 @@ export function useDailyQueueData() {
     setError(null);
     try {
       const q = new URLSearchParams({
+        // Batch-C not: bilinçli tasarım — sabah kuyruğu TÜM hesapları tek
+        // istekte çeker (per-account literal/DB-listesi türetimi burayı
+        // ETKİLEMEZ); hesap bazlı gruplama tüketici tarafında (ör.
+        // ReviewQueue/MorningHeroStats accountOrder) yapılır.
         accountHandle: "all",
         status: "active",
         dateRange: "today",

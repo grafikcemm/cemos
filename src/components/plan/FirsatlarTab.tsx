@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Sparkles, Newspaper, TrendingUp, Users, Search, ArrowUpRight } from "lucide-react";
+import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
+import { SectionHeader } from "@/components/ui";
 import { EntityCard, EmptyState, ErrorState, Badge, Button, Skeleton, BlockedExternalState, Select } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
@@ -9,7 +11,7 @@ import { OPPORTUNITY_SEGMENTS, type Opportunity, type OpportunitySourceKind } fr
 import { createHandoffFromOpportunity, type HandoffDto } from "@/components/handoff/useHandoffs";
 import { useOpportunities } from "./useOpportunities";
 import { safeExternalHref } from "@/lib/utils/url";
-import { useAccounts } from "./useAccounts";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 import CompetitorWatchlistCard from "./CompetitorWatchlistCard";
 
 /**
@@ -65,14 +67,11 @@ export default function FirsatlarTab() {
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const setRadarView = useXAgentStore((s) => s.setRadarView);
   const { opportunities, notes, loading, allFailed, reload } = useOpportunities();
-  const { accounts } = useAccounts();
+  // WP-04 / P0 batch A1: yerel accountId seçici SİLİNDİ — TEK otorite global
+  // activeChannel (useActiveAccount). Dropdown two-way bind (aşağıda).
+  const { accountId, setChannel, accounts } = useActiveAccount();
   const [segment, setSegment] = useState("all");
-  const [accountId, setAccountId] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
-  }, [accounts, accountId]);
 
   const visible = useMemo(() => {
     const all = opportunities ?? [];
@@ -172,8 +171,12 @@ export default function FirsatlarTab() {
             <Select
               aria-label="Aktif hesap"
               options={accounts.map((a) => ({ value: a.id, label: `@${a.handle}` }))}
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
+              value={accountId ?? ""}
+              onChange={(e) => {
+                // Two-way bind: dropdown id → handle → global switcher (setChannel).
+                const next = accounts.find((a) => a.id === e.target.value);
+                if (next) setChannel(next.handle);
+              }}
               data-testid="opp-account-select"
             />
           )}
@@ -323,6 +326,13 @@ export default function FirsatlarTab() {
           </button>
         </p>
       )}
+
+      {/* IA 15+3: Keşif Motoru Fırsatlar'a ABSORBED — çok kaynaklı keşif +
+          müzakere konseyi bu listenin ham-sinyal üreticisidir. */}
+      <div style={{ marginTop: "var(--space-8)" }} data-testid="firsatlar-discovery-section">
+        <SectionHeader eyebrow="KEŞİF MOTORU" title="Keşif Motoru" description="Çok kaynaklı keşif → müzakere konseyi → taslak üretimi." />
+        <DiscoveryEngineTab embedded />
+      </div>
     </div>
   );
 }

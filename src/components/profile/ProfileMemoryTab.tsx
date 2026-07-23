@@ -18,7 +18,7 @@ import {
   MetricStrip,
   type MetricStripItem,
 } from "@/components/ui";
-import { useAccounts } from "@/components/plan/useAccounts";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 
 /**
  * Profil / CemOS'un bildikleri (05 §G1 + Faz 2B ADR-029/030) — kaynaklı hafıza
@@ -142,8 +142,11 @@ function dateLabel(iso: string): string {
 }
 
 export default function ProfileMemoryTab() {
-  const { accounts } = useAccounts();
-  const [accountHandle, setAccountHandle] = useState("grafikcem");
+  // WP-04 / P0-2 (canlı repro): bu ekranın KENDİ `useState("grafikcem")`
+  // seçicisi sidebar switcher'ından kopuyordu (sidebar @maskulenkod ↔ hafıza
+  // @grafikcem). Artık TEK otorite: global activeChannel; buradaki dropdown
+  // two-way bind'dır (değiştirince sidebar da değişir).
+  const { channel: accountHandle, setChannel, accounts } = useActiveAccount();
   const [knowledge, setKnowledge] = useState<Knowledge | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -161,12 +164,6 @@ export default function ProfileMemoryTab() {
   const [reviseText, setReviseText] = useState("");
   const [reviseError, setReviseError] = useState<string | null>(null);
   const [revising, setRevising] = useState(false);
-
-  useEffect(() => {
-    if (accounts.length > 0 && !accounts.some((a) => a.handle === accountHandle)) {
-      setAccountHandle(accounts[0].handle);
-    }
-  }, [accounts, accountHandle]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,14 +289,26 @@ export default function ProfileMemoryTab() {
     }
   };
 
+  // Dürüst metrik kuralı (canlı fake-0 kanıtı 2026-07-23): API fail-soft 200 +
+  // sectionErrors dönebilir — hangi bölümün düştüğü ayırt edilemediğinden
+  // sayılar GERÇEK sayım değilse "—" gösterilir; "0" yalnız başarılı sorgunun
+  // gerçek sonucuysa basılır.
+  const metricsUnreliable = (knowledge?.sectionErrors.length ?? 0) > 0;
+  const metricValue = (n: number) => (metricsUnreliable ? "—" : String(n));
   const signalMetrics: MetricStripItem[] = knowledge
     ? [
-        { label: "aktif kural", value: String(knowledge.activeFacts.length) },
-        { label: "bekleyen öneri", value: String(knowledge.proposals.length), tone: knowledge.proposals.length > 0 ? "accent" : undefined },
-        { label: "performans dersi", value: String(knowledge.performanceLessons.length) },
+        { label: "aktif kural", value: metricValue(knowledge.activeFacts.length) },
+        {
+          label: "bekleyen öneri",
+          value: metricValue(knowledge.proposals.length),
+          tone: !metricsUnreliable && knowledge.proposals.length > 0 ? "accent" : undefined,
+        },
+        { label: "performans dersi", value: metricValue(knowledge.performanceLessons.length) },
         {
           label: `sinyal (14g)`,
-          value: String(Object.values(knowledge.recentSignals.counts).reduce((a, b) => a + b, 0)),
+          value: metricValue(
+            Object.values(knowledge.recentSignals.counts).reduce((a, b) => a + b, 0),
+          ),
         },
       ]
     : [];
@@ -316,7 +325,7 @@ export default function ProfileMemoryTab() {
               aria-label="Hesap"
               options={accountOptions}
               value={accountHandle}
-              onChange={(e) => setAccountHandle(e.target.value)}
+              onChange={(e) => setChannel(e.target.value)}
               data-testid="memory-account-select"
             />
             <Button variant="secondary" size="sm" onClick={load} iconLeft={<RefreshCw size={14} strokeWidth={2} />}>

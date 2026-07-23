@@ -4,11 +4,9 @@ import { normalizeTabId } from "@/components/nav/navConfig";
 import MorningDashboardTab from "@/components/tabs/MorningDashboardTab";
 import RadarTab from "@/components/tabs/RadarTab";
 import ViralRadarScreen from "@/components/research/ViralRadarScreen";
-import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
 import SourceIntelScreen from "@/components/research/SourceIntelScreen";
 import YouTubeTab from "@/components/tabs/YouTubeTab";
 import ToolboxTab from "@/components/tabs/ToolboxTab";
-import CostsTab from "@/components/tabs/CostsTab";
 import SystemTab from "@/components/tabs/SystemTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import TakvimTab from "@/components/plan/TakvimTab";
@@ -18,13 +16,12 @@ import LibTumuTab from "@/components/library/LibTumuTab";
 import LibIlhamTab from "@/components/library/LibIlhamTab";
 import LibOgrenmeTab from "@/components/library/LibOgrenmeTab";
 import ProfileMemoryTab from "@/components/profile/ProfileMemoryTab";
-import ProfileIntegrationsTab from "@/components/profile/ProfileIntegrationsTab";
 
 /**
  * (Alias normalize edilmiş) activeTab id → ekran bileşeni. Shell + standalone
  * /dashboard/* rotaları paylaşır.
  *
- * IA (rebuild): 3 birincil alan host'ları + 5 REDESIGNED-ADVANCED araştırma
+ * IA 15+3 (2026-07-23): 3 birincil alan host'ları + 4 REDESIGNED-ADVANCED araştırma
  * ekranı + Toolbox (utility) + Profil yüzeyleri. ABSORBED ekranlar (daily-queue,
  * viral/keyword/prompt/pattern-library, learn-dashboard, instagram) TAB_ALIASES
  * ile yeni evlerine normalize edilir → ayrı case'leri yok. Yeni host'ların tam
@@ -57,8 +54,6 @@ export function renderScreen(activeTab: string): React.ReactNode {
       return <YouTubeTab />;
     case "flow-radar":
       return <ViralRadarScreen />;
-    case "discovery-engine":
-      return <DiscoveryEngineTab />;
     case "source-intelligence":
       return <SourceIntelScreen />;
     // ── Toolbox (utility) ──
@@ -67,12 +62,8 @@ export function renderScreen(activeTab: string): React.ReactNode {
     // ── Profil yüzeyleri ──
     case "profile-memory":
       return <ProfileMemoryTab />;
-    case "profile-integrations":
-      return <ProfileIntegrationsTab />;
     case "system":
       return <SystemTab />;
-    case "costs":
-      return <CostsTab />;
     case "settings":
       return <SettingsTab />;
     default:

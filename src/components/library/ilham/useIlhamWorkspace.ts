@@ -1,14 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAccounts } from "@/components/plan/useAccounts";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 
 /**
  * Kütüphane→İlham veri kaynağı (Phase 3C §E). Tek GET /api/inspiration ile
  * çalışma alanının tamamı: panolar, kayıtlar, watchlist özeti, outlier feed,
- * AI kapısının dürüst durumu. Hesap seçimi Takvim/Fırsatlar deseniyle aynı
- * (explicit Select; gizli accounts[0] varsayımı YOK — ilk hesap yalnız
- * başlangıç değeri olarak seçilir ve UI'da görünürdür).
+ * AI kapısının dürüst durumu.
+ *
+ * WP-04 / P0-2 batch A2: bu ekranın KENDİ `useState("")` accountId seçicisi
+ * (accounts[0] fallback'iyle) sidebar switcher'ından bağımsızdı — sidebar
+ * başka hesaptayken İlham eski hesapta kalabilirdi. Artık TEK otorite:
+ * global activeChannel (useActiveAccount, FAIL-CLOSED). IlhamHeaderBar'daki
+ * Select ID-değerli kalır (mevcut davranış, daha küçük diff) — switchAccount
+ * id→handle çevirip setChannel çağırır; Select böylece global switcher'ın
+ * iki-yönlü görünümüdür.
  */
 
 export type IlhamMeta = {
@@ -122,19 +128,34 @@ export type IlhamWorkspace = {
 };
 
 export function useIlhamWorkspace() {
-  const { accounts, loading: accountsLoading, failed: accountsFailed, reload: reloadAccounts } = useAccounts();
-  const [accountId, setAccountId] = useState("");
+  const {
+    setChannel,
+    accountId, // string | null — FAIL-CLOSED (bkz. src/lib/accounts/activeAccount.ts)
+    channelUnknown,
+    accounts,
+    accountsLoading,
+    accountsFailed,
+    reloadAccounts,
+  } = useActiveAccount();
   const [boardId, setBoardId] = useState("");
   const [workspace, setWorkspace] = useState<IlhamWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  // Hesap HANGİ kaynaktan değişirse değişsin (bu ekranın Select'i ya da
+  // sidebar switcher) önceki hesabın pano seçimi taşınmaz.
   useEffect(() => {
-    if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
-  }, [accountId, accounts]);
+    setBoardId("");
+  }, [accountId]);
 
   const reload = useCallback(async () => {
-    if (!accountId) return;
+    if (!accountId) {
+      // FAIL-CLOSED: channel'ın hesap karşılığı yok (accounts boş/uyumsuz) —
+      // account-scoped fetch YOK. loading kapatılır ki sonsuz skeleton'a
+      // düşülmesin; tüketici workspace===null + accounts durumlarını kullanır.
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFailed(false);
     try {
@@ -158,17 +179,29 @@ export function useIlhamWorkspace() {
     reload();
   }, [reload]);
 
-  const switchAccount = useCallback((id: string) => {
-    setAccountId(id);
-    setBoardId(""); // hesap değişince pano seçimi sıfırlanır (cross-account sızıntı yok)
-  }, []);
+  const switchAccount = useCallback(
+    (id: string) => {
+      // IlhamHeaderBar'ın Select'i ID-değerli (accounts[].id); global
+      // switcher handle bekliyor — burada çevrilir (two-way bind).
+      const target = accounts.find((a) => a.id === id);
+      if (target) setChannel(target.handle);
+    },
+    [accounts, setChannel],
+  );
 
   return {
     accounts,
     accountsLoading,
     accountsFailed,
     reloadAccounts,
-    accountId,
+    // Tüketiciler (IlhamHeaderBar/CaptureDrawer/InspirationDetailDrawer) prop
+    // tipini `string` bekliyor; null iken "" sentinel'i onlarda da mevcut
+    // `if (!accountId)` falsy-gate'leriyle fetch/POST'u aynı şekilde durdurur
+    // — bu batch dışındaki dosyaların tipini değiştirmeden fail-closed korunur.
+    accountId: accountId ?? "",
+    // Review PR#9 HIGH-1: channel listede yok (bayat persist edilmiş handle) →
+    // tüketici ErrorState basar; sessiz blank/return-null YASAK.
+    channelUnknown,
     switchAccount,
     boardId,
     setBoardId,

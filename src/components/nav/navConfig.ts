@@ -62,7 +62,8 @@ export const ADVANCED_TABS: readonly AdvancedTab[] = [
   { id: "news-pool", label: "Haber Havuzu", parentArea: "plan" },
   { id: "youtube", label: "YouTube Fırsat Motoru", parentArea: "plan" },
   { id: "flow-radar", label: "Viral Radar", parentArea: "plan" },
-  { id: "discovery-engine", label: "Keşif Motoru", parentArea: "plan" },
+  // IA 15+3 (plan §4, denetim 2026-07-23): "discovery-engine" ABSORBED →
+  // Keşif Motoru artık Plan → Fırsatlar içinde bir bölümdür (TAB_ALIASES).
   { id: "source-intelligence", label: "X Hesabı Kaynakları", parentArea: "plan" },
 ];
 
@@ -77,7 +78,6 @@ export const RESEARCH_ICONS: Readonly<Record<string, string>> = {
   "news-pool": "Newspaper",
   youtube: "MonitorPlay",
   "flow-radar": "Flame",
-  "discovery-engine": "Telescope",
   "source-intelligence": "AtSign",
 };
 
@@ -88,7 +88,6 @@ const RESEARCH_SHORT_LABELS: Readonly<Record<string, string>> = {
   "news-pool": "Haberler",
   youtube: "YouTube",
   "flow-radar": "Viral Radar",
-  "discovery-engine": "Keşif",
   "source-intelligence": "X Kaynakları",
 };
 
@@ -116,11 +115,12 @@ export const UTILITY_TABS: readonly UtilityTab[] = [
 /** Profil menüsü yüzeyleri (05 §A6) — utility/system/settings buraya taşındı. */
 export type ProfileTab = { readonly id: string; readonly label: string; readonly icon: string };
 
+// IA 15+3 (plan §4, denetim 2026-07-23): "profile-integrations" → Ayarlar'a,
+// "costs" → Sistem'e ABSORBED (bileşenler silinmedi; yeni evlerinde bölüm
+// olarak render edilir; eski id'ler TAB_ALIASES ile yönlenir).
 export const PROFILE_TABS: readonly ProfileTab[] = [
   { id: "profile-memory", label: "CemOS'un bildikleri", icon: "Brain" },
-  { id: "profile-integrations", label: "Entegrasyonlar", icon: "Plug" },
   { id: "system", label: "Sistem", icon: "Activity" },
-  { id: "costs", label: "Maliyet", icon: "DollarSign" },
   { id: "settings", label: "Ayarlar", icon: "Settings" },
 ];
 
@@ -160,7 +160,9 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   "prompt-kutuphanesi": "lib-tumu",
   "content-radar": "news-pool",
   "repo-radar": "news-pool",
-  "content-intel": "discovery-engine",
+  // IA 15+3: discovery-engine ABSORBED → zincir yerine doğrudan yeni eve
+  // (normalizeTabId TEK seviye çözer; alias→alias runtime'da kırılırdı).
+  "content-intel": "plan-firsatlar",
   "ai-rankings": "toolbox",
   // ADR-047: haftalık öğrenme raporu da öğrenme geçmişinin evine (Profil/Hafıza) iner
   // (yanlış "morning" hedefi düzeltildi — training-center ile tutarlı).
@@ -168,6 +170,10 @@ export const TAB_ALIASES: Readonly<Record<string, string>> = {
   // ADR-045: Eğitim Merkezi'nin geri bildirim/öğrenme geçmişi Profil → CemOS'un
   // bildikleri'ne birleşti (yanlış "morning" alias'ı düzeltildi).
   "training-center": "profile-memory",
+  // ── IA 15+3 (2026-07-23): üç yüzey yeni evlerine ABSORBED ──
+  costs: "system", // Maliyet → Sistem içinde bölüm
+  "profile-integrations": "settings", // Entegrasyonlar → Ayarlar içinde bölüm
+  "discovery-engine": "plan-firsatlar", // Keşif Motoru → Fırsatlar içinde bölüm
 };
 
 /** Tüm gezilebilir sekmelerin id→etiket sözlüğü (tek kaynak). */
@@ -182,13 +188,10 @@ const TAB_LABELS: Readonly<Record<string, string>> = {
   "news-pool": "Haber Havuzu",
   youtube: "YouTube Fırsat Motoru",
   "flow-radar": "Viral Radar",
-  "discovery-engine": "Keşif Motoru",
   "source-intelligence": "X Hesabı Kaynakları",
   toolbox: "Toolbox",
   "profile-memory": "CemOS'un bildikleri",
-  "profile-integrations": "Entegrasyonlar",
   system: "Sistem",
-  costs: "Maliyet",
   settings: "Ayarlar",
 };
 
