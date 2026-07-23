@@ -1,0 +1,54 @@
+name: E2E
+
+# WP-07 (FINAL-OPERATIONAL-CLOSURE-PLAN §10): tam Playwright suite'i CI'da,
+# retries=0 (flake gizleme YASAK — config'in yerel retries:1'i CLI ile ezilir).
+# HERMETİK: playwright.config webServer'ı buildE2eServerEnv ile dummy
+# DATABASE_URL + boş-gölgeli secret'larla dev server açar — Neon/Supabase/canlı
+# sağlayıcıya SIFIR erişim (e2eEnv fail-closed guard'ı unit'te kanıtlı).
+# 4 shard: toplam süre ~her shard tek başına kadar; her shard gerçek exit koduyla
+# ayrı iş — pipe/tail maskesi yok.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E shard ${{ matrix.shard }}/4 (retries=0)
+        run: npx playwright test --retries=0 --shard=${{ matrix.shard }}/4
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-shard-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
