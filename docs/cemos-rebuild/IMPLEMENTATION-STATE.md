@@ -24,6 +24,8 @@
 
 **GATE (gerçek exit):** typecheck 0 · lint 0 · verify:catalog OK · verify:acceptance OK · verify:ai-economics OK · unit **246 dosya / 2423 test** · build 0 (`ƒ Proxy`+`ƒ /giris`) · migration **0 yeni** (`git diff origin/main -- prisma/` boş) · **E2E TAM `--retries=0`: 8 shard = 21+20+25+15+23+17+24+16 = 161/161, her shard foreground EXIT 0, SIFIR flaky** (arkaplan tam-koşu 10dk harness tavanında kesildi → kanıtlı shard desenine dönüldü; kesilen koşunun yetim dev-server'ı 3211'de temizlendi).
 
+**KAPANIŞ (2026-07-23, deploy kapısı 2 GEÇİLDİ):** PR #6 → 3 temiz-bağlam bulgu turu (code 2H+2M, security 1H+1M+2L) fixlendi (`cd02a03`) → çift **MERGE-SAFE** verdict + CI ×2 + e2e **161/161 retries=0 final HEAD'de** → merge `7c60d51` → prod `dpl_83M5A1KG` (SHA kanıtlı). Canlı smoke: **global bant CANLI**, Sistem→Meta sızıntısı sabit mesajla KAPALI, console 0; 2 straggler-500 yakalandı → sınıf taraması 7 site (5 catch'siz handler + 2 ham NextResponse-500; feed-the-goat/snapshot dış-sözleşme istisnası) → PR #7 `136fb32` → prod `dpl_EXBGymtb` (SHA kanıtlı). **Final log doğrulaması (yeni deployment): 503×7 · 200×3 · beklenmeyen 500 = 0.** Rollback zinciri: dpl_EXBGymtb ← dpl_83M5A1KG ← dpl_9geZ4HCZ.
+
 **Sıradaki:** push → PR-B → CI+preview → temiz-bağlam code/security delta review → yeşilse merge + deploy kapısı 2 + prod smoke (yetki continuation promptunda). PR-C backlog: CODE-L1 budget-status TTL memo · SEC-L1 embeddings tam reservation (WP-06) · WP-04 hesap ayrımı (bu PR'a sığmadı — bilinçli).
 
 ---
