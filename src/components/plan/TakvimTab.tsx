@@ -142,7 +142,14 @@ export default function TakvimTab() {
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
-    if (!accountId) return;
+    if (!accountId) {
+      // Savunma-derinliği (PR#10 review-MED): bu dal aşağıdaki guard-effect'e
+      // (channelUnknown/accountsFailed → loading temizliği) bağımlı kalmasın —
+      // useIlhamWorkspace ile simetrik, iptal edilen önceki çağrının finally'si
+      // de temizlemediği için stuck-skeleton şekli burada kapatılır.
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFailed(false);
     try {
