@@ -20,8 +20,9 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
+import ProfileIntegrationsTab from "@/components/profile/ProfileIntegrationsTab";
 import LearningStatusCard from "@/components/LearningStatusCard";
-import { PageHeader, Card, SectionHeader, EmptyState, Button, Toggle, Select, Badge } from "@/components/ui";
+import { PageHeader, Card, SectionHeader, EmptyState, ErrorState, Button, Toggle, Select, Badge } from "@/components/ui";
 import MemoryProposalsSection from "@/components/settings/MemoryProposalsSection";
 import SeriesDnaSection from "@/components/settings/SeriesDnaSection";
 
@@ -61,12 +62,17 @@ export default function SettingsTab() {
   const { health, refresh: refreshHealth } = useSystemHealth();
   const [costs, setCosts] = useState<CostStats | null>(null);
   const [models, setModels] = useState<{ role: string; label: string; activeModel: string }[]>([]);
-  const [modelProfile, setModelProfile] = useState("dev");
+  // Dürüstlük (denetim 2026-07-23): "dev" ön-tanımı /api/settings 503'te
+  // production'da "Profil Dev / Test" rozetini SAHTE basıyordu — profil
+  // sunucudan gelene dek null/"—" gösterilir.
+  const [modelProfile, setModelProfile] = useState<string | null>(null);
+  const [settingsFailed, setSettingsFailed] = useState(false);
   const [freeOverridesIgnored, setFreeOverridesIgnored] = useState(false);
   const [lastUsedMetadata, setLastUsedMetadata] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
+    setSettingsFailed(false);
     // Health kartları context'ten gelir; bu ekranın her yüklemesi/mutasyonu/
     // "Yenile"si provider okumasını da tazeler (tek noktadan, guard-bypass).
     refreshHealth();
@@ -84,7 +90,9 @@ export default function SettingsTab() {
       if (settingsRes.lastUsedMetadata !== undefined) setLastUsedMetadata(settingsRes.lastUsedMetadata);
       if (costsRes) setCosts(costsRes);
     } catch {
-      // silent — errors shown via health card states
+      // Health kartları context'ten dürüst; settings/costs bölümleri için
+      // kalıcı bayrak → sahte-boş/sahte-$0 yerine bölüm ErrorState'i.
+      setSettingsFailed(true);
     } finally {
       setLoading(false);
     }
@@ -189,6 +197,9 @@ export default function SettingsTab() {
 
   const monthlyBudgetUSD = costs?.month?.budgetUsd ?? 10;
   const monthlyCost = costs?.month?.totalUsd ?? 0;
+  // "$0.00" yalnız BAŞARILI maliyet sorgusunun gerçek sonucuysa basılır.
+  const costsKnown = costs != null;
+  const monthlyCostLabel = costsKnown ? `$${monthlyCost.toFixed(2)}` : "—";
   const budgetPct = Math.min(100, Math.round((monthlyCost / monthlyBudgetUSD) * 100));
 
   const workerOk = health?.worker?.inferredStatus === "recent_tick";
@@ -272,19 +283,25 @@ export default function SettingsTab() {
               <Wallet size={14} strokeWidth={2} style={{ color: "var(--accent-text)" }} />
               <span style={{ color: "var(--text-muted)" }}>Bu ay</span>
               <strong className="tnum" style={{ color: budgetPct > 80 ? "var(--danger)" : "var(--text-primary)", fontWeight: 500 }}>
-                ${monthlyCost.toFixed(2)}
+                {monthlyCostLabel}
               </strong>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
               <Cpu size={14} strokeWidth={2} style={{ color: "var(--text-muted)" }} />
               <span style={{ color: "var(--text-muted)" }}>Profil</span>
               <Badge variant={modelProfile === "dev" ? "yellow" : "accent"} size="sm">
-                {modelProfile === "premium" ? "Premium" : modelProfile === "operator_quality" ? "Operator Quality" : "Dev / Test"}
+                {modelProfile == null ? "—" : modelProfile === "premium" ? "Premium" : modelProfile === "operator_quality" ? "Operator Quality" : "Geliştirme (ucuz test)"}
               </Badge>
             </span>
           </>
         }
       />
+
+      {/* IA 15+3: Entegrasyonlar yüzeyi Ayarlar'a ABSORBED — tam panel bölüm. */}
+      <div style={{ marginTop: "var(--space-6)" }} data-testid="settings-integrations-section">
+        <SectionHeader eyebrow="ENTEGRASYONLAR" title="Sağlayıcı Durumu" description="Kimlik bilgileri, izinler ve dış bağlantı durumu — yalnız env adları." />
+        <ProfileIntegrationsTab embedded />
+      </div>
 
       {/* Continuous-learning telemetry (cron results, mined patterns, engagement) */}
       <LearningStatusCard />
@@ -357,11 +374,11 @@ export default function SettingsTab() {
                 <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                     <span className="font-display tnum" style={{ fontSize: "var(--text-2xl)", fontWeight: 500, color: budgetTone, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                      ${monthlyCost.toFixed(2)}
+                      {monthlyCostLabel}
                     </span>
                     <span className="tnum" style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)" }}>/ ${monthlyBudgetUSD}</span>
                   </div>
-                  <span className="font-display tnum" style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: budgetTone, letterSpacing: "-0.01em" }}>{budgetPct}%</span>
+                  <span className="font-display tnum" style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: budgetTone, letterSpacing: "-0.01em" }}>{costsKnown ? `${budgetPct}%` : "—"}</span>
                 </div>
                 <div style={{ background: "var(--bg-base)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", height: 8, overflow: "hidden" }}>
                   <div style={{
@@ -391,7 +408,7 @@ export default function SettingsTab() {
               }
             >
               <Badge variant={modelProfile === "dev" ? "yellow" : modelProfile === "operator_quality" ? "blue" : "accent"} size="sm">
-                {modelProfile === "premium" ? "Premium" : modelProfile === "operator_quality" ? "Operator Quality" : "Dev / Ucuz Test"}
+                {modelProfile == null ? "—" : modelProfile === "premium" ? "Premium" : modelProfile === "operator_quality" ? "Operator Quality" : "Geliştirme (ucuz test)"}
               </Badge>
             </SettingRow>
 
@@ -476,7 +493,13 @@ export default function SettingsTab() {
 
         {/* Account schedules */}
         <Section eyebrow="OTOMASYON" title="Hesap Planlamaları">
-          {accounts.length === 0 ? (
+          {settingsFailed && accounts.length === 0 ? (
+            <ErrorState
+              title="Ayarlar alınamadı"
+              description="Hesap planlamaları şu an yüklenemiyor."
+              onRetry={loadData}
+            />
+          ) : accounts.length === 0 ? (
             <EmptyState
               icon={<CalendarClock size={22} strokeWidth={1.8} />}
               title="Hesap bulunamadı"

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Sparkles, Newspaper, TrendingUp, Users, Search, ArrowUpRight } from "lucide-react";
+import DiscoveryEngineTab from "@/components/tabs/DiscoveryEngineTab";
+import { SectionHeader } from "@/components/ui";
 import { EntityCard, EmptyState, ErrorState, Badge, Button, Skeleton, BlockedExternalState, Select } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
@@ -324,6 +326,13 @@ export default function FirsatlarTab() {
           </button>
         </p>
       )}
+
+      {/* IA 15+3: Keşif Motoru Fırsatlar'a ABSORBED — çok kaynaklı keşif +
+          müzakere konseyi bu listenin ham-sinyal üreticisidir. */}
+      <div style={{ marginTop: "var(--space-8)" }} data-testid="firsatlar-discovery-section">
+        <SectionHeader eyebrow="KEŞİF MOTORU" title="Keşif Motoru" description="Çok kaynaklı keşif → müzakere konseyi → taslak üretimi." />
+        <DiscoveryEngineTab embedded />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import CostsTab from "@/components/tabs/CostsTab";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 import {
@@ -520,6 +521,12 @@ export default function SystemTab() {
           />
         </Section>
         </div>
+      </div>
+
+      {/* IA 15+3: Maliyet yüzeyi Sistem'e ABSORBED — tam panel bölüm olarak. */}
+      <div style={{ marginTop: "var(--space-8)" }} data-testid="system-costs-section">
+        <SectionHeader eyebrow="MALİYET" title="Maliyet Takibi" description="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi." />
+        <CostsTab embedded />
       </div>
     </div>
   );

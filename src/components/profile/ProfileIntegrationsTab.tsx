@@ -67,7 +67,9 @@ const GROUP_LABEL: Record<Provider["group"], string> = {
 
 const X_COST = "5–8 post/gün senaryosu: %0 link ~$2–4/ay · %50 link ~$16–26/ay · %100 link ~$30–48/ay.";
 
-export default function ProfileIntegrationsTab() {
+// IA 15+3: Ayarlar içinde bölüm olarak da render edilir — embedded'da kendi
+// sayfa başlığını basmaz (ev sahibi SectionHeader sağlar).
+export default function ProfileIntegrationsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const toast = useToast();
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const [providers, setProviders] = useState<Provider[] | null>(null);
@@ -186,7 +188,9 @@ export default function ProfileIntegrationsTab() {
   if (loading) {
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader eyebrow="Profil" title="Entegrasyonlar" subtitle="Kimlik bilgileri, izinler ve dış bağlantı durumu." />
+        {!embedded && (
+          <PageHeader eyebrow="Profil" title="Entegrasyonlar" subtitle="Kimlik bilgileri, izinler ve dış bağlantı durumu." />
+        )}
         <Card padded><Skeleton lines={6} /></Card>
       </div>
     );
@@ -194,7 +198,7 @@ export default function ProfileIntegrationsTab() {
   if (failed) {
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader eyebrow="Profil" title="Entegrasyonlar" />
+        {!embedded && <PageHeader eyebrow="Profil" title="Entegrasyonlar" />}
         <ErrorState title="Durum alınamadı" description="Entegrasyon durumu getirilemedi. Yeniden dene." onRetry={load} />
       </div>
     );
@@ -204,16 +208,18 @@ export default function ProfileIntegrationsTab() {
 
   return (
     <div style={{ width: "100%" }}>
-      <PageHeader
-        eyebrow="Profil"
-        title="Entegrasyonlar"
-        subtitle="Sağlayıcı yapılandırma durumu — yalnız env adları gösterilir, gizli değerler asla."
-        actions={
-          <Button variant="secondary" size="sm" onClick={load} iconLeft={<RefreshCw size={14} strokeWidth={2} />}>
-            Yenile
-          </Button>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="Profil"
+          title="Entegrasyonlar"
+          subtitle="Sağlayıcı yapılandırma durumu — yalnız env adları gösterilir, gizli değerler asla."
+          actions={
+            <Button variant="secondary" size="sm" onClick={load} iconLeft={<RefreshCw size={14} strokeWidth={2} />}>
+              Yenile
+            </Button>
+          }
+        />
+      )}
 
       {composio && (
         <section data-testid="composio-card" style={{ marginBottom: "var(--stack)" }}>

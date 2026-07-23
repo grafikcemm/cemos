@@ -103,7 +103,9 @@ type LineRow = {
   cost: React.ReactNode;
 };
 
-export default function CostsTab() {
+// IA 15+3: Sistem içinde bölüm olarak da render edilir — embedded'da kendi
+// sayfa başlığını basmaz (ev sahibi SectionHeader sağlar).
+export default function CostsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const [costs, setCosts] = useState<CostStats | null>(null);
   const [kpis, setKpis] = useState<QualityKpis | null>(null);
   const [lastEvalRun, setLastEvalRun] = useState<{ status: string; totalCostUsd: number; kind: string } | null>(null);
@@ -159,12 +161,14 @@ export default function CostsTab() {
   if (loading) {
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader
-          eyebrow="MALİYET"
-          title="Maliyet Takibi"
-          subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
-          size="compact"
-        />
+        {!embedded && (
+          <PageHeader
+            eyebrow="MALİYET"
+            title="Maliyet Takibi"
+            subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+            size="compact"
+          />
+        )}
         <div
           style={{
             display: "grid",
@@ -189,12 +193,14 @@ export default function CostsTab() {
   if (loadFailed && !costs) {
     return (
       <div style={{ width: "100%" }}>
-        <PageHeader
-          eyebrow="MALİYET"
-          title="Maliyet Takibi"
-          subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
-          size="compact"
-        />
+        {!embedded && (
+          <PageHeader
+            eyebrow="MALİYET"
+            title="Maliyet Takibi"
+            subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+            size="compact"
+          />
+        )}
         <ErrorState
           title="Maliyet verisi yüklenemedi"
           description="Maliyet paneli şu an alınamıyor. Sorun sürerse Ayarlar → Sistem durumu."
@@ -315,25 +321,27 @@ export default function CostsTab() {
 
   return (
     <div style={{ width: "100%", paddingBottom: "var(--space-12)" }}>
-      <PageHeader
-        eyebrow="MALİYET"
-        title="Maliyet Takibi"
-        subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
-        size="compact"
-        actions={
-          <Button
-            size="sm"
-            variant="secondary"
-            iconLeft={<RefreshCw size={14} strokeWidth={2} />}
-            onClick={() => {
-              setLoading(true);
-              fetchCosts();
-            }}
-          >
-            Yenile
-          </Button>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="MALİYET"
+          title="Maliyet Takibi"
+          subtitle="Sağlayıcı kalemleri, aylık bütçe ve günlük harcama trendi — tek panel."
+          size="compact"
+          actions={
+            <Button
+              size="sm"
+              variant="secondary"
+              iconLeft={<RefreshCw size={14} strokeWidth={2} />}
+              onClick={() => {
+                setLoading(true);
+                fetchCosts();
+              }}
+            >
+              Yenile
+            </Button>
+          }
+        />
+      )}
 
       {/* Tek kompakt stat sırası — en kritik 5 metrik */}
       <div
