@@ -60,9 +60,20 @@ describe("GET /api/health — WP-01 degraded contract", () => {
     expect(await res.json()).toMatchObject({ success: false });
   });
 
-  it("passes deep=true through to healthService", async () => {
+  it("passes deep=true through to healthService AND the contracts deep-gate", async () => {
     vi.mocked(healthService.getHealth).mockResolvedValue({ degraded: false } as never);
     await GET(makeReq("http://localhost:3000/api/health?deep=true"));
     expect(healthService.getHealth).toHaveBeenCalledWith({ deep: true });
+    expect(healthContractService.getContracts).toHaveBeenCalledWith(expect.anything(), {
+      deep: true,
+    });
+  });
+
+  it("default (shallow) call does NOT request the deep plan-health fan-out (WP-02c)", async () => {
+    vi.mocked(healthService.getHealth).mockResolvedValue({ degraded: false } as never);
+    await GET(makeReq());
+    expect(healthContractService.getContracts).toHaveBeenCalledWith(expect.anything(), {
+      deep: false,
+    });
   });
 });

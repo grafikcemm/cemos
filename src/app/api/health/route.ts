@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     // Faz 1F (ADR-026): üç sözleşme (infrastructure / pipelineFreshness /
     // todayReadiness + topbar sinyali) — additive alan; bölüm-bazlı fail-soft,
     // sözleşme montajı düşerse eski düz payload yine döner.
-    const contracts = await healthContractService.getContracts(health).catch(() => null);
+    const contracts = await healthContractService.getContracts(health, { deep }).catch(() => null);
     return NextResponse.json({ ...health, contracts });
   } catch (err) {
     // WP-01: health, DB-down'da 200 + degraded contract döner — 503/500 DÖNMEZ

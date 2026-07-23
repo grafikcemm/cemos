@@ -272,8 +272,17 @@ export const healthContractService = {
   /**
    * Üç sözleşmeyi mevcut health payload'ından + bölüm-bazlı fail-soft
    * sorgulardan türetir. Tek bölümün hatası diğerlerini düşürmez.
+   *
+   * WP-02c: pahalı plan-health dossier fan-out'u VARSAYILAN çağrıda KOŞMAZ —
+   * yalnız `?deep=true` (manuel/düşük frekanslı operasyon kontrolü) hesaplar.
+   * Shallow'da instagramPlanning null → sözleşme dürüst "unknown" döner; bu,
+   * her health okumasının dossier taramasını tetikleyip egress yakmasını keser
+   * (yukarıdaki eski NOT'un beklediği deep-gate ürün kararı budur).
    */
-  async getContracts(health: HealthPayloadLike): Promise<SystemHealthContracts> {
+  async getContracts(
+    health: HealthPayloadLike,
+    opts?: { deep?: boolean },
+  ): Promise<SystemHealthContracts> {
     // Fail-soft: liveness errors leave providers on their env-configured status.
     const liveness = await cachedLiveness().catch(() => ({}));
     const [infra, pipeline, today, instagramPlanning] = await Promise.all([
@@ -283,8 +292,8 @@ export const healthContractService = {
       pipelineInput(health).catch(() => null),
       cachedTodayInput().catch(() => null),
       // Instagram plan sağlığı — AYRI ürün sözleşmesi; fail-soft (kendi içinde
-      // unknown döner), infrastructure'ı ETKİLEMEZ.
-      cachedPlanHealth().catch(() => null),
+      // unknown döner), infrastructure'ı ETKİLEMEZ. Yalnız deep'te hesaplanır.
+      opts?.deep === true ? cachedPlanHealth().catch(() => null) : Promise.resolve(null),
     ]);
     return deriveHealthContracts({ infrastructure: infra, pipeline, today, instagramPlanning });
   },
