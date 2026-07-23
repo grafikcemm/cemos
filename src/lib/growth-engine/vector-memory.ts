@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { trainingExampleRepo } from "@/lib/db/trainingExampleRepo";
 import { usageService } from "@/lib/services/usageService";
+import { getBudgetStatus } from "@/lib/config/costGate";
 import { redactError } from "@/lib/utils/redactSecrets";
 import { safeJsonStringify } from "@/lib/growth-engine/types";
 import type {
@@ -83,6 +84,18 @@ export function createLocalFallbackEmbedding(text: string): EmbeddingVector {
 export async function createEmbedding(text: string): Promise<EmbeddingVector> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
+    return createLocalFallbackEmbedding(text);
+  }
+
+  // Fail-closed bütçe kapısı (AI cost audit): embeddings TEK runtime ücretli yoldu ki
+  // rezervasyon otoritesi DIŞINDA harcıyordu (recordOpenRouter yalnız SONRADAN ledger'lar,
+  // buildMemoryContext'te taslak üretimi sırasında 4× paralel + döngülerde çağrılıyor).
+  // Aylık cap tükendiyse HARCAMADAN deterministik yerel fallback'e düş; bütçe otoritesi
+  // doğrulanamıyorsa da güvenli tarafta kal (over-spend'den kaçın).
+  try {
+    const budget = await getBudgetStatus({ budgetClass: "background" });
+    if (!budget.allowed) return createLocalFallbackEmbedding(text);
+  } catch {
     return createLocalFallbackEmbedding(text);
   }
 

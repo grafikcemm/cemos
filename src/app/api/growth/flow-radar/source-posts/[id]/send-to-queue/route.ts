@@ -32,25 +32,56 @@ export async function POST(
         return fail("Account not found", 404);
       }
 
-      const queueItem = await queueRepo.create({
-        accountId: account.id,
-        sourcePostId: id && id !== "none" && id !== "undefined" ? id : undefined,
-        content,
-        draftType: "TWEET",
-        mode: modeId || "ai_news",
-        estimatedCostUsd: 0.001,
-        // This is REAL content (a verbatim competitor source post, or an
-        // operator-edited AI draft) — never a fabricated mock. Mislabelling it
-        // usedMock:true inverts the field's contract for any future analytics
-        // built on it.
-        usedMock: false,
-        scores: "{}",
-      });
+      const validSourceId = id && id !== "none" && id !== "undefined" ? id : undefined;
+      // Idempotency (Phase 5B pattern): aynı kaynak-postunu iki kez "Kuyruğa At"
+      // DUPLICATE taslak üretmesin (kart re-render'ında post hâlâ enabled kalıyordu).
+      // originKey NULL-distinct unique + ön-kontrol + P2002 yarış backstop'u.
+      const originKey = validSourceId ? `sourcepost-queue:${validSourceId}` : undefined;
+      if (originKey) {
+        const existing = await queueRepo.findByOriginKey(originKey);
+        if (existing) {
+          return ok({ queueItemId: existing.id, idempotent: true, message: "Bu kaynak zaten sıraya eklendi." });
+        }
+      }
 
-      return ok({
-        queueItemId: queueItem.id,
-        message: "Taslak başarıyla sıraya (Queue) eklendi.",
-      });
+      try {
+        const queueItem = await queueRepo.create({
+          accountId: account.id,
+          sourcePostId: validSourceId,
+          content,
+          draftType: "TWEET",
+          mode: modeId || "ai_news",
+          estimatedCostUsd: 0.001,
+          // This is REAL content (a verbatim competitor source post, or an
+          // operator-edited AI draft) — never a fabricated mock. Mislabelling it
+          // usedMock:true inverts the field's contract for any future analytics
+          // built on it.
+          usedMock: false,
+          scores: "{}",
+          originKey,
+        });
+
+        return ok({
+          queueItemId: queueItem.id,
+          message: "Taslak başarıyla sıraya (Queue) eklendi.",
+        });
+      } catch (e) {
+        // Yarış: iki eşzamanlı istek ön-kontrolü aynı anda geçti → P2002; mevcut
+        // satırı döndür (idempotent), duplicate FIRLATMA.
+        if (
+          originKey &&
+          e &&
+          typeof e === "object" &&
+          "code" in e &&
+          (e as { code?: string }).code === "P2002"
+        ) {
+          const existing = await queueRepo.findByOriginKey(originKey);
+          if (existing) {
+            return ok({ queueItemId: existing.id, idempotent: true, message: "Bu kaynak zaten sıraya eklendi." });
+          }
+        }
+        throw e;
+      }
     }
 
     return ok({

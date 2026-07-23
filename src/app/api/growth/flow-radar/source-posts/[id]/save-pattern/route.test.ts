@@ -6,7 +6,8 @@ import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 vi.mock("@/lib/db/client", () => ({
-  prisma: { sourcePost: { findUnique: vi.fn(), update: vi.fn() } },
+  // M9 fix: check-then-act yerine ATOMİK claim → updateMany (update DEĞİL).
+  prisma: { sourcePost: { findUnique: vi.fn(), updateMany: vi.fn() } },
 }));
 vi.mock("@/lib/growth-engine/feedback-service", () => ({ processFeedback: vi.fn() }));
 vi.mock("@/lib/utils/sameOriginGuard", () => ({ isOperatorOrCronAuthorized: vi.fn(() => true) }));
@@ -24,19 +25,31 @@ describe("POST save-pattern — Phase 5A idempotency guard", () => {
     vi.clearAllMocks();
     vi.mocked(isOperatorOrCronAuthorized).mockReturnValue(true);
     vi.mocked(processFeedback).mockResolvedValue({ success: true, viralPatternId: "vp-1" } as any);
-    vi.mocked(prisma.sourcePost.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any); // claim kazanır
   });
 
-  it("fresh (status=new) post → extracts pattern once and marks it used", async () => {
+  it("fresh (status=new) post → atomik claim kazanır, extracts once, marks it used", async () => {
     vi.mocked(prisma.sourcePost.findUnique).mockResolvedValue({
       id: "p1", accountId: "acc-1", text: "hook", status: "new", account: { handle: "grafikcem" },
     } as any);
     const res = await POST(makeReq(), params);
     expect(res.status).toBe(200);
     expect(processFeedback).toHaveBeenCalledTimes(1);
-    expect(prisma.sourcePost.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: "used" } }),
+    // Atomik claim: yalnız HENÜZ used olmayanı used'a çevirir (ücretli çağrıdan ÖNCE).
+    expect(prisma.sourcePost.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "p1", status: { not: "used" } }, data: { status: "used" } }),
     );
+  });
+
+  it("yarış: findUnique 'new' gördü ama claim (updateMany) count=0 → idempotent no-op, ücretli çağrı YOK", async () => {
+    vi.mocked(prisma.sourcePost.findUnique).mockResolvedValue({
+      id: "p1", accountId: "acc-1", text: "hook", status: "new", account: { handle: "grafikcem" },
+    } as any);
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 0 } as any); // başka istek kaptı
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(200);
+    expect((await res.json()).alreadySaved).toBe(true);
+    expect(processFeedback).not.toHaveBeenCalled(); // çift-ücret YOK
   });
 
   it("already-used post → idempotent no-op, NO second paid extraction, NO duplicate write", async () => {
@@ -48,7 +61,7 @@ describe("POST save-pattern — Phase 5A idempotency guard", () => {
     const json = await res.json();
     expect(json.alreadySaved).toBe(true);
     expect(processFeedback).not.toHaveBeenCalled();
-    expect(prisma.sourcePost.update).not.toHaveBeenCalled();
+    expect(prisma.sourcePost.updateMany).not.toHaveBeenCalled(); // used → claim'e bile gitmez
   });
 
   it("404 when the source post does not exist", async () => {
@@ -56,5 +69,54 @@ describe("POST save-pattern — Phase 5A idempotency guard", () => {
     const res = await POST(makeReq(), params);
     expect(res.status).toBe(404);
     expect(processFeedback).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST save-pattern — claim revert (post kaybolmaz)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isOperatorOrCronAuthorized).mockReturnValue(true);
+    vi.mocked(prisma.sourcePost.findUnique).mockResolvedValue({
+      id: "p1", accountId: "acc-1", text: "hook", status: "new", account: { handle: "grafikcem" },
+    } as any);
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any);
+  });
+
+  it("processFeedback FIRLATIRSA → claim priorStatus'a geri alınır, hata döner", async () => {
+    vi.mocked(processFeedback).mockRejectedValue(new Error("provider down"));
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(500);
+    expect((await res.json()).success).toBe(false);
+    // 1. çağrı claim, 2. çağrı revert: used → priorStatus ("new")
+    expect(prisma.sourcePost.updateMany).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "p1", status: "used" }, data: { status: "new" } }),
+    );
+  });
+
+  it("processFeedback yutarak başarısız olursa (viralPatternId undefined) → sahte 200 YOK, claim geri alınır", async () => {
+    // feedback-service extraction hatasını warnings'e yutar ve success:true döner —
+    // route'un buna kanmaması gerekir (CODE-M1).
+    vi.mocked(processFeedback).mockResolvedValue({
+      success: true,
+      viralPatternId: undefined,
+      warnings: ["Pattern extraction failed: budget blocked"],
+    } as any);
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(502);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+    expect(json.code).toBe("pattern_extraction_failed");
+    // Ham warning metni (provider hatası taşıyabilir) istemciye sızmaz.
+    expect(JSON.stringify(json)).not.toContain("budget blocked");
+    expect(prisma.sourcePost.updateMany).toHaveBeenNthCalledWith(2,
+      expect.objectContaining({ where: { id: "p1", status: "used" }, data: { status: "new" } }),
+    );
+  });
+
+  it("başarılı extraction (viralPatternId dolu) → revert YOK, tek updateMany (claim)", async () => {
+    vi.mocked(processFeedback).mockResolvedValue({ success: true, viralPatternId: "vp-9" } as any);
+    const res = await POST(makeReq(), params);
+    expect(res.status).toBe(200);
+    expect(prisma.sourcePost.updateMany).toHaveBeenCalledTimes(1);
   });
 });

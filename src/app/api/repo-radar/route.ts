@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { fail } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, count: items.length, items });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }
 

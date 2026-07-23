@@ -14,6 +14,12 @@ vi.mock("@/lib/db/accountRepo", () => ({
   accountRepo: { findByHandle: vi.fn() },
 }));
 
+// AI cost audit: createEmbedding artık ücretli fetch'ten ÖNCE fail-closed bütçe kapısı
+// koşar → gerçek-embedding testleri paid yolu doğrulamak için bütçeyi "allowed" mock'lar.
+vi.mock("@/lib/config/costGate", () => ({
+  getBudgetStatus: vi.fn(async () => ({ allowed: true })),
+}));
+
 /**
  * FIRST-SPRINT item 14 regresyon testi — vector-memory:304 bug'ı.
  *

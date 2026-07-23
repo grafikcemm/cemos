@@ -61,27 +61,35 @@ export default function LearnProcessingView({
     if (runningRef.current) return; // tek advance döngüsü (çift-loop yok)
     runningRef.current = true;
     (async () => {
-      while (!cancelledRef.current) {
-        const r = await postAdvance(jobId);
-        if (cancelledRef.current) break; // unmount/cancel sonrası setState yok
-        if (!r.ok) {
-          if (r.code === "budget") setBudgetBlocked(true);
-          else if (r.code === "transcript_unavailable") setTranscriptMissing(true);
-          else setError(r.error ?? "İşlem hatası");
-          break;
+      try {
+        while (!cancelledRef.current) {
+          const r = await postAdvance(jobId);
+          if (cancelledRef.current) break; // unmount/cancel sonrası setState yok
+          if (!r.ok) {
+            if (r.code === "budget") setBudgetBlocked(true);
+            else if (r.code === "transcript_unavailable") setTranscriptMissing(true);
+            else setError(r.error ?? "İşlem hatası");
+            break;
+          }
+          const res = r.result!;
+          setStage(res.currentStage);
+          setStatus(res.status);
+          setError(res.error);
+          if (res.status === "done") {
+            onDone(res.packId);
+            break;
+          }
+          if (res.status === "failed") break;
+          await sleep(ADVANCE_BACKOFF_MS); // kontrollü backoff
         }
-        const res = r.result!;
-        setStage(res.currentStage);
-        setStatus(res.status);
-        setError(res.error);
-        if (res.status === "done") {
-          onDone(res.packId);
-          break;
-        }
-        if (res.status === "failed") break;
-        await sleep(ADVANCE_BACKOFF_MS); // kontrollü backoff
+      } catch {
+        // postAdvance/res.json() throw'u (504 HTML gövdesi, kopan bağlantı) döngüden
+        // KAÇMAMALI: aksi halde runningRef true kilitlenir → sonsuz spinner, hiçbir
+        // recovery paneli yok, "devam et" bile çalışmaz. Dürüst hata + finally reset.
+        if (!cancelledRef.current) setError("İşlem kesildi — bağlantı hatası. Tekrar dene.");
+      } finally {
+        runningRef.current = false; // her çıkışta (başarı/hata/throw) serbest bırak
       }
-      runningRef.current = false;
     })();
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDigestForDate } from "@/lib/news/digest";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { fail } from "@/lib/utils/apiResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, digest });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

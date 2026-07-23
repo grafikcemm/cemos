@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { healthService } from "@/lib/services/healthService";
 import { healthContractService } from "@/lib/health/healthContractService";
+import { fail } from "@/lib/utils/apiResponse";
 
 export async function GET(req: Request) {
   try {
@@ -14,6 +15,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ...health, contracts });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Sağlık durumu kontrol edilemedi";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

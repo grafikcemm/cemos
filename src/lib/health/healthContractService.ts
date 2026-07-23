@@ -168,7 +168,23 @@ async function todayInput(): Promise<TodayInput> {
   const [todayItems, publishedToday, schedules, morningRun] = await Promise.all([
     prisma.queueItem.findMany({
       where: { createdAt: { gte: start, lte: end }, status: { in: ACTIVE_STATUSES } },
-      include: { account: true },
+      // Egress (C2): assessQueueItemReadiness + preparedIntents için gereken DAR alan
+      // kümesi. Geniş `candidatesJson` gövdesi ve tam Account JOIN'i her health
+      // poll'unda taşınmaz (readinessAdapter yalnız aşağıdaki alanları okur).
+      select: {
+        id: true,
+        content: true,
+        editedContent: true,
+        status: true,
+        draftType: true,
+        mode: true,
+        scores: true,
+        lintReport: true,
+        threadSegments: true,
+        sourcePostId: true,
+        newsItemId: true,
+        account: { select: { handle: true, maxChars: true } },
+      },
     }),
     prisma.queueItem.count({
       where: { publishedAt: { gte: start, lte: end }, status: { in: PUBLISHED_STATUSES } },
@@ -218,6 +234,40 @@ async function todayInput(): Promise<TodayInput> {
   };
 }
 
+// Egress (C1/C2/C3 kısmi azaltım): /api/health poll'u + navigation-burst
+// (SystemHealthProvider + SettingsTab + ProfileIntegrationsTab + DiscoveryEngineTab
+// HEPSİ /api/health çeker) aynı pahalı hesapları (plan-health dossier fan-out'u,
+// provider liveness 10 sorgu, bugünün queueItem'ları) kısa pencerede DEFALARCA
+// koşuyordu. Kısa TTL + eşzamanlı (in-flight) collapse → penceredeki tüm çağrılar
+// TEK hesabı paylaşır. Sağlık sinyali ≤TTL bayat olabilir (saniyelik değişmez).
+// Hata CACHE'LENMEZ → sıradaki çağrı taze dener. NOT: tek sekmenin 5dk poll'ü hâlâ
+// yeni hesap yapar; plan-health fan-out'unun TAM tek-sekme çözümü kalıcı readiness
+// kolonu (migration — Neon askıda) veya deep-gate (ürün kararı) gerektirir.
+const HEALTH_CACHE_TTL_MS = 15_000;
+function ttlMemo<T>(fn: () => Promise<T>, ttlMs: number): () => Promise<T> {
+  let cache: { value: T; at: number } | null = null;
+  let inflight: Promise<T> | null = null;
+  return () => {
+    if (cache && Date.now() - cache.at < ttlMs) return Promise.resolve(cache.value);
+    if (inflight) return inflight;
+    inflight = fn().then(
+      (v) => {
+        cache = { value: v, at: Date.now() };
+        inflight = null;
+        return v;
+      },
+      (e) => {
+        inflight = null; // hatayı cache'leme
+        throw e;
+      },
+    );
+    return inflight;
+  };
+}
+const cachedLiveness = ttlMemo(() => getProviderLiveness(), HEALTH_CACHE_TTL_MS);
+const cachedTodayInput = ttlMemo(() => todayInput(), HEALTH_CACHE_TTL_MS);
+const cachedPlanHealth = ttlMemo(() => getInstagramPlanHealth(), HEALTH_CACHE_TTL_MS);
+
 export const healthContractService = {
   /**
    * Üç sözleşmeyi mevcut health payload'ından + bölüm-bazlı fail-soft
@@ -225,16 +275,16 @@ export const healthContractService = {
    */
   async getContracts(health: HealthPayloadLike): Promise<SystemHealthContracts> {
     // Fail-soft: liveness errors leave providers on their env-configured status.
-    const liveness = await getProviderLiveness().catch(() => ({}));
+    const liveness = await cachedLiveness().catch(() => ({}));
     const [infra, pipeline, today, instagramPlanning] = await Promise.all([
       Promise.resolve()
         .then(() => infrastructureInput(health, liveness))
         .catch(() => null),
       pipelineInput(health).catch(() => null),
-      todayInput().catch(() => null),
+      cachedTodayInput().catch(() => null),
       // Instagram plan sağlığı — AYRI ürün sözleşmesi; fail-soft (kendi içinde
       // unknown döner), infrastructure'ı ETKİLEMEZ.
-      getInstagramPlanHealth().catch(() => null),
+      cachedPlanHealth().catch(() => null),
     ]);
     return deriveHealthContracts({ infrastructure: infra, pipeline, today, instagramPlanning });
   },

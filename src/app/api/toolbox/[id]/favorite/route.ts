@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { fail } from "@/lib/utils/apiResponse";
 
 // POST /api/toolbox/[id]/favorite — toggle the isFavorite flag (DB-persisted).
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -23,6 +24,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ success: true, isFavorite: updated.isFavorite });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    return fail(msg, 500);
   }
 }

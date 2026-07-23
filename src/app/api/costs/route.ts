@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { getCostLimits } from "@/lib/config/costLimits";
 import { getBudgetStatus } from "@/lib/config/costGate";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { fail } from "@/lib/utils/apiResponse";
 
 // SocialData per-tweet unit price (mirrors calculateCost in socialdata.ts).
 const SOCIALDATA_UNIT_PRICE = 0.0002;
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ today: { totalUsd: Number((agg._sum.estimatedCostUsd ?? 0).toFixed(5)) } });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Maliyet alınamadı";
-      return NextResponse.json({ success: false, error: message }, { status: 500 });
+      return fail(message, 500); // redakte + 5xx sınırlı (ham DB/connection-string sızmaz)
     }
   }
 
@@ -254,6 +255,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Maliyetler alınamadı";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return fail(message, 500);
   }
 }

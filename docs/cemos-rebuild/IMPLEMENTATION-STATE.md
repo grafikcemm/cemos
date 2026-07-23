@@ -1,5 +1,19 @@
 # IMPLEMENTATION-STATE
 
+## TRUTH DELTA — Opus uygulama başlangıç doğrulaması (2026-07-22, FINAL-OPERATIONAL-CLOSURE-PLAN v2 §14 gereği)
+
+Salt-okunur re-verify sonucu; planın referans gerçeklerinden SAPMALAR:
+
+**Doğrulandı (delta yok):** branch `fix/prod-audit-egress-security@98a94fa` (5 commit, tree yalnız `?? shots/` + untracked plan dosyası) · prod `main@45875ad` = `dpl_8WmeP7Ms` READY · açık PR yoktu (PR #5 bu oturumda açıldı) · default branch `main` · Neon hâlâ erişilemez (18:03'te dahi `PrismaClientInitializationError`).
+
+**DELTA 1 — Production env envanteri TAM (VAR/YOK, `vercel env ls` — değerler okunmadı):** Planın "eksik olabilir" varsaydığı env'lerin HEPSİ Production'da VAR: `OPENROUTER_KEY_ROTATED_AT` (1 gün önce eklenmiş — rotasyon kapısı artık kapalı değil olabilir), `OPENROUTER_API_KEY` (1g), `COMPOSIO_CONSUMER_API_KEY`+`COMPOSIO_INSTAGRAM_CONNECTED_ACCOUNT_ID`+`COMPOSIO_INSTAGRAM_ACCOUNT_HANDLE`+`COMPOSIO_INSTAGRAM_TOOLKIT_VERSION`+`INSTAGRAM_DATA_PROVIDER` (9 saat önce), `OBSIDIAN_GITHUB_TOKEN`+`OBSIDIAN_GITHUB_REPO`+`OBSIDIAN_GITHUB_DIR` (20 gün), OIDC dörtlüsü, `DATABASE_URL`, `CRON_SECRET`, `SOCIALDATA_API_KEY`, `FAL_KEY`, `SUPADATA_API_KEY`, `GEMINI_API_KEY`, `META_*`, tüm bütçe/limit değişkenleri. **Sonuç: OP-2 yalnız KREDİ sorusuna düşer; OP-5 yalnız hedef ONAYINA düşer (GitHub env'leri hazır); OP-3 bağlama env'leri hazır (ACTIVE onayı canlı sync'te test edilir).** Not: VAR ≠ değer geçerli — canlı doğrulama ilk gerçek çağrıda.
+
+**DELTA 2 — Vercel cron'ları CANLI ateşleniyor:** 2026-07-22 18:03'te `/api/cron/learn` koştu (`CRON_SECRET` çalışıyor), DB'de öngörülen biçimde başarısız oldu; bütçe gate'i dürüst davrandı ("Budget durumu okunamadı, mining atlanıyor"). Cron zamanlaması için ek operatör aksiyonu GEREKMİYOR; DB dönünce cron'lar kendiliğinden üretmeye başlar.
+
+**Sapma bildirimi:** PR-A'ya (plan: "yalnız 5 commit") bir adet salt-docs commit'i eklendi (bu truth delta + plan dosyasının kendisi). Gerekçe: hotfix'i yöneten otoritatif plan repo'da PR ile birlikte kayda girer; runtime riski sıfır. İtiraz halinde commit düşürülür.
+
+---
+
 ## AUTH RETIREMENT → "Sign in with Vercel" (OIDC) — ADR-049 (2026-07-21)
 
 **Branch `feature/cemos-rebuild`** (önceki HEAD `e8d729b` üstüne; PUSH/PR/deploy YOK; tree yalnız `?? shots/`). Kullanıcı kararı: uygulama-içi parola emekli; **Hobby'de kal ($0), uygulama-içi "Sign in with Vercel" (OIDC) kapısı.** Vercel plan kapısı resmî docs ile doğrulandı: Deployment Protection "All Deployments" (production domain koruması) = **Pro/Enterprise**; Hobby production'ı public bırakır → authentication authority uygulama-içi OIDC kapısıdır.

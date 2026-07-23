@@ -21,7 +21,8 @@ vi.mock("@/lib/db/client", () => ({
     sourcePost: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
-      update: vi.fn()
+      update: vi.fn(),
+      updateMany: vi.fn() // M9: save-pattern atomik claim
     }
   }
 }));
@@ -405,8 +406,13 @@ describe("Flow Radar API Suite", () => {
       account: { id: "acc-grafik", handle: "grafikcem" }
     } as any);
 
-    vi.mocked(prisma.sourcePost.update).mockResolvedValue({ id: "post-1", status: "used" } as any);
-    vi.mocked(processFeedback).mockResolvedValue({ success: true, feedbackEventId: "fb-event-1" });
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any); // M9: claim kazanır
+    // viralPatternId zorunlu: route artık desen gerçekten yazılmadan 200 dönmez (CODE-M1).
+    vi.mocked(processFeedback).mockResolvedValue({
+      success: true,
+      feedbackEventId: "fb-event-1",
+      viralPatternId: "vp-1",
+    });
 
     const req = createPostRequest();
     const res = await POSTSavePattern(req, { params: Promise.resolve({ id: "post-1" }) });
@@ -433,15 +439,15 @@ describe("Flow Radar API Suite", () => {
       account: { id: "acc-grafik", handle: "grafikcem" }
     } as any);
 
-    vi.mocked(prisma.sourcePost.update).mockResolvedValue({ id: "post-1", status: "used" } as any);
+    vi.mocked(prisma.sourcePost.updateMany).mockResolvedValue({ count: 1 } as any); // M9: claim kazanır
     vi.mocked(processFeedback).mockResolvedValue({ success: true });
 
     const req = createPostRequest();
     await POSTSavePattern(req, { params: Promise.resolve({ id: "post-1" }) });
 
-    expect(prisma.sourcePost.update).toHaveBeenCalledWith(
+    expect(prisma.sourcePost.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "post-1" },
+        where: { id: "post-1", status: { not: "used" } }, // atomik claim (ücretli çağrıdan ÖNCE)
         data: { status: "used" }
       })
     );
