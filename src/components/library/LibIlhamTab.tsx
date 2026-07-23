@@ -36,6 +36,16 @@ export default function LibIlhamTab() {
   if (ws.accountsFailed) {
     return <ErrorState title="Hesaplar alınamadı" description="Hesap listesi getirilemedi. Yeniden dene." onRetry={ws.reloadAccounts} />;
   }
+  {/* Review PR#9 HIGH-1: bayat persist edilmiş channel listede yoksa BLANK değil dürüst hata. */}
+  if (ws.channelUnknown) {
+    return (
+      <ErrorState
+        title="Aktif hesap çözümlenemedi"
+        description="Seçili hesap mevcut hesap listesinde bulunamadı. Sidebar'dan geçerli bir hesap seç."
+        onRetry={ws.reloadAccounts}
+      />
+    );
+  }
   if (ws.accounts.length === 0) {
     return (
       <EmptyState

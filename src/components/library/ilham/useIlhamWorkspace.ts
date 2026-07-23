@@ -131,6 +131,7 @@ export function useIlhamWorkspace() {
   const {
     setChannel,
     accountId, // string | null — FAIL-CLOSED (bkz. src/lib/accounts/activeAccount.ts)
+    channelUnknown,
     accounts,
     accountsLoading,
     accountsFailed,
@@ -198,6 +199,9 @@ export function useIlhamWorkspace() {
     // `if (!accountId)` falsy-gate'leriyle fetch/POST'u aynı şekilde durdurur
     // — bu batch dışındaki dosyaların tipini değiştirmeden fail-closed korunur.
     accountId: accountId ?? "",
+    // Review PR#9 HIGH-1: channel listede yok (bayat persist edilmiş handle) →
+    // tüketici ErrorState basar; sessiz blank/return-null YASAK.
+    channelUnknown,
     switchAccount,
     boardId,
     setBoardId,

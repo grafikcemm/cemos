@@ -177,6 +177,9 @@ export default function YouTubeTab() {
   const loadChannels = useCallback(async () => {
     // Aynı dürüstlük sözleşmesi: catch'siz/ok-kontrolsüz yükleme DB-down'ı
     // "Henüz rakip kanal yok" boş durumuna çeviriyordu.
+    // Review PR#9 HIGH-2: bayrak PAYLAŞIMLI — burada da resetlenmezse Feed'in
+    // eski hatası başarılı Kanallar yüklemesini kalıcı maskeler (retry dahil).
+    setLoadError(false);
     try {
       const res = await fetch("/api/youtube/channels");
       if (!res.ok) throw new Error(String(res.status));
