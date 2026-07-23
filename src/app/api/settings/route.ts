@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/client";
 import { modelConfigs, resolveModel } from "@/lib/ai/model-config";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { getModelProfile } from "@/lib/services/settingsService";
 
 export async function GET(req: NextRequest) {
@@ -72,6 +73,8 @@ export async function GET(req: NextRequest) {
       accounts,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const message = err instanceof Error ? err.message : "Ayarlar alınamadı";
     return fail(message, 500);
   }
@@ -133,6 +136,8 @@ export async function POST(req: NextRequest) {
 
     return ok({ schedule });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const message = err instanceof Error ? err.message : "Ayarlar kaydedilemedi";
     return fail(message, 500);
   }

@@ -3,6 +3,15 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/db/viralPatternRepo", () => ({
   viralPatternRepo: { listByAccount: vi.fn().mockResolvedValue([]) },
 }));
+// WP-02f dummy-DB guard'ının İFŞA ETTİĞİ gizli sızıntılar: bu iki modül gerçek
+// prisma'ya dokunuyordu (eskiden env'siz anında hata → fail-soft görünmezdi).
+vi.mock("@/lib/db/sourcePostRepo", () => ({
+  sourcePostRepo: { listNewByAccount: vi.fn().mockResolvedValue([]) },
+}));
+vi.mock("@/lib/memory/retrieval", () => ({
+  buildIdentityMemoryContext: vi.fn().mockResolvedValue({ block: "", memoryFactIds: [] }),
+  rerankMemoryContext: vi.fn(async (ctx: unknown) => ctx),
+}));
 vi.mock("@/lib/growth-engine/vector-memory", () => ({
   buildMemoryContext: vi.fn().mockResolvedValue({
     positiveExamples: [],

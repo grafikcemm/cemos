@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { redactSecrets } from "@/lib/utils/redactSecrets";
+import {
+  isDbUnavailableMessage,
+  DB_UNAVAILABLE_MESSAGE,
+} from "@/lib/db/dbUnavailableError";
 
 /**
  * Shared API response + request-parsing helpers.
@@ -31,6 +35,23 @@ export function fail(
   status: number,
   extra?: JsonValue,
 ): NextResponse {
+  // WP-01 choke-point emniyeti: bir route DB-unavailable hatasını sınıflandırmadan
+  // ham 5xx mesajıyla buraya düşürürse (sweep'in kaçırdığı/yeni yazılmış site),
+  // yapılandırılmış 503 sözleşmesine ZORLANIR — beklenmeyen 500 üretilmez, ham
+  // Prisma metni istemciye geçmez. Sabit Türkçe mesaj kalıplara uymadığından
+  // dbErrorResponse çıktısı ikinci kez dönüştürülmez.
+  if (status >= 500 && isDbUnavailableMessage(error)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: DB_UNAVAILABLE_MESSAGE,
+        ...extra,
+        code: "db_unavailable",
+        retryable: true,
+      },
+      { status: 503 },
+    );
+  }
   const safe = redactSecrets(error);
   // 5xx: ham/sınırsız sağlayıcı/DB gövdesini sınırla (info-leak + verbosity).
   const bounded = status >= 500 && safe.length > 300 ? `${safe.slice(0, 300)}…` : safe;

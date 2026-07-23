@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { seedBestAiTools } from "@/lib/series/seriesService";
 
 /**
@@ -20,6 +21,8 @@ export async function GET(req: NextRequest) {
     });
     return ok({ series });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Seriler alınamadı", 500);
   }
 }
@@ -36,6 +39,8 @@ export async function POST(req: NextRequest) {
     const r = await seedBestAiTools(parsed.data.accountId);
     return ok({ ...r });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Seri tohumlanamadı", 500);
   }
 }
@@ -100,6 +105,8 @@ export async function PUT(req: NextRequest) {
     });
     return ok({ id: updated.id, version: updated.version, promptVersion: updated.promptVersion });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Seri güncellenemedi", 500);
   }
 }

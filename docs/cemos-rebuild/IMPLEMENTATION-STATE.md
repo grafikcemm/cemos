@@ -1,5 +1,33 @@
 # IMPLEMENTATION-STATE
 
+## TRUTH DELTA 2 — 2026-07-23 (yeni oturum re-verify + PR-A kapanışı, plan §14 adım 2-3)
+
+**KÖK NEDEN SINIFI KESİNLEŞTİ — Neon DATA-TRANSFER (EGRESS) KOTASI, compute CU-saat DEĞİL:** salt-okunur probe (prisma `SELECT 1`, gerçek exit 1): `ERROR: Your project has exceeded the data transfer quota. Upgrade your plan to increase limits.` Plan §8b "compute kotası tükendi" hipotezi bu kanıtla daraltıldı: kota sınıfı = data transfer. WP-02 egress kapanışının doğrudan doğrulaması. OP-1 hâlâ gerekli (aşım miktarı, reset tarihi, parola rotasyonu). Plan yükseltme/ödeme kararı yalnız OPERATÖR (§8d ağacı — ölçümsüz ödeme YOK). Kota reset'ine dek DB kapalı kalır; 7 günlük ölçüm erişim dönünce başlar.
+
+**PR-A KAPANDI + DEPLOY KAPISI 1 GEÇİLDİ (2026-07-23 ~07:45 UTC):**
+- PR #5 açıklaması 8-commit gerçeğine güncellendi (eski "tam 5 commit / yeni kod yok" ifadesi düzeltildi) → **merge commit `918d4fc`** (repo konvansiyonu: merge commit, PR #2/#3/#4 gibi). HEAD `c503787` değişmediğinden yeşil CI yeniden tetiklenmedi (verify ×2 + db-integration + Vercel Preview READY kanıtı mevcuttu).
+- **Prod SHA kanıtı:** `cemos-woad.vercel.app` → `dpl_9geZ4HCZ` READY target=production, `githubCommitSha=918d4fc` = merge SHA. Rollback hedefi kayıtlı: `dpl_8WmeP7Ms` (main@`45875ad`).
+- **Salt-okunur HTTP smoke (LIVE):** `/`→307 `/giris` · `/giris` 200 · `/api/health` `/api/costs` `/api/learn/sources` → 401 `{"ok":false,"code":"unauthenticated"}` · unauthenticated gövdelerde neon.tech/prisma/postgres/5432 sızıntısı **0** · yeni deployment'ta runtime error/warning logu **0**.
+- **Authenticated UI smoke (operatör Chrome oturumu, salt-okunur gezinme):** Bugün dürüst degraded ("Üretim altyapısı hazır değil — Veritabanına erişilemiyor", "Taslaklar yüklenemedi" + Yeniden dene) · **Maliyet sahte-$0 YOK (CANLI doğrulandı)** · **Öğrenme sonsuz-spinner YOK (CANLI doğrulandı)** · Kütüphane dürüst hata durumu · tüm gezinme boyunca console error **0**. Flow Radar 502 sözleşmesi mutation gerektirdiğinden smoke'ta koşulmadı (VERIFIED-HERMETIC).
+
+**YENİ CANLI BULGU (PR-B WP-01 hedefi, ekran kanıtlı):** Sistem→Altyapı→Meta (Instagram) kartı HAM Prisma hatası + çıplak Neon hostname gösteriyor (`Invalid prisma.integrationCredential.findUnique()… Can't reach database server at ep-long-sun-…neon.tech:5432`) — healthService `metaToken.message` yolu redaksiyonsuz ve `redactSecrets`'ta bare-host kalıbı yok (SEC-M1'in canlı kanıtı; authenticated yüzeyde, ama sözleşme "ham Prisma/provider mesajı istemciye gitmez"). Minör: Öğrenme üst KPI şeridi degraded'de "0 hazır paket" gösteriyor (fake-zero kalıntısı) — WP-01 tek-global-bant işinde ele alınacak.
+
+**Branch durumu:** `fix/db-resilience-egress` → `origin/main@918d4fc` üzerine rebase edildi (tree temiz, yalnız `?? shots/`); PR-B delta'sı bu commit'le başlar.
+
+---
+
+## PR-B — WP-01 + WP-02 KAPANIŞI (2026-07-23, aynı oturum; 14 atomik commit)
+
+**WP-01 (DB-down dürüst degradasyon):** `dbUnavailableError` saf sınıflandırıcı (Prisma init/name + P1001/P1002/P1008/P1017/P2024 + canlı kota mesajı + socket + cause-zinciri) · `dbErrorResponse` (budgetErrorResponse aynası → sabit secret'sız `503 {code:"db_unavailable", retryable:true}` + breaker + rate-limitli redakte log) · instance-yerel circuit breaker (3→30sn, üstel ↦5dk, half-open) · `fail()` choke-point coercion (kaçan site yine 503; beklenmeyen 500=0 ağı) · **95 route / 118 catch-site sweep** (4 paralel Sonnet ajan, ana-thread grep+tam-suite doğrulaması) · `redactSecrets` SEC-M1 bare-host kalıpları · healthService: breaker-aware probe + canlı-kanıtlı Meta-kartı sızıntısı sabit mesajla kapandı + `degraded/dbCircuit/generatedAt` · `/api/health` DB-down'da **200+degraded** · UI: `deriveDbAvailability` tek sinyal + `DbUnavailableBanner` tek global bant + last-known-good (degraded damgayı ilerletmez) · **feedback resume-semantiği**: ViralPattern id'si `reason` JSON bağı (migration YOK), replay tamamlanmışsa ikinci ücret YOK, yutulmuş extraction tx-scoped advisory lock altında sürer (eşzamanlı kaybeden atlar), yine düşerse bağ yazılmaz → retry açık; 6 senaryo testli.
+
+**WP-02 (event-driven health + egress):** 5dk periyodik polling SİLİNDİ → mount/focus/visible/manuel/mutation-revalidate (60sn guard; DB-down'da `retryAfterSeconds` bastırması; görünürde ≤30dk güvenlik ağı; gizlide 0) · ham health context'e → Settings/Integrations/Discovery kendi `/api/health` fetch'i YOK (navigation-burst kapandı) · plan-health fan-out yalnız `?deep=true` · `/api/costs` ay görünümü **1 groupBy + 1 dar 4-kolon select** (ay-tam-satır findMany yok; sözleşme birebir, Σ line-items=ay toplamı testli) · findMany yeniden-doğrulaması: 7 bayraktan 5'i zaten kapalı/domain-bounded (kanıtla SKIP), kanıtlı 2 büyüyen listeye `take:500` · vitest **yapısal dummy DATABASE_URL (connect_timeout=1) + uzak-host fail-closed THROW**; guard'ın ifşa ettiği **21 gizli gerçek-prisma dokunuşu** gerçek mock'larla kapandı (sıfır gevşetme; suite 13.4sn).
+
+**GATE (gerçek exit):** typecheck 0 · lint 0 · verify:catalog OK · verify:acceptance OK · verify:ai-economics OK · unit **246 dosya / 2423 test** · build 0 (`ƒ Proxy`+`ƒ /giris`) · migration **0 yeni** (`git diff origin/main -- prisma/` boş) · **E2E TAM `--retries=0`: 8 shard = 21+20+25+15+23+17+24+16 = 161/161, her shard foreground EXIT 0, SIFIR flaky** (arkaplan tam-koşu 10dk harness tavanında kesildi → kanıtlı shard desenine dönüldü; kesilen koşunun yetim dev-server'ı 3211'de temizlendi).
+
+**Sıradaki:** push → PR-B → CI+preview → temiz-bağlam code/security delta review → yeşilse merge + deploy kapısı 2 + prod smoke (yetki continuation promptunda). PR-C backlog: CODE-L1 budget-status TTL memo · SEC-L1 embeddings tam reservation (WP-06) · WP-04 hesap ayrımı (bu PR'a sığmadı — bilinçli).
+
+---
+
 ## TRUTH DELTA — Opus uygulama başlangıç doğrulaması (2026-07-22, FINAL-OPERATIONAL-CLOSURE-PLAN v2 §14 gereği)
 
 Salt-okunur re-verify sonucu; planın referans gerçeklerinden SAPMALAR:

@@ -5,7 +5,8 @@ import { RefreshCw, Plug } from "lucide-react";
 import { PageHeader, Card, Badge, Button, ErrorState, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
 import { useXAgentStore } from "@/store/xagent";
-import { display, type Provider, type Health } from "./integrationDisplay";
+import { display, type Provider } from "./integrationDisplay";
+import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 
 /**
  * Profil / Entegrasyonlar (05 §G2) — sağlayıcı yapılandırma durumu. Yalnız env
@@ -71,7 +72,9 @@ export default function ProfileIntegrationsTab() {
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
   const [providers, setProviders] = useState<Provider[] | null>(null);
   const [composio, setComposio] = useState<ComposioInfo | null>(null);
-  const [health, setHealth] = useState<Health | null>(null);
+  // WP-02: kendi /api/health fetch'i kaldırıldı — provider'ın tek okuması tüketilir.
+  // Review MEDIUM-2: bu ekranın load/"Yenile"si provider okumasını da tazeler.
+  const { health, refresh: refreshHealth } = useSystemHealth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -80,20 +83,20 @@ export default function ProfileIntegrationsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setFailed(false);
+    refreshHealth();
     try {
-      const [iRes, hRes] = await Promise.all([fetch("/api/integrations"), fetch("/api/health").catch(() => null)]);
+      const iRes = await fetch("/api/integrations");
       if (!iRes.ok) throw new Error("http");
       const iJson = await iRes.json();
       if (!iJson.success) throw new Error("payload");
       setProviders(iJson.providers ?? []);
       setComposio(iJson.composio ?? null);
-      if (hRes?.ok) setHealth(await hRes.json().catch(() => null));
     } catch {
       setFailed(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshHealth]);
 
   const runInstagramSync = useCallback(async () => {
     setSyncing(true);

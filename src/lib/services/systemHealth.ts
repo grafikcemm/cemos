@@ -23,6 +23,21 @@ export type HealthPayload = {
   socialdata?: HealthCheck;
   buffer?: HealthCheck;
   database?: { ok?: boolean; message?: string };
+  metaToken?: {
+    configured?: boolean;
+    ok?: boolean;
+    status?: "ok" | "warn" | "critical" | "unknown";
+    daysUntilExpiry?: number | null;
+    message?: string;
+  };
+  /** WP-01 degraded contract alanları (/api/health DB-down'da 200 + bunlarla döner). */
+  degraded?: boolean;
+  dbCircuit?: {
+    open?: boolean;
+    consecutiveFailures?: number;
+    retryAfterSeconds?: number | null;
+  };
+  generatedAt?: string;
   worker?: {
     mode?: WorkerMode;
     inferredStatus?: WorkerStatus;
@@ -113,6 +128,43 @@ export function deriveSystemHealth(input: SystemHealthInput): SystemHealthResult
     };
   }
   return { state: "healthy", problems: [], label: "sağlıklı", hasError: false };
+}
+
+/**
+ * WP-01 — DB-erişilemezlik sinyalinin TEK türetimi. Yalnız DOĞRULANMIŞ sinyal:
+ * başarılı health cevabında `database.ok === false`. Health isteğinin kendisi
+ * düşmüşse (ağ hatası) DB durumu BİLİNMİYORDUR — banner "unavailable" chip'ine
+ * bırakılır, yanlış "veritabanı kapalı" iddiası üretilmez.
+ */
+export type DbAvailability = {
+  dbUnavailable: boolean;
+  /** Breaker açıksa sunucunun önerdiği bekleme (istemci backoff ipucu). */
+  retryAfterSeconds: number | null;
+};
+
+export function deriveDbAvailability(health: HealthPayload | null): DbAvailability {
+  const dbUnavailable = Boolean(health && health.database?.ok === false);
+  const retry = health?.dbCircuit?.retryAfterSeconds;
+  return {
+    dbUnavailable,
+    retryAfterSeconds: dbUnavailable && typeof retry === "number" && retry > 0 ? retry : null,
+  };
+}
+
+/** Global bant için "son başarılı veri" damgası — İstanbul saatiyle HH:MM. */
+export function formatLastGoodAt(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat("tr-TR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Istanbul",
+    }).format(date);
+  } catch {
+    return null;
+  }
 }
 
 /** Durum → semantik nokta rengi (topbar chip + Bugün tiki aynı eşleme). */

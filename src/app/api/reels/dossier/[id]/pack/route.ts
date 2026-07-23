@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { getDossierProductionState } from "@/lib/reels/dossierProductionService";
 import { buildProductionPack } from "@/lib/reels/productionPack";
 
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       overall: production.overall,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Production Pack üretilemedi", 500);
   }
 }

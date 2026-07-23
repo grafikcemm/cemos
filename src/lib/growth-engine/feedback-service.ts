@@ -1,4 +1,12 @@
 import { calculateLevenshteinSimilarity } from "@/lib/utils/textSimilarity";
+// SEC (PR #6 review HIGH): warnings dizisi save-pattern gibi route'lardan ok()
+// gövdesiyle İSTEMCİYE gider ve ok() redaksiyon YAPMAZ — buradaki her ham
+// err.message enterpolasyonu canlı-repro'lu hostname sızıntısıydı. Tüm warning
+// metinleri redactError'dan geçer.
+import { redactError } from "@/lib/utils/redactSecrets";
+import { prisma } from "@/lib/db/client";
+import { isDbCircuitOpen } from "@/lib/db/dbCircuit";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   extractPattern,
   patternExtractionToViralPatternInput,
@@ -99,6 +107,44 @@ export function mergeReasonWithEditDistance(reason: string, editDistance: number
     }
   }
   return JSON.stringify({ text: trimmed, editDistance });
+}
+
+/**
+ * PR-B resume-semantiği (WP-01 backlog): başarıyla yazılan ViralPattern'ın id'si
+ * FeedbackEvent.reason JSON'una bağlanır (kolon yok — migration yasağı;
+ * mergeReasonWithEditDistance ile aynı taşıyıcı). Idempotent replay bu bağa
+ * bakarak "tamamlandı mı, yoksa extraction yutulmuş muydu" ayrımını yapar.
+ */
+export function mergeViralPatternIdIntoReason(reason: string, viralPatternId: string): string {
+  const trimmed = (reason ?? "").trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return JSON.stringify({ ...parsed, viralPatternId });
+      }
+    } catch {
+      // düz string muamelesi görür
+    }
+  }
+  return JSON.stringify({ text: trimmed, viralPatternId });
+}
+
+/** reason JSON'undan bağlı viralPatternId'yi okur; yoksa/parse edilemezse null. */
+export function extractViralPatternIdFromReason(reason: string | null | undefined): string | null {
+  const raw = (reason ?? "").trim();
+  if (!raw.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return typeof parsed.viralPatternId === "string" && parsed.viralPatternId
+        ? parsed.viralPatternId
+        : null;
+    }
+  } catch {
+    // düz string muamelesi görür
+  }
+  return null;
 }
 
 /**
@@ -290,9 +336,18 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   // 3b. Phase 5A (ADR-044): idempotency gate — aynı client key ikinci kez YAN ETKİ
   // (memory sinyali / pattern reweight / TrainingExample / embedding / ViralPattern)
   // tetiklemez. Pre-check (sıralı çift-tık) + create P2002 backstop (gerçek yarış).
+  //
+  // PR-B resume-semantiği: pattern İSTENEN bir replay'de "tamamlandı" ile
+  // "extraction yutulmuştu" ayrılır — reason JSON'undaki viralPatternId bağı
+  // varsa aynen döner (ikinci ücretli extraction YOK); yoksa extraction advisory
+  // lock altında SÜRDÜRÜLÜR (deterministik key artık retry'ı sonsuza dek
+  // kilitlemez; eşzamanlı retry çifte ücret/çifte pattern üretemez).
   if (fb.idempotencyKey) {
     const prior = await feedbackEventRepo.findByIdempotencyKey(fb.idempotencyKey);
     if (prior) {
+      if (shouldSaveAsPattern(fb)) {
+        return resumePatternExtraction(prior.id, prior.reason, fb);
+      }
       return { success: true, feedbackEventId: prior.id, warnings: ["idempotent_replay"] };
     }
   }
@@ -329,7 +384,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       fb.accountHandle
     );
   } catch (err) {
-    warnings.push(`memory_ingest_failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    warnings.push(`memory_ingest_failed: ${redactError(err)}`);
   }
 
   // 4b. Faz D.2 — close the pattern-learning loop: re-weight the viral patterns
@@ -352,7 +407,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
         }
       }
     } catch (err) {
-      warnings.push(`Pattern re-weighting failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Pattern re-weighting failed: ${redactError(err)}`);
     }
   }
 
@@ -367,7 +422,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
         sourceContent: fb.sourceContent,
       });
     } catch (err) {
-      warnings.push(`Scoring failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Scoring failed: ${redactError(err)}`);
     }
   }
 
@@ -382,7 +437,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       // vector memory and improves future grounded generation. Best-effort.
       await embedTrainingExample(trainingExample.id).catch(() => {});
     } catch (err) {
-      warnings.push(`Failed to save training example: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Failed to save training example: ${redactError(err)}`);
     }
   }
 
@@ -401,8 +456,22 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
       const createdPattern = await viralPatternRepo.create(viralInput);
       viralPatternId = createdPattern.id;
+      // PR-B resume-semantiği: bağ yazılır ki aynı içerikli bir retry "zaten
+      // tamamlandı"yı ayırt edip İKİNCİ ücretli extraction koşmasın. Bağ yazımı
+      // düşerse pattern yine de var — warning görünür kalır (sessiz yutma yok);
+      // sonraki replay resume yolunda yeniden extraction riskini operatör görür.
+      try {
+        await feedbackEventRepo.updateReason(
+          feedbackEvent.id,
+          mergeViralPatternIdIntoReason(feedbackInput.reason ?? "", createdPattern.id),
+        );
+      } catch (linkErr) {
+        warnings.push(
+          `pattern_link_failed: ${redactError(linkErr)}`,
+        );
+      }
     } catch (err) {
-      warnings.push(`Pattern extraction failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Pattern extraction failed: ${redactError(err)}`);
     }
   }
 
@@ -415,4 +484,120 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
     patternExtraction,
     warnings: warnings.length > 0 ? warnings : undefined,
   };
+}
+
+/**
+ * PR-B resume-semantiği — idempotent replay'de yarım kalmış pattern extraction'ı
+ * güvenle sürdürür.
+ *
+ * Sözleşme:
+ *  1. reason'da viralPatternId bağı VARSA → aynen döner; ücretli extraction
+ *     ÇAĞRILMAZ (çifte ücret yok).
+ *  2. Bağ yoksa → tx-scoped advisory lock (`feedback-resume:<eventId>`) altında
+ *     taze satır YENİDEN okunur (yarışan retry lock'ta beklerken kazanan bağı
+ *     yazmış olabilir) → hâlâ yoksa extraction + ViralPattern + bağ yazımı TEK
+ *     uçuşta koşar. Neon pooler transaction-mode olduğundan session-lock değil
+ *     XACT lock kullanılır; ücretli çağrı tx içinde beklediği için timeout
+ *     geniş tutulur (LLM extraction ~10-30 sn).
+ *  3. Extraction yine düşerse: davranış ilk koşuyla AYNI — success:true +
+ *     viralPatternId'siz + warning (route bunu 502'ye çevirir); bağ yazılmadığı
+ *     için SONRAKİ retry yeniden resume edebilir (kalıcı kilit yok).
+ */
+async function resumePatternExtraction(
+  eventId: string,
+  priorReason: string | null | undefined,
+  fb: FeedbackApiInput,
+): Promise<FeedbackApiResponse> {
+  const linked = extractViralPatternIdFromReason(priorReason);
+  if (linked) {
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      viralPatternId: linked,
+      warnings: ["idempotent_replay"],
+    };
+  }
+
+  // SEC (PR #6 review MEDIUM): breaker AÇIKKEN resume denenmez — DB toparlanma
+  // anında birikmiş resumeların her biri 60 sn'lik bağlantı+lock tutuşuyla üst
+  // üste binmesin. Bağ yazılmadığından erteleme kayıpsızdır; sonraki retry
+  // (breaker kapanınca) kaldığı yerden sürer.
+  if (isDbCircuitOpen()) {
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      warnings: [
+        "idempotent_replay",
+        "extraction_resume_deferred: veritabanı devre kesici açık; daha sonra tekrar deneyin.",
+      ],
+    };
+  }
+
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        await acquireXactAdvisoryLock(tx, `feedback-resume:${eventId}`);
+        const fresh = await tx.feedbackEvent.findUnique({ where: { id: eventId } });
+        const already = extractViralPatternIdFromReason(fresh?.reason);
+        if (already) {
+          // Yarışta kaybeden taraf: kazanan extraction'ı bitirip bağı yazdı.
+          return {
+            success: true,
+            feedbackEventId: eventId,
+            viralPatternId: already,
+            warnings: ["idempotent_replay"],
+          };
+        }
+
+        const patternExtraction = await extractPattern({
+          text: fb.editedContent || fb.originalContent || fb.sourceContent || "",
+          accountHandle: fb.accountHandle,
+          sourceType: "manual",
+          language: "TR",
+        });
+        const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
+        // PR #6 review HIGH-2: pattern INSERT'i de AYNI tx'te — bağ yazımı
+        // düşerse ikisi birlikte ROLLBACK olur (yarım-kalmış "bağsız pattern"
+        // yok → sonraki retry duplicate persist ETMEDEN yeniden deneyebilir).
+        const createdPattern = await viralPatternRepo.createWithClient(tx, viralInput);
+        // Bağ AYNI lock-tx içinde yazılır → lock bırakılmadan görünür olur;
+        // bekleyen yarışçı taze okumada bağı bulur ve extraction'ı ATLAR.
+        await tx.feedbackEvent.update({
+          where: { id: eventId },
+          data: {
+            reason: mergeViralPatternIdIntoReason(fresh?.reason ?? "", createdPattern.id),
+          },
+        });
+
+        return {
+          success: true,
+          feedbackEventId: eventId,
+          viralPatternId: createdPattern.id,
+          patternExtraction,
+          warnings: ["idempotent_replay", "extraction_resumed"],
+        };
+      },
+      // Ücretli LLM çağrısı tx içinde tamamlanır — Prisma'nın 5 sn interactive-tx
+      // varsayılanı extraction'ı keserdi. 60 sn: tipik extraction (~10-30 sn)
+      // için yeterli, bağlantı-tutuş penceresi yarıya indi (review MEDIUM).
+      // LLM'i tx dışına almak tek-uçuş/tek-ücret garantisini bozardı — bilinçli
+      // tercih: single-charge > kısa tutuş (tek-operatör eşzamanlılığı ~1-2).
+      { timeout: 60_000, maxWait: 15_000 },
+    );
+  } catch (err) {
+    // İlk koşuyla AYNI dürüst sözleşme: extraction/persist düşerse success:true
+    // + viralPatternId'siz + warning (route 502'ye çevirir). tx rollback pattern
+    // artığı bırakmadığından bağ da yazılmamıştır → SONRAKİ retry yeniden resume
+    // edebilir (kalıcı kilit yok, duplicate yok; DB-hıçkırığında ücret tekrarı
+    // kaçınılmaz ama duplicate-persist imkânsız).
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      warnings: [
+        "idempotent_replay",
+        "extraction_resumed",
+        `Pattern extraction failed: ${redactError(err)}`,
+      ],
+    };
+  }
 }

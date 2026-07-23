@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { createDraftFromLearnIdea } from "@/lib/learning/draftBridge";
 
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     return ok({ kind: "draft", draftId: r.draftId, reused: r.reused }, { status: r.reused ? 200 : 201 });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }

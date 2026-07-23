@@ -7,6 +7,26 @@ import {
   normalizeCriticResult
 } from "./draft-critic";
 
+// WP-02f guard'ının ifşası: scoreDraft → generateJsonGated → getBudgetStatus
+// gerçek prisma'ya dokunuyordu (draft başına ~1-2 sn dummy-DB dokunuşu).
+// Critic birimi scorer'ın İÇİNİ test etmez — deterministik skor yeterli.
+vi.mock("./scorer", () => ({
+  scoreDraft: vi.fn().mockResolvedValue({
+    personaMatchScore: 80,
+    hookStrengthScore: 80,
+    clarityScore: 80,
+    publishScore: 80,
+    publishRecommendation: "publish",
+  }),
+  scoreDraftFallback: vi.fn(() => ({
+    personaMatchScore: 60,
+    hookStrengthScore: 60,
+    clarityScore: 60,
+    publishScore: 60,
+    publishRecommendation: "revise",
+  })),
+}));
+
 describe("Draft Critic Suite", () => {
   it("should successfully critique a draft string or variant", async () => {
     const score = await critiqueDraft({

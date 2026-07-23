@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { reelDossierFor, ReelDailyLimitError } from "@/lib/reels/dossier-generator";
 
 /**
@@ -49,6 +50,8 @@ export async function GET(req: NextRequest) {
     });
     return ok({ dossiers });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Dossier listesi alınamadı", 500);
   }
 }
@@ -109,6 +112,8 @@ export async function POST(req: NextRequest) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
     if (err instanceof ReelDailyLimitError) return fail(err.message, 429, { code: err.code });
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Dossier üretilemedi", 500);
   }
 }

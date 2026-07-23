@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, count: items.length, items });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

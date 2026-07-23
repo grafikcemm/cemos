@@ -3,6 +3,7 @@ import { publishAttemptService } from "@/lib/publish/publishAttemptService";
 import { publishErrorResponse } from "@/lib/publish/routeErrors";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 /**
  * Faz 1E (ADR-025): "X'te aç" hazırlığı. Server-side PublishAttempt(prepared)
@@ -32,6 +33,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       segmentCount,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const { status, error, code, reasons } = publishErrorResponse(err);
     return fail(error, status, { code, reasons });
   }

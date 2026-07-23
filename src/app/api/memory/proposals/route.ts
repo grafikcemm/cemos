@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   approveFact,
   rejectFact,
@@ -52,6 +53,8 @@ export async function GET(req: NextRequest) {
     return ok({ proposals, active });
   } catch (err) {
     if (err instanceof MemoryScopeError) return fail(err.message, 400);
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Hafıza önerileri alınamadı", 500);
   }
 }
@@ -120,6 +123,8 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       if (err instanceof MemoryScopeError) return fail(err.message, 400);
       if (err instanceof MemoryGovernanceError) return fail(err.message, governanceStatus(err.code), { code: err.code });
+      const dbRes = dbErrorResponse(err);
+      if (dbRes) return dbRes;
       return fail(err instanceof Error ? err.message : "Kural eklenemedi", 500);
     }
   }
@@ -133,6 +138,8 @@ export async function POST(req: NextRequest) {
       return ok({ action: "revise", factId: revise.data.factId, newFactId: r.newFactId });
     } catch (err) {
       if (err instanceof MemoryGovernanceError) return fail(err.message, governanceStatus(err.code), { code: err.code });
+      const dbRes = dbErrorResponse(err);
+      if (dbRes) return dbRes;
       return fail(err instanceof Error ? err.message : "Kural düzenlenemedi", 500);
     }
   }
@@ -150,6 +157,8 @@ export async function POST(req: NextRequest) {
     return ok({ action, factId });
   } catch (err) {
     if (err instanceof MemoryGovernanceError) return fail(err.message, governanceStatus(err.code), { code: err.code });
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "İşlem başarısız", 500);
   }
 }

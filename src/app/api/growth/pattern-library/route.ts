@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { getDisplayName } from "@/lib/growth-engine/account-adapter";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
@@ -90,6 +91,9 @@ export async function GET(req: NextRequest) {
     const patterns = await prisma.viralPattern.findMany({
       where,
       orderBy,
+      // WP-02e: pattern havuzu kayıtlarla sınırsız büyür; 500 üst sınırı pratik
+      // semantiği değiştirmeyen (mevcut havuz ~10²) bir egress emniyet kemeridir.
+      take: 500,
       select: {
         id: true,
         accountId: true,
@@ -166,6 +170,8 @@ export async function GET(req: NextRequest) {
       patterns: mappedPatterns,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

@@ -15,6 +15,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useXAgentStore } from "@/store/xagent";
+import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { PageHeader, Card, Button, MetricCard, EmptyState, ErrorState, Skeleton } from "../ui";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
@@ -57,12 +58,6 @@ type DailyRunSummary = {
   reason: string;
   dailyMax?: number;
   todayDrafts?: number;
-};
-
-type HealthShape = {
-  openrouter?: { ok: boolean };
-  socialdata?: { ok: boolean };
-  database?: { ok: boolean };
 };
 
 // Machine reasons → operator-readable Turkish.
@@ -115,18 +110,9 @@ export default function DiscoveryEngineTab() {
   const [error, setError] = useState<string | null>(null);
 
   // Ön-uçuş: API anahtarları hazır mı? Eksikse koşmadan net mesaj.
-  const [health, setHealth] = useState<HealthShape | null>(null);
-  useEffect(() => {
-    let mounted = true;
-    fetchJson<HealthShape>("/api/health")
-      .then((h) => {
-        if (mounted) setHealth(h);
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // WP-02: kendi /api/health fetch'i KALDIRILDI — SystemHealthProvider'ın tek
+  // okuması tüketilir (navigation-burst kapatıldı; aynı payload).
+  const { health } = useSystemHealth();
 
   const missingKeys: string[] = [];
   if (health) {

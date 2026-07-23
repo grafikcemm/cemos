@@ -19,6 +19,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { fetchJson } from "@/lib/utils/safeFetch";
+import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
 import LearningStatusCard from "@/components/LearningStatusCard";
 import { PageHeader, Card, SectionHeader, EmptyState, Button, Toggle, Select, Badge } from "@/components/ui";
 import MemoryProposalsSection from "@/components/settings/MemoryProposalsSection";
@@ -46,13 +47,6 @@ type DbAccount = {
   schedule: DbSchedule | null;
 };
 
-type HealthStatus = {
-  openrouter: { configured: boolean; ok: boolean; message?: string };
-  socialdata: { configured: boolean; ok: boolean; message?: string };
-  database: { ok: boolean; message?: string };
-  worker: { inferredStatus: "unknown" | "recent_tick" | "stale"; lastTickAt?: string; lastScanResult?: any; lastError?: string };
-};
-
 type CostStats = {
   today: { scan: number; generate: number; publish: number; totalUsd: number };
   month: { scan: number; generate: number; publish: number; totalUsd: number; budgetUsd: number };
@@ -61,7 +55,10 @@ type CostStats = {
 
 export default function SettingsTab() {
   const [accounts, setAccounts] = useState<DbAccount[]>([]);
-  const [health, setHealth] = useState<HealthStatus | null>(null);
+  // WP-02: kendi /api/health fetch'i kaldırıldı — provider'ın tek okuması tüketilir.
+  // Review MEDIUM-2: mount/mutation/"Yenile" health kartlarını da tazelemeli →
+  // provider refresh'i loadData ile birlikte çağrılır (guard'ı bypass eder).
+  const { health, refresh: refreshHealth } = useSystemHealth();
   const [costs, setCosts] = useState<CostStats | null>(null);
   const [models, setModels] = useState<{ role: string; label: string; activeModel: string }[]>([]);
   const [modelProfile, setModelProfile] = useState("dev");
@@ -70,12 +67,14 @@ export default function SettingsTab() {
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
+    // Health kartları context'ten gelir; bu ekranın her yüklemesi/mutasyonu/
+    // "Yenile"si provider okumasını da tazeler (tek noktadan, guard-bypass).
+    refreshHealth();
     try {
       // Per-promise catch: a slow costs call must not blank the whole
       // settings page — each card degrades independently.
-      const [settingsRes, healthRes, costsRes] = await Promise.all([
+      const [settingsRes, costsRes] = await Promise.all([
         fetchJson<any>("/api/settings"),
-        fetchJson<any>("/api/health").catch(() => null),
         fetchJson<any>("/api/costs").catch(() => null),
       ]);
       if (settingsRes.accounts) setAccounts(settingsRes.accounts);
@@ -83,7 +82,6 @@ export default function SettingsTab() {
       if (settingsRes.modelProfile) setModelProfile(settingsRes.modelProfile);
       if (settingsRes.freeOverridesIgnored !== undefined) setFreeOverridesIgnored(settingsRes.freeOverridesIgnored);
       if (settingsRes.lastUsedMetadata !== undefined) setLastUsedMetadata(settingsRes.lastUsedMetadata);
-      if (healthRes) setHealth(healthRes);
       if (costsRes) setCosts(costsRes);
     } catch {
       // silent — errors shown via health card states

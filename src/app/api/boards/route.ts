@@ -3,6 +3,7 @@ import { z } from "zod";
 import { boardRepo } from "@/lib/db/boardRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
     const boards = savable ? await boardRepo.listSavable(accountId) : await boardRepo.list(accountId);
     return ok({ count: boards.length, boards });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -42,6 +45,8 @@ export async function POST(req: NextRequest) {
     const board = await boardRepo.create(parsed.data);
     return ok({ board }, { status: 201 });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { applyPlan, resolveSeriesForPlan } from "@/lib/reels/planReconcileService";
 import { PlanValidationError } from "@/lib/reels/plan-assembler";
 
@@ -93,6 +94,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof PlanValidationError) return fail(err.message, 422, { code: "plan_invalid" });
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Plan uygulanamadı", 500);
   }
 }

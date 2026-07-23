@@ -3,6 +3,7 @@ import { z } from "zod";
 import { viralPatternRepo } from "@/lib/db/viralPatternRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const UpdatePatternSchema = z.object({
   patternName: z.string().max(200).optional(),
@@ -76,6 +77,8 @@ export async function PATCH(
       pattern: updated,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

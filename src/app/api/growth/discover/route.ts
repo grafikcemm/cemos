@@ -5,6 +5,7 @@ import { discoveryService } from "@/lib/services/discoveryService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 // Phase 1 of the split Keşif Motoru run (discover → mine → generate). Each
 // phase gets its own invocation so no single call can hit the Vercel timeout.
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Keşif hatası";
     return fail(msg, 500);
   }

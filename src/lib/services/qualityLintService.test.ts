@@ -21,6 +21,25 @@ vi.mock("@/lib/db/queueRepo", () => ({
   queueRepo: { create: vi.fn(), findById: vi.fn(), update: vi.fn() },
 }));
 
+// WP-02f guard'ının ifşası: draftService.generate yolundaki gerçek-prisma
+// dokunuşları (voice + sourcePost lookups) — eskiden env'siz anında düşüp
+// fail-soft'a karışıyordu, şimdi dummy-DB'de 1'er sn bekletiyordu.
+vi.mock("@/lib/services/settingsService", () => ({
+  getModelProfile: vi.fn().mockResolvedValue("dev"),
+}));
+vi.mock("@/lib/ai/grounding", () => ({
+  buildGroundingContext: vi.fn().mockResolvedValue({ block: "", patternIds: [] }),
+}));
+vi.mock("@/lib/db/voiceProfileRepo", () => ({
+  voiceProfileRepo: { getActiveVoice: vi.fn().mockResolvedValue(null) },
+}));
+vi.mock("@/lib/db/sourcePostRepo", () => ({
+  sourcePostRepo: {
+    findByIdWithSourceMode: vi.fn().mockResolvedValue(null),
+    markBlocked: vi.fn().mockResolvedValue(undefined),
+    markUsed: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 vi.mock("@/lib/db/generationRunRepo", () => ({
   generationRunRepo: { create: vi.fn() },
 }));

@@ -5,6 +5,7 @@ import { pipelineService } from "@/lib/services/pipelineService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 // Phase 3 of the split Keşif Motoru run: generate today's drafts from the
 // already-discovered (and mined) backlog. Discovery/mining are skipped here —
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Üretim hatası";
     return fail(msg, 500);
   }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   isThreadDraft,
   joinThreadSegments,
@@ -141,6 +142,8 @@ export async function PATCH(
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue update.";
     if (msg === "invalid_status") return fail("Durum geçersiz.", 409, { code: msg });
     if (msg === "queue_item_not_found") return fail("Taslak bulunamadı.", 404, { code: msg });
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

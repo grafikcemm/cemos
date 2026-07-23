@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   captureInspiration,
   CaptureInspirationSchema,
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
       { status: result.created ? 201 : 200 },
     );
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }

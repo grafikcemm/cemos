@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const ActionSchema = z.object({
   action: z.enum(["start", "stop"]),
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
 
     return ok({ action });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const message = err instanceof Error ? err.message : "Operator mode change failed";
     return fail(message, 500);
   }

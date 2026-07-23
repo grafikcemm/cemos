@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,8 @@ export async function GET(req: NextRequest) {
     );
     return ok({ traces });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const message = err instanceof Error ? err.message : "Beklenmeyen hata";
     return fail(message, 500);
   }

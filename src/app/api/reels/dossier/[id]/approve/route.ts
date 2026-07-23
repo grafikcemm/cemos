@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { approveDossier } from "@/lib/reels/dossierReviewService";
 
 /**
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     return ok({ ...r });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Onay başarısız", 500);
   }
 }

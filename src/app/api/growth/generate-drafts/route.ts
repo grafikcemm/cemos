@@ -5,6 +5,7 @@ import { isKnownAccountHandle as validateAccountHandle } from "@/lib/growth-engi
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const GenerateDraftsSchema = z.object({
   accountHandle: z.string().max(100).optional(),
@@ -82,6 +83,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during draft generation.";
     return fail(msg, 500);
   }

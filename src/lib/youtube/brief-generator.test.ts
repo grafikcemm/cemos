@@ -39,6 +39,27 @@ vi.mock("@/lib/db/ytBriefRepo", () => ({
     countCreatedToday: vi.fn(() => Promise.resolve(0)),
   },
 }));
+// WP-02f guard'ının ifşası: generateJsonGated her stage'de getBudgetStatus ile
+// gerçek prisma'ya dokunuyordu (5 stage × ~1 sn). Yalnız o fonksiyon mock'lanır;
+// BudgetExceededError sınıfı GERÇEK kalır (SUT instanceof/throw yolları için).
+vi.mock("@/lib/config/costGate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/config/costGate")>();
+  return {
+    ...actual,
+    getBudgetStatus: vi.fn().mockResolvedValue({
+      allowed: true,
+      spentUsd: 0,
+      limitUsd: 100,
+      remainingUsd: 100,
+      providerUsageMonthlyUsd: null,
+    }),
+  };
+});
+// generateGated her stage'de kalıcı model profilini okur → OperatorSetting
+// (gerçek prisma). Deterministik "dev" profili yeterli.
+vi.mock("@/lib/services/settingsService", () => ({
+  getModelProfile: vi.fn().mockResolvedValue("dev"),
+}));
 vi.mock("@/lib/db/pipelineTraceRepo", () => ({
   pipelineTraceRepo: { create: vi.fn(() => Promise.resolve({ id: "pt-1" })) },
 }));

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { SaveSourceSchema, resolveSourceToContentItem } from "@/lib/boards/saveFromSource";
 import { saveContentToBoard, type SaveToBoardFailureCode } from "@/lib/boards/saveToBoard";
 
@@ -85,6 +86,8 @@ export async function POST(req: NextRequest) {
       { status: result.created ? 201 : 200 },
     );
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

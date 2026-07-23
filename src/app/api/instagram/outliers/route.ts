@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 /**
  * IG rakip outlier feed'i (Sprint 8 — CONTENT-ENGINE §3 "ertesi gün outlier
@@ -50,6 +51,8 @@ export async function GET(req: NextRequest) {
     }));
     return ok({ items });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Outlier feed alınamadı", 500);
   }
 }

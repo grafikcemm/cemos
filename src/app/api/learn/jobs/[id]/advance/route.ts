@@ -3,6 +3,7 @@ import { learnService } from "@/lib/learning/learnService";
 import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { TranscriptUnavailableError } from "@/lib/learning/pipeline/orchestrator";
 import { ok, fail } from "@/lib/utils/apiResponse";
 
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (msg === "job_not_found") {
       return fail(msg, 404, { code: "not_found" });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

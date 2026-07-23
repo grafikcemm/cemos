@@ -4,6 +4,7 @@ import { youtubeService } from "@/lib/services/youtubeService";
 import { ytBriefRepo } from "@/lib/db/ytBriefRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { YtBriefDailyLimitError } from "@/lib/youtube/brief-generator";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest) {
     if (msg === "video_not_found") {
       return fail(msg, 404, { code: "not_found" });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

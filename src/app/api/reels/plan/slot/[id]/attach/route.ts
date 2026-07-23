@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import { extractProvenance } from "@/lib/reels/dossierReviewService";
 import { getDossierProductionState } from "@/lib/reels/dossierProductionService";
@@ -130,6 +131,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       blockers: production?.blockers ?? [],
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Bağlama başarısız", 500);
   }
 }

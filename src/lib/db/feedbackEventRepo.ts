@@ -29,6 +29,13 @@ export const feedbackEventRepo = {
     return prisma.feedbackEvent.findUnique({ where: { idempotencyKey } });
   },
 
+  /** PR-B resume-semantiği: reason JSON'una viralPatternId bağını yazmak için
+   *  dar güncelleme (yeni kolon yok — migration yasağı; reason zaten JSON-merge
+   *  taşıyıcısı, bkz. mergeReasonWithEditDistance). */
+  updateReason(id: string, reason: string): Promise<FeedbackEvent> {
+    return prisma.feedbackEvent.update({ where: { id }, data: { reason } });
+  },
+
   listByAccount(accountId: string, limit = 100): Promise<FeedbackEvent[]> {
     return prisma.feedbackEvent.findMany({
       where: { accountId },
