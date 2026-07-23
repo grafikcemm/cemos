@@ -630,9 +630,14 @@ describe("processFeedback — extraction resume (PR-B)", () => {
     idempotencyKey: "sp-1:saved_as_pattern",
   };
 
+  // $transaction'ın çok-overload'lu Prisma imzası vi.spyOn generic'ine strict'te
+  // oturmuyor → dar tek-imzalı görünüme cast (runtime aynı nesne; yalnız tip).
+  type TxRunner = {
+    $transaction: (fn: (tx: unknown) => Promise<unknown>, opts?: unknown) => Promise<unknown>;
+  };
   let txFeedbackFindUnique: ReturnType<typeof vi.fn>;
   let txFeedbackUpdate: ReturnType<typeof vi.fn>;
-  let txSpy: ReturnType<typeof vi.spyOn>;
+  let txSpy: { mockRestore: () => void };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -647,11 +652,14 @@ describe("processFeedback — extraction resume (PR-B)", () => {
     // prisma.$transaction → sahte tx istemcisiyle callback'i çalıştır (gerçek DB yok).
     txFeedbackFindUnique = vi.fn();
     txFeedbackUpdate = vi.fn().mockResolvedValue({});
-    txSpy = vi.spyOn(prisma, "$transaction").mockImplementation((async (fn: any) =>
-      fn({
-        $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
-        feedbackEvent: { findUnique: txFeedbackFindUnique, update: txFeedbackUpdate },
-      })) as any);
+    txSpy = vi
+      .spyOn(prisma as unknown as TxRunner, "$transaction")
+      .mockImplementation(async (fn) =>
+        fn({
+          $queryRaw: vi.fn().mockResolvedValue([{ locked: 1 }]),
+          feedbackEvent: { findUnique: txFeedbackFindUnique, update: txFeedbackUpdate },
+        }),
+      );
   });
 
   afterEach(() => {
