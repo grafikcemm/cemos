@@ -16,6 +16,18 @@
 
 ---
 
+## PR-B — WP-01 + WP-02 KAPANIŞI (2026-07-23, aynı oturum; 14 atomik commit)
+
+**WP-01 (DB-down dürüst degradasyon):** `dbUnavailableError` saf sınıflandırıcı (Prisma init/name + P1001/P1002/P1008/P1017/P2024 + canlı kota mesajı + socket + cause-zinciri) · `dbErrorResponse` (budgetErrorResponse aynası → sabit secret'sız `503 {code:"db_unavailable", retryable:true}` + breaker + rate-limitli redakte log) · instance-yerel circuit breaker (3→30sn, üstel ↦5dk, half-open) · `fail()` choke-point coercion (kaçan site yine 503; beklenmeyen 500=0 ağı) · **95 route / 118 catch-site sweep** (4 paralel Sonnet ajan, ana-thread grep+tam-suite doğrulaması) · `redactSecrets` SEC-M1 bare-host kalıpları · healthService: breaker-aware probe + canlı-kanıtlı Meta-kartı sızıntısı sabit mesajla kapandı + `degraded/dbCircuit/generatedAt` · `/api/health` DB-down'da **200+degraded** · UI: `deriveDbAvailability` tek sinyal + `DbUnavailableBanner` tek global bant + last-known-good (degraded damgayı ilerletmez) · **feedback resume-semantiği**: ViralPattern id'si `reason` JSON bağı (migration YOK), replay tamamlanmışsa ikinci ücret YOK, yutulmuş extraction tx-scoped advisory lock altında sürer (eşzamanlı kaybeden atlar), yine düşerse bağ yazılmaz → retry açık; 6 senaryo testli.
+
+**WP-02 (event-driven health + egress):** 5dk periyodik polling SİLİNDİ → mount/focus/visible/manuel/mutation-revalidate (60sn guard; DB-down'da `retryAfterSeconds` bastırması; görünürde ≤30dk güvenlik ağı; gizlide 0) · ham health context'e → Settings/Integrations/Discovery kendi `/api/health` fetch'i YOK (navigation-burst kapandı) · plan-health fan-out yalnız `?deep=true` · `/api/costs` ay görünümü **1 groupBy + 1 dar 4-kolon select** (ay-tam-satır findMany yok; sözleşme birebir, Σ line-items=ay toplamı testli) · findMany yeniden-doğrulaması: 7 bayraktan 5'i zaten kapalı/domain-bounded (kanıtla SKIP), kanıtlı 2 büyüyen listeye `take:500` · vitest **yapısal dummy DATABASE_URL (connect_timeout=1) + uzak-host fail-closed THROW**; guard'ın ifşa ettiği **21 gizli gerçek-prisma dokunuşu** gerçek mock'larla kapandı (sıfır gevşetme; suite 13.4sn).
+
+**GATE (gerçek exit):** typecheck 0 · lint 0 · verify:catalog OK · verify:acceptance OK · verify:ai-economics OK · unit **246 dosya / 2423 test** · build 0 (`ƒ Proxy`+`ƒ /giris`) · migration **0 yeni** (`git diff origin/main -- prisma/` boş) · **E2E TAM `--retries=0`: 8 shard = 21+20+25+15+23+17+24+16 = 161/161, her shard foreground EXIT 0, SIFIR flaky** (arkaplan tam-koşu 10dk harness tavanında kesildi → kanıtlı shard desenine dönüldü; kesilen koşunun yetim dev-server'ı 3211'de temizlendi).
+
+**Sıradaki:** push → PR-B → CI+preview → temiz-bağlam code/security delta review → yeşilse merge + deploy kapısı 2 + prod smoke (yetki continuation promptunda). PR-C backlog: CODE-L1 budget-status TTL memo · SEC-L1 embeddings tam reservation (WP-06) · WP-04 hesap ayrımı (bu PR'a sığmadı — bilinçli).
+
+---
+
 ## TRUTH DELTA — Opus uygulama başlangıç doğrulaması (2026-07-22, FINAL-OPERATIONAL-CLOSURE-PLAN v2 §14 gereği)
 
 Salt-okunur re-verify sonucu; planın referans gerçeklerinden SAPMALAR:
