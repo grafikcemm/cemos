@@ -52,6 +52,18 @@ export default function MemoryProposalsSection() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
+  // Denetim 2026-07-23 (kullanıcı-hatası kapanışı): form DIRTY değilken global
+  // hesap değişimi hedefi TAKİP eder (bayat @eski-hesap'a yanlış kural yazımı
+  // kapanır); dirty'yken operatörün yazdığı bağlam korunur ve hedef aşağıdaki
+  // kalıcı "şu hesaba eklenecek" satırıyla HER ZAMAN görünürdür.
+  const formDirty = newStatement.trim().length > 0;
+  useEffect(() => {
+    if (!formDirty) setNewAccount(channel);
+    // formDirty bilinçli dep-dışı: yalnız channel değişiminde değerlendirilir —
+    // yazarken her tuşta hedef sıfırlanmaz.
+  }, [channel]);
+  const targetDiffersFromGlobal = newAccount !== channel;
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadFailed(false);
@@ -166,6 +178,20 @@ export default function MemoryProposalsSection() {
             <option key={handle} value={handle}>@{handle}</option>
           ))}
         </select>
+        {/* Hedef HER ZAMAN görünür; global'den saparsa vurgulu uyarı (mutation
+            öncesi son-bakış — yanlış hesaba kural yazımı görünmez olamaz). */}
+        <span
+          data-testid="proposal-target-notice"
+          role={targetDiffersFromGlobal ? "alert" : undefined}
+          style={{
+            fontSize: "var(--text-xs)",
+            color: targetDiffersFromGlobal ? "var(--status-warn-text)" : "var(--text-muted)",
+            fontWeight: targetDiffersFromGlobal ? 600 : 400,
+          }}
+        >
+          Kural <strong>@{newAccount}</strong> hesabına eklenecek
+          {targetDiffersFromGlobal ? ` (aktif hesap @${channel} DEĞİL)` : ""}.
+        </span>
         <select
           aria-label="Kural tipi"
           value={newType}

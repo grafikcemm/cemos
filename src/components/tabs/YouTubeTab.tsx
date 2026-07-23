@@ -325,11 +325,12 @@ export default function YouTubeTab() {
 
       <SubNav
         items={[
-          { id: "feed", label: "Fırsat Akışı", badge: section === "feed" ? videos.length : undefined },
+          // Dürüstlük: yükleme hatasında rozet gizli — "0" gerçek sayım değil.
+          { id: "feed", label: "Fırsat Akışı", badge: section === "feed" && !loadError ? videos.length : undefined },
           {
             id: "channels",
             label: "Kanallar",
-            badge: section === "channels" ? channels.length : undefined,
+            badge: section === "channels" && !loadError ? channels.length : undefined,
           },
         ]}
         activeId={section}

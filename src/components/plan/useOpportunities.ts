@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   curateOpportunities,
   type Opportunity,
@@ -223,8 +223,13 @@ export function useOpportunities() {
   const [notes, setNotes] = useState<EngineNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [allFailed, setAllFailed] = useState(false);
+  // PR#9 review-MED: hızlı hesap değişiminde bayat cevap yeni hesabın ekranını ezemez.
+  const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setLoading(true);
     setAllFailed(false);
     const engineNotes: EngineNote[] = [];
@@ -240,7 +245,7 @@ export function useOpportunities() {
       blocked?: (j: Record<string, unknown>) => string | null,
     ) {
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: ac.signal });
         if (!res.ok) throw new Error(`http ${res.status}`);
         const json = (await res.json()) as Record<string, unknown>;
         if (json && json.success === false) throw new Error("payload");
@@ -253,6 +258,7 @@ export function useOpportunities() {
         inputs.push(...mapper(pick(json)));
         okCount++;
       } catch {
+        if (ac.signal.aborted) return;
         engineNotes.push({ source, kind: "error", message: `${label} sinyalleri yüklenemedi.` });
       }
     }
@@ -269,8 +275,10 @@ export function useOpportunities() {
         (j) => (j.candidates as RawFlow[]) ?? [], mapDiscovery),
     ]);
 
+    if (ac.signal.aborted) return;
     setNotes(engineNotes);
     const serverCurated = await curateViaServer(inputs);
+    if (ac.signal.aborted) return;
     setOpportunities(
       serverCurated
         ? serverCurated.opportunities

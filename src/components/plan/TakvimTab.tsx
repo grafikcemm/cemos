@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarPlus, Sparkles } from "lucide-react";
 import {
   Card,
@@ -135,18 +135,32 @@ export default function TakvimTab() {
 
   const monthStr = `${year}-${pad(month1)}`;
 
+  // PR#9 review-MED: hızlı hesap değişiminde bayat cevap yeni hesabın ekranını ezemez.
+  const abortRef = useRef<AbortController | null>(null);
+
   const load = useCallback(async () => {
-    if (!accountId) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    if (!accountId) {
+      // Savunma-derinliği (PR#10 review-MED): bu dal aşağıdaki guard-effect'e
+      // (channelUnknown/accountsFailed → loading temizliği) bağımlı kalmasın —
+      // useIlhamWorkspace ile simetrik, iptal edilen önceki çağrının finally'si
+      // de temizlemediği için stuck-skeleton şekli burada kapatılır.
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFailed(false);
     try {
       const [planRes, queueRes, dosRes] = await Promise.all([
-        fetch(`/api/reels/plan?accountId=${encodeURIComponent(accountId)}&month=${monthStr}`),
-        handle ? fetch(`/api/queue?account=${encodeURIComponent(handle)}`).catch(() => null) : Promise.resolve(null),
-        fetch(`/api/reels/dossier?accountId=${encodeURIComponent(accountId)}`).catch(() => null),
+        fetch(`/api/reels/plan?accountId=${encodeURIComponent(accountId)}&month=${monthStr}`, { signal: ac.signal }),
+        handle ? fetch(`/api/queue?account=${encodeURIComponent(handle)}`, { signal: ac.signal }).catch(() => null) : Promise.resolve(null),
+        fetch(`/api/reels/dossier?accountId=${encodeURIComponent(accountId)}`, { signal: ac.signal }).catch(() => null),
       ]);
       if (!planRes.ok) throw new Error("http");
       const plan = await planRes.json();
+      if (ac.signal.aborted) return;
       if (!plan.success) throw new Error("payload");
 
       const rawSlots: RawSlot[] = plan.plan?.slots ?? [];
@@ -202,9 +216,10 @@ export default function TakvimTab() {
         setDossiers(map);
       }
     } catch {
+      if (ac.signal.aborted) return;
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (!ac.signal.aborted) setLoading(false);
     }
   }, [accountId, handle, monthStr, year, month1]);
 

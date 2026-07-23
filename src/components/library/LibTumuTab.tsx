@@ -117,15 +117,17 @@ export default function LibTumuTab() {
 
   const typeSegments = useMemo(() => {
     const c = counts;
+    // Dürüstlük (denetim 2026-07-23): yükleme başarısızsa "Tümü 0" GERÇEK sayım
+    // değildir — rozet gizlenir; 0 yalnız başarılı sorgunun gerçek sonucudur.
     return [
-      { value: "all", label: "Tümü", count: total },
+      { value: "all", label: "Tümü", count: failed || c == null ? undefined : total },
       { value: "viral", label: "Viral", count: c?.viral },
       { value: "prompt", label: "Prompt", count: c?.prompt },
       { value: "pattern", label: "Pattern", count: c?.pattern },
       { value: "keyword", label: "Anahtar", count: c?.keyword },
       { value: "content", label: "İçerik", count: c?.content },
     ];
-  }, [counts, total]);
+  }, [counts, total, failed]);
 
   const copy = (item: LibItem) => {
     navigator.clipboard?.writeText(item.body || item.title).then(

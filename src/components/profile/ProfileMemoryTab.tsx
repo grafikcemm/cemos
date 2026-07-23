@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Brain, Check, X, Undo2, RefreshCw, Plus, ListTree, Pencil, HandMetal, Ban, TrendingUp } from "lucide-react";
 import LearningStatusCard from "@/components/LearningStatusCard";
 import {
@@ -152,6 +152,8 @@ export default function ProfileMemoryTab() {
   const [failed, setFailed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // PR#9 review-MED: hızlı hesap değişiminde bayat cevap yeni hesabın ekranını ezemez.
+  const abortRef = useRef<AbortController | null>(null);
 
   const [newStatement, setNewStatement] = useState("");
   const [newType, setNewType] = useState("preference");
@@ -166,18 +168,23 @@ export default function ProfileMemoryTab() {
   const [revising, setRevising] = useState(false);
 
   const load = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setLoading(true);
     setFailed(false);
     try {
-      const res = await fetch(`/api/memory/knowledge?accountHandle=${encodeURIComponent(accountHandle)}`);
+      const res = await fetch(`/api/memory/knowledge?accountHandle=${encodeURIComponent(accountHandle)}`, { signal: ac.signal });
       if (!res.ok) throw new Error(String(res.status));
       const json = await res.json();
+      if (ac.signal.aborted) return;
       if (!json.success) throw new Error("payload");
       setKnowledge(json.knowledge ?? null);
     } catch {
+      if (ac.signal.aborted) return;
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (!ac.signal.aborted) setLoading(false);
     }
   }, [accountHandle]);
 
