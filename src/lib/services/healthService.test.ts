@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { healthService } from "./healthService";
 import { prisma } from "@/lib/db/client";
 import { getDigestForDate } from "@/lib/news/digest";
+import { DB_UNAVAILABLE_MESSAGE } from "@/lib/db/dbUnavailableError";
+import { __resetDbCircuitForTests } from "@/lib/db/dbCircuit";
 import * as fs from "fs";
 
 vi.mock("@/lib/db/client", () => ({
@@ -20,6 +22,9 @@ vi.mock("@/lib/db/client", () => ({
     },
     newsItem: {
       count: vi.fn(),
+    },
+    integrationCredential: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -40,6 +45,9 @@ vi.mock("fs", async () => {
 describe("healthService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // WP-01: breaker modül-state'i testler arası taşınmasın (açık breaker DB
+    // probe'unu atlar ve eski yeşil-DB testlerini bozar).
+    __resetDbCircuitForTests();
     delete process.env.OPENROUTER_API_KEY;
     delete process.env.SOCIALDATA_API_KEY;
     // newsPipeline defaults: empty pool, no digest (fail-open keeps older tests green)
@@ -254,6 +262,77 @@ describe("healthService", () => {
       const health = await healthService.getHealth();
 
       expect(health.newsPipeline.status).toBe("yellow");
+    });
+  });
+
+  describe("WP-01 — DB-down degradation (breaker + fixed messages, no leak)", () => {
+    const prismaInitError = () =>
+      Object.assign(
+        new Error(
+          "Invalid `prisma.account.count()` invocation:\n\nCan't reach database server at `ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432`",
+        ),
+        { name: "PrismaClientInitializationError" },
+      );
+
+    beforeEach(() => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("green payload carries the WP-01 degraded contract fields", async () => {
+      vi.mocked(prisma.account.count).mockResolvedValue(3);
+      const health = await healthService.getHealth();
+      expect(health.degraded).toBe(false);
+      expect(health.dbCircuit).toMatchObject({ open: false, consecutiveFailures: 0 });
+      expect(typeof health.generatedAt).toBe("string");
+    });
+
+    it("classified DB-unavailable probe: single attempt (no 3x retry ladder), FIXED message, degraded:true, no hostname leak", async () => {
+      vi.mocked(prisma.account.count).mockRejectedValue(prismaInitError());
+      const health = await healthService.getHealth();
+      expect(prisma.account.count).toHaveBeenCalledTimes(1); // erken çıkış — retry merdiveni yok
+      expect(health.database.ok).toBe(false);
+      expect(health.database.message).toBe(DB_UNAVAILABLE_MESSAGE);
+      expect(health.degraded).toBe(true);
+      expect(JSON.stringify(health.database)).not.toContain("neon.tech");
+    });
+
+    it("opens the breaker after 3 failed health calls and then SKIPS the probe entirely", async () => {
+      vi.mocked(prisma.account.count).mockRejectedValue(prismaInitError());
+      await healthService.getHealth();
+      await healthService.getHealth();
+      await healthService.getHealth(); // 3. hata → breaker açık
+      vi.mocked(prisma.account.count).mockClear();
+
+      const health = await healthService.getHealth();
+      expect(prisma.account.count).not.toHaveBeenCalled(); // probe atlandı
+      expect(health.database.ok).toBe(false);
+      expect(health.dbCircuit.open).toBe(true);
+      expect(health.dbCircuit.retryAfterSeconds).toBeGreaterThan(0);
+    });
+
+    it("metaToken catch never leaks the raw error message (live-proven leak path)", async () => {
+      vi.mocked(prisma.account.count).mockResolvedValue(3);
+      vi.mocked(prisma.integrationCredential.findUnique).mockRejectedValue(prismaInitError());
+      const health = await healthService.getHealth();
+      expect(health.metaToken.status).toBe("unknown");
+      expect(health.metaToken.message).toBe(
+        "Meta token durumu okunamadı (veritabanına erişilemiyor).",
+      );
+      expect(health.metaToken.message).not.toContain("prisma.");
+    });
+
+    it("newsPipeline catch never leaks the raw error message", async () => {
+      vi.mocked(prisma.account.count).mockResolvedValue(3);
+      vi.mocked(prisma.newsItem.count).mockRejectedValue(prismaInitError());
+      const health = await healthService.getHealth();
+      expect(health.newsPipeline.status).toBe("unknown");
+      expect(health.newsPipeline.message).not.toContain("neon.tech");
+      expect(health.newsPipeline.message).not.toContain("prisma.");
     });
   });
 });

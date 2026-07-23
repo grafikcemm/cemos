@@ -40,6 +40,27 @@ describe("apiResponse helpers", () => {
     expect(r400.error).toBe("Geçersiz alan"); // 4xx kısa mesaj değişmez
   });
 
+  it("fail() coerces a raw DB-unavailable 5xx into the structured 503 contract (WP-01 choke-point)", async () => {
+    const res = fail("Can't reach database server at `ep-x.neon.tech:5432`", 500);
+    expect(res.status).toBe(503);
+    const json = (await res.json()) as Record<string, unknown>;
+    expect(json.code).toBe("db_unavailable");
+    expect(json.retryable).toBe(true);
+    expect(String(json.error)).not.toContain("neon.tech");
+    // Kota mesajı da aynı sözleşmeye zorlanır (2026-07-23 canlı kanıt).
+    const quota = fail("Your project has exceeded the data transfer quota.", 500);
+    expect(quota.status).toBe(503);
+    expect(((await quota.json()) as Record<string, unknown>).code).toBe("db_unavailable");
+  });
+
+  it("fail() does NOT coerce 4xx or non-DB 5xx messages", async () => {
+    const notFound = fail("Can't reach database server at `h:5432`", 404);
+    expect(notFound.status).toBe(404); // 4xx dokunulmaz (coercion yalnız 5xx)
+    const generic = fail("Beklenmeyen sistem hatası", 500);
+    expect(generic.status).toBe(500);
+    expect(((await generic.json()) as Record<string, unknown>).code).toBeUndefined();
+  });
+
   it("parseJsonBody returns ok:true for valid JSON", async () => {
     const parsed = await parseJsonBody(makeReq(JSON.stringify({ a: 1 })));
     expect(parsed).toEqual({ ok: true, data: { a: 1 } });

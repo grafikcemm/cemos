@@ -7,6 +7,16 @@ import { isCronSecretConfigured, isProductionRuntime } from "@/lib/utils/cronAut
 import * as fs from "fs";
 import * as path from "path";
 import { redactError } from "@/lib/utils/redactSecrets";
+import {
+  isDbUnavailableError,
+  DB_UNAVAILABLE_MESSAGE,
+} from "@/lib/db/dbUnavailableError";
+import {
+  isDbCircuitOpen,
+  recordDbFailure,
+  recordDbSuccess,
+  getDbCircuitState,
+} from "@/lib/db/dbCircuit";
 
 export type NewsPipelineHealth = {
   rawBacklog: number;
@@ -135,9 +145,15 @@ export const healthService = {
 
     // 3. Database — bounded retry so a transient Neon pool timeout (P2024) or a
     // cold-start hiccup doesn't flip readiness red on a single flaky probe (DH-007).
+    // WP-01: circuit-breaker-aware. Breaker AÇIKKEN probe hiç koşmaz — DB-down'da
+    // 3 deneme × 20 saniyelik connect-timeout merdiveni health çağrısını dakikaya
+    // yaklaştırıyordu (Vercel function limitine çarpma riski + boşuna egress).
     let databaseOk = false;
     let databaseMsg = "";
-    {
+    if (isDbCircuitOpen()) {
+      databaseMsg =
+        "Veritabanına erişilemiyor (devre kesici açık — yeniden deneme bekleniyor).";
+    } else {
       const DB_PROBE_ATTEMPTS = 3;
       let lastErr: unknown;
       for (let attempt = 0; attempt < DB_PROBE_ATTEMPTS; attempt++) {
@@ -148,19 +164,27 @@ export const healthService = {
             attempt === 0
               ? "Veritabanı bağlantısı aktif."
               : `Veritabanı bağlantısı aktif (${attempt + 1}. denemede).`;
+          recordDbSuccess();
           break;
         } catch (err) {
           lastErr = err;
+          // Sınıflandırılmış unavailable (kota/erişim/pool) → retry ANLAMSIZ; her
+          // deneme yalnız yeni bir connect-timeout bekletir. Erken çık.
+          if (isDbUnavailableError(err)) break;
           if (attempt < DB_PROBE_ATTEMPTS - 1) {
             await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
           }
         }
       }
       if (!databaseOk) {
-        // Ham Prisma/DB hatası connection string taşıyabilir → redakte et (openrouter/
-        // socialdata kolları zaten redactError kullanıyordu; bu kol atlanmıştı). Bu mesaj
-        // 200 health gövdesine ({...health}) girer, o yüzden 500 catch'inden daha kritik.
-        databaseMsg = lastErr ? redactError(lastErr) : "Veritabanı hatası";
+        if (isDbUnavailableError(lastErr)) {
+          recordDbFailure();
+          // SABİT mesaj — ham Prisma metni (hostname dahil) 200 health gövdesine girmez.
+          databaseMsg = DB_UNAVAILABLE_MESSAGE;
+        } else {
+          // Bilinmeyen sınıf: redakte edilmiş mesaj (SEC-M1 bare-host kalıbı dahil).
+          databaseMsg = lastErr ? redactError(lastErr) : "Veritabanı hatası";
+        }
       }
     }
 
@@ -287,9 +311,14 @@ export const healthService = {
     try {
       newsPipeline = await getNewsPipelineHealth();
     } catch (err) {
+      // WP-01/SEC: ham err.message (Prisma hostname taşıyabilir — canlı kanıt
+      // 2026-07-23 Sistem ekranı) istemciye GEÇMEZ; sabit mesaj + redakte log.
+      console.error("[health] newsPipeline durumu okunamadı:", redactError(err));
       newsPipeline = {
         status: "unknown",
-        message: err instanceof Error ? err.message : "newsPipeline health hatası",
+        message: isDbUnavailableError(err)
+          ? "Haber durumu okunamadı (veritabanına erişilemiyor)."
+          : "Haber pipeline durumu okunamadı.",
       };
     }
 
@@ -316,12 +345,18 @@ export const healthService = {
               : "Meta token ayarlı değil (Instagram opsiyonel).";
       metaToken = { configured, ok: status !== "critical", status, daysUntilExpiry, message };
     } catch (err) {
+      // WP-01/SEC (canlı kanıt 2026-07-23): bu ham mesaj Sistem→Meta kartında
+      // `Invalid prisma.integrationCredential.findUnique()... neon.tech:5432`
+      // olarak AYNEN render edildi. Sabit mesaj + redakte server log.
+      console.error("[health] metaToken durumu okunamadı:", redactError(err));
       metaToken = {
         configured: false,
         ok: true,
         status: "unknown",
         daysUntilExpiry: null,
-        message: err instanceof Error ? err.message : "metaToken health hatası",
+        message: isDbUnavailableError(err)
+          ? "Meta token durumu okunamadı (veritabanına erişilemiyor)."
+          : "Meta token durumu okunamadı.",
       };
     }
 
@@ -340,6 +375,12 @@ export const healthService = {
     };
 
     return {
+      // WP-01 degraded contract: DB-down'da health 200 döner ama degraded bayrağı +
+      // breaker durumu taşır — istemci (SystemHealthProvider) TEK sinyalden global
+      // bant + backoff türetir; generatedAt last-known-good damgasına temel olur.
+      degraded: !databaseOk,
+      dbCircuit: getDbCircuitState(),
+      generatedAt: new Date().toISOString(),
       openrouter: { configured: openrouterConfigured, ok: openrouterOk, message: openrouterMsg },
       socialdata: { configured: socialdataConfigured, ok: socialdataOk, message: socialdataMsg },
       database: { ok: databaseOk, message: databaseMsg },

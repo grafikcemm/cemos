@@ -59,6 +59,28 @@ describe("redactSecrets", () => {
     expect(nix).toContain("/home/[REDACTED]");
   });
 
+  it("masks BARE Prisma connection-error hosts (SEC-M1, live-proven shape)", () => {
+    const p1001 = redactSecrets(
+      "Can't reach database server at `ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432`",
+    );
+    expect(p1001).not.toContain("neon.tech");
+    expect(p1001).toContain("[REDACTED_HOST]");
+    const running = redactSecrets(
+      "Please make sure your database server is running at `ep-x.aws.neon.tech:5432`.",
+    );
+    expect(running).not.toContain("neon.tech");
+    const p1000 = redactSecrets(
+      "Authentication failed against database server, the provided database credentials for `neondb_owner` are not valid.",
+    );
+    expect(p1000).not.toContain("neondb_owner");
+  });
+
+  it("masks generic backticked host:port fragments (defense-in-depth)", () => {
+    const out = redactSecrets("dial `db.internal.example.com:6543` refused");
+    expect(out).not.toContain("db.internal.example.com");
+    expect(out).toContain("`[REDACTED_HOST]`");
+  });
+
   it("leaves benign query params untouched", () => {
     const msg = "https://x.test/list?page=2&sort=desc&limit=50";
     expect(redactSecrets(msg)).toBe(msg);

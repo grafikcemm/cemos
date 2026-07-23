@@ -34,7 +34,14 @@ export function redactSecrets(msg: string): string {
     // Local filesystem paths — an fs / Obsidian-export / ENOENT error echoes the OS
     // username; mask the user segment (the structural prefix is kept for triage).
     .replace(/([A-Za-z]:\\Users\\)[^\\/\s"'<>]+/gi, "$1[REDACTED]")
-    .replace(/(\/(?:home|Users)\/)[^/\s"'<>]+/g, "$1[REDACTED]");
+    .replace(/(\/(?:home|Users)\/)[^/\s"'<>]+/g, "$1[REDACTED]")
+    // BARE Prisma connection-error fragments (SEC-M1, live-proven 2026-07-23): P1000/
+    // P1001/P1002 carry the DB authority WITHOUT scheme/userinfo — "Can't reach
+    // database server at `host:5432`", "credentials for `user`" — so the scheme rule
+    // above misses them. Mask any backticked value after "at "/"for ", plus a
+    // generic backticked host:port as defense-in-depth for other driver messages.
+    .replace(/(\b(?:at|for)\s+`)[^`]+(`)/gi, "$1[REDACTED_HOST]$2")
+    .replace(/`[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}:\d{2,5}`/g, "`[REDACTED_HOST]`");
 }
 
 /**
