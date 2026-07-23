@@ -47,8 +47,17 @@ function withDefaultKind(raw: unknown): unknown {
 // GET /api/learn/sources — dashboard (kaynaklar + sayaçlar).
 export async function GET() {
   if (!isLearnEnabled()) return disabled();
-  const data = await learnService.dashboard();
-  return ok({ ...data });
+  try {
+    const data = await learnService.dashboard();
+    return ok({ ...data });
+  } catch (err) {
+    // WP-01 straggler (canlı 500 kanıtı 2026-07-23): catch'siz GET uncaught →
+    // framework-500 + redaktesiz stack-log üretiyordu; sweep yalnız MEVCUT
+    // catch fallback'lerini kapsamıştı.
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
+    return fail(err instanceof Error ? err.message : "Öğrenme verisi alınamadı", 500);
+  }
 }
 
 // POST /api/learn/sources — kaynak + işleme job'ı yaratır (youtube | manual_transcript | notebooklm_summary).

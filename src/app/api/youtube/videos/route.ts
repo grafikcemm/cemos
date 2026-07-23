@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { ytVideoRepo } from "@/lib/db/ytVideoRepo";
 import { isYouTubeConfigured } from "@/lib/youtube/ytConfig";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 
 export const dynamic = "force-dynamic";
@@ -22,17 +23,25 @@ export async function GET(req: NextRequest) {
   const limit = limitRaw != null && limitRaw !== "" ? Number(limitRaw) : undefined;
   const isShort = shorts === "only" ? true : shorts === "exclude" ? false : undefined;
 
-  const videos = await ytVideoRepo.listOpportunities({
-    category,
-    minScore: Number.isFinite(minScore) ? minScore : undefined,
-    sinceDays: Number.isFinite(sinceDays) ? sinceDays : undefined,
-    isShort,
-    limit: Number.isFinite(limit) ? limit : undefined,
-  });
+  try {
+    const videos = await ytVideoRepo.listOpportunities({
+      category,
+      minScore: Number.isFinite(minScore) ? minScore : undefined,
+      sinceDays: Number.isFinite(sinceDays) ? sinceDays : undefined,
+      isShort,
+      limit: Number.isFinite(limit) ? limit : undefined,
+    });
 
-  return ok({
-    configured: isYouTubeConfigured(),
-    count: videos.length,
-    videos,
-  });
+    return ok({
+      configured: isYouTubeConfigured(),
+      count: videos.length,
+      videos,
+    });
+  } catch (err) {
+    // WP-01 straggler (48-saatlik 500 fırtınasının kanıtlı route'u): catch'siz
+    // handler uncaught → framework-500 + redaktesiz stack-log üretiyordu.
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
+    return fail(err instanceof Error ? err.message : "Videolar alınamadı", 500);
+  }
 }

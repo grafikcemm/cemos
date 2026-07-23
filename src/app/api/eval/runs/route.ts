@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { evalRunRepo, type EvalRunKind } from "@/lib/db/evalRunRepo";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 
@@ -74,9 +76,11 @@ export async function GET(req: NextRequest) {
       registryTraces7d,
     });
   } catch (e) {
-    return NextResponse.json(
-      { success: false, error: e instanceof Error ? e.name : "eval_runs_failed" },
-      { status: 500 }
-    );
+    // WP-01 straggler: ham NextResponse-500 fail() choke-point'ini (redaksiyon +
+    // db_unavailable coercion) atlıyordu — DB-down burada sınıflandırılmadan
+    // "beklenmeyen 500" sayılıyordu.
+    const dbRes = dbErrorResponse(e);
+    if (dbRes) return dbRes;
+    return fail(e instanceof Error ? e.message : "eval_runs_failed", 500);
   }
 }
