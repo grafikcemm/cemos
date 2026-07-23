@@ -9,8 +9,17 @@ import { NextRequest } from "next/server";
 
 const findMany = vi.fn();
 const aggregate = vi.fn();
+// WP-02d: ay görünümü groupBy'a taşındı — findMany artık YALNIZ meta'lı dar
+// satırları çeker (evaluation bloğunun tek girdisi); groupBy'lar burada boş.
+const groupBy = vi.fn();
 vi.mock("@/lib/db/client", () => ({
-  prisma: { usageLog: { findMany: (a: unknown) => findMany(a), aggregate: (a: unknown) => aggregate(a) } },
+  prisma: {
+    usageLog: {
+      findMany: (a: unknown) => findMany(a),
+      aggregate: (a: unknown) => aggregate(a),
+      groupBy: (a: unknown) => groupBy(a),
+    },
+  },
 }));
 
 vi.mock("@/lib/config/costLimits", () => ({
@@ -57,6 +66,7 @@ function sameOriginReq() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  groupBy.mockResolvedValue([]);
 });
 
 describe("/api/costs evaluation bloğu (ADR-034 §I)", () => {

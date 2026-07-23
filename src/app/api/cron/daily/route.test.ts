@@ -43,6 +43,10 @@ vi.mock("@/lib/news/repoRadar", () => ({ syncRepoRadar: vi.fn(() => Promise.reso
 vi.mock("@/lib/news/opportunities", () => ({ generateOpportunities: vi.fn(() => Promise.resolve({ created: 0 })) }));
 vi.mock("@/lib/news/digest", () => ({ buildDailyDigest: vi.fn(() => Promise.resolve({ ok: true })) }));
 // IG rakip sync (Sprint 4) — cron'a katlandı; testte LLM'siz/DB'siz mock.
+// WP-02f guard'ının ifşası: syncToCanonical gerçek prisma'ya dokunuyordu.
+vi.mock("@/lib/content/syncBridge", () => ({
+  syncToCanonical: vi.fn().mockResolvedValue({ synced: 0 }),
+}));
 vi.mock("@/lib/instagram/competitor/igCompetitorService", () => ({
   syncIgCompetitors: vi.fn(() =>
     Promise.resolve({ accounts: 0, synced: 0, itemsUpserted: 0, outliersScored: 0, errors: [] })
