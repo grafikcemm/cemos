@@ -23,6 +23,13 @@ export type HealthPayload = {
   socialdata?: HealthCheck;
   buffer?: HealthCheck;
   database?: { ok?: boolean; message?: string };
+  metaToken?: {
+    configured?: boolean;
+    ok?: boolean;
+    status?: "ok" | "warn" | "critical" | "unknown";
+    daysUntilExpiry?: number | null;
+    message?: string;
+  };
   /** WP-01 degraded contract alanları (/api/health DB-down'da 200 + bunlarla döner). */
   degraded?: boolean;
   dbCircuit?: {
