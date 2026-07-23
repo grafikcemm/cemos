@@ -47,6 +47,9 @@ export async function GET(req: NextRequest) {
     const dbSources = await prisma.source.findMany({
       where: sourceWhere,
       orderBy: { createdAt: "desc" },
+      // WP-02e: operatör-kürasyonlu liste (düzinelerce satır) — 500 salt emniyet
+      // kemeri; posts sorgusu zaten take:300 ile sınırlı.
+      take: 500,
     });
 
     const sourceMap = new Map(dbSources.map((s) => [s.id, s]));

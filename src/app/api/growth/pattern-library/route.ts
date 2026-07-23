@@ -91,6 +91,9 @@ export async function GET(req: NextRequest) {
     const patterns = await prisma.viralPattern.findMany({
       where,
       orderBy,
+      // WP-02e: pattern havuzu kayıtlarla sınırsız büyür; 500 üst sınırı pratik
+      // semantiği değiştirmeyen (mevcut havuz ~10²) bir egress emniyet kemeridir.
+      take: 500,
       select: {
         id: true,
         accountId: true,
