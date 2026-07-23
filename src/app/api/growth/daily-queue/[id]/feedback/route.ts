@@ -6,6 +6,7 @@ import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const FeedbackSchema = z.object({
   feedbackType: z.string().max(50).optional(),
@@ -85,6 +86,8 @@ export async function POST(
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue feedback.";
     return fail(msg, 500);
   }

@@ -8,6 +8,7 @@ import { accountProfiles } from "@/lib/accounts";
 import { normalizeNextMove } from "@/lib/ai/next-move";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { getBudgetStatus, inferAiBudgetClass } from "@/lib/config/costGate";
 
 const RescoreSchema = z.object({
@@ -117,6 +118,8 @@ export async function POST(
       degraded: !judged,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg =
       err instanceof Error ? err.message : "Unexpected system error during daily queue rescoring.";
     return fail(msg, 500);

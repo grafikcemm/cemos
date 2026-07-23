@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ export async function GET(req: NextRequest) {
     const items = rows.map((r) => ({ ...r, tags: safeParseArray(r.tags) }));
     return ok({ count: items.length, items });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -92,6 +95,8 @@ export async function POST(req: NextRequest) {
     }
     return ok({ saved });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -107,6 +112,8 @@ export async function DELETE(req: NextRequest) {
     await prisma.savedViralTweet.deleteMany({ where: { id } });
     return ok({ deleted: id });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

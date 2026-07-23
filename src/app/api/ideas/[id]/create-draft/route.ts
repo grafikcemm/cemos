@@ -3,6 +3,7 @@ import { ideaRepo } from "@/lib/db/ideaRepo";
 import { queueRepo } from "@/lib/db/queueRepo";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     return ok({ draft, reused: false }, { status: 201 });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

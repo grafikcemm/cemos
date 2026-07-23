@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { buildCalibrationStatus } from "@/lib/services/calibrationStatus";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export async function GET(req: NextRequest) {
     const status = await buildCalibrationStatus();
     return ok({ status });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Kalibrasyon durumu alınamadı", 500);
   }
 }

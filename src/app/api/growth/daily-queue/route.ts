@@ -8,6 +8,7 @@ import { assessReadiness } from "@/lib/services/readinessService";
 import { whyToday } from "@/lib/services/whyToday";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("Yetkisiz", 403, { code: "forbidden" });
@@ -363,6 +364,8 @@ export async function GET(req: NextRequest) {
       items: filteredItems,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error during daily queue fetch.";
     return fail(msg, 500);
   }

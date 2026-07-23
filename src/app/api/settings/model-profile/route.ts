@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { setModelProfile } from "@/lib/services/settingsService";
 
 const ProfileSchema = z.object({
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     const profile = await setModelProfile(parsed.data.profile);
     return ok({ profile, durable: true });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const message = err instanceof Error ? err.message : "Model profili güncellenemedi";
     return fail(message, 500);
   }

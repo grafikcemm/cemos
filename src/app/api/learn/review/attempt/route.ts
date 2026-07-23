@@ -5,6 +5,7 @@ import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import type { ReviewGrade } from "@/lib/learning/scheduling/srs";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,8 @@ export async function POST(req: NextRequest) {
     if (msg === "item_not_found") {
       return fail(msg, 404, { code: "not_found" });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

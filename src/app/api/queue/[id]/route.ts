@@ -4,6 +4,7 @@ import { queueRepo } from "@/lib/db/queueRepo";
 import { runDeterministicHeuristics } from "@/lib/safety/heuristics";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const updateSchema = z.object({
   editedContent: z.string().optional(),
@@ -34,6 +35,8 @@ export async function GET(
     if (!item) return fail("Bulunamadı", 404);
     return ok({ item });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -89,6 +92,8 @@ export async function PATCH(
     const item = await queueRepo.update(id, updateData);
     return ok({ item });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -106,6 +111,8 @@ export async function DELETE(
     await scheduleService.deleteDraft(id);
     return ok();
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

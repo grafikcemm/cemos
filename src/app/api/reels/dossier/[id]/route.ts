@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { pipelineTraceRepo } from "@/lib/db/pipelineTraceRepo";
 import {
   canonicalContentOf,
@@ -99,6 +100,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       production,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Dossier alınamadı", 500);
   }
 }
@@ -144,6 +147,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!r.ok) return mapReviewError(r);
     return ok({ ...r });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Düzenleme başarısız", 500);
   }
 }

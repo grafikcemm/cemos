@@ -8,6 +8,7 @@ import { contentEmbeddingRepo } from "@/lib/db/contentEmbeddingRepo";
 import { embedText, rankBySimilarity } from "@/lib/content/search";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,8 @@ export async function POST(req: NextRequest) {
     const result = await dispatch(parsed.data.tool, parsed.data.args ?? {});
     return ok({ tool: parsed.data.tool, result });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     const status = msg.startsWith("unknown tool") ? 404 : 500;
     return fail(msg, status);

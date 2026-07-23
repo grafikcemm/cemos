@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { scoreSourcePostFallback } from "@/lib/growth-engine/scorer";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function POST(
   req: NextRequest,
@@ -50,6 +51,8 @@ export async function POST(
       },
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

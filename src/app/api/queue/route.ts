@@ -3,6 +3,7 @@ import { queueRepo } from "@/lib/db/queueRepo";
 import { accountRepo } from "@/lib/db/accountRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function GET(req: NextRequest) {
   // Single-operator read: same-origin (UI) or cron-secret only. Closes the
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
     const items = await queueRepo.listByAccount(account.id);
     return ok({ items });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

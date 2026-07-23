@@ -5,6 +5,7 @@ import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { redactError } from "@/lib/utils/redactSecrets";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   syncDueSources,
   translateBatch,
@@ -94,6 +95,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     }
     const budgetRes = budgetErrorResponse(err, { stage: stageParam });
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err, { stage: stageParam });
+    if (dbRes) return dbRes;
     return fail(msg, 500, { stage: stageParam });
   }
 }

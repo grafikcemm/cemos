@@ -4,6 +4,7 @@ import { ytBriefRepo } from "@/lib/db/ytBriefRepo";
 import { youtubeService } from "@/lib/services/youtubeService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (msg === "brief_not_found") {
       return fail("Bulunamadı", 404);
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

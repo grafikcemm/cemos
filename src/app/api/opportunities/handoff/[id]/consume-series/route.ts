@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   HandoffFlowError,
   handoffErrorResponse,
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const r = handoffErrorResponse(err);
       return fail(r.error, r.status, { code: r.code });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }

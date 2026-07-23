@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { reverifyDossier } from "@/lib/reels/dossierProductionService";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     return ok({ outcome: r.outcome, updatedAt: r.updatedAt, production: r.production });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Doğrulama başarısız", 500);
   }
 }

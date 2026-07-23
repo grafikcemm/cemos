@@ -4,6 +4,7 @@ import { processFeedback } from "@/lib/growth-engine/feedback-service";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function POST(
   req: NextRequest,
@@ -97,6 +98,8 @@ export async function POST(
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

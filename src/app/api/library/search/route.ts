@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { boardMembershipFor } from "@/lib/boards/saveToBoard";
 import {
   flattenKeywords,
@@ -176,6 +177,8 @@ export async function GET(req: NextRequest) {
     const capped = offset + limit > TAKE_CAP;
     return ok({ items, total, counts, limit, offset, capped });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Arama başarısız";
     return fail(msg, 500);
   }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { getDisplayName } from "@/lib/growth-engine/account-adapter";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export async function GET(req: NextRequest) {
   if (!isOperatorOrCronAuthorized(req)) return fail("unauthorized", 403);
@@ -166,6 +167,8 @@ export async function GET(req: NextRequest) {
       patterns: mappedPatterns,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Unexpected system error";
     return fail(msg, 500);
   }

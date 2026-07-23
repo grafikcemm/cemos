@@ -5,6 +5,7 @@ import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { redactError } from "@/lib/utils/redactSecrets";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 // POST /api/news-pool/process — UI-triggered drain of the translate → analyze
 // backlog ("Tümünü İşle"). Guarded by isOperatorOrCronAuthorized: the app's
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
     }
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(msg, 500);
   }
 }

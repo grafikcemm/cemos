@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const patchSchema = z.object({
   isRead: z.boolean().optional(),
@@ -44,6 +45,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const item = await prisma.newsItem.update({ where: { id }, data });
     return ok({ item });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

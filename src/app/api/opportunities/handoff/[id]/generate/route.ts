@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/client";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { executeAgent } from "@/lib/agents/registry";
 import type { BenchmarkResult } from "@/lib/ai/prompts";
 import {
@@ -165,6 +166,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       const r = handoffErrorResponse(err);
       return fail(r.error, r.status, { code: r.code });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { moveSlot } from "@/lib/reels/planSlotService";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!result.ok) return fail(result.message, STATUS_BY_CODE[result.code] ?? 422, { code: result.code });
     return ok({ slotId, dayOfMonth: result.dayOfMonth, alreadyThere: result.alreadyThere, updatedAt: result.updatedAt });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Slot taşınamadı", 500);
   }
 }

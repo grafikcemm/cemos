@@ -3,6 +3,7 @@ import { imageService } from "@/lib/services/imageService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 /**
  * POST /api/queue/[id]/generate-image
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     const status = msg === "queue_item_not_found" ? 404 : 500;
     return fail(msg, status);

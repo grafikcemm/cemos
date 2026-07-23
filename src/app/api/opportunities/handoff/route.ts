@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   HandoffActionSchema,
   HandoffStatusSchema,
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
     });
     return ok({ handoffs });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }
@@ -43,6 +46,8 @@ export async function POST(req: NextRequest) {
     if (err && typeof err === "object" && "issues" in err) {
       return fail("Geçersiz aktarım verisi", 422, { code: "invalid_input" });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Sunucu hatası", 500);
   }
 }

@@ -5,6 +5,7 @@ import { draftService } from "@/lib/services/draftService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const bodySchema = z.object({
   // ADR-031: hesap doğrulaması generateDraft içindeki DB profil yüklemesinde
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import {
   addWatchAccount,
   isBusinessDiscoveryReady,
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
     // olarak etiketler. `configured=false` → dürüst config-required durumu.
     return ok({ accounts, max: IG_WATCHLIST_MAX, configured, scope: "global" });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Watchlist alınamadı", 500);
   }
 }
@@ -52,6 +55,8 @@ export async function POST(req: NextRequest) {
     const r = await addWatchAccount(parsed.data.username, parsed.data);
     return ok({ ...r });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Hesap eklenemedi", 500);
   }
 }

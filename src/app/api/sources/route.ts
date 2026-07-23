@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sourceService, SourceServiceError } from "@/lib/services/sourceService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 const addSourceSchema = z.object({
   accountHandle: z.string().min(1),
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
     if (err instanceof SourceServiceError) {
       return fail(err.message, 400, { code: err.code });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }
@@ -47,6 +50,8 @@ export async function POST(req: NextRequest) {
     if (err instanceof SourceServiceError) {
       return fail(err.message, 409, { code: err.code });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

@@ -9,6 +9,7 @@ import {
 import { isLearnEnabled } from "@/lib/learning/learnConfig";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,8 @@ export async function POST(req: NextRequest) {
     if (err instanceof InvalidSourceInputError) {
       return fail(err.message, 400, { code: "invalid_input" });
     }
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : String(err);
     return fail(msg, 500);
   }

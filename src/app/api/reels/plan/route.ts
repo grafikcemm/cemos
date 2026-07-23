@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { staleDossierFlags, PlanValidationError } from "@/lib/reels/plan-assembler";
 import {
   computePlanPreview,
@@ -51,6 +52,8 @@ export async function GET(req: NextRequest) {
       notes: { warnings: notes.warnings, revision: notes.envelope?.revision ?? null, legacy: notes.legacy },
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Plan alınamadı", 500);
   }
 }
@@ -127,6 +130,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof PlanValidationError) return fail(err.message, 400);
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Plan oluşturulamadı", 500);
   }
 }

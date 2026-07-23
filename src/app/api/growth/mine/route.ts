@@ -5,6 +5,7 @@ import { miningService } from "@/lib/services/miningService";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { ok, fail, parseJsonBody } from "@/lib/utils/apiResponse";
 import { budgetErrorResponse } from "@/lib/utils/budgetErrorResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 /**
  * Manual trigger for the deliberation council + viral pattern mining for one
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const budgetRes = budgetErrorResponse(err);
     if (budgetRes) return budgetRes;
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Madencilik hatası";
     return fail(msg, 500);
   }

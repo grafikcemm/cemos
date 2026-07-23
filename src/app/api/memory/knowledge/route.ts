@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 import { buildKnowledgeReadModel } from "@/lib/memory/knowledgeReadModel";
 import { MemoryScopeError } from "@/lib/memory/memoryFactService";
 
@@ -19,6 +20,8 @@ export async function GET(req: NextRequest) {
     return ok({ knowledge: model });
   } catch (err) {
     if (err instanceof MemoryScopeError) return fail(err.message, 400, { code: "invalid_scope" });
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     return fail(err instanceof Error ? err.message : "Hafıza bilgisi alınamadı", 500);
   }
 }

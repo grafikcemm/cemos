@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { syncToCanonical } from "@/lib/content/syncBridge";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
 import { fail } from "@/lib/utils/apiResponse";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
     const result = await syncToCanonical({ limitPerSource, deadlineMs });
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Sunucu hatası";
     return fail(msg, 500);
   }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { cronRunRepo } from "@/lib/db/cronRunRepo";
 import { ok, fail } from "@/lib/utils/apiResponse";
 import { isOperatorOrCronAuthorized } from "@/lib/utils/sameOriginGuard";
+import { dbErrorResponse } from "@/lib/utils/dbErrorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,8 @@ export async function GET(req: NextRequest) {
       topPatterns,
     });
   } catch (err) {
+    const dbRes = dbErrorResponse(err);
+    if (dbRes) return dbRes;
     const msg = err instanceof Error ? err.message : "Öğrenme durumu alınamadı";
     return fail(msg, 500);
   }
