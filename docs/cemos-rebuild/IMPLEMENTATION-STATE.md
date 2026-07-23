@@ -1,5 +1,21 @@
 # IMPLEMENTATION-STATE
 
+## TRUTH DELTA 2 — 2026-07-23 (yeni oturum re-verify + PR-A kapanışı, plan §14 adım 2-3)
+
+**KÖK NEDEN SINIFI KESİNLEŞTİ — Neon DATA-TRANSFER (EGRESS) KOTASI, compute CU-saat DEĞİL:** salt-okunur probe (prisma `SELECT 1`, gerçek exit 1): `ERROR: Your project has exceeded the data transfer quota. Upgrade your plan to increase limits.` Plan §8b "compute kotası tükendi" hipotezi bu kanıtla daraltıldı: kota sınıfı = data transfer. WP-02 egress kapanışının doğrudan doğrulaması. OP-1 hâlâ gerekli (aşım miktarı, reset tarihi, parola rotasyonu). Plan yükseltme/ödeme kararı yalnız OPERATÖR (§8d ağacı — ölçümsüz ödeme YOK). Kota reset'ine dek DB kapalı kalır; 7 günlük ölçüm erişim dönünce başlar.
+
+**PR-A KAPANDI + DEPLOY KAPISI 1 GEÇİLDİ (2026-07-23 ~07:45 UTC):**
+- PR #5 açıklaması 8-commit gerçeğine güncellendi (eski "tam 5 commit / yeni kod yok" ifadesi düzeltildi) → **merge commit `918d4fc`** (repo konvansiyonu: merge commit, PR #2/#3/#4 gibi). HEAD `c503787` değişmediğinden yeşil CI yeniden tetiklenmedi (verify ×2 + db-integration + Vercel Preview READY kanıtı mevcuttu).
+- **Prod SHA kanıtı:** `cemos-woad.vercel.app` → `dpl_9geZ4HCZ` READY target=production, `githubCommitSha=918d4fc` = merge SHA. Rollback hedefi kayıtlı: `dpl_8WmeP7Ms` (main@`45875ad`).
+- **Salt-okunur HTTP smoke (LIVE):** `/`→307 `/giris` · `/giris` 200 · `/api/health` `/api/costs` `/api/learn/sources` → 401 `{"ok":false,"code":"unauthenticated"}` · unauthenticated gövdelerde neon.tech/prisma/postgres/5432 sızıntısı **0** · yeni deployment'ta runtime error/warning logu **0**.
+- **Authenticated UI smoke (operatör Chrome oturumu, salt-okunur gezinme):** Bugün dürüst degraded ("Üretim altyapısı hazır değil — Veritabanına erişilemiyor", "Taslaklar yüklenemedi" + Yeniden dene) · **Maliyet sahte-$0 YOK (CANLI doğrulandı)** · **Öğrenme sonsuz-spinner YOK (CANLI doğrulandı)** · Kütüphane dürüst hata durumu · tüm gezinme boyunca console error **0**. Flow Radar 502 sözleşmesi mutation gerektirdiğinden smoke'ta koşulmadı (VERIFIED-HERMETIC).
+
+**YENİ CANLI BULGU (PR-B WP-01 hedefi, ekran kanıtlı):** Sistem→Altyapı→Meta (Instagram) kartı HAM Prisma hatası + çıplak Neon hostname gösteriyor (`Invalid prisma.integrationCredential.findUnique()… Can't reach database server at ep-long-sun-…neon.tech:5432`) — healthService `metaToken.message` yolu redaksiyonsuz ve `redactSecrets`'ta bare-host kalıbı yok (SEC-M1'in canlı kanıtı; authenticated yüzeyde, ama sözleşme "ham Prisma/provider mesajı istemciye gitmez"). Minör: Öğrenme üst KPI şeridi degraded'de "0 hazır paket" gösteriyor (fake-zero kalıntısı) — WP-01 tek-global-bant işinde ele alınacak.
+
+**Branch durumu:** `fix/db-resilience-egress` → `origin/main@918d4fc` üzerine rebase edildi (tree temiz, yalnız `?? shots/`); PR-B delta'sı bu commit'le başlar.
+
+---
+
 ## TRUTH DELTA — Opus uygulama başlangıç doğrulaması (2026-07-22, FINAL-OPERATIONAL-CLOSURE-PLAN v2 §14 gereği)
 
 Salt-okunur re-verify sonucu; planın referans gerçeklerinden SAPMALAR:
