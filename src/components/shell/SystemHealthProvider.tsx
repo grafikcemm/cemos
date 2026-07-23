@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { fetchJson } from "@/lib/utils/safeFetch";
 import {
+  deriveDbAvailability,
   deriveSystemHealth,
   type HealthPayload,
   type SystemHealthResult,
@@ -24,6 +25,13 @@ type SystemHealthContextValue = {
   /** true → todayCost bir ÖNCEKİ başarılı okumadan; GÜNCEL değil (maliyet alınamadı).
    *  UI "$X" yerine "$X (eski)"/"—" göstermeli — sahte-güncel YOK. */
   costStale: boolean;
+  /** WP-01: DOĞRULANMIŞ DB-erişilemezlik sinyali (health 200 + database.ok:false).
+   *  TEK kaynak — global bant + ekranlar bunu tüketir; ekran başına ayrı teşhis yok. */
+  dbUnavailable: boolean;
+  /** Breaker açıkken sunucunun önerdiği bekleme süresi (istemci backoff ipucu). */
+  dbRetryAfterSeconds: number | null;
+  /** Son "DB sağlıklı" health cevabının damgası — bant "son başarılı veri" gösterimi. */
+  lastGoodAt: string | null;
   workerMode: WorkerMode;
   refresh: () => void;
 };
@@ -35,6 +43,9 @@ const SystemHealthContext = createContext<SystemHealthContextValue>({
   contracts: null,
   todayCost: null,
   costStale: false,
+  dbUnavailable: false,
+  dbRetryAfterSeconds: null,
+  lastGoodAt: null,
   workerMode: "unknown",
   refresh: () => {},
 });
@@ -51,6 +62,7 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
   const [fetchError, setFetchError] = useState(false);
   const [todayCost, setTodayCost] = useState<number | null>(null);
   const [costStale, setCostStale] = useState(false);
+  const [lastGoodAt, setLastGoodAt] = useState<string | null>(null);
   const [workerMode, setWorkerMode] = useState<WorkerMode>("unknown");
   const mounted = useRef(true);
   const inFlight = useRef(false);
@@ -72,6 +84,12 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
       setWorkerMode(healthRes?.worker?.mode ?? "unknown");
       setLoaded(true);
       setFetchError(false);
+      // WP-01 last-known-good: yalnız DB gerçekten sağlıklıyken damga ilerler —
+      // degraded cevaplar (200 + database.ok:false) eski damgayı KORUR ki bant
+      // "son başarılı veri: HH:MM" dürüst kalsın.
+      if (healthRes && healthRes.database?.ok !== false) {
+        setLastGoodAt(healthRes.generatedAt ?? new Date().toISOString());
+      }
       const today = costsRes?.today;
       if (today?.totalUsd != null) {
         setTodayCost(today.totalUsd);
@@ -132,9 +150,22 @@ export function SystemHealthProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   const result = deriveSystemHealth({ loaded, fetchError, health });
+  const dbAvailability = deriveDbAvailability(health);
 
   return (
-    <SystemHealthContext.Provider value={{ result, contracts, todayCost, costStale, workerMode, refresh: load }}>
+    <SystemHealthContext.Provider
+      value={{
+        result,
+        contracts,
+        todayCost,
+        costStale,
+        dbUnavailable: dbAvailability.dbUnavailable,
+        dbRetryAfterSeconds: dbAvailability.retryAfterSeconds,
+        lastGoodAt,
+        workerMode,
+        refresh: load,
+      }}
+    >
       {children}
     </SystemHealthContext.Provider>
   );

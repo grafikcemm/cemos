@@ -2,9 +2,51 @@ import { describe, it, expect } from "vitest";
 import {
   deriveSystemHealth,
   deriveProblems,
+  deriveDbAvailability,
+  formatLastGoodAt,
   healthDotColor,
   type HealthPayload,
 } from "./systemHealth";
+
+describe("deriveDbAvailability — WP-01 tek DB-down sinyali", () => {
+  it("database.ok === false → dbUnavailable:true + breaker retry ipucu", () => {
+    const r = deriveDbAvailability({
+      database: { ok: false, message: "Veritabanına şu anda erişilemiyor." },
+      dbCircuit: { open: true, retryAfterSeconds: 27 },
+    });
+    expect(r).toEqual({ dbUnavailable: true, retryAfterSeconds: 27 });
+  });
+
+  it("database.ok true veya payload yok → dbUnavailable:false (yanlış alarm yok)", () => {
+    expect(deriveDbAvailability({ database: { ok: true } })).toEqual({
+      dbUnavailable: false,
+      retryAfterSeconds: null,
+    });
+    expect(deriveDbAvailability(null)).toEqual({ dbUnavailable: false, retryAfterSeconds: null });
+    // database alanı hiç yoksa (eski payload) → bilinmiyor ≠ kapalı.
+    expect(deriveDbAvailability({} as HealthPayload).dbUnavailable).toBe(false);
+  });
+
+  it("breaker kapalıyken retryAfterSeconds null kalır", () => {
+    const r = deriveDbAvailability({
+      database: { ok: false },
+      dbCircuit: { open: false, retryAfterSeconds: null },
+    });
+    expect(r.retryAfterSeconds).toBeNull();
+  });
+});
+
+describe("formatLastGoodAt", () => {
+  it("ISO damgayı İstanbul saatiyle HH:MM'e çevirir", () => {
+    // 12:34 UTC = 15:34 Europe/Istanbul (sabit UTC+3).
+    expect(formatLastGoodAt("2026-07-23T12:34:00.000Z")).toBe("15:34");
+  });
+
+  it("null/bozuk girişte null döner", () => {
+    expect(formatLastGoodAt(null)).toBeNull();
+    expect(formatLastGoodAt("not-a-date")).toBeNull();
+  });
+});
 
 const okHealth: HealthPayload = {
   openrouter: { configured: true, ok: true },

@@ -22,6 +22,7 @@ import {
 } from "@/components/nav/navConfig";
 import Sidebar from "./Sidebar";
 import TopStrip from "./TopStrip";
+import DbUnavailableBanner from "./DbUnavailableBanner";
 import CommandPalette from "./CommandPalette";
 import MobileNav from "./MobileNav";
 import SubNav from "@/components/ui/SubNav";
@@ -199,6 +200,7 @@ export default function AppShell({ initialTab }: AppShellProps) {
           style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
         >
           <TopStrip areaLabel={areaLabel} subTabLabel={subTabLabel} />
+          <DbUnavailableBanner />
           <main style={{ flex: 1, minWidth: 0, width: "100%" }}>
             <div
               className="app-content"
