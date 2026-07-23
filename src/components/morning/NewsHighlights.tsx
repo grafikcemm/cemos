@@ -5,6 +5,7 @@ import { Newspaper, Target, Loader2, CheckCircle2, Sparkles } from "lucide-react
 import { fetchJson } from "@/lib/utils/safeFetch";
 import { Card, EmptyState, ErrorState, SectionHeader, Skeleton, Badge } from "@/components/ui";
 import { safeExternalHref } from "@/lib/utils/url";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 
 type NewsItem = {
   id: string;
@@ -28,13 +29,13 @@ type Props = {
   onToast: (text: string, type: "success" | "error") => void;
 };
 
-const ACCOUNTS = ["grafikcem", "maskulenkod"] as const;
-
 export default function NewsHighlights({ onToast }: Props) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  // Batch-C: DB-türetilmiş hesap listesi (bootstrap fallback'li).
+  const accounts = useAccountHandles();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,7 +152,7 @@ export default function NewsHighlights({ onToast }: Props) {
                         <CheckCircle2 size={14} strokeWidth={1.8} /> Kullanıldı
                       </span>
                     ) : (
-                      ACCOUNTS.map((acc) => {
+                      accounts.map((acc) => {
                         const busy = generatingId === `${n.id}-${acc}`;
                         return (
                           <button

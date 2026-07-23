@@ -25,6 +25,7 @@ import { TOOLBOX_BUCKETS, chipLabel } from "@/lib/toolbox/buckets";
 import ToolboxFolderRow, { type FolderItem } from "./toolbox/ToolboxFolderRow";
 import ToolboxToolCard from "./toolbox/ToolboxToolCard";
 import { type Tool } from "./toolbox/types";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 
 type ListResponse = { success: boolean; items?: Tool[]; error?: string };
 type CountsResponse = {
@@ -64,6 +65,10 @@ export default function ToolboxTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [favKey, setFavKey] = useState<string | null>(null);
+
+  // Batch-C: DB-türetilmiş hesap listesi — tek yerde çağrılır, karta prop'la
+  // geçirilir (kart başına ayrı fetch yerine tek hook çağrısı).
+  const accountHandles = useAccountHandles();
 
   // App-level toast (mesajlar birebir korunur). Ref üzerinden çağrılır ki
   // provider re-render'ları useCallback kimliklerini bozup yükleme
@@ -268,6 +273,7 @@ export default function ToolboxTab() {
       onToggleFavorite={() => toggleFavorite(t.id, t.isFavorite)}
       generatingKey={generatingKey}
       onGenerate={generate}
+      accounts={accountHandles}
     />
   );
 

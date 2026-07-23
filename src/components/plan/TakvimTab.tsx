@@ -19,7 +19,7 @@ import PlanHandoffBand from "./PlanHandoffBand";
 import PlanBuilder from "./PlanBuilder";
 import PlanHealthStrip from "./PlanHealthStrip";
 import SlotOpsBar from "./SlotOpsBar";
-import { useAccounts } from "./useAccounts";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 import { SlotDossierActions, DossierDetailPanel } from "./TakvimDossierPanels";
 import {
   monthMatrix,
@@ -89,10 +89,22 @@ const READINESS_META: Record<DossierRow["finalReadiness"], { label: string; vari
 
 export default function TakvimTab() {
   const setActiveTab = useXAgentStore((s) => s.setActiveTab);
-  const { accounts, loading: accountsLoading, failed: accountsFailed, reload: reloadAccounts } = useAccounts();
+  // WP-04 / P0 batch A1: yerel accountId seçici SİLİNDİ — TEK otorite global
+  // activeChannel (useActiveAccount). Hook'un `channel`/`setChannel`'ı bu
+  // dosyanın KENDİ `channel`/`setChannel`'ı (aşağıda — takvim kanal filtresi,
+  // ayrı bir kavram) ile çakışmasın diye `handle`/`setAccountHandle` adıyla alınır.
+  const {
+    channel: handle,
+    setChannel: setAccountHandle,
+    accountId,
+    channelUnknown,
+    accounts,
+    accountsLoading,
+    accountsFailed,
+    reloadAccounts,
+  } = useActiveAccount();
 
   const today = useMemo(() => new Date(), []);
-  const [accountId, setAccountId] = useState("");
   const [view, setView] = useState<ViewMode>("month");
   const [channel, setChannel] = useState<Channel>("all");
   const [year, setYear] = useState(today.getFullYear());
@@ -110,21 +122,17 @@ export default function TakvimTab() {
   const [planStatus, setPlanStatus] = useState<string | null>(null);
   const [planUpdatedAt, setPlanUpdatedAt] = useState<string | null>(null);
 
-  // Hesap seçilince ilkini kur.
+  // Sonsuz-skeleton koruması (Faz 1D.1 + WP-04/P0 batch A1): hesap listesi
+  // düştü/boş döndüyse YA DA channel çözülemiyorsa (channelUnknown — accountId
+  // fail-closed null) load() hiç koşamaz — loading'i kapat ve dürüst hata
+  // durumuna geç.
   useEffect(() => {
-    if (!accountId && accounts.length > 0) setAccountId(accounts[0].id);
-  }, [accounts, accountId]);
-
-  // Sonsuz-skeleton koruması (Faz 1D.1): hesap listesi düştü ya da boş döndüyse
-  // load() hiç koşamaz — loading'i kapat ve dürüst hata/boş duruma geç.
-  useEffect(() => {
-    if (!accountsLoading && (accountsFailed || accounts.length === 0)) {
+    if (!accountsLoading && (accountsFailed || accounts.length === 0 || channelUnknown)) {
       setLoading(false);
-      if (accountsFailed) setFailed(true);
+      if (accountsFailed || channelUnknown) setFailed(true);
     }
-  }, [accountsLoading, accountsFailed, accounts.length]);
+  }, [accountsLoading, accountsFailed, accounts.length, channelUnknown]);
 
-  const handle = accounts.find((a) => a.id === accountId)?.handle ?? "";
   const monthStr = `${year}-${pad(month1)}`;
 
   const load = useCallback(async () => {
@@ -294,8 +302,12 @@ export default function TakvimTab() {
               <Select
                 aria-label="Hesap"
                 options={accounts.map((a) => ({ value: a.id, label: `@${a.handle}` }))}
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                value={accountId ?? ""}
+                onChange={(e) => {
+                  // Two-way bind: dropdown id → handle → global switcher (setChannel).
+                  const next = accounts.find((a) => a.id === e.target.value);
+                  if (next) setAccountHandle(next.handle);
+                }}
               />
             )}
             <Button size="sm" variant="primary" onClick={() => setBuilderOpen(true)} iconLeft={<CalendarPlus size={14} strokeWidth={2} />} data-testid="takvim-plan-open">
@@ -349,7 +361,7 @@ export default function TakvimTab() {
           onRetry={() => {
             setFailed(false);
             setLoading(true);
-            if (accountsFailed || accounts.length === 0) reloadAccounts();
+            if (accountsFailed || accounts.length === 0 || channelUnknown) reloadAccounts();
             else load();
           }}
         />
@@ -409,7 +421,7 @@ export default function TakvimTab() {
               {active.status && <Badge variant="muted" size="sm">{active.status}</Badge>}
             </div>
 
-            {active.channel === "reels" && active.slotRawId && (
+            {active.channel === "reels" && active.slotRawId && accountId && (
               <SlotOpsBar
                 accountId={accountId}
                 slotRawId={active.slotRawId}
@@ -425,7 +437,9 @@ export default function TakvimTab() {
             )}
 
             {active.channel === "reels" ? (
-              activeDossier ? (
+              // FAIL-CLOSED: accountId null iken (channel geçiş anı) bu iki
+              // panel de account-scoped fetch/mutation BAŞLATMAZ — render edilmez.
+              accountId && activeDossier ? (
                 <>
                   {dossierStale && <StaleNotice message="Bu dossier'in araç kanıtı süresi geçmiş — yayından önce yeniden doğrula." />}
                   <DrawerField label="Başlık" value={activeDossier.title} />
@@ -453,7 +467,7 @@ export default function TakvimTab() {
                     site kanıtı editoryal onay DEĞİLDİR.
                   </p>
                 </>
-              ) : (
+              ) : accountId ? (
                 <SlotDossierActions
                   accountId={accountId}
                   slot={active}
@@ -464,7 +478,7 @@ export default function TakvimTab() {
                     void load();
                   }}
                 />
-              )
+              ) : null
             ) : (
               <>
                 <DrawerField label="Taslak" value={active.content || "—"} multiline />

@@ -3,6 +3,7 @@
 import { healthDotColor } from "@/lib/services/systemHealth";
 import { deriveHealthProblems, healthProblemsLevel } from "@/lib/health/healthContracts";
 import { useSystemHealth } from "@/components/shell/SystemHealthProvider";
+import { useAccountHandles } from "@/lib/accounts/useAccountHandles";
 import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
 
 /**
@@ -12,8 +13,6 @@ import type { useDailyQueueData, MorningDraft } from "./useDailyQueueData";
  * topbar çelişemez. Üretim/operator hazırlığı AYRI eksendir (OperatorReadinessGate,
  * yalnız sorun varken genişler).
  */
-
-const ACCOUNT_ORDER = ["grafikcem", "maskulenkod"] as const;
 
 const isDone = (d: MorningDraft) =>
   d.status === "manual_published" || d.status === "published";
@@ -25,9 +24,14 @@ type Props = {
 export default function MorningHeroStats({ queue }: Props) {
   const { drafts, loading } = queue;
   const { result: health, contracts } = useSystemHealth();
+  // Batch-C: DB-türetilmiş hesap sırası — API createdAt asc döner, bu da
+  // bugüne dek sabit ACCOUNT_ORDER literalinin sırasıyla AYNIdır (bkz. GET
+  // /api/settings orderBy). Bootstrap fallback'i (@/store/xagent) yüklenene
+  // dek aynı görünümü ayakta tutar.
+  const accountOrder = useAccountHandles();
 
   const pending = drafts.filter((d) => !isDone(d));
-  const perAccount = ACCOUNT_ORDER.map((h) => ({
+  const perAccount = accountOrder.map((h) => ({
     handle: h,
     count: pending.filter((d) => d.accountHandle === h).length,
   }));

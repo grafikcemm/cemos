@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Brain, Check, X, Undo2, RefreshCw, Plus } from "lucide-react";
 import { Card, SectionHeader, EmptyState, Badge, Button } from "@/components/ui";
 import ErrorState from "@/components/ui/ErrorState";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
+import { DEFAULT_CHANNELS } from "@/store/xagent";
 
 /**
  * Hafıza onay kuyruğu yüzeyi (Sprint 3 — FINAL-MEMORY-SPEC §6.3, AC-8).
@@ -37,7 +39,15 @@ export default function MemoryProposalsSection() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newStatement, setNewStatement] = useState("");
-  const [newAccount, setNewAccount] = useState("grafikcem");
+  // WP-04 / P0-2 batch A2: bu select YENİ bir kuralın HANGİ hesaba
+  // yazılacağını seçer — ekranın GET'i account-unscoped olduğundan two-way
+  // BAĞLANMAZ (değişimi global switcher'ı DEĞİL yalnız bu formu etkiler);
+  // başlangıç değeri global channel'dan alınır, sonrası serbest form alanı.
+  // Seçenekler useActiveAccount().accounts'tan; boşsa sidebar'ın
+  // DEFAULT_CHANNELS bootstrap fallback'iyle aynı liste kullanılır.
+  const { channel, accounts } = useActiveAccount();
+  const accountOptions = accounts.length > 0 ? accounts.map((a) => a.handle) : DEFAULT_CHANNELS;
+  const [newAccount, setNewAccount] = useState(channel);
   const [newType, setNewType] = useState("preference");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -152,8 +162,9 @@ export default function MemoryProposalsSection() {
             color: "var(--text-primary)", fontSize: "var(--text-xs)", fontFamily: "inherit",
           }}
         >
-          <option value="grafikcem">@grafikcem</option>
-          <option value="maskulenkod">@maskulenkod</option>
+          {accountOptions.map((handle) => (
+            <option key={handle} value={handle}>@{handle}</option>
+          ))}
         </select>
         <select
           aria-label="Kural tipi"

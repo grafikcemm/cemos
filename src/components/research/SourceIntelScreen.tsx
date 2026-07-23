@@ -38,6 +38,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
+import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 import { scoreColor } from "@/lib/utils/scoreColor";
 import SaveToBoardButton from "@/components/library/SaveToBoardButton";
 
@@ -159,6 +160,8 @@ const EMPTY_SUMMARY: Summary = {
 };
 
 const DEFAULT_FILTERS: FilterValues = {
+  // Liste FİLTRESİ kasıtlı olarak "all" — cross-account görünüm tasarım
+  // gereği (aşağıdaki NEW_FORM'un hedef-hesap alanından bağımsız).
   account: "all",
   status: "all",
   sourceType: "all",
@@ -168,7 +171,10 @@ const DEFAULT_FILTERS: FilterValues = {
   search: "",
 };
 
-const NEW_FORM: SourceForm = { account: "grafikcem", handle: "", mode: "ALL", likes: "100", retweets: "20" };
+// `account` burada yapı-uyumluluğu için placeholder — gerçek başlangıç
+// değeri form AÇILIRKEN global channel'dan set edilir (openNewSource'a bkz.);
+// bu YALNIZ form alanıdır, two-way DEĞİL.
+const NEW_FORM: SourceForm = { account: "", handle: "", mode: "ALL", likes: "100", retweets: "20" };
 
 const MODE_OPTIONS = [
   { value: "ALL", label: "ALL — tweet + alıntı + yanıt" },
@@ -276,6 +282,7 @@ function safeExternalUrl(url: string | undefined): string | undefined {
 // ── Ekran ─────────────────────────────────────────────────────────────────────
 export default function SourceIntelScreen() {
   const toast = useToast();
+  const { channel } = useActiveAccount();
 
   const [values, setValues] = useState<FilterValues>(DEFAULT_FILTERS);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
@@ -293,7 +300,7 @@ export default function SourceIntelScreen() {
   // Kaynak formu (Drawer) — yeni + düzenle
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<SourceForm>(NEW_FORM);
+  const [form, setForm] = useState<SourceForm>(() => ({ ...NEW_FORM, account: channel }));
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -351,7 +358,9 @@ export default function SourceIntelScreen() {
   // ── Kaynak CRUD ──────────────────────────────────────────────────────────
   const openNewSource = () => {
     setEditingId(null);
-    setForm(NEW_FORM);
+    // Form açılırken hedef hesap global channel'dan başlar (form alanı —
+    // two-way DEĞİL, kullanıcı serbestçe değiştirebilir).
+    setForm({ ...NEW_FORM, account: channel });
     setFormError(null);
     setFormOpen(true);
   };
