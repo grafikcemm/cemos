@@ -1,4 +1,6 @@
 import { calculateLevenshteinSimilarity } from "@/lib/utils/textSimilarity";
+import { prisma } from "@/lib/db/client";
+import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   extractPattern,
   patternExtractionToViralPatternInput,
@@ -99,6 +101,44 @@ export function mergeReasonWithEditDistance(reason: string, editDistance: number
     }
   }
   return JSON.stringify({ text: trimmed, editDistance });
+}
+
+/**
+ * PR-B resume-semantiği (WP-01 backlog): başarıyla yazılan ViralPattern'ın id'si
+ * FeedbackEvent.reason JSON'una bağlanır (kolon yok — migration yasağı;
+ * mergeReasonWithEditDistance ile aynı taşıyıcı). Idempotent replay bu bağa
+ * bakarak "tamamlandı mı, yoksa extraction yutulmuş muydu" ayrımını yapar.
+ */
+export function mergeViralPatternIdIntoReason(reason: string, viralPatternId: string): string {
+  const trimmed = (reason ?? "").trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return JSON.stringify({ ...parsed, viralPatternId });
+      }
+    } catch {
+      // düz string muamelesi görür
+    }
+  }
+  return JSON.stringify({ text: trimmed, viralPatternId });
+}
+
+/** reason JSON'undan bağlı viralPatternId'yi okur; yoksa/parse edilemezse null. */
+export function extractViralPatternIdFromReason(reason: string | null | undefined): string | null {
+  const raw = (reason ?? "").trim();
+  if (!raw.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return typeof parsed.viralPatternId === "string" && parsed.viralPatternId
+        ? parsed.viralPatternId
+        : null;
+    }
+  } catch {
+    // düz string muamelesi görür
+  }
+  return null;
 }
 
 /**
@@ -290,9 +330,18 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
   // 3b. Phase 5A (ADR-044): idempotency gate — aynı client key ikinci kez YAN ETKİ
   // (memory sinyali / pattern reweight / TrainingExample / embedding / ViralPattern)
   // tetiklemez. Pre-check (sıralı çift-tık) + create P2002 backstop (gerçek yarış).
+  //
+  // PR-B resume-semantiği: pattern İSTENEN bir replay'de "tamamlandı" ile
+  // "extraction yutulmuştu" ayrılır — reason JSON'undaki viralPatternId bağı
+  // varsa aynen döner (ikinci ücretli extraction YOK); yoksa extraction advisory
+  // lock altında SÜRDÜRÜLÜR (deterministik key artık retry'ı sonsuza dek
+  // kilitlemez; eşzamanlı retry çifte ücret/çifte pattern üretemez).
   if (fb.idempotencyKey) {
     const prior = await feedbackEventRepo.findByIdempotencyKey(fb.idempotencyKey);
     if (prior) {
+      if (shouldSaveAsPattern(fb)) {
+        return resumePatternExtraction(prior.id, prior.reason, fb);
+      }
       return { success: true, feedbackEventId: prior.id, warnings: ["idempotent_replay"] };
     }
   }
@@ -401,6 +450,20 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
       const createdPattern = await viralPatternRepo.create(viralInput);
       viralPatternId = createdPattern.id;
+      // PR-B resume-semantiği: bağ yazılır ki aynı içerikli bir retry "zaten
+      // tamamlandı"yı ayırt edip İKİNCİ ücretli extraction koşmasın. Bağ yazımı
+      // düşerse pattern yine de var — warning görünür kalır (sessiz yutma yok);
+      // sonraki replay resume yolunda yeniden extraction riskini operatör görür.
+      try {
+        await feedbackEventRepo.updateReason(
+          feedbackEvent.id,
+          mergeViralPatternIdIntoReason(feedbackInput.reason ?? "", createdPattern.id),
+        );
+      } catch (linkErr) {
+        warnings.push(
+          `pattern_link_failed: ${linkErr instanceof Error ? linkErr.message : "Unknown error"}`,
+        );
+      }
     } catch (err) {
       warnings.push(`Pattern extraction failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
@@ -415,4 +478,92 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
     patternExtraction,
     warnings: warnings.length > 0 ? warnings : undefined,
   };
+}
+
+/**
+ * PR-B resume-semantiği — idempotent replay'de yarım kalmış pattern extraction'ı
+ * güvenle sürdürür.
+ *
+ * Sözleşme:
+ *  1. reason'da viralPatternId bağı VARSA → aynen döner; ücretli extraction
+ *     ÇAĞRILMAZ (çifte ücret yok).
+ *  2. Bağ yoksa → tx-scoped advisory lock (`feedback-resume:<eventId>`) altında
+ *     taze satır YENİDEN okunur (yarışan retry lock'ta beklerken kazanan bağı
+ *     yazmış olabilir) → hâlâ yoksa extraction + ViralPattern + bağ yazımı TEK
+ *     uçuşta koşar. Neon pooler transaction-mode olduğundan session-lock değil
+ *     XACT lock kullanılır; ücretli çağrı tx içinde beklediği için timeout
+ *     geniş tutulur (LLM extraction ~10-30 sn).
+ *  3. Extraction yine düşerse: davranış ilk koşuyla AYNI — success:true +
+ *     viralPatternId'siz + warning (route bunu 502'ye çevirir); bağ yazılmadığı
+ *     için SONRAKİ retry yeniden resume edebilir (kalıcı kilit yok).
+ */
+async function resumePatternExtraction(
+  eventId: string,
+  priorReason: string | null | undefined,
+  fb: FeedbackApiInput,
+): Promise<FeedbackApiResponse> {
+  const linked = extractViralPatternIdFromReason(priorReason);
+  if (linked) {
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      viralPatternId: linked,
+      warnings: ["idempotent_replay"],
+    };
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      await acquireXactAdvisoryLock(tx, `feedback-resume:${eventId}`);
+      const fresh = await tx.feedbackEvent.findUnique({ where: { id: eventId } });
+      const already = extractViralPatternIdFromReason(fresh?.reason);
+      if (already) {
+        // Yarışta kaybeden taraf: kazanan extraction'ı bitirip bağı yazdı.
+        return {
+          success: true,
+          feedbackEventId: eventId,
+          viralPatternId: already,
+          warnings: ["idempotent_replay"],
+        };
+      }
+
+      const warnings: string[] = ["idempotent_replay", "extraction_resumed"];
+      let viralPatternId: string | undefined;
+      let patternExtraction: PatternExtractionResult | undefined;
+      try {
+        patternExtraction = await extractPattern({
+          text: fb.editedContent || fb.originalContent || fb.sourceContent || "",
+          accountHandle: fb.accountHandle,
+          sourceType: "manual",
+          language: "TR",
+        });
+        const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
+        const createdPattern = await viralPatternRepo.create(viralInput);
+        viralPatternId = createdPattern.id;
+        // Bağ AYNI lock-tx içinde yazılır → lock bırakılmadan görünür olur;
+        // bekleyen yarışçı taze okumada bağı bulur ve extraction'ı ATLAR.
+        await tx.feedbackEvent.update({
+          where: { id: eventId },
+          data: {
+            reason: mergeViralPatternIdIntoReason(fresh?.reason ?? "", createdPattern.id),
+          },
+        });
+      } catch (err) {
+        warnings.push(
+          `Pattern extraction failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
+      }
+
+      return {
+        success: true,
+        feedbackEventId: eventId,
+        viralPatternId,
+        patternExtraction,
+        warnings,
+      };
+    },
+    // Ücretli LLM çağrısı tx içinde tamamlanır — Prisma'nın 5 sn interactive-tx
+    // varsayılanı extraction'ı keserdi; lock'un anlamlı olması için geniş pencere.
+    { timeout: 120_000, maxWait: 15_000 },
+  );
 }
