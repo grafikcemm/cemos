@@ -24,15 +24,17 @@ describe("unitDbGuard (WP-02f)", () => {
   });
 
   it("enforce: THROWS on a remote URL (fail-closed, suite must not start)", () => {
-    const env = { DATABASE_URL: "postgresql://u:p@x.neon.tech/db" } as NodeJS.ProcessEnv;
+    const env = { DATABASE_URL: "postgresql://u:p@x.neon.tech/db" } as unknown as NodeJS.ProcessEnv;
     expect(() => enforceUnitDatabaseUrl(env)).toThrow(/REMOTE/);
   });
 
   it("enforce: pins the dummy local URL otherwise", () => {
-    const env = {} as NodeJS.ProcessEnv;
+    const env = {} as unknown as NodeJS.ProcessEnv;
     expect(enforceUnitDatabaseUrl(env)).toBe(UNIT_DUMMY_DATABASE_URL);
     expect(env.DATABASE_URL).toBe(UNIT_DUMMY_DATABASE_URL);
-    const env2 = { DATABASE_URL: "postgresql://u:p@localhost:5432/dev" } as NodeJS.ProcessEnv;
+    const env2 = {
+      DATABASE_URL: "postgresql://u:p@localhost:5432/dev",
+    } as unknown as NodeJS.ProcessEnv;
     enforceUnitDatabaseUrl(env2);
     expect(env2.DATABASE_URL).toBe(UNIT_DUMMY_DATABASE_URL);
   });

@@ -60,19 +60,17 @@ describe("GET /api/costs — WP-02d groupBy/aggregate ay görünümü", () => {
     expect(prisma.usageLog.findMany).not.toHaveBeenCalled();
   });
 
-  it("month view: NO full-row findMany — 2 groupBy + narrow meta-only select", async () => {
+  it("month view: NO full-row findMany — 1 groupBy + narrow 4-column select", async () => {
     vi.mocked(prisma.usageLog.groupBy).mockResolvedValue([] as never);
     vi.mocked(prisma.usageLog.findMany).mockResolvedValue([] as never);
     const res = await GET(makeReq());
     expect(res.status).toBe(200);
-    expect(prisma.usageLog.groupBy).toHaveBeenCalledTimes(2);
+    expect(prisma.usageLog.groupBy).toHaveBeenCalledTimes(1);
     expect(prisma.usageLog.findMany).toHaveBeenCalledTimes(1);
     const findManyArg = vi.mocked(prisma.usageLog.findMany).mock.calls[0][0] as {
-      where: { meta?: unknown };
       select?: Record<string, boolean>;
     };
-    // Yalnız meta'lı satırlar + dar kolon seti (tam gövde taşınmaz).
-    expect(findManyArg.where.meta).toEqual({ not: null });
+    // Dar kolon seti (tam gövde taşınmaz; meta non-nullable @default "{}").
     expect(findManyArg.select).toEqual({
       meta: true,
       estimatedCostUsd: true,
@@ -120,18 +118,11 @@ describe("GET /api/costs — WP-02d groupBy/aggregate ay görünümü", () => {
         _count: { _all: 1 },
       },
     ];
-    // meta'sız OR satırları: 1 generation (0.2, 1 çağrı) → draft_generation/(rol yolu)
-    const nullMetaGroups = [
-      {
-        type: "generation",
-        provider: "openrouter",
-        _sum: { estimatedCostUsd: 0.2 },
-        _count: { _all: 1 },
-      },
-      // OR olmayan meta'sız satır purpose'a KARIŞMAZ
-      { type: "scan", provider: "socialdata", _sum: { estimatedCostUsd: 0.2 }, _count: { _all: 2 } },
-    ];
     const metaRows = [
+      // purpose'suz default-"{}" OR satırı → draft_generation/(rol yolu) fallback
+      { meta: "{}", estimatedCostUsd: 0.2, provider: "openrouter", type: "generation" },
+      // OR olmayan satır purpose'a KARIŞMAZ
+      { meta: "{}", estimatedCostUsd: 0.2, provider: "socialdata", type: "scan" },
       {
         meta: JSON.stringify({ purpose: "draft_generation", preset: "creativeWriter" }),
         estimatedCostUsd: 0.25,
@@ -151,9 +142,7 @@ describe("GET /api/costs — WP-02d groupBy/aggregate ay görünümü", () => {
         type: "generation",
       },
     ];
-    vi.mocked(prisma.usageLog.groupBy)
-      .mockResolvedValueOnce(groups as never)
-      .mockResolvedValueOnce(nullMetaGroups as never);
+    vi.mocked(prisma.usageLog.groupBy).mockResolvedValueOnce(groups as never);
     vi.mocked(prisma.usageLog.findMany).mockResolvedValue(metaRows as never);
 
     const res = await GET(makeReq());

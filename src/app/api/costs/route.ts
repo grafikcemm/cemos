@@ -66,27 +66,22 @@ export async function GET(req: NextRequest) {
     //  (1) tam groupBy(date,provider,type,model) → tüm SAYISAL kırılımlar
     //      (bugün/ay toplamları, byModel, socialData, fal, transcript, dailySeries)
     //      grouped satırlardan BİREBİR türetilir;
-    //  (2) meta'sız satırların groupBy(type,provider)'ı → purpose/preset fallback
-    //      bucket'ları ("draft_generation"/"other" + "(rol yolu)") — çift sayım YOK;
-    //  (3) yalnız meta'lı satırlar için dar select {meta, estimatedCostUsd,
-    //      provider, type} → byPurpose/byPreset/evaluation/curation (meta JSON
-    //      string kolonu DB-side ayrıştırılamaz; bu alt küme ay satırlarının
-    //      meta yazan kesridir ve tam gövde taşımaz).
-    const [groups, nullMetaGroups, metaRows] = await Promise.all([
+    //  (2) dar select {meta, estimatedCostUsd, provider, type} → byPurpose/
+    //      byPreset/evaluation/curation. meta JSON string kolonu DB-side
+    //      ayrıştırılamaz; kolon non-nullable @default("{}") olduğundan
+    //      "meta'sız" diye ayrı sınıf yok — default "{}" ~2 bayttır ve
+    //      purpose fallback'i Node'da satır-bazlı eski semantikle birebir
+    //      çalışır. Tam gövde (id/createdAt/model/tweetCount/platform)
+    //      taşınmaz.
+    const [groups, metaRows] = await Promise.all([
       prisma.usageLog.groupBy({
         by: ["date", "provider", "type", "model"],
         where: { date: { startsWith: thisMonthStr } },
         _sum: { estimatedCostUsd: true, tweetCount: true },
         _count: { _all: true },
       }),
-      prisma.usageLog.groupBy({
-        by: ["type", "provider"],
-        where: { date: { startsWith: thisMonthStr }, meta: null },
-        _sum: { estimatedCostUsd: true },
-        _count: { _all: true },
-      }),
       prisma.usageLog.findMany({
-        where: { date: { startsWith: thisMonthStr }, meta: { not: null } },
+        where: { date: { startsWith: thisMonthStr } },
         select: { meta: true, estimatedCostUsd: true, provider: true, type: true },
       }),
     ]);
@@ -134,9 +129,9 @@ export async function GET(req: NextRequest) {
       byModelMap.set(model, entry);
     }
 
-    // byPurpose/byPreset: meta'lı satırlar parse edilir; meta'sız OR satırları
-    // eski purposeOf/preset fallback semantiğiyle bucket'lanır (generation →
-    // draft_generation, diğer OR → other; preset → "(rol yolu)").
+    // byPurpose/byPreset: her OR satırının meta'sı parse edilir; purpose'suz
+    // meta ("{}"/eski satır) eski purposeOf fallback semantiğiyle bucket'lanır
+    // (generation → draft_generation, diğer OR → other; preset → "(rol yolu)").
     const byPurposeMap = new Map<string, { purpose: string; costUsd: number; calls: number }>();
     const byPresetMap = new Map<string, { preset: string; costUsd: number; calls: number }>();
     const addPurpose = (purpose: string, costUsd: number, calls: number) => {
@@ -161,13 +156,6 @@ export async function GET(req: NextRequest) {
       );
       addPreset(parsed.preset ?? "(rol yolu)", row.estimatedCostUsd, 1);
     }
-    for (const row of nullMetaGroups as unknown as Array<{ type: string; provider: string | null; _sum: { estimatedCostUsd: number | null }; _count: { _all: number } }>) {
-      if (!isOpenRouterG(row)) continue;
-      const cost = row._sum.estimatedCostUsd ?? 0;
-      addPurpose(row.type === "generation" ? "draft_generation" : "other", cost, row._count._all);
-      addPreset("(rol yolu)", cost, row._count._all);
-    }
-
     const round5 = (n: number) => Number(n.toFixed(5));
     const sortByCost = <T extends { costUsd: number }>(arr: T[]) =>
       arr.sort((a, b) => b.costUsd - a.costUsd).map((e) => ({ ...e, costUsd: round5(e.costUsd) }));
