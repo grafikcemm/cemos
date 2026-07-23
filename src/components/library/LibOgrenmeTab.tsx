@@ -207,10 +207,13 @@ export default function LibOgrenmeTab() {
     );
   }
 
-  const tabs: { id: StatusTab; label: string; count: number }[] = [
-    { id: "inbox", label: "Gelen kutusu", count: grouped.inbox.length },
-    { id: "learning", label: "Öğreniliyor", count: grouped.learning.length },
-    { id: "ready", label: "Hazır bilgi", count: grouped.ready.length },
+  // Dürüstlük (denetim 2026-07-23): failed/veri-yok durumunda "0" rozetleri
+  // gerçek sayım değildir — undefined bırakılır (render gizler).
+  const tabCountsKnown = !failed && data != null;
+  const tabs: { id: StatusTab; label: string; count: number | undefined }[] = [
+    { id: "inbox", label: "Gelen kutusu", count: tabCountsKnown ? grouped.inbox.length : undefined },
+    { id: "learning", label: "Öğreniliyor", count: tabCountsKnown ? grouped.learning.length : undefined },
+    { id: "ready", label: "Hazır bilgi", count: tabCountsKnown ? grouped.ready.length : undefined },
   ];
   const rows = grouped[statusTab];
 
@@ -341,7 +344,9 @@ export default function LibOgrenmeTab() {
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", borderRadius: "var(--radius-md)", border: `1px solid ${active ? "var(--accent-border)" : "var(--border)"}`, background: active ? "var(--accent-dark)" : "transparent", color: active ? "var(--accent-text)" : "var(--text-secondary)", fontSize: "var(--text-sm)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer" }}
             >
               {t.label}
-              <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t.count}</span>
+              {t.count != null && (
+                <span className="tnum" style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t.count}</span>
+              )}
             </button>
           );
         })}
