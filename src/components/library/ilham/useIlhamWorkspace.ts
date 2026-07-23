@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useActiveAccount } from "@/lib/accounts/useActiveAccount";
 
 /**
@@ -141,6 +141,8 @@ export function useIlhamWorkspace() {
   const [workspace, setWorkspace] = useState<IlhamWorkspace | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // PR#9 review-MED: hızlı hesap değişiminde bayat cevap yeni hesabın ekranını ezemez.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Hesap HANGİ kaynaktan değişirse değişsin (bu ekranın Select'i ya da
   // sidebar switcher) önceki hesabın pano seçimi taşınmaz.
@@ -149,6 +151,9 @@ export function useIlhamWorkspace() {
   }, [accountId]);
 
   const reload = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     if (!accountId) {
       // FAIL-CLOSED: channel'ın hesap karşılığı yok (accounts boş/uyumsuz) —
       // account-scoped fetch YOK. loading kapatılır ki sonsuz skeleton'a
@@ -161,17 +166,19 @@ export function useIlhamWorkspace() {
     try {
       const params = new URLSearchParams({ accountId });
       if (boardId) params.set("boardId", boardId);
-      const res = await fetch(`/api/inspiration?${params.toString()}`);
+      const res = await fetch(`/api/inspiration?${params.toString()}`, { signal: ac.signal });
       if (!res.ok) throw new Error("http");
       const json = await res.json();
+      if (ac.signal.aborted) return;
       if (!json.success) throw new Error("payload");
       const ws: IlhamWorkspace = json.workspace;
       setWorkspace(ws);
       if (ws.selectedBoardId && ws.selectedBoardId !== boardId) setBoardId(ws.selectedBoardId);
     } catch {
+      if (ac.signal.aborted) return;
       setFailed(true);
     } finally {
-      setLoading(false);
+      if (!ac.signal.aborted) setLoading(false);
     }
   }, [accountId, boardId]);
 
