@@ -58,8 +58,12 @@ export default function MorningHeroStats({ queue }: Props) {
         ? problems[0].label
         : `${problems.length} sorun`;
 
+  // Dürüstlük (denetim 2026-07-23): yükleme HATASI "bekleyen taslak yok" gibi
+  // okunmasın — hata durumunda başlık da dürüst (ReviewQueue'daki ErrorState ile tutarlı).
   const headline = loading
     ? "Taslaklar yükleniyor…"
+    : queue.error
+      ? "Taslaklar alınamadı"
     : pending.length === 0
       ? drafts.length > 0
         ? "Bugünün taslakları tamam"

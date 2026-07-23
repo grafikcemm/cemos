@@ -148,17 +148,6 @@ const DEBOUNCE_MS = 300;
 const STALE_AFTER_MS = 1000 * 60 * 60 * 24 * 3; // 3 gün → "taranma DD.MM" izi
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-const EMPTY_SUMMARY: Summary = {
-  totalSources: 0,
-  activeSources: 0,
-  inactiveSources: 0,
-  totalSourcePosts: 0,
-  highOpportunityPosts: 0,
-  highRiskPosts: 0,
-  averageOpportunityScore: 0,
-  topSourceHandle: "",
-};
-
 const DEFAULT_FILTERS: FilterValues = {
   // Liste FİLTRESİ kasıtlı olarak "all" — cross-account görünüm tasarım
   // gereği (aşağıdaki NEW_FORM'un hedef-hesap alanından bağımsız).
@@ -285,7 +274,9 @@ export default function SourceIntelScreen() {
   const { channel } = useActiveAccount();
 
   const [values, setValues] = useState<FilterValues>(DEFAULT_FILTERS);
-  const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
+  // Dürüst metrikler (denetim 2026-07-23): null = "henüz başarılı sorgu yok" —
+  // sıfırlarla dolu sahte Summary sabiti kaldırıldı; strip "–" gösterir.
+  const [summary, setSummary] = useState<Summary | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [posts, setPosts] = useState<SourcePost[]>([]);
   const [scanBlocked, setScanBlocked] = useState(false);
@@ -329,7 +320,7 @@ export default function SourceIntelScreen() {
           setLoadError(true);
           return;
         }
-        setSummary(json.summary ?? EMPTY_SUMMARY);
+        setSummary(json.summary ?? null);
         setSources(json.sources ?? []);
         setPosts(json.sourcePosts ?? []);
         setScanBlocked(Boolean(json.scanBlocked));
@@ -492,10 +483,10 @@ export default function SourceIntelScreen() {
   };
 
   const metricItems: MetricStripItem[] = [
-    { label: "aktif kaynak", value: summary.activeSources },
-    { label: "taranan post", value: summary.totalSourcePosts },
-    { label: "yüksek fırsat", value: summary.highOpportunityPosts, tone: "ok" },
-    { label: "yüksek risk", value: summary.highRiskPosts, tone: "danger" },
+    { label: "aktif kaynak", value: summary ? summary.activeSources : "–" },
+    { label: "taranan post", value: summary ? summary.totalSourcePosts : "–" },
+    { label: "yüksek fırsat", value: summary ? summary.highOpportunityPosts : "–", tone: "ok" },
+    { label: "yüksek risk", value: summary ? summary.highRiskPosts : "–", tone: "danger" },
   ];
 
   const panelUrl = safeExternalUrl(activePost?.url);

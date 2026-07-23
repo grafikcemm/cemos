@@ -288,8 +288,9 @@ export default function NewsPoolTab() {
           size="compact"
           meta={
             <>
-              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={turkish.length} label="Türkçe haber" />
-              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={usedCount} label="kullanıldı" />
+              {/* Dürüstlük: yükleme başarısızsa "0" gerçek sayım değildir → "–". */}
+              <Stat icon={<Newspaper size={13} strokeWidth={2} />} value={loadFailed ? "–" : turkish.length} label="Türkçe haber" />
+              <Stat icon={<CheckCircle2 size={13} strokeWidth={2} />} value={loadFailed ? "–" : usedCount} label="kullanıldı" />
               {untranslated > 0 && (
                 <Stat icon={<Loader2 size={13} strokeWidth={2} />} value={untranslated} label="çevriliyor" muted />
               )}
@@ -409,7 +410,7 @@ export default function NewsPoolTab() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number; label: string; muted?: boolean }) {
+function Stat({ icon, value, label, muted }: { icon: React.ReactNode; value: number | string; label: string; muted?: boolean }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: muted ? "var(--text-muted)" : "var(--text-secondary)" }}>
       <span style={{ display: "inline-flex", color: muted ? "var(--text-muted)" : "var(--accent-2-text)" }}>{icon}</span>
