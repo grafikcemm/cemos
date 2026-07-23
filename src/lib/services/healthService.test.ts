@@ -269,7 +269,7 @@ describe("healthService", () => {
     const prismaInitError = () =>
       Object.assign(
         new Error(
-          "Invalid `prisma.account.count()` invocation:\n\nCan't reach database server at `ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432`",
+          "Invalid `prisma.account.count()` invocation:\n\nCan't reach database server at `ep-fake-branch-123456-pooler.c-1.us-east-1.aws.neon.tech:5432`",
         ),
         { name: "PrismaClientInitializationError" },
       );

@@ -16,7 +16,7 @@ describe("dbErrorResponse", () => {
   const prismaInitError = () =>
     Object.assign(
       new Error(
-        "Can't reach database server at `ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432`",
+        "Can't reach database server at `ep-fake-branch-123456-pooler.c-1.us-east-1.aws.neon.tech:5432`",
       ),
       { name: "PrismaClientInitializationError" },
     );
@@ -64,6 +64,6 @@ describe("dbErrorResponse", () => {
     const dbLogs = spy.mock.calls.filter((c) => c[0] === "[db-unavailable]");
     expect(dbLogs).toHaveLength(1);
     // Redakte: çıplak host log'a da yazılmaz (SEC-M1 kalıbı redactSecrets'ta).
-    expect(String(dbLogs[0][1])).not.toContain("ep-long-sun");
+    expect(String(dbLogs[0][1])).not.toContain("ep-fake-branch");
   });
 });

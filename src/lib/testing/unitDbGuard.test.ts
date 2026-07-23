@@ -9,7 +9,7 @@ describe("unitDbGuard (WP-02f)", () => {
   it("classifies Neon/Supabase/remote hosts as remote", () => {
     expect(
       isRemoteDatabaseUrl(
-        "postgresql://u:p@ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432/db",
+        "postgresql://u:p@ep-fake-branch-123456-pooler.c-1.us-east-1.aws.neon.tech:5432/db",
       ),
     ).toBe(true);
     expect(isRemoteDatabaseUrl("postgresql://u:p@db.abc.supabase.co:5432/postgres")).toBe(true);

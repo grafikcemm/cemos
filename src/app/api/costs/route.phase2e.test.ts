@@ -14,6 +14,7 @@ const aggregate = vi.fn();
 const groupBy = vi.fn();
 vi.mock("@/lib/db/client", () => ({
   prisma: {
+    $transaction: (ops: Array<Promise<unknown>>) => Promise.all(ops),
     usageLog: {
       findMany: (a: unknown) => findMany(a),
       aggregate: (a: unknown) => aggregate(a),

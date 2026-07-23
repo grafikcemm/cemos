@@ -8,6 +8,9 @@ import { __resetDbCircuitForTests } from "@/lib/db/dbCircuit";
 
 vi.mock("@/lib/db/client", () => ({
   prisma: {
+    // Route iki okumayı tek snapshot için $transaction([...])'a sarar (review M1);
+    // unit'te passthrough yeterli — izolasyon davranışı DB-integration alanı.
+    $transaction: vi.fn((ops: Array<Promise<unknown>>) => Promise.all(ops)),
     usageLog: {
       aggregate: vi.fn(),
       groupBy: vi.fn(),

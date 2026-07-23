@@ -73,7 +73,8 @@ export default function ProfileIntegrationsTab() {
   const [providers, setProviders] = useState<Provider[] | null>(null);
   const [composio, setComposio] = useState<ComposioInfo | null>(null);
   // WP-02: kendi /api/health fetch'i kaldırıldı — provider'ın tek okuması tüketilir.
-  const { health } = useSystemHealth();
+  // Review MEDIUM-2: bu ekranın load/"Yenile"si provider okumasını da tazeler.
+  const { health, refresh: refreshHealth } = useSystemHealth();
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -82,6 +83,7 @@ export default function ProfileIntegrationsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setFailed(false);
+    refreshHealth();
     try {
       const iRes = await fetch("/api/integrations");
       if (!iRes.ok) throw new Error("http");
@@ -94,7 +96,7 @@ export default function ProfileIntegrationsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshHealth]);
 
   const runInstagramSync = useCallback(async () => {
     setSyncing(true);

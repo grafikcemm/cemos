@@ -73,18 +73,26 @@ export async function GET(req: NextRequest) {
     //      purpose fallback'i Node'da satır-bazlı eski semantikle birebir
     //      çalışır. Tam gövde (id/createdAt/model/tweetCount/platform)
     //      taşınmaz.
-    const [groups, metaRows] = await Promise.all([
-      prisma.usageLog.groupBy({
-        by: ["date", "provider", "type", "model"],
-        where: { date: { startsWith: thisMonthStr } },
-        _sum: { estimatedCostUsd: true, tweetCount: true },
-        _count: { _all: true },
-      }),
-      prisma.usageLog.findMany({
-        where: { date: { startsWith: thisMonthStr } },
-        select: { meta: true, estimatedCostUsd: true, provider: true, type: true },
-      }),
-    ]);
+    // Review MEDIUM: iki okuma TEK MVCC snapshot'ından gelmeli — RepeatableRead
+    // olmadan aradaki eşzamanlı UsageLog yazımı Σ(line-items)=ay-toplamı
+    // uzlaşmasını o cevap için sessizce bozardı (eski tek-findMany buna bağışıktı).
+    const [groups, metaRows] = await prisma.$transaction(
+      [
+        prisma.usageLog.groupBy({
+          by: ["date", "provider", "type", "model"],
+          where: { date: { startsWith: thisMonthStr } },
+          // $transaction-array tiplemesi orderBy'ı zorunlu kılar; deterministik sıra bonus.
+          orderBy: { date: "asc" },
+          _sum: { estimatedCostUsd: true, tweetCount: true },
+          _count: { _all: true },
+        }),
+        prisma.usageLog.findMany({
+          where: { date: { startsWith: thisMonthStr } },
+          select: { meta: true, estimatedCostUsd: true, provider: true, type: true },
+        }),
+      ],
+      { isolationLevel: "RepeatableRead" },
+    );
 
     type Group = {
       date: string;

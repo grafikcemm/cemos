@@ -50,8 +50,21 @@ export type CreateMinedPatternInput = {
 
 export const viralPatternRepo = {
   create(raw: CreateViralPatternInput): Promise<ViralPattern> {
+    return viralPatternRepo.createWithClient(prisma, raw);
+  },
+
+  /**
+   * PR #6 review HIGH-2: resume-semantiği pattern INSERT'i + reason-bağ yazımını
+   * TEK transaction'da ister (create tx-dışıyken link-fail çifte ücretli
+   * yeniden-extraction + duplicate pattern üretiyordu). Aynı Zod+serialize
+   * eşlemesi tek kaynakta kalsın diye `create` de buradan geçer.
+   */
+  createWithClient(
+    client: Pick<typeof prisma, "viralPattern">,
+    raw: CreateViralPatternInput,
+  ): Promise<ViralPattern> {
     const input = CreateViralPatternSchema.parse(raw);
-    return prisma.viralPattern.create({ data: serializeInput(input) });
+    return client.viralPattern.create({ data: serializeInput(input) });
   },
 
   /**

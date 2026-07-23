@@ -61,7 +61,7 @@ describe("redactSecrets", () => {
 
   it("masks BARE Prisma connection-error hosts (SEC-M1, live-proven shape)", () => {
     const p1001 = redactSecrets(
-      "Can't reach database server at `ep-long-sun-aph0vvvg-pooler.c-7.us-east-1.aws.neon.tech:5432`",
+      "Can't reach database server at `ep-fake-branch-123456-pooler.c-1.us-east-1.aws.neon.tech:5432`",
     );
     expect(p1001).not.toContain("neon.tech");
     expect(p1001).toContain("[REDACTED_HOST]");

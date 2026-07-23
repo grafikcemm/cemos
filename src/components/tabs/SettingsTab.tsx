@@ -56,7 +56,9 @@ type CostStats = {
 export default function SettingsTab() {
   const [accounts, setAccounts] = useState<DbAccount[]>([]);
   // WP-02: kendi /api/health fetch'i kaldırıldı — provider'ın tek okuması tüketilir.
-  const { health } = useSystemHealth();
+  // Review MEDIUM-2: mount/mutation/"Yenile" health kartlarını da tazelemeli →
+  // provider refresh'i loadData ile birlikte çağrılır (guard'ı bypass eder).
+  const { health, refresh: refreshHealth } = useSystemHealth();
   const [costs, setCosts] = useState<CostStats | null>(null);
   const [models, setModels] = useState<{ role: string; label: string; activeModel: string }[]>([]);
   const [modelProfile, setModelProfile] = useState("dev");
@@ -65,6 +67,9 @@ export default function SettingsTab() {
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
+    // Health kartları context'ten gelir; bu ekranın her yüklemesi/mutasyonu/
+    // "Yenile"si provider okumasını da tazeler (tek noktadan, guard-bypass).
+    refreshHealth();
     try {
       // Per-promise catch: a slow costs call must not blank the whole
       // settings page — each card degrades independently.

@@ -10,6 +10,7 @@ import {
   processFeedback
 } from "./feedback-service";
 import { prisma } from "@/lib/db/client";
+import { __resetDbCircuitForTests, recordDbFailure } from "@/lib/db/dbCircuit";
 import { scoreDraft } from "@/lib/growth-engine/scorer";
 import { extractPattern, patternExtractionToViralPatternInput } from "@/lib/growth-engine/pattern-extractor";
 import { accountRepo } from "@/lib/db/accountRepo";
@@ -43,7 +44,8 @@ vi.mock("@/lib/db/trainingExampleRepo", () => ({
 
 vi.mock("@/lib/db/viralPatternRepo", () => ({
   viralPatternRepo: {
-    create: vi.fn()
+    create: vi.fn(),
+    createWithClient: vi.fn()
   }
 }));
 
@@ -641,12 +643,14 @@ describe("processFeedback — extraction resume (PR-B)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetDbCircuitForTests();
     vi.mocked(accountRepo.findByHandle).mockResolvedValue({ id: "acc-123", handle: "grafikcem" } as any);
     vi.mocked(feedbackEventRepo.create).mockResolvedValue({ id: "fb-1", createdAt: new Date(), reason: "" } as any);
     vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue(null);
     vi.mocked(feedbackEventRepo.updateReason).mockResolvedValue({ id: "fb-1" } as any);
     vi.mocked(trainingExampleRepo.create).mockResolvedValue({ id: "te-1" } as any);
     vi.mocked(viralPatternRepo.create).mockResolvedValue({ id: "vp-new" } as any);
+    vi.mocked(viralPatternRepo.createWithClient).mockResolvedValue({ id: "vp-new" } as any);
     vi.mocked(extractPattern).mockResolvedValue({ confidence: 85 } as any);
     vi.mocked(patternExtractionToViralPatternInput).mockReturnValue({ patternName: "P" } as any);
     // prisma.$transaction → sahte tx istemcisiyle callback'i çalıştır (gerçek DB yok).
@@ -702,7 +706,9 @@ describe("processFeedback — extraction resume (PR-B)", () => {
     expect(response.viralPatternId).toBe("vp-new");
     expect(response.warnings).toEqual(expect.arrayContaining(["idempotent_replay", "extraction_resumed"]));
     expect(extractPattern).toHaveBeenCalledTimes(1); // extraction GERÇEKTEN sürdü
-    expect(viralPatternRepo.create).toHaveBeenCalledTimes(1);
+    // Review HIGH-2: pattern INSERT'i AYNI tx client'ıyla (atomik create+link).
+    expect(viralPatternRepo.createWithClient).toHaveBeenCalledTimes(1);
+    expect(viralPatternRepo.create).not.toHaveBeenCalled();
     // Bağ lock-tx İÇİNDE yazıldı.
     expect(txFeedbackUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -712,6 +718,49 @@ describe("processFeedback — extraction resume (PR-B)", () => {
     );
     // Yeni FeedbackEvent YOK (duplicate yok).
     expect(feedbackEventRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("link-write failure inside the tx: honest no-pattern result (atomic rollback), retry stays open (review HIGH-2)", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue({
+      id: "fb-1",
+      reason: "",
+    } as any);
+    txFeedbackFindUnique.mockResolvedValue({ id: "fb-1", reason: "" });
+    txFeedbackUpdate.mockRejectedValue(
+      Object.assign(new Error("Can't reach database server at `ep-fake:5432`"), {
+        name: "PrismaClientInitializationError",
+      }),
+    );
+
+    const response = await processFeedback(saveInput);
+    expect(response.success).toBe(true);
+    // create+link aynı tx'te — link düştüyse pattern de ROLLBACK: id DÖNMEZ
+    // (eski davranış: tx-dışı create persist olur, id + yanıltıcı warning dönerdi).
+    expect(response.viralPatternId).toBeUndefined();
+    expect(response.warnings).toEqual(
+      expect.arrayContaining(["idempotent_replay", "extraction_resumed"]),
+    );
+    expect(response.warnings!.join(" ")).toContain("Pattern extraction failed:");
+    // SEC HIGH: warning metni redakte — ham hostname istemci gövdesine sızmaz.
+    expect(JSON.stringify(response.warnings)).not.toContain("ep-fake:5432");
+    expect(viralPatternRepo.createWithClient).toHaveBeenCalledTimes(1);
+  });
+
+  it("resume is DEFERRED while the DB circuit breaker is open (review SEC-MEDIUM: no stacked 60s holds)", async () => {
+    vi.mocked(feedbackEventRepo.findByIdempotencyKey).mockResolvedValue({
+      id: "fb-1",
+      reason: "",
+    } as any);
+    recordDbFailure();
+    recordDbFailure();
+    recordDbFailure(); // breaker açık
+
+    const response = await processFeedback(saveInput);
+    expect(response.success).toBe(true);
+    expect(response.viralPatternId).toBeUndefined();
+    expect(response.warnings!.join(" ")).toContain("extraction_resume_deferred");
+    expect(extractPattern).not.toHaveBeenCalled(); // ücretli çağrı YOK
+    expect(prisma.$transaction).not.toHaveBeenCalled(); // bağlantı/lock tutuşu YOK
   });
 
   it("concurrent resume loser: fresh in-lock read finds the winner's link → SKIPS extraction", async () => {

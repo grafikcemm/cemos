@@ -1,5 +1,11 @@
 import { calculateLevenshteinSimilarity } from "@/lib/utils/textSimilarity";
+// SEC (PR #6 review HIGH): warnings dizisi save-pattern gibi route'lardan ok()
+// gövdesiyle İSTEMCİYE gider ve ok() redaksiyon YAPMAZ — buradaki her ham
+// err.message enterpolasyonu canlı-repro'lu hostname sızıntısıydı. Tüm warning
+// metinleri redactError'dan geçer.
+import { redactError } from "@/lib/utils/redactSecrets";
 import { prisma } from "@/lib/db/client";
+import { isDbCircuitOpen } from "@/lib/db/dbCircuit";
 import { acquireXactAdvisoryLock } from "@/lib/db/advisoryLock";
 import {
   extractPattern,
@@ -378,7 +384,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       fb.accountHandle
     );
   } catch (err) {
-    warnings.push(`memory_ingest_failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    warnings.push(`memory_ingest_failed: ${redactError(err)}`);
   }
 
   // 4b. Faz D.2 — close the pattern-learning loop: re-weight the viral patterns
@@ -401,7 +407,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
         }
       }
     } catch (err) {
-      warnings.push(`Pattern re-weighting failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Pattern re-weighting failed: ${redactError(err)}`);
     }
   }
 
@@ -416,7 +422,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
         sourceContent: fb.sourceContent,
       });
     } catch (err) {
-      warnings.push(`Scoring failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Scoring failed: ${redactError(err)}`);
     }
   }
 
@@ -431,7 +437,7 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
       // vector memory and improves future grounded generation. Best-effort.
       await embedTrainingExample(trainingExample.id).catch(() => {});
     } catch (err) {
-      warnings.push(`Failed to save training example: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Failed to save training example: ${redactError(err)}`);
     }
   }
 
@@ -461,11 +467,11 @@ export async function processFeedback(rawInput: unknown): Promise<FeedbackApiRes
         );
       } catch (linkErr) {
         warnings.push(
-          `pattern_link_failed: ${linkErr instanceof Error ? linkErr.message : "Unknown error"}`,
+          `pattern_link_failed: ${redactError(linkErr)}`,
         );
       }
     } catch (err) {
-      warnings.push(`Pattern extraction failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      warnings.push(`Pattern extraction failed: ${redactError(err)}`);
     }
   }
 
@@ -512,34 +518,48 @@ async function resumePatternExtraction(
     };
   }
 
-  return prisma.$transaction(
-    async (tx) => {
-      await acquireXactAdvisoryLock(tx, `feedback-resume:${eventId}`);
-      const fresh = await tx.feedbackEvent.findUnique({ where: { id: eventId } });
-      const already = extractViralPatternIdFromReason(fresh?.reason);
-      if (already) {
-        // Yarışta kaybeden taraf: kazanan extraction'ı bitirip bağı yazdı.
-        return {
-          success: true,
-          feedbackEventId: eventId,
-          viralPatternId: already,
-          warnings: ["idempotent_replay"],
-        };
-      }
+  // SEC (PR #6 review MEDIUM): breaker AÇIKKEN resume denenmez — DB toparlanma
+  // anında birikmiş resumeların her biri 60 sn'lik bağlantı+lock tutuşuyla üst
+  // üste binmesin. Bağ yazılmadığından erteleme kayıpsızdır; sonraki retry
+  // (breaker kapanınca) kaldığı yerden sürer.
+  if (isDbCircuitOpen()) {
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      warnings: [
+        "idempotent_replay",
+        "extraction_resume_deferred: veritabanı devre kesici açık; daha sonra tekrar deneyin.",
+      ],
+    };
+  }
 
-      const warnings: string[] = ["idempotent_replay", "extraction_resumed"];
-      let viralPatternId: string | undefined;
-      let patternExtraction: PatternExtractionResult | undefined;
-      try {
-        patternExtraction = await extractPattern({
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        await acquireXactAdvisoryLock(tx, `feedback-resume:${eventId}`);
+        const fresh = await tx.feedbackEvent.findUnique({ where: { id: eventId } });
+        const already = extractViralPatternIdFromReason(fresh?.reason);
+        if (already) {
+          // Yarışta kaybeden taraf: kazanan extraction'ı bitirip bağı yazdı.
+          return {
+            success: true,
+            feedbackEventId: eventId,
+            viralPatternId: already,
+            warnings: ["idempotent_replay"],
+          };
+        }
+
+        const patternExtraction = await extractPattern({
           text: fb.editedContent || fb.originalContent || fb.sourceContent || "",
           accountHandle: fb.accountHandle,
           sourceType: "manual",
           language: "TR",
         });
         const viralInput = patternExtractionToViralPatternInput(patternExtraction, fb.accountId);
-        const createdPattern = await viralPatternRepo.create(viralInput);
-        viralPatternId = createdPattern.id;
+        // PR #6 review HIGH-2: pattern INSERT'i de AYNI tx'te — bağ yazımı
+        // düşerse ikisi birlikte ROLLBACK olur (yarım-kalmış "bağsız pattern"
+        // yok → sonraki retry duplicate persist ETMEDEN yeniden deneyebilir).
+        const createdPattern = await viralPatternRepo.createWithClient(tx, viralInput);
         // Bağ AYNI lock-tx içinde yazılır → lock bırakılmadan görünür olur;
         // bekleyen yarışçı taze okumada bağı bulur ve extraction'ı ATLAR.
         await tx.feedbackEvent.update({
@@ -548,22 +568,36 @@ async function resumePatternExtraction(
             reason: mergeViralPatternIdIntoReason(fresh?.reason ?? "", createdPattern.id),
           },
         });
-      } catch (err) {
-        warnings.push(
-          `Pattern extraction failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        );
-      }
 
-      return {
-        success: true,
-        feedbackEventId: eventId,
-        viralPatternId,
-        patternExtraction,
-        warnings,
-      };
-    },
-    // Ücretli LLM çağrısı tx içinde tamamlanır — Prisma'nın 5 sn interactive-tx
-    // varsayılanı extraction'ı keserdi; lock'un anlamlı olması için geniş pencere.
-    { timeout: 120_000, maxWait: 15_000 },
-  );
+        return {
+          success: true,
+          feedbackEventId: eventId,
+          viralPatternId: createdPattern.id,
+          patternExtraction,
+          warnings: ["idempotent_replay", "extraction_resumed"],
+        };
+      },
+      // Ücretli LLM çağrısı tx içinde tamamlanır — Prisma'nın 5 sn interactive-tx
+      // varsayılanı extraction'ı keserdi. 60 sn: tipik extraction (~10-30 sn)
+      // için yeterli, bağlantı-tutuş penceresi yarıya indi (review MEDIUM).
+      // LLM'i tx dışına almak tek-uçuş/tek-ücret garantisini bozardı — bilinçli
+      // tercih: single-charge > kısa tutuş (tek-operatör eşzamanlılığı ~1-2).
+      { timeout: 60_000, maxWait: 15_000 },
+    );
+  } catch (err) {
+    // İlk koşuyla AYNI dürüst sözleşme: extraction/persist düşerse success:true
+    // + viralPatternId'siz + warning (route 502'ye çevirir). tx rollback pattern
+    // artığı bırakmadığından bağ da yazılmamıştır → SONRAKİ retry yeniden resume
+    // edebilir (kalıcı kilit yok, duplicate yok; DB-hıçkırığında ücret tekrarı
+    // kaçınılmaz ama duplicate-persist imkânsız).
+    return {
+      success: true,
+      feedbackEventId: eventId,
+      warnings: [
+        "idempotent_replay",
+        "extraction_resumed",
+        `Pattern extraction failed: ${redactError(err)}`,
+      ],
+    };
+  }
 }

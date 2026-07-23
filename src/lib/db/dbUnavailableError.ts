@@ -21,8 +21,13 @@ const DB_UNAVAILABLE_PRISMA_CODES = new Set([
 ]);
 
 /**
- * Mesaj kalıpları: Prisma metinleri + Node socket hataları + Neon'a özgü kota/
- * suspend metinleri (2026-07-23 canlı kanıt: "exceeded the data transfer quota").
+ * Mesaj kalıpları: YALNIZ Prisma/Postgres/Neon'a özgü metinler (2026-07-23 canlı
+ * kanıt: "exceeded the data transfer quota"). Çıplak Node socket kodları
+ * (ECONNREFUSED/ETIMEDOUT/ENOTFOUND…) BİLEREK YOK: dış sağlayıcı fetch'leri
+ * (OpenRouter/Meta/YouTube DNS kesintisi) aynı kodları taşır ve onları DB-down
+ * saymak hem yanlış 503 hem paylaşılan breaker'ı kirletip global bandı yalancı
+ * yapar (PR #6 review HIGH-1). Prisma'nın kendi bağlantı hataları zaten
+ * name/`code`/aşağıdaki metinlerle yakalanır — socket koduna gerek yok.
  * Türkçe sabit kullanıcı mesajları bu kalıplara ASLA uymaz → coercion döngüsü yok.
  */
 const DB_UNAVAILABLE_MESSAGE_PATTERNS: RegExp[] = [
@@ -32,7 +37,6 @@ const DB_UNAVAILABLE_MESSAGE_PATTERNS: RegExp[] = [
   /server has closed the connection/i,
   /exceeded the (?:data transfer|compute time) quota/i,
   /endpoint (?:is|has been) disabled/i,
-  /\b(?:ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|EPIPE)\b/,
 ];
 
 /** İstemciye dönen SABİT, secret'sız mesaj (ham Prisma metni asla geçmez). */

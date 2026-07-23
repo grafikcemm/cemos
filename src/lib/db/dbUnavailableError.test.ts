@@ -46,9 +46,23 @@ describe("isDbUnavailableError", () => {
     ).toBe(true);
   });
 
-  it("classifies node socket errors (ECONNREFUSED / ETIMEDOUT)", () => {
-    expect(isDbUnavailableError(new Error("connect ECONNREFUSED 127.0.0.1:5432"))).toBe(true);
-    expect(isDbUnavailableError(new Error("connect ETIMEDOUT"))).toBe(true);
+  it("does NOT classify bare socket errors (external fetch failures are not DB-down — review HIGH-1)", () => {
+    // OpenRouter/Meta/YouTube fetch kesintileri aynı kodları taşır; onları
+    // db_unavailable saymak yanlış 503 + breaker kirliliği + yalancı global bant
+    // üretir. Prisma'nın kendi bağlantı hataları name/code/mesajla yakalanır.
+    expect(isDbUnavailableError(new Error("connect ECONNREFUSED 127.0.0.1:5432"))).toBe(false);
+    expect(isDbUnavailableError(new Error("connect ETIMEDOUT"))).toBe(false);
+    expect(
+      isDbUnavailableError(new Error("getaddrinfo ENOTFOUND openrouter.ai")),
+    ).toBe(false);
+    // Aynı socket hatası Prisma init error olarak sarıldığında yine yakalanır.
+    expect(
+      isDbUnavailableError(
+        Object.assign(new Error("connect ECONNREFUSED 1.2.3.4:5432"), {
+          name: "PrismaClientInitializationError",
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("walks the cause chain (max 3 levels)", () => {
