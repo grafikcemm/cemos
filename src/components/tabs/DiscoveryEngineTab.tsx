@@ -112,13 +112,18 @@ export default function DiscoveryEngineTab() {
   // Ön-uçuş: API anahtarları hazır mı? Eksikse koşmadan net mesaj.
   // WP-02: kendi /api/health fetch'i KALDIRILDI — SystemHealthProvider'ın tek
   // okuması tüketilir (navigation-burst kapatıldı; aynı payload).
-  const { health } = useSystemHealth();
+  const { health, dbUnavailable } = useSystemHealth();
 
   const missingKeys: string[] = [];
   if (health) {
     if (!health.openrouter?.ok) missingKeys.push("OPENROUTER_API_KEY (konsey + üretim)");
     if (!health.socialdata?.ok) missingKeys.push("SOCIALDATA_API_KEY (X/Reddit keşfi)");
   }
+  // Ücretli koşu kapısı (denetim 2026-07-23): DB erişilemezken veya health
+  // henüz/hiç okunamadıyken (health===null) keşif CTA'ları AÇIK kalıyordu —
+  // altyapı doğrulanamadan ücretli AI koşusu başlatılamaz (fail-closed).
+  if (dbUnavailable) missingKeys.push("Veritabanı erişilemez — keşif sonuçları kaydedilemez");
+  if (!health) missingKeys.push("Sistem durumu doğrulanamadı — önce sağlık kontrolü gerekli");
   const blocked = missingKeys.length > 0;
 
   function stepStatus(id: StepId): StepStatus {
