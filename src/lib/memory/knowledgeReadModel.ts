@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/db/client";
+// Canlı fake-0 kanıtı (2026-07-23): bölüm fail-soft'u DB-down'ı da yutup
+// 200 + sıfırlanmış diziler üretiyordu → UI "0 aktif kural…" basıyordu.
+// DB-unavailable bölüm-yumuşatması DEĞİLDİR — fırlatılır, route 503
+// db_unavailable döner. Kalan gerçek bölüm-hataları redakte taşınır
+// (sectionErrors ok() gövdesiyle istemciye gider; ham Prisma metni yasak).
+import { isDbUnavailableError } from "@/lib/db/dbUnavailableError";
+import { redactError } from "@/lib/utils/redactSecrets";
 import { isKnownAccountHandleDb } from "@/lib/accounts/profileRepository";
 import {
   MemoryEvidenceMetadataSchema,
@@ -227,7 +234,8 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
     activeFacts = mapped.filter((f) => f.status === "active");
     proposals = mapped.filter((f) => f.status === "proposed");
   } catch (err) {
-    sectionErrors.push(`identity: ${err instanceof Error ? err.message : "okunamadı"}`);
+    if (isDbUnavailableError(err)) throw err;
+    sectionErrors.push(`identity: ${redactError(err)}`);
   }
 
   // ── Performans dersleri + aday pattern'ler + eğitim külliyatı (AYRI truth store — ADR-030) ──
@@ -284,7 +292,8 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
       }
     }
   } catch (err) {
-    sectionErrors.push(`performance: ${err instanceof Error ? err.message : "okunamadı"}`);
+    if (isDbUnavailableError(err)) throw err;
+    sectionErrors.push(`performance: ${redactError(err)}`);
   }
 
   // ── Son ham sinyaller (FeedbackEvent özeti + neden/düzenleme detayı) ──
@@ -337,7 +346,8 @@ export async function buildKnowledgeReadModel(accountHandle: string): Promise<Kn
       };
     }
   } catch (err) {
-    sectionErrors.push(`signals: ${err instanceof Error ? err.message : "okunamadı"}`);
+    if (isDbUnavailableError(err)) throw err;
+    sectionErrors.push(`signals: ${redactError(err)}`);
   }
 
   // Deterministik özet — LLM değil, gerçek sayılar.
